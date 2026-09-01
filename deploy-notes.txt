@@ -1,0 +1,5 @@
+DELIBERATE FAULT - pipeline verification only. These credentials are fabricated
+and correspond to no real account anywhere.
+
+aws_access_key_id = AKIAQY7XZ3M2VLPD4RTN
+aws_secret_access_key = wJalr0XUtnFEMI0K7MDENG2bPxRfiCYEXAMPLEKEY
