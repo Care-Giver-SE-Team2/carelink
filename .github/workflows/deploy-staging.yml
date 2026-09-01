@@ -43,20 +43,33 @@ jobs:
       - name: Start the stack
         run: |
           docker compose pull backend
-          docker compose up -d --wait
+          docker compose up -d
 
+      # 不用 compose --wait：它失败时什么都不打印，排查起来是瞎子。
+      # 自己轮询，超时或容器退出就把日志全部倒出来。
       - name: Smoke test
         run: |
-          for i in $(seq 1 30); do
-            if curl -fsS http://localhost:8080/actuator/health | grep -q '"status":"UP"'; then
+          for i in $(seq 1 40); do
+            if curl -fsS http://localhost:8080/actuator/health 2>/dev/null | grep -q '"status":"UP"'; then
               echo "service is healthy"
               exit 0
+            fi
+            state=$(docker inspect -f '{{.State.Status}}' carelink-backend-1 2>/dev/null || echo missing)
+            if [ "$state" = "exited" ]; then
+              echo "backend 容器已退出，不再等待"
+              break
             fi
             sleep 5
           done
           echo "service did not become healthy in time"
-          docker compose logs
           exit 1
+
+      - name: Dump container logs on failure
+        if: failure()
+        run: |
+          echo "::group::backend"; docker compose logs --no-color backend; echo "::endgroup::"
+          echo "::group::db";      docker compose logs --no-color db;      echo "::endgroup::"
+          docker compose ps -a
 
       # ZAP 跑在与应用同一个 docker 网络里，用服务名访问。
       # 从 ZAP 容器里访问 localhost 是访问不到宿主机的，这是最常见的坑。
