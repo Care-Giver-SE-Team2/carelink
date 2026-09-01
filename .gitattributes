@@ -1,0 +1,7 @@
+# 统一换行符：Linux runner 上 CRLF 的 shell 脚本会直接执行失败
+* text=auto eol=lf
+*.cmd  text eol=crlf
+*.bat  text eol=crlf
+*.jar  binary
+*.png  binary
+*.svg  text eol=lf

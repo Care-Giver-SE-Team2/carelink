@@ -1,0 +1,80 @@
+name: Deploy to Staging and Scan
+
+# 部署到预发布并做动态安全扫描（DAST）。
+# ZAP 用 docker 直接跑，与课程 workshop 的 zap-script.sh 同一套做法。
+
+on:
+  workflow_run:
+    workflows: [Main Slow Stage]
+    types: [completed]
+  workflow_dispatch:
+
+jobs:
+  staging:
+    name: Deploy, smoke test, DAST
+    if: >
+      github.event_name == 'workflow_dispatch' ||
+      github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    environment: staging
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      packages: read          # 从 GHCR 拉镜像需要
+    steps:
+      - uses: actions/checkout@v7
+
+      # 部署的是慢速阶段构建好的那一个镜像，用它的 commit SHA 定位
+      - name: Resolve the image to deploy
+        run: |
+          REPO=$(echo '${{ github.repository }}' | tr '[:upper:]' '[:lower:]')
+          TAG='${{ github.event.workflow_run.head_sha }}'
+          [ -z "$TAG" ] && TAG=latest
+          echo "CARELINK_IMAGE=ghcr.io/$REPO:$TAG" >> "$GITHUB_ENV"
+          echo "将部署 ghcr.io/$REPO:$TAG"
+
+      - uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # 先拉镜像再起，compose 就不会走本地构建那条路
+      - name: Start the stack
+        run: |
+          docker compose pull backend
+          docker compose up -d --wait
+
+      - name: Smoke test
+        run: |
+          for i in $(seq 1 30); do
+            if curl -fsS http://localhost:8080/actuator/health | grep -q '"status":"UP"'; then
+              echo "service is healthy"
+              exit 0
+            fi
+            sleep 5
+          done
+          echo "service did not become healthy in time"
+          docker compose logs
+          exit 1
+
+      # ZAP 跑在与应用同一个 docker 网络里，用服务名访问。
+      # 从 ZAP 容器里访问 localhost 是访问不到宿主机的，这是最常见的坑。
+      - name: DAST - OWASP ZAP baseline scan
+        run: |
+          mkdir -p zap-out && chmod 777 zap-out
+          docker run --rm --network carelink-net \
+            -v "$PWD/zap-out:/zap/wrk:rw" \
+            ghcr.io/zaproxy/zaproxy:stable \
+            zap-baseline.py -t http://backend:8080 -r zap-report.html -I
+
+      - name: Upload ZAP report
+        uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: zap-baseline-report
+          path: zap-out/
+
+      - name: Tear down
+        if: always()
+        run: docker compose down -v

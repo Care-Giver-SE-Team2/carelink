@@ -1,0 +1,38 @@
+name: Promote to Demo
+
+# 晋级到演示环境。晋级的是慢速阶段构建出来的那一个镜像，只重新打标签，不重建。
+# 「具名审批人且不得是变更作者」由 demo 这个 Environment 的保护规则实现：
+#   Settings > Environments > demo
+#     - Required reviewers: 勾选指定成员
+#     - Prevent self-review: 打开
+
+on:
+  workflow_dispatch:
+    inputs:
+      image_tag:
+        description: '要晋级的镜像标签（填慢速阶段那次构建的 commit SHA）'
+        required: true
+
+jobs:
+  promote:
+    runs-on: ubuntu-latest
+    environment: demo
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Show what is being promoted
+        run: echo "Promoting ${{ inputs.image_tag }}"
+
+      - uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Re-tag the same artefact as demo
+        run: |
+          IMAGE=ghcr.io/$(echo '${{ github.repository }}' | tr '[:upper:]' '[:lower:]')
+          docker pull  $IMAGE:${{ inputs.image_tag }}
+          docker tag   $IMAGE:${{ inputs.image_tag }} $IMAGE:demo
+          docker push  $IMAGE:demo

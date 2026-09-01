@@ -1,0 +1,7 @@
+spring:
+  jpa:
+    show-sql: true
+logging:
+  level:
+    sg.nus.carelink: DEBUG
+    org.hibernate.SQL: DEBUG

@@ -1,0 +1,41 @@
+services:
+  db:
+    image: mysql:8.4
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-devroot}
+      MYSQL_DATABASE: carelink
+      MYSQL_USER: carelink
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-devpass}
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    networks: [carelink]
+
+  backend:
+    # 默认本地构建；CI 部署时用 CARELINK_IMAGE 指定慢速阶段已构建好的镜像，
+    # 从而做到「构建一次，各环境部署同一镜像」，绝不在部署时重建。
+    image: ${CARELINK_IMAGE:-carelink:local}
+    build:
+      context: .
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DB_URL: jdbc:mysql://db:3306/carelink?useSSL=false&serverTimezone=Asia/Singapore
+      DB_USER: carelink
+      DB_PASSWORD: ${MYSQL_PASSWORD:-devpass}
+    ports:
+      - "8080:8080"
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8080/actuator/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+    networks: [carelink]
+
+# 网络名写死，ZAP 才能用固定的名字加入同一网络
+networks:
+  carelink:
+    name: carelink-net
