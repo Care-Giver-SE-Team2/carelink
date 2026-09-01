@@ -23,7 +23,7 @@ services:
       db:
         condition: service_healthy
     environment:
-      DB_URL: jdbc:mysql://db:3306/carelink?connectionTimeZone=Asia/Singapore&sslMode=DISABLED
+      DB_URL: jdbc:mysql://db:3306/carelink?connectionTimeZone=Asia/Singapore
       DB_USER: carelink
       DB_PASSWORD: ${MYSQL_PASSWORD:-devpass}
     ports:

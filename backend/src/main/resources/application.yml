@@ -2,7 +2,7 @@ spring:
   application:
     name: carelink
   datasource:
-    url: ${DB_URL:jdbc:mysql://localhost:3306/carelink?connectionTimeZone=Asia/Singapore&sslMode=DISABLED}
+    url: ${DB_URL:jdbc:mysql://localhost:3306/carelink?connectionTimeZone=Asia/Singapore}
     username: ${DB_USER:carelink}
     password: ${DB_PASSWORD:carelink}
   jpa:
