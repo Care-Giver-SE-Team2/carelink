@@ -46,20 +46,16 @@ npm run test:coverage            # 单次 + 覆盖率
 
 见 [docs/目录结构与分层规则.md](docs/目录结构与分层规则.md)。要点：
 
-- 后端**外层按业务模块切、内层分四层**：每个模块内各有 `api` / `application` / `domain` / `infrastructure`
+- 每个功能模块内部分四层：`api` / `application` / `domain` / `infrastructure`
 - **依赖朝内**：领域层不依赖表现层、持久化实现与 JPA，因此能脱离 Spring 与数据库单元测试
 - 这条规则由 `LayerDependencyTest`（ArchUnit）在**构建时强制**，违反即构建失败
 - 跨模块只能调对方 `application` 层暴露的接口，不得触碰对方 `domain`
+- `identity` 是四层写法的**参照实现**，新模块照它的骨架搭
 
-## 模块归属
-
-| 模块 | 负责人 | 设计问题 |
-|---|---|---|
-| `careplan` 照护计划 | Wang Ziyu | DP1 组合模式 |
-| `roster` 排班 | Wang Zhili | DP2 策略模式 |
-| `visit` 上门访视 | Zheng Zishan | DP3 状态模式 |
-| `incident` 异常处置 | Kok Cheng Da | DP4 责任链模式 |
-| `report` 周报与趋势 | Wang Chenyu | DP5 模板方法模式 |
+> **功能模块如何划分尚未敲定**，因此仓库里暂时只有 `shared`（公共层）与
+> `identity`（认证，各模块共用）。模块边界定下来后再按上述分层规则建包。
+> 分层方式与模块划分是两件独立的事：无论最后按业务领域切还是按角色切，
+> 四层结构与依赖方向都不变。
 
 ## 流水线
 
