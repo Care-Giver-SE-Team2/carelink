@@ -197,7 +197,7 @@ jobs:
       # vulnerability database that is aggregated and published upstream, so the same
       # question is answered in well under a minute.
       - name: Scan dependencies
-        uses: aquasecurity/trivy-action@0.36.0
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           scan-type: fs
           scan-ref: .
@@ -266,7 +266,7 @@ jobs:
       # Scanning the image as well as the dependencies. The base image ships an OS
       # package set of its own, which a dependency scan never sees.
       - name: Scan the built image
-        uses: aquasecurity/trivy-action@0.36.0
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           scan-type: image
           image-ref: ${{ env.IMAGE }}:${{ github.sha }}
