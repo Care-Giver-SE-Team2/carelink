@@ -59,12 +59,37 @@ npm run test:coverage            # 单次 + 覆盖率
 
 ## 流水线
 
-| Workflow | 触发 | 内容 |
+一条完整的流水线 `cicd-pipeline.yml`，九个作业。**能并行的一律并行，
+`needs` 只用来表达真实依赖与质量门禁**，不制造无谓等待。
+
+```
+        ┌─ 后端构建·单元测试·架构测试·SAST ─┐
+push ───┼─ 前端检查·单元测试·构建          ─┼──→ 质量门禁 ──┐
+  PR    └─ 密钥扫描（gitleaks）            ─┘   约 5-8 分钟 │
+                                                            │ 仅非 PR
+                          ┌─ 集成测试（Testcontainers+MySQL）┴┐
+                          └─ 依赖漏洞扫描（SCA）              ┴──→ 构建并发布镜像
+                                                                       │ 仅 main
+                                                                       ▼
+                                                    部署预发布 · 冒烟 · DAST（ZAP）
+                                                                       │
+                                                                       ▼
+                                                                 流水线汇总
+```
+
+| 阶段 | 作业 | 何时执行 |
 |---|---|---|
-| `pr-fast` | 特性分支 push / PR | 编译、单元测试、覆盖率、ArchUnit、SAST（Sonar）、密钥扫描（gitleaks）。目标 10 分钟内 |
-| `main-slow` | 合入 main / 每夜 | 集成测试（Testcontainers）、SCA（Dependency-Check，CVSS≥7 阻断）、构建并推送镜像至 GHCR |
-| `deploy-staging` | main-slow 成功后 | 起环境、健康检查、DAST（ZAP 基线扫描） |
-| `promote-demo` | 手动 | 指定镜像 tag 晋级到 demo 环境。构建一次，各环境部署同一镜像 |
+| 快速反馈 | 后端（含 ArchUnit、JaCoCo、Sonar 质量门禁） | 每次 PR 与主干推送 |
+| 快速反馈 | 前端（lint、Vitest 覆盖率、构建） | 同上 |
+| 快速反馈 | 密钥扫描 gitleaks（扫全部历史提交） | 同上 |
+| 门禁 | 质量门禁——三条全绿才放行 | 分支保护勾这一个即可 |
+| 深度验证 | 集成测试、依赖漏洞扫描（CVSS≥7 阻断） | 主干 / 每夜 / 手动，PR 跳过 |
+| 交付 | 构建镜像推送 GHCR，打 SHA 与 latest | 仅主干推送 |
+| 部署 | 起环境、冒烟测试、ZAP 基线扫描 | 仅主干推送 |
+| 晋级 | `promote-demo.yml`，人工触发 + 具名审批 | 手动 |
+
+**构建一次，部署多次**：镜像只在交付阶段构建一次，预发布与演示环境部署的
+都是同一个二进制，绝不在部署时重建。
 
 ## 分支约定
 
