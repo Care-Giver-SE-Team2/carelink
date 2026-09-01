@@ -8,8 +8,9 @@ import java.util.Optional;
 import java.util.Set;
 
 /**
- * 用 JdbcClient 直接查两张表。这里不经过 JPA：认证是启动路径上最热的查询之一，
- * 而且需要的字段（含密码散列）刻意不在 JPA 实体对外暴露的 getter 之列。
+ * Reads the two tables directly with JdbcClient rather than through JPA. Authentication
+ * is one of the hottest queries on the request path, and the field it needs — the password
+ * hash — is deliberately not part of what the JPA entity exposes to the rest of the module.
  */
 @Component
 class JpaAuthenticationQuery implements AuthenticationQuery {

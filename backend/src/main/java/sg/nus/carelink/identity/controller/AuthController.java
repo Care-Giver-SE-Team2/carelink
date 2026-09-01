@@ -1,4 +1,4 @@
-package sg.nus.carelink.identity.api;
+package sg.nus.carelink.identity.controller;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -19,15 +19,15 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
-import sg.nus.carelink.identity.api.dto.CurrentUserResponse;
-import sg.nus.carelink.identity.api.dto.LoginRequest;
 import sg.nus.carelink.identity.application.IdentityService;
+import sg.nus.carelink.identity.controller.dto.CurrentUserResponse;
+import sg.nus.carelink.identity.controller.dto.LoginRequest;
 
 /**
- * 表现层：只负责 HTTP 的进出与状态码，不含任何业务规则。
+ * Presentation layer: HTTP in, HTTP out, status codes. No business rules.
  *
- * <p>登出由 Spring Security 的 logout 过滤器处理（见 SecurityConfig），
- * 这里不重复实现。
+ * <p>Logout is handled by Spring Security's logout filter (see SecurityConfig)
+ * and is deliberately not reimplemented here.
  */
 @RestController
 @RequestMapping("/api/auth")
@@ -46,7 +46,8 @@ class AuthController {
 
 		Authentication authentication = identityService.authenticate(request.username(), request.password());
 
-		// 认证成功后把上下文写进会话，后续请求靠 Cookie 中的 JSESSIONID 识别身份
+		// Persist the security context in the session; subsequent requests are
+		// identified by the JSESSIONID cookie.
 		SecurityContext context = SecurityContextHolder.createEmptyContext();
 		context.setAuthentication(authentication);
 		SecurityContextHolder.setContext(context);
@@ -63,6 +64,7 @@ class AuthController {
 	@ExceptionHandler(BadCredentialsException.class)
 	@ResponseStatus(HttpStatus.UNAUTHORIZED)
 	void onBadCredentials() {
-		// 刻意不返回具体原因：不区分「账号不存在」与「密码错误」，避免账号枚举
+		// No reason is returned. "No such account" and "wrong password" are not
+		// distinguished, so the endpoint cannot be used to enumerate accounts.
 	}
 }

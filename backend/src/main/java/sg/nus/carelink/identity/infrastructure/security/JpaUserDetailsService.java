@@ -8,10 +8,11 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * 把数据库里的账号翻译成 Spring Security 认得的 UserDetails。
+ * Translates a stored account into the UserDetails that Spring Security understands.
  *
- * <p>它被 shared.security.SecurityConfig 按类型注入——SecurityConfig 不 import 本类，
- * 因此 shared 不依赖 identity，模块间不产生循环依赖。
+ * <p>It is injected into shared.security.SecurityConfig by type; SecurityConfig does not
+ * import this class. That is what keeps shared from depending on identity, so no cycle
+ * forms between modules.
  */
 @Service
 class JpaUserDetailsService implements UserDetailsService {
@@ -26,7 +27,7 @@ class JpaUserDetailsService implements UserDetailsService {
 	@Transactional(readOnly = true)
 	public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
 		AuthenticationQuery.Credentials credentials = query.findCredentials(username)
-				.orElseThrow(() -> new UsernameNotFoundException("账号不存在：" + username));
+				.orElseThrow(() -> new UsernameNotFoundException("No such account: " + username));
 		return User.withUsername(credentials.username())
 				.password(credentials.passwordHash())
 				.authorities(credentials.authorities().toArray(String[]::new))

@@ -14,8 +14,9 @@ services:
     networks: [carelink]
 
   backend:
-    # 默认本地构建；CI 部署时用 CARELINK_IMAGE 指定慢速阶段已构建好的镜像，
-    # 从而做到「构建一次，各环境部署同一镜像」，绝不在部署时重建。
+    # Builds locally by default. In CI, CARELINK_IMAGE names the image the pipeline
+    # already built, so every environment deploys the same artefact and nothing is
+    # rebuilt at deployment time.
     image: ${CARELINK_IMAGE:-carelink:local}
     build:
       context: .
@@ -35,7 +36,7 @@ services:
       retries: 30
     networks: [carelink]
 
-# 网络名写死，ZAP 才能用固定的名字加入同一网络
+# The network name is fixed so ZAP can join the same network by a known name
 networks:
   carelink:
     name: carelink-net

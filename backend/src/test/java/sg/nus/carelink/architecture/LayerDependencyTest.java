@@ -9,9 +9,13 @@ import com.tngtech.archunit.library.dependencies.SlicesRuleDefinition;
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses;
 
 /**
- * 把《目录结构与分层规则》里的约定变成构建时的硬约束。
- * 违反分层的代码在快速阶段就会让 PR 变红，不依赖人工评审发现。
- * 对应提案非功能需求：「领域层若引用表现层或持久化实现，构建失败」。
+ * Turns the conventions in ARCHITECTURE.md into build-time constraints. Code that breaks
+ * the layering turns the pull request red in the fast stage; it does not rely on a
+ * reviewer noticing.
+ *
+ * <p>This implements the non-functional requirement stated in the proposal: the build
+ * fails if the domain layer references the presentation layer or a persistence
+ * implementation.
  */
 @AnalyzeClasses(
 		packages = "sg.nus.carelink",
@@ -19,33 +23,36 @@ import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses;
 class LayerDependencyTest {
 
 	@ArchTest
-	static final ArchRule 领域层不依赖表现层与持久化层 =
+	static final ArchRule domainMustNotDependOnControllerOrInfrastructure =
 			noClasses().that().resideInAPackage("..domain..")
 					.should().dependOnClassesThat()
-					.resideInAnyPackage("..api..", "..infrastructure..")
-					.because("依赖必须朝内，领域层要能脱离 Web 与数据库单独测试")
+					.resideInAnyPackage("..controller..", "..infrastructure..")
+					.because("dependencies point inwards; the domain layer must be testable "
+							+ "without the web layer or a database")
 					.allowEmptyShould(true);
 
 	@ArchTest
-	static final ArchRule 表现层不直接依赖持久化层 =
-			noClasses().that().resideInAPackage("..api..")
+	static final ArchRule controllerMustNotDependOnInfrastructure =
+			noClasses().that().resideInAPackage("..controller..")
 					.should().dependOnClassesThat()
 					.resideInAPackage("..infrastructure..")
-					.because("控制器只能经由 application 层进入，不得直连仓储实现")
+					.because("controllers enter through the application layer and never reach "
+							+ "a repository implementation directly")
 					.allowEmptyShould(true);
 
 	@ArchTest
-	static final ArchRule 领域层不依赖持久化框架 =
+	static final ArchRule domainMustNotDependOnPersistenceFrameworks =
 			noClasses().that().resideInAPackage("..domain..")
 					.should().dependOnClassesThat()
 					.resideInAnyPackage("jakarta.persistence..", "org.springframework.data..")
-					.because("JPA 注解属于 infrastructure，领域模型与 JPA 实体分开")
+					.because("JPA annotations belong to infrastructure; the domain model and the "
+							+ "JPA entity are kept apart")
 					.allowEmptyShould(true);
 
 	@ArchTest
-	static final ArchRule 模块之间不得形成循环依赖 =
+	static final ArchRule modulesMustNotFormCycles =
 			SlicesRuleDefinition.slices()
 					.matching("sg.nus.carelink.(*)..")
 					.should().beFreeOfCycles()
-					.allowEmptyShould(true);   // 骨架阶段模块还是空的
+					.allowEmptyShould(true);
 }

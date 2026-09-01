@@ -6,21 +6,22 @@ import org.springframework.boot.context.properties.bind.DefaultValue;
 import java.time.Duration;
 
 /**
- * 业务阈值集中配置，避免硬编码散落在各模块。
+ * Business thresholds in one place, rather than scattered as constants across modules.
  *
- * <p>这些数字在提案里是需求的一部分（迟到判定、超时升级、周报回溯窗口），
- * 做成配置项而非常量，是为了演示时能当场调整、也便于测试注入不同取值。
+ * <p>These numbers are part of the requirements (late arrival, escalation timeout,
+ * report look-back window). They are configuration rather than constants so that they
+ * can be adjusted during a demonstration and so that tests can inject different values.
  */
 @ConfigurationProperties(prefix = "carelink")
 public record CareLinkProperties(
 
-		/** 超过该时长未打卡即判定为迟到 */
+		/** A visit with no check-in after this long counts as late. */
 		@DefaultValue("10m") Duration lateArrivalThreshold,
 
-		/** 异常未处置超过该时长自动升级 */
+		/** An unhandled incident escalates automatically after this long. */
 		@DefaultValue("2h") Duration incidentEscalationDelay,
 
-		/** 周报与趋势图的回溯窗口 */
+		/** Look-back window for weekly reports and vital-sign trends. */
 		@DefaultValue("30d") Duration reportLookbackWindow
 ) {
 }

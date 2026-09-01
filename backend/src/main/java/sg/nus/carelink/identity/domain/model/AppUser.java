@@ -7,12 +7,13 @@ import java.util.Objects;
 import java.util.Set;
 
 /**
- * 账号的领域模型。
+ * Domain model of an account.
  *
- * <p>刻意不含密码散列：密码是认证机制的实现细节，属于 infrastructure，
- * 领域层只关心「这是谁、他能做什么」。
+ * <p>It deliberately holds no password hash: a password is an implementation detail
+ * of the authentication mechanism and belongs in infrastructure. The domain layer
+ * only cares who this is and what they are allowed to do.
  *
- * <p>本类不带任何框架注解，可以直接 new 出来做单元测试。
+ * <p>No framework annotations, so this class can simply be instantiated in a test.
  */
 public final class AppUser {
 

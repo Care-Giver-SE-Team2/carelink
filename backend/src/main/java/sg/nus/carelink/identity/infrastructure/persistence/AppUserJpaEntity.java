@@ -16,12 +16,15 @@ import java.util.LinkedHashSet;
 import java.util.Set;
 
 /**
- * JPA 实体，与领域模型 {@link sg.nus.carelink.identity.domain.model.AppUser} 分开。
+ * JPA entity, kept separate from the domain model
+ * {@link sg.nus.carelink.identity.domain.model.AppUser}.
  *
- * <p>分开的代价是要写一个 Mapper，收益是领域模型不被 JPA 的生命周期、
- * 延迟加载、无参构造等约束绑架，能当普通对象测试。
+ * <p>The cost of separating them is one mapper class. The benefit is that the domain
+ * model is not constrained by JPA's lifecycle, lazy loading or no-arg constructor
+ * requirements, and can be tested as an ordinary object.
  *
- * <p>表结构由 Flyway 的 V1__baseline.sql 定义，Hibernate 只做 validate，绝不自动改表。
+ * <p>The schema is owned by Flyway (V1__baseline.sql). Hibernate only validates it and
+ * never alters it.
  */
 @Entity
 @Table(name = "app_user")

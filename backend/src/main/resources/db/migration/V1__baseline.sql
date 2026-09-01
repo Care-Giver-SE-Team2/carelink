@@ -1,6 +1,8 @@
--- CareLink 基线表结构
--- 只建共享的账号与角色表；五个业务模块的表由各模块负责人以 V2__*.sql 起依次追加。
--- 约定：迁移脚本一旦合入 master 就不可修改，改动一律新增版本号。
+-- CareLink baseline schema.
+-- Creates the shared account and role tables only. Feature modules add their own tables
+-- from V2__*.sql onwards.
+-- Convention: once a migration is merged to main it is never edited; any change is a new
+-- versioned script.
 
 CREATE TABLE app_user (
     id            BIGINT       NOT NULL AUTO_INCREMENT,

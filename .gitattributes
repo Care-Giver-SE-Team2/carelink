@@ -1,4 +1,4 @@
-# 统一换行符：Linux runner 上 CRLF 的 shell 脚本会直接执行失败
+# Normalise line endings: a shell script with CRLF fails outright on a Linux runner
 * text=auto eol=lf
 *.cmd  text eol=crlf
 *.bat  text eol=crlf

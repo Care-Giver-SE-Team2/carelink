@@ -4,11 +4,12 @@ import java.util.Optional;
 import java.util.Set;
 
 /**
- * 认证专用的读取端口。
+ * A narrow read port used only by authentication.
  *
- * <p>为什么不复用领域层的 AppUserRepository？因为密码散列**刻意**不在领域模型里——
- * 它是认证机制的实现细节。让认证自己走一条窄接口取它需要的东西，
- * 领域模型就能保持干净。
+ * <p>Why not reuse the domain's AppUserRepository? Because the password hash is
+ * deliberately absent from the domain model: it is an implementation detail of the
+ * authentication mechanism. Giving authentication its own narrow interface to fetch
+ * what it needs is what keeps the domain model clean.
  */
 interface AuthenticationQuery {
 

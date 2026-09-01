@@ -7,7 +7,7 @@ spring:
     password: ${DB_PASSWORD:carelink}
   jpa:
     hibernate:
-      # 表结构由 Flyway 管理，Hibernate 只做校验，绝不自动改表
+      # Flyway owns the schema. Hibernate validates it and never alters it.
       ddl-auto: validate
     open-in-view: false
   flyway:

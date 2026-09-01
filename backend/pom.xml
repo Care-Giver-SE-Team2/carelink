@@ -73,7 +73,7 @@
 			<scope>runtime</scope>
 		</dependency>
 
-		<!-- 测试 -->
+		<!-- Testing -->
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-webmvc-test</artifactId>
@@ -104,7 +104,7 @@
 			<artifactId>spring-boot-starter-flyway-test</artifactId>
 			<scope>test</scope>
 		</dependency>
-		<!-- 集成测试用真实的 MySQL 容器，不用内存库假装 -->
+		<!-- Integration tests use a real MySQL container rather than pretending with an in-memory database -->
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-testcontainers</artifactId>
@@ -120,7 +120,7 @@
 			<artifactId>testcontainers-junit-jupiter</artifactId>
 			<scope>test</scope>
 		</dependency>
-		<!-- 架构测试：把分层规则变成构建时的硬约束 -->
+		<!-- Architecture tests: turn the layering rules into build-time constraints -->
 		<dependency>
 			<groupId>com.tngtech.archunit</groupId>
 			<artifactId>archunit-junit5</artifactId>
@@ -136,7 +136,7 @@
 				<artifactId>spring-boot-maven-plugin</artifactId>
 			</plugin>
 
-			<!-- 单元测试只跑 *Test，集成测试 *IT 交给 failsafe -->
+			<!-- Surefire runs *Test only; *IT integration tests belong to failsafe -->
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-surefire-plugin</artifactId>
@@ -147,7 +147,7 @@
 				</configuration>
 			</plugin>
 
-			<!-- 覆盖率：产出 jacoco.xml 供 SonarCloud 读取 -->
+			<!-- Coverage: produces jacoco.xml for SonarCloud to read -->
 			<plugin>
 				<groupId>org.jacoco</groupId>
 				<artifactId>jacoco-maven-plugin</artifactId>
@@ -163,8 +163,10 @@
 						<goals><goal>report</goal></goals>
 					</execution>
 					<!--
-					  领域层覆盖率门槛。骨架阶段先关着，否则一开始就是红的。
-					  等各模块领域层写出来（Sprint 1 末）再打开这段。
+					  Domain-layer coverage threshold, promised in the proposal.
+					  Left switched off while the skeleton has no domain code, which would
+					  otherwise fail the build immediately. Enable this once the feature
+					  modules have domain logic.
 					<execution>
 						<id>check-domain-coverage</id>
 						<phase>verify</phase>

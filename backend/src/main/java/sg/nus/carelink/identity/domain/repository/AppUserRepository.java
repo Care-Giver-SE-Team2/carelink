@@ -5,10 +5,11 @@ import sg.nus.carelink.identity.domain.model.AppUser;
 import java.util.Optional;
 
 /**
- * 仓储接口，由领域层声明「我需要什么」，
- * 实现放在 infrastructure.persistence（依赖倒置）。
+ * Repository interface. The domain layer declares what it needs; the implementation
+ * lives in infrastructure.persistence. This is dependency inversion.
  *
- * <p>这正是领域层能脱离数据库做单元测试的原因：测试里塞一个假实现即可。
+ * <p>It is precisely why the domain layer can be unit tested without a database:
+ * a test supplies a hand-written fake implementation.
  */
 public interface AppUserRepository {
 

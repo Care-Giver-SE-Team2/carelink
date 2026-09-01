@@ -8,8 +8,9 @@ import sg.nus.carelink.identity.domain.repository.AppUserRepository;
 import java.util.Optional;
 
 /**
- * 领域层仓储接口的实现。依赖方向是 infrastructure → domain，而不是反过来，
- * 这就是「依赖倒置」在代码上的样子。
+ * Implementation of the domain repository interface. The dependency points
+ * infrastructure -> domain, not the other way round. This is what dependency
+ * inversion looks like in code.
  */
 @Repository
 class AppUserRepositoryAdapter implements AppUserRepository {

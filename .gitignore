@@ -21,14 +21,14 @@ dist/
 .DS_Store
 Thumbs.db
 
-# 本地环境变量与密钥 —— 绝不提交
+# Local environment variables and secrets - never commit
 .env
 .env.local
 *.pem
 *.key
 *.p12
 
-# 扫描输出
+# Scan output
 zap-out/
 reports/
 dependency-check-report.html

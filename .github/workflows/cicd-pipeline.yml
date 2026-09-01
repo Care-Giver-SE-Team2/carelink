@@ -1,14 +1,17 @@
 name: CareLink CI/CD Pipeline
 
-# 一条完整的流水线，从代码提交一路到预发布部署与动态安全扫描。
+# One pipeline, from commit through to a staging deployment and a dynamic security scan.
 #
-# 设计原则有两条，缺一不可：
-#   1. 能并行的一律并行——needs 只用来表达真实的依赖与质量门禁，
-#      不用来制造无谓的等待。长长的一条串行链看着整齐，代价是开发者干等。
-#   2. 该串行的绝不并行——测试没过就不该产出镜像，镜像没有就无从部署。
+# Two design rules, both necessary:
+#   1. Anything independent runs in parallel. `needs` expresses real dependencies and
+#      quality gates only, never queueing. A long serial chain looks tidy; the cost is
+#      developers waiting.
+#   2. Anything dependent stays serial. Failing tests must not produce an image, and
+#      without an image there is nothing to deploy.
 #
-# 触发方式刻意区分：PR 只跑快速阶段以保住反馈速度，
-# 主干跑完整链条，另有每夜巡检与手动触发。
+# Triggers are deliberately different: a pull request runs the fast stage only, so
+# feedback stays quick; main runs the whole chain. There is also a nightly sweep and a
+# manual trigger.
 
 on:
   push:
@@ -16,7 +19,7 @@ on:
   pull_request:
     branches: [main]
   schedule:
-    - cron: '0 18 * * *'        # UTC 18:00 = 新加坡时间次日 02:00
+    - cron: '0 18 * * *'        # 18:00 UTC = 02:00 the next day, Singapore time
   workflow_dispatch:
 
 concurrency:
@@ -30,32 +33,32 @@ env:
 jobs:
 
   # ═════════════════════════════════════════════════════════════════
-  #  第一阶段 · 快速反馈    三个 job 并行，目标十分钟内给出结论
+  #  Stage 1 - Fast feedback    three jobs in parallel, target under ten minutes
   # ═════════════════════════════════════════════════════════════════
 
   backend:
-    name: 后端构建 · 单元测试 · 架构测试 · SAST
+    name: Backend build, unit tests, architecture tests, SAST
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v7
         with:
-          fetch-depth: 0                  # Sonar 需要完整历史做代码归属
+          fetch-depth: 0                  # Sonar needs full history to attribute code
 
-      - name: 准备 JDK
+      - name: Set up JDK
         uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: ${{ env.JAVA_VERSION }}
-          cache: maven                    # 缓存 ~/.m2，压进十分钟的关键
+          cache: maven                    # caching ~/.m2 is what keeps this inside ten minutes
 
-      - name: 编译 · 单元测试 · ArchUnit · JaCoCo
+      - name: Compile, unit test, ArchUnit, JaCoCo
         working-directory: backend
         run: ./mvnw -B -ntp verify
 
-      # SAST 与构建同在一个 job：拆开跑要把整个构建重做一遍，
-      # 那是「看起来并行、实际更慢」的典型。
-      - name: SonarQube Cloud 静态分析与质量门禁
+      # SAST shares this job with the build. Splitting it out would repeat the entire
+      # build, a textbook case of parallelism that is actually slower.
+      - name: SonarQube Cloud analysis and quality gate
         if: env.SONAR_TOKEN != ''
         working-directory: backend
         env:
@@ -67,7 +70,7 @@ jobs:
           -Dsonar.projectKey=${{ vars.SONAR_PROJECT_KEY }}
           -Dsonar.qualitygate.wait=true
 
-      - name: 上传覆盖率报告
+      - name: Upload coverage report
         uses: actions/upload-artifact@v7
         if: always()
         with:
@@ -76,7 +79,7 @@ jobs:
           retention-days: 7
 
   frontend:
-    name: 前端检查 · 单元测试 · 构建
+    name: Frontend lint, unit tests, build
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -88,32 +91,33 @@ jobs:
           cache: npm
           cache-dependency-path: frontend/package-lock.json
 
-      - name: 安装依赖
+      - name: Install dependencies
         working-directory: frontend
         run: npm ci
 
-      - name: 代码检查
+      - name: Lint
         working-directory: frontend
         run: npm run lint
 
-      - name: 单元测试与覆盖率
+      - name: Unit tests with coverage
         working-directory: frontend
         run: npm run test:coverage
 
-      - name: 构建
+      - name: Build
         working-directory: frontend
         run: npm run build
 
   secret-scan:
-    name: 密钥扫描
+    name: Secret scanning
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v7
         with:
-          fetch-depth: 0                  # 要扫历史提交，不只是当前工作区
+          fetch-depth: 0                  # scan the history, not just the working tree
 
-      # 用官方镜像跑，避开 gitleaks Action 对组织仓库的授权要求
+      # Run the official image directly, avoiding the gitleaks Action licence requirement
+      # that applies to organisation repositories
       - name: gitleaks
         run: |
           docker run --rm -v "${{ github.workspace }}:/repo" \
@@ -121,7 +125,7 @@ jobs:
             --source=/repo --redact --verbose \
             --report-format=sarif --report-path=/repo/gitleaks.sarif
 
-      - name: 上传扫描报告
+      - name: Upload scan report
         uses: actions/upload-artifact@v7
         if: always()
         with:
@@ -130,34 +134,35 @@ jobs:
           retention-days: 7
 
   # ═════════════════════════════════════════════════════════════════
-  #  质量门禁    上面三条全绿才放行。分支保护只需勾选这一个检查项。
+  #  Quality gate    passes only when all three are green. Branch protection needs
+  #                  just this one required check.
   # ═════════════════════════════════════════════════════════════════
 
   quality-gate:
-    name: 质量门禁
+    name: Quality gate
     needs: [backend, frontend, secret-scan]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - name: 记录门禁结论
+      - name: Record the gate outcome
         run: |
           {
-            echo "### 快速阶段通过"
+            echo "### Fast stage passed"
             echo ""
-            echo "| 检查项 | 结果 |"
+            echo "| Check | Result |"
             echo "|---|---|"
-            echo "| 后端构建 · 单元测试 · 架构测试 · SAST | ${{ needs.backend.result }} |"
-            echo "| 前端检查 · 单元测试 · 构建 | ${{ needs.frontend.result }} |"
-            echo "| 密钥扫描 | ${{ needs.secret-scan.result }} |"
+            echo "| Backend build, unit tests, architecture tests, SAST | ${{ needs.backend.result }} |"
+            echo "| Frontend lint, unit tests, build | ${{ needs.frontend.result }} |"
+            echo "| Secret scanning | ${{ needs.secret-scan.result }} |"
           } >> "$GITHUB_STEP_SUMMARY"
 
   # ═════════════════════════════════════════════════════════════════
-  #  第二阶段 · 深度验证    两个 job 并行，不受十分钟约束
-  #  PR 阶段跳过，以免把快速反馈拖成半小时。
+  #  Stage 2 - Deep verification    two jobs in parallel, no ten-minute budget.
+  #  Skipped on pull requests so fast feedback does not turn into half an hour.
   # ═════════════════════════════════════════════════════════════════
 
   integration-tests:
-    name: 集成测试（Testcontainers + MySQL）
+    name: Integration tests (Testcontainers + MySQL)
     needs: quality-gate
     if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
@@ -169,12 +174,12 @@ jobs:
           distribution: temurin
           java-version: ${{ env.JAVA_VERSION }}
           cache: maven
-      - name: 起真实数据库跑集成测试
+      - name: Run integration tests against a real database
         working-directory: backend
         run: ./mvnw -B -ntp verify -Pintegration
 
   dependency-check:
-    name: 依赖漏洞扫描（SCA）
+    name: Dependency vulnerability scan (SCA)
     needs: quality-gate
     if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
@@ -182,8 +187,8 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      # 不缓存 NVD 库的话每次都要重新下载，非常慢
-      - name: 缓存 NVD 漏洞库
+      # Without caching the NVD database it is re-downloaded every run, which is very slow
+      - name: Cache the NVD vulnerability database
         uses: actions/cache@v6
         with:
           path: ${{ github.workspace }}/dc-data
@@ -205,7 +210,7 @@ jobs:
             --nvdApiKey ${{ secrets.NVD_API_KEY }}
             --data ${{ github.workspace }}/dc-data
 
-      - name: 上传扫描报告
+      - name: Upload scan report
         uses: actions/upload-artifact@v7
         if: always()
         with:
@@ -214,11 +219,11 @@ jobs:
           if-no-files-found: ignore
 
   # ═════════════════════════════════════════════════════════════════
-  #  第三阶段 · 交付    构建一次，之后各环境部署的都是这同一个镜像
+  #  Stage 3 - Delivery    build once; every environment then deploys this same image
   # ═════════════════════════════════════════════════════════════════
 
   build-image:
-    name: 构建并发布镜像
+    name: Build and publish image
     needs: [integration-tests, dependency-check]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
@@ -229,11 +234,11 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      # GHCR 只接受全小写镜像名，而组织名带大写字母
-      - name: 计算镜像名
+      # GHCR accepts lowercase image names only, and the organisation name has capitals
+      - name: Compute the image name
         run: echo "IMAGE=ghcr.io/$(echo '${{ github.repository }}' | tr '[:upper:]' '[:lower:]')" >> "$GITHUB_ENV"
 
-      # 默认的 docker 驱动不支持 GHA 缓存导出，必须换成 docker-container 驱动
+      # The default docker driver cannot export a GHA cache; the docker-container driver can
       - uses: docker/setup-buildx-action@v4
 
       - uses: docker/login-action@v4
@@ -253,13 +258,13 @@ jobs:
           cache-to: type=gha,mode=max
 
   # ═════════════════════════════════════════════════════════════════
-  #  第四阶段 · 部署与动态扫描
-  #  部署、冒烟、DAST、拆环境必须在同一个 job：
-  #  容器栈只活在这台 runner 上，换个 job 就没了。
+  #  Stage 4 - Deployment and dynamic scanning
+  #  Deploy, smoke test, DAST and teardown must share one job: the container stack
+  #  lives only on this runner and would not survive a job boundary.
   # ═════════════════════════════════════════════════════════════════
 
   deploy-staging:
-    name: 部署预发布 · 冒烟测试 · DAST
+    name: Deploy to staging, smoke test, DAST
     needs: build-image
     runs-on: ubuntu-latest
     environment: staging
@@ -270,12 +275,12 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      # 部署的就是本次运行刚构建的那个镜像，用 commit SHA 精确定位
-      - name: 确定要部署的镜像
+      # Deploy exactly the image this run just built, addressed by its commit SHA
+      - name: Resolve the image to deploy
         run: |
           REPO=$(echo '${{ github.repository }}' | tr '[:upper:]' '[:lower:]')
           echo "CARELINK_IMAGE=ghcr.io/$REPO:${{ github.sha }}" >> "$GITHUB_ENV"
-          echo "将部署 ghcr.io/$REPO:${{ github.sha }}"
+          echo "Deploying ghcr.io/$REPO:${{ github.sha }}"
 
       - uses: docker/login-action@v4
         with:
@@ -283,39 +288,40 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: 起环境
+      - name: Start the stack
         run: |
           docker compose pull backend
           docker compose up -d
 
-      # 不用 compose --wait：它失败时什么都不打印，排查起来是瞎子
-      - name: 冒烟测试
+      # Not using compose --wait: on failure it prints nothing, which leaves you blind
+      - name: Smoke test
         run: |
           for i in $(seq 1 40); do
             if curl -fsS http://localhost:8080/actuator/health 2>/dev/null | grep -q '"status":"UP"'; then
-              echo "服务健康"
+              echo "service is healthy"
               exit 0
             fi
             state=$(docker inspect -f '{{.State.Status}}' carelink-backend-1 2>/dev/null || echo missing)
             if [ "$state" = "exited" ]; then
-              echo "backend 容器已退出，不再等待"
+              echo "the backend container has exited; not waiting further"
               break
             fi
             sleep 5
           done
-          echo "服务未能在限定时间内变为健康"
+          echo "the service did not become healthy in time"
           exit 1
 
-      - name: 失败时倒出容器日志
+      - name: Dump container logs on failure
         if: failure()
         run: |
           echo "::group::backend"; docker compose logs --no-color backend; echo "::endgroup::"
           echo "::group::db";      docker compose logs --no-color db;      echo "::endgroup::"
           docker compose ps -a
 
-      # ZAP 跑在与应用同一个 docker 网络里，用服务名访问。
-      # 从 ZAP 容器里访问 localhost 是访问不到宿主机的，这是最常见的坑。
-      - name: OWASP ZAP 基线扫描（DAST）
+      # ZAP runs on the same docker network as the application and addresses it by
+      # service name. localhost inside the ZAP container is not the host, which is the
+      # single most common mistake here.
+      - name: OWASP ZAP baseline scan (DAST)
         run: |
           mkdir -p zap-out && chmod 777 zap-out
           docker run --rm --network carelink-net \
@@ -323,23 +329,23 @@ jobs:
             ghcr.io/zaproxy/zaproxy:stable \
             zap-baseline.py -t http://backend:8080 -r zap-report.html -I
 
-      - name: 上传 ZAP 报告
+      - name: Upload ZAP report
         uses: actions/upload-artifact@v7
         if: always()
         with:
           name: zap-baseline-report
           path: zap-out/
 
-      - name: 拆环境
+      - name: Tear down
         if: always()
         run: docker compose down -v
 
   # ═════════════════════════════════════════════════════════════════
-  #  收尾 · 汇总    无论前面结果如何都执行，在运行页面留下一张总表
+  #  Wrap-up - Summary    always runs, leaving one table on the run page
   # ═════════════════════════════════════════════════════════════════
 
   pipeline-summary:
-    name: 流水线汇总
+    name: Pipeline summary
     needs:
       - backend
       - frontend
@@ -353,25 +359,25 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - name: 汇总各阶段结果
+      - name: Summarise every stage
         run: |
           {
-            echo "## CareLink 流水线结果"
+            echo "## CareLink pipeline result"
             echo ""
-            echo "提交 ${{ github.sha }} · 触发方式 ${{ github.event_name }}"
+            echo "Commit ${{ github.sha }} - triggered by ${{ github.event_name }}"
             echo ""
-            echo "| 阶段 | 作业 | 结果 |"
+            echo "| Stage | Job | Result |"
             echo "|---|---|---|"
-            echo "| 快速反馈 | 后端构建 · 单元测试 · 架构测试 · SAST | ${{ needs.backend.result }} |"
-            echo "| 快速反馈 | 前端检查 · 单元测试 · 构建 | ${{ needs.frontend.result }} |"
-            echo "| 快速反馈 | 密钥扫描 | ${{ needs.secret-scan.result }} |"
-            echo "| 门禁 | 质量门禁 | ${{ needs.quality-gate.result }} |"
-            echo "| 深度验证 | 集成测试 | ${{ needs.integration-tests.result }} |"
-            echo "| 深度验证 | 依赖漏洞扫描 | ${{ needs.dependency-check.result }} |"
-            echo "| 交付 | 构建并发布镜像 | ${{ needs.build-image.result }} |"
-            echo "| 部署 | 预发布 · 冒烟 · DAST | ${{ needs.deploy-staging.result }} |"
+            echo "| Fast feedback | Backend build, unit tests, architecture tests, SAST | ${{ needs.backend.result }} |"
+            echo "| Fast feedback | Frontend lint, unit tests, build | ${{ needs.frontend.result }} |"
+            echo "| Fast feedback | Secret scanning | ${{ needs.secret-scan.result }} |"
+            echo "| Gate | Quality gate | ${{ needs.quality-gate.result }} |"
+            echo "| Deep verification | Integration tests | ${{ needs.integration-tests.result }} |"
+            echo "| Deep verification | Dependency vulnerability scan | ${{ needs.dependency-check.result }} |"
+            echo "| Delivery | Build and publish image | ${{ needs.build-image.result }} |"
+            echo "| Deployment | Staging, smoke test, DAST | ${{ needs.deploy-staging.result }} |"
           } >> "$GITHUB_STEP_SUMMARY"
 
-      - name: 快速阶段未通过则整体失败
+      - name: Fail the run if the fast stage did not pass
         if: needs.quality-gate.result != 'success'
         run: exit 1

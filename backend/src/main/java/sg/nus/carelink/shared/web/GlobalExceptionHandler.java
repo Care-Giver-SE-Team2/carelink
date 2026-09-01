@@ -16,11 +16,12 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 
 /**
- * 全局异常处理。统一采用 RFC 9457 的 ProblemDetail 作为错误响应体，
- * 前端只需处理一种错误结构。
+ * Global exception handling. Every error response is an RFC 9457 ProblemDetail,
+ * so the front end only ever has to deal with one error shape.
  *
- * <p>各模块的控制器不要自己 try-catch 再拼错误响应——那会让错误格式随人而异。
- * 领域层抛 {@link BusinessRuleViolation}，这里负责翻译成 HTTP。
+ * <p>Controllers must not catch exceptions and assemble their own error bodies —
+ * that is how an error format ends up differing from author to author. The domain
+ * layer throws {@link BusinessRuleViolation}; translating it to HTTP happens here.
  */
 @RestControllerAdvice
 class GlobalExceptionHandler {
@@ -30,7 +31,7 @@ class GlobalExceptionHandler {
 	@ExceptionHandler(BusinessRuleViolation.class)
 	ProblemDetail onBusinessRuleViolation(BusinessRuleViolation ex) {
 		ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, ex.getMessage());
-		problem.setTitle("业务规则不允许该操作");
+		problem.setTitle("Operation not allowed by a business rule");
 		problem.setProperty("code", ex.code());
 		return problem;
 	}
@@ -38,7 +39,7 @@ class GlobalExceptionHandler {
 	@ExceptionHandler(ResourceNotFound.class)
 	ProblemDetail onResourceNotFound(ResourceNotFound ex) {
 		ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.NOT_FOUND, ex.getMessage());
-		problem.setTitle("资源不存在");
+		problem.setTitle("Resource not found");
 		return problem;
 	}
 
@@ -47,26 +48,26 @@ class GlobalExceptionHandler {
 		Map<String, String> fields = new LinkedHashMap<>();
 		ex.getBindingResult().getFieldErrors()
 				.forEach(error -> fields.putIfAbsent(error.getField(), error.getDefaultMessage()));
-		ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, "请求参数校验未通过");
-		problem.setTitle("参数不合法");
+		ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, "Request validation failed");
+		problem.setTitle("Invalid request");
 		problem.setProperty("fields", fields);
 		return problem;
 	}
 
 	@ExceptionHandler(AccessDeniedException.class)
 	ProblemDetail onAccessDenied(AccessDeniedException ex) {
-		ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.FORBIDDEN, "无权访问该资源");
-		problem.setTitle("权限不足");
+		ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.FORBIDDEN, "Not permitted to access this resource");
+		problem.setTitle("Insufficient permission");
 		return problem;
 	}
 
-	/** 兜底。异常细节只进日志，不回传给调用方，避免泄露内部结构。 */
+	/** Catch-all. Details go to the log only, never back to the caller, to avoid leaking internals. */
 	@ExceptionHandler(Exception.class)
 	ProblemDetail onUnexpected(Exception ex) {
-		log.error("未预期的异常", ex);
+		log.error("Unexpected exception", ex);
 		ProblemDetail problem = ProblemDetail.forStatusAndDetail(
-				HttpStatus.INTERNAL_SERVER_ERROR, "服务器内部错误，请稍后重试");
-		problem.setTitle("内部错误");
+				HttpStatus.INTERNAL_SERVER_ERROR, "Internal server error, please retry later");
+		problem.setTitle("Internal error");
 		return problem;
 	}
 }

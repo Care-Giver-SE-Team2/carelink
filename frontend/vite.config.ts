@@ -4,7 +4,7 @@ import react from '@vitejs/plugin-react'
 
 export default defineConfig({
   plugins: [react()],
-  // 开发时把 /api 打到本地后端，避免跨域配置
+  // Proxy /api to the local backend during development, avoiding CORS configuration
   server: {
     proxy: {
       '/api': 'http://localhost:8080',
@@ -12,7 +12,7 @@ export default defineConfig({
   },
   test: {
     globals: true,
-    // Windows 上默认的 threads 池会出现 worker 超时，固定用 forks
+    // The default threads pool times out its workers on Windows; pin the forks pool
     pool: 'forks',
     environment: 'jsdom',
     setupFiles: './src/setupTests.ts',

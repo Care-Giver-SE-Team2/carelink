@@ -1,11 +1,12 @@
 package sg.nus.carelink.shared.error;
 
 /**
- * 业务规则被违反。由领域层抛出，映射为 HTTP 409。
+ * A business rule was violated. Thrown by the domain layer, mapped to HTTP 409.
  *
- * <p>放在 shared.error 而不是某个模块的 domain 包里，是为了让五个模块的领域层
- * 都能依赖它，同时它本身是纯 Java——不引 Spring、不引 JPA，
- * 因此不会破坏「领域层可脱离框架单元测试」这条约束。
+ * <p>It lives in shared.error rather than inside one module's domain package so that
+ * every module's domain layer can depend on it. It is plain Java — no Spring, no JPA —
+ * so depending on it does not break the rule that the domain layer must be unit
+ * testable without a framework.
  */
 public class BusinessRuleViolation extends RuntimeException {
 
@@ -16,7 +17,7 @@ public class BusinessRuleViolation extends RuntimeException {
 		this.code = code;
 	}
 
-	/** 稳定的机器可读标识，前端据此做本地化文案，不解析 message */
+	/** Stable machine-readable identifier. Clients localise on this, never by parsing the message. */
 	public String code() {
 		return code;
 	}

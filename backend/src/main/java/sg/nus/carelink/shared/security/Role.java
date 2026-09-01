@@ -1,24 +1,27 @@
 package sg.nus.carelink.shared.security;
 
 /**
- * 系统角色。四类使用者对应四种界面，权限判断一律以此为准。
- * 数据库中以字符串存储（user_role.role），不存序号，避免加角色时错位。
+ * System roles. Four kinds of user, four sets of screens; every authorisation
+ * decision is made against this enum.
+ *
+ * <p>Stored in the database as text (user_role.role) rather than as an ordinal,
+ * so that adding a role later cannot silently shift the meaning of existing rows.
  */
 public enum Role {
 
-	/** 主管：排班、审批、异常处置、查看全部数据 */
+	/** Supervisor: rostering, approvals, incident handling, full visibility. */
 	MANAGER,
 
-	/** 护理员：执行访视、上报异常 */
+	/** Caregiver: carries out visits, raises incidents. */
 	CAREGIVER,
 
-	/** 家属：查看被授权老人的照护记录与周报 */
+	/** Family member: reads care records and reports for the elders they are entitled to see. */
 	FAMILY,
 
-	/** 老人本人：查看自己的日程与访视 */
+	/** Elder: reads their own schedule and visits. */
 	ELDER;
 
-	/** Spring Security 约定的权限名带 ROLE_ 前缀 */
+	/** Spring Security expects authorities to carry the ROLE_ prefix. */
 	public String authority() {
 		return "ROLE_" + name();
 	}

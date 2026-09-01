@@ -10,11 +10,11 @@ import sg.nus.carelink.identity.domain.repository.AppUserRepository;
 import sg.nus.carelink.shared.error.ResourceNotFound;
 
 /**
- * 认证相关的用例编排。
+ * Use-case orchestration for authentication.
  *
- * <p>注意这里是一个普通的类，没有配套的 {@code IdentityServiceImpl}——
- * 只有一个实现、又不被跨模块调用的服务不需要接口。
- * 接口只在四种场景出现，见 docs/目录结构与分层规则.md 第四节。
+ * <p>Note this is an ordinary class with no matching {@code IdentityServiceImpl}.
+ * A service with a single implementation that no other module calls does not need
+ * an interface. Interfaces appear in exactly four situations — see ARCHITECTURE.md.
  */
 @Service
 public class IdentityService {
@@ -27,7 +27,7 @@ public class IdentityService {
 		this.users = users;
 	}
 
-	/** 校验凭据，成功返回已认证的 Authentication，失败抛 AuthenticationException */
+	/** Verifies credentials. Returns an authenticated token, or throws AuthenticationException. */
 	public Authentication authenticate(String username, String rawPassword) {
 		return authenticationManager.authenticate(
 				UsernamePasswordAuthenticationToken.unauthenticated(username, rawPassword));
@@ -35,6 +35,6 @@ public class IdentityService {
 
 	public AppUser require(String username) {
 		return users.findByUsername(username)
-				.orElseThrow(() -> new ResourceNotFound("账号", username));
+				.orElseThrow(() -> new ResourceNotFound("Account", username));
 	}
 }

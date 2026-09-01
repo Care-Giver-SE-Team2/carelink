@@ -11,7 +11,8 @@ import java.util.Set;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * 应用层单元测试的参照写法：用假仓储替掉数据库，不启动 Spring。
+ * Reference example of an application-layer unit test: the database is replaced by a fake
+ * repository and Spring is never started.
  */
 class UserDirectoryServiceTest {
 
@@ -20,20 +21,20 @@ class UserDirectoryServiceTest {
 			new UserDirectoryService(new InMemoryAppUserRepository().with(alice));
 
 	@Test
-	@DisplayName("按账号名查得到")
-	void 按账号名查询() {
+	@DisplayName("looks an account up by username")
+	void findsByUsername() {
 		assertThat(directory.findByUsername("alice")).contains(alice);
 	}
 
 	@Test
-	@DisplayName("按主键查得到")
-	void 按主键查询() {
+	@DisplayName("looks an account up by id")
+	void findsById() {
 		assertThat(directory.findById(1L)).contains(alice);
 	}
 
 	@Test
-	@DisplayName("查不到时返回空而不是抛异常")
-	void 查不到返回空() {
+	@DisplayName("returns empty rather than throwing when nothing matches")
+	void returnsEmptyWhenAbsent() {
 		assertThat(directory.findByUsername("nobody")).isEmpty();
 		assertThat(directory.findById(999L)).isEmpty();
 	}

@@ -1,97 +1,113 @@
 # CareLink
 
-NUS-ISS SWE5006 Practice Module — Team 2 社区居家照护协作平台。
+NUS-ISS SWE5006 Practice Module — Team 2. A collaboration platform for community home care.
 
-移动优先的响应式 Web 应用，服务四类角色：主管（桌面）、护理员、家属、老人（移动端）。
+A mobile-first responsive web application serving four kinds of user: the supervisor on a
+desktop console, and caregivers, family members and elders in a phone browser.
 
-## 技术栈
+> **New to the codebase? Read [ARCHITECTURE.md](ARCHITECTURE.md) first.** It explains the
+> package layout, where interfaces go, and which rules the build will reject. If you have
+> only used `controller / service / repository` before, section 1 maps that onto what we
+> use here.
 
-| 层 | 选型 |
+---
+
+## Status
+
+The repository holds a working skeleton and a complete pipeline. **There is no business
+functionality yet** — feature module boundaries are still being agreed.
+
+| | |
 |---|---|
-| 前端 | React 19 + Vite 8 + TypeScript 6 |
-| 后端 | Java 25 + Spring Boot 4.1 |
-| 数据库 | MySQL 8.4 LTS，Flyway 管理迁移 |
-| 测试 | JUnit 5 · ArchUnit · Testcontainers · Vitest |
-| CI/CD | GitHub Actions · SonarQube Cloud · OWASP Dependency-Check · gitleaks · OWASP ZAP |
+| Application | Starts, serves health probes, authenticates against the database |
+| `shared/` | Security, error handling, business-threshold configuration |
+| `identity/` | Reference implementation of the four layers, with unit tests |
+| Schema | `app_user` and `user_role` only; no feature tables, no seed data |
+| Pipeline | All nine jobs green, image published to GHCR, staging deployed and scanned |
+| Not yet wired | SonarCloud token, NVD API key, branch protection |
 
-## 本地起步
+---
 
-前置：**JDK 25**、Node 22、Docker Desktop。
+## Technology
+
+| Layer | Choice |
+|---|---|
+| Front end | React 19, Vite 8, TypeScript 6 |
+| Backend | Java 25, Spring Boot 4.1 |
+| Database | MySQL 8.4 LTS, schema owned by Flyway |
+| Testing | JUnit 5, ArchUnit, Testcontainers, Vitest |
+| Pipeline | GitHub Actions, SonarQube Cloud, OWASP Dependency-Check, gitleaks, OWASP ZAP |
+
+---
+
+## Getting started
+
+Prerequisites: **JDK 25**, Node 22, Docker Desktop.
 
 ```bash
-# 数据库
+# database
 docker compose up -d db
 
-# 后端（http://localhost:8080）
+# backend, on http://localhost:8080
 cd backend && ./mvnw spring-boot:run
 
-# 前端（http://localhost:5173，/api 已代理到后端）
+# front end, on http://localhost:5173 (with /api proxied to the backend)
 cd frontend && npm ci && npm run dev
 ```
 
-常用命令：
+Everyday commands:
 
 ```bash
 cd backend
-./mvnw verify                    # 编译 + 单元测试 + 架构测试 + 覆盖率
-./mvnw verify -Pintegration      # 追加集成测试（需要 Docker）
+./mvnw verify                    # compile, unit tests, architecture tests, coverage
+./mvnw verify -Pintegration      # adds integration tests (needs Docker)
 
 cd frontend
 npm run lint
-npm run test                     # 监听模式
-npm run test:coverage            # 单次 + 覆盖率
+npm run test                     # watch mode
+npm run test:coverage            # single run with coverage
 ```
 
-## 代码结构
+---
 
-见 [docs/目录结构与分层规则.md](docs/目录结构与分层规则.md)。要点：
+## Pipeline
 
-- 每个功能模块内部分四层：`api` / `application` / `domain` / `infrastructure`
-- **依赖朝内**：领域层不依赖表现层、持久化实现与 JPA，因此能脱离 Spring 与数据库单元测试
-- 这条规则由 `LayerDependencyTest`（ArchUnit）在**构建时强制**，违反即构建失败
-- 跨模块只能调对方 `application` 层暴露的接口，不得触碰对方 `domain`
-- `identity` 是四层写法的**参照实现**，新模块照它的骨架搭
-
-> **功能模块如何划分尚未敲定**，因此仓库里暂时只有 `shared`（公共层）与
-> `identity`（认证，各模块共用）。模块边界定下来后再按上述分层规则建包。
-> 分层方式与模块划分是两件独立的事：无论最后按业务领域切还是按角色切，
-> 四层结构与依赖方向都不变。
-
-## 流水线
-
-一条完整的流水线 `cicd-pipeline.yml`，九个作业。**能并行的一律并行，
-`needs` 只用来表达真实依赖与质量门禁**，不制造无谓等待。
+One workflow, `cicd-pipeline.yml`, nine jobs. **Anything independent runs in parallel;
+`needs` expresses real dependencies and quality gates only, never queueing.**
 
 ```
-        ┌─ 后端构建·单元测试·架构测试·SAST ─┐
-push ───┼─ 前端检查·单元测试·构建          ─┼──→ 质量门禁 ──┐
-  PR    └─ 密钥扫描（gitleaks）            ─┘   约 5-8 分钟 │
-                                                            │ 仅非 PR
-                          ┌─ 集成测试（Testcontainers+MySQL）┴┐
-                          └─ 依赖漏洞扫描（SCA）              ┴──→ 构建并发布镜像
-                                                                       │ 仅 main
-                                                                       ▼
-                                                    部署预发布 · 冒烟 · DAST（ZAP）
-                                                                       │
-                                                                       ▼
-                                                                 流水线汇总
+        ┌─ Backend: build, unit tests, ArchUnit, SAST ─┐
+push ───┼─ Frontend: lint, unit tests, build          ─┼──→ Quality gate ──┐
+  PR    └─ Secret scanning (gitleaks)                 ─┘     5-8 minutes   │
+                                                                           │ not on PRs
+                        ┌─ Integration tests (Testcontainers + MySQL) ─────┴┐
+                        └─ Dependency vulnerability scan (SCA) ─────────────┴──→ Build and
+                                                                                publish image
+                                                                                     │ main only
+                                                                                     ▼
+                                                         Deploy to staging, smoke test, DAST
+                                                                                     │
+                                                                                     ▼
+                                                                          Pipeline summary
 ```
 
-| 阶段 | 作业 | 何时执行 |
+| Stage | Job | When |
 |---|---|---|
-| 快速反馈 | 后端（含 ArchUnit、JaCoCo、Sonar 质量门禁） | 每次 PR 与主干推送 |
-| 快速反馈 | 前端（lint、Vitest 覆盖率、构建） | 同上 |
-| 快速反馈 | 密钥扫描 gitleaks（扫全部历史提交） | 同上 |
-| 门禁 | 质量门禁——三条全绿才放行 | 分支保护勾这一个即可 |
-| 深度验证 | 集成测试、依赖漏洞扫描（CVSS≥7 阻断） | 主干 / 每夜 / 手动，PR 跳过 |
-| 交付 | 构建镜像推送 GHCR，打 SHA 与 latest | 仅主干推送 |
-| 部署 | 起环境、冒烟测试、ZAP 基线扫描 | 仅主干推送 |
-| 晋级 | `promote-demo.yml`，人工触发 + 具名审批 | 手动 |
+| Fast feedback | Backend (ArchUnit, JaCoCo, Sonar quality gate) | Every PR and every push to main |
+| Fast feedback | Frontend (lint, Vitest coverage, build) | Same |
+| Fast feedback | Secret scanning across the whole history | Same |
+| Gate | Quality gate — passes only when all three are green | The single required check for branch protection |
+| Deep verification | Integration tests; SCA blocking on CVSS ≥ 7 | main, nightly, manual. Skipped on PRs |
+| Delivery | Image to GHCR, tagged with the commit SHA and `latest` | Pushes to main |
+| Deployment | Start the stack, smoke test, ZAP baseline scan | Pushes to main |
+| Promotion | `promote-demo.yml`, manual with a named approver | On demand |
 
-**构建一次，部署多次**：镜像只在交付阶段构建一次，预发布与演示环境部署的
-都是同一个二进制，绝不在部署时重建。
+**Build once, deploy many.** The image is built once in the delivery stage; staging and the
+demo environment deploy that same binary and nothing is ever rebuilt at deployment time.
 
-## 分支约定
+---
 
-`main` 受保护，只接受 PR 合入，且快速阶段必须全绿。
-特性分支命名：`feat/<模块>-<简述>`、`fix/<简述>`。
+## Branching
+
+`main` is protected: changes arrive by pull request and the quality gate must be green.
+Branch names: `feat/<module>-<summary>`, `fix/<summary>`.
