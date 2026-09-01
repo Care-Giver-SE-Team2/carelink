@@ -1,11 +1,22 @@
 package sg.nus.carelink;
 
+import javax.sql.DataSource;
+
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
-import org.testcontainers.mysql.MySQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
+import org.testcontainers.mysql.MySQLContainer;
+
+import sg.nus.carelink.identity.domain.repository.AppUserRepository;
+
+import java.sql.Connection;
+import java.sql.ResultSet;
+import java.sql.Statement;
+
+import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * Integration test covering context startup and the Flyway migrations. It starts a real
@@ -23,7 +34,35 @@ class ApplicationContextIT {
 	@ServiceConnection
 	static final MySQLContainer MYSQL = new MySQLContainer("mysql:8.4");
 
+	@Autowired
+	private DataSource dataSource;
+
+	@Autowired
+	private AppUserRepository users;
+
 	@Test
-	void contextLoadsAndMigrationsApply() {
+	void migrationsCreateTheBaselineSchema() throws Exception {
+		// Asserting on the schema rather than merely on startup: a context that loads but
+		// whose migrations silently did nothing would otherwise pass.
+		try (Connection connection = dataSource.getConnection();
+				Statement statement = connection.createStatement();
+				ResultSet tables = statement.executeQuery(
+						"SELECT table_name FROM information_schema.tables "
+								+ "WHERE table_schema = DATABASE()")) {
+
+			var names = new java.util.ArrayList<String>();
+			while (tables.next()) {
+				names.add(tables.getString(1).toLowerCase());
+			}
+			assertThat(names).contains("app_user", "user_role", "flyway_schema_history");
+		}
+	}
+
+	@Test
+	void theRepositoryIsWiredToTheDatabase() {
+		// Exercises the whole persistence path: domain interface, adapter, Spring Data,
+		// JPA mapping, real schema. An entity mapped to a column that the migration never
+		// created would fail here.
+		assertThat(users.findByUsername("nobody")).isEmpty();
 	}
 }

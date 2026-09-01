@@ -24,8 +24,9 @@ class AppUserTest {
 	@DisplayName("the role set is immutable to callers, so permissions cannot be changed behind the rules")
 	void roleSetIsImmutable() {
 		AppUser user = new AppUser(1L, "alice", "Alice", Set.of(Role.CAREGIVER), true);
+		Set<Role> roles = user.roles();
 
-		assertThatThrownBy(() -> user.roles().add(Role.MANAGER))
+		assertThatThrownBy(() -> roles.add(Role.MANAGER))
 				.isInstanceOf(UnsupportedOperationException.class);
 	}
 

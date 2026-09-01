@@ -46,7 +46,13 @@ class SecurityConfig {
 						// Front-end static assets.
 						.requestMatchers("/", "/index.html", "/favicon.ico", "/assets/**", "/vite.svg").permitAll()
 						.anyRequest().authenticated())
-				// Same origin, so the CSRF token goes in a cookie for the front end to echo back in a header.
+				// The CSRF token cookie is deliberately NOT HttpOnly, and static analysis will
+				// flag it (sonar java:S3330). The front end has to read this cookie in order to
+				// echo the token back in a request header; making it HttpOnly would put it out of
+				// reach of JavaScript and defeat CSRF protection entirely. This cookie carries no
+				// authority on its own - the session lives in JSESSIONID, which IS HttpOnly - so
+				// exposing it to same-origin script costs nothing. This is the pattern Spring
+				// Security documents for a single-page front end.
 				.csrf(csrf -> csrf.csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse()))
 				// No login form and no basic auth: /api/auth/login handles sign-in, and an
 				// unauthenticated request gets a 401 rather than a redirect.
