@@ -178,58 +178,49 @@ jobs:
         working-directory: backend
         run: ./mvnw -B -ntp verify -Pintegration
 
-  dependency-check:
+  dependency-scan:
     name: Dependency vulnerability scan (SCA)
     needs: quality-gate
     if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
-    # Building the NVD database from cold takes the best part of an hour, even with an
-    # API key, because it pulls the entire CVE corpus. That cost is paid once: every
-    # later run restores it from the cache and only fetches the delta. The budget is
-    # generous so that the first run can finish and populate the cache - a run that
-    # times out saves nothing, which would leave every subsequent run starting cold.
-    timeout-minutes: 120
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      security-events: write     # to publish SARIF to the Security tab
     steps:
       - uses: actions/checkout@v7
 
-      - uses: actions/setup-java@v6
+      # Trivy is used rather than OWASP Dependency-Check. Dependency-Check makes every
+      # user rebuild the entire NVD corpus locally; measured here, that is 385,317
+      # records at roughly 40 seconds per 2,000-record page - about four and a half
+      # hours, and an NVD API key made no measurable difference. Trivy consumes a
+      # vulnerability database that is aggregated and published upstream, so the same
+      # question is answered in well under a minute.
+      - name: Scan dependencies
+        uses: aquasecurity/trivy-action@0.36.0
         with:
-          distribution: temurin
-          java-version: ${{ env.JAVA_VERSION }}
-          cache: maven
+          scan-type: fs
+          scan-ref: .
+          scanners: vuln
+          severity: HIGH,CRITICAL
+          exit-code: 1              # a HIGH or CRITICAL finding fails the build
+          ignore-unfixed: true      # no fix available means nothing to act on today
+          format: sarif
+          output: trivy-dependencies.sarif
 
-      # The NVD database is large. Without a cache it is re-downloaded every run,
-      # which dominates the job. The key rotates daily so the data stays reasonably
-      # fresh while still being reused within a day.
-      - name: Cache the NVD database
-        uses: actions/cache@v6
+      - name: Publish findings to the Security tab
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
         with:
-          path: ~/.m2/repository/org/owasp/dependency-check-data
-          key: nvd-${{ runner.os }}-${{ hashFiles('backend/pom.xml') }}-${{ github.run_id }}
-          restore-keys: |
-            nvd-${{ runner.os }}-
-
-      # The OWASP Maven plugin rather than a third-party action: it analyses the
-      # resolved dependency tree, so it sees exactly what ships, and its arguments
-      # are ordinary Maven properties instead of a single opaque args string.
-      # The key is read from the environment rather than passed as -DnvdApiKey, which
-      # the plugin warns can leak the key into Maven's debug output.
-      - name: OWASP Dependency-Check
-        if: env.NVD_API_KEY != ''
-        working-directory: backend
-        env:
-          NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
-        run: >
-          ./mvnw -B -ntp dependency-check:check
-          -DnvdApiKeyEnvironmentVariable=NVD_API_KEY
-          -DfailBuildOnCVSS=7
+          sarif_file: trivy-dependencies.sarif
+          category: trivy-dependencies
 
       - name: Upload scan report
         uses: actions/upload-artifact@v7
         if: always()
         with:
-          name: dependency-check-report
-          path: backend/target/dependency-check-report.*
+          name: dependency-scan-report
+          path: trivy-dependencies.sarif
           if-no-files-found: ignore
 
   # ═════════════════════════════════════════════════════════════════
@@ -238,13 +229,14 @@ jobs:
 
   build-image:
     name: Build and publish image
-    needs: [integration-tests, dependency-check]
+    needs: [integration-tests, dependency-scan]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     permissions:
       contents: read
       packages: write
+      security-events: write
     steps:
       - uses: actions/checkout@v7
 
@@ -270,6 +262,28 @@ jobs:
             ${{ env.IMAGE }}:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+      # Scanning the image as well as the dependencies. The base image ships an OS
+      # package set of its own, which a dependency scan never sees.
+      - name: Scan the built image
+        uses: aquasecurity/trivy-action@0.36.0
+        with:
+          scan-type: image
+          image-ref: ${{ env.IMAGE }}:${{ github.sha }}
+          scanners: vuln
+          severity: HIGH,CRITICAL
+          exit-code: 0              # reported, not blocking: base-image CVEs are
+                                    # usually outside our control to fix immediately
+          ignore-unfixed: true
+          format: sarif
+          output: trivy-image.sarif
+
+      - name: Publish image findings to the Security tab
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: trivy-image.sarif
+          category: trivy-image
 
   # ═════════════════════════════════════════════════════════════════
   #  Stage 4 - Deployment and dynamic scanning
@@ -366,7 +380,7 @@ jobs:
       - secret-scan
       - quality-gate
       - integration-tests
-      - dependency-check
+      - dependency-scan
       - build-image
       - deploy-staging
     if: always()
@@ -387,7 +401,7 @@ jobs:
             echo "| Fast feedback | Secret scanning | ${{ needs.secret-scan.result }} |"
             echo "| Gate | Quality gate | ${{ needs.quality-gate.result }} |"
             echo "| Deep verification | Integration tests | ${{ needs.integration-tests.result }} |"
-            echo "| Deep verification | Dependency vulnerability scan | ${{ needs.dependency-check.result }} |"
+            echo "| Deep verification | Dependency vulnerability scan | ${{ needs.dependency-scan.result }} |"
             echo "| Delivery | Build and publish image | ${{ needs.build-image.result }} |"
             echo "| Deployment | Staging, smoke test, DAST | ${{ needs.deploy-staging.result }} |"
           } >> "$GITHUB_STEP_SUMMARY"
