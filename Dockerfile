@@ -23,8 +23,12 @@ RUN ./mvnw -B -ntp clean package -DskipTests
 
 # ---------- 3. 运行 ----------
 FROM eclipse-temurin:25-jre
-# curl 用于容器健康检查；基础镜像不带，不装的话 compose 的 healthcheck 永远失败
-RUN apt-get update \n && apt-get install -y --no-install-recommends curl \n && rm -rf /var/lib/apt/lists/* \n && useradd --system --uid 1001 --create-home carelink
+# curl 用于容器健康检查：基础镜像不带，不装的话 compose 的 healthcheck 永远失败。
+# 同时建一个非 root 用户跑应用——最低限度的容器安全。
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends curl \
+ && rm -rf /var/lib/apt/lists/* \
+ && useradd --system --uid 1001 --create-home carelink
 WORKDIR /app
 COPY --from=backend /src/target/*.jar app.jar
 RUN chown carelink:carelink /app/app.jar
