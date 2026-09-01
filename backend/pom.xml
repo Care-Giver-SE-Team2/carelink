@@ -22,6 +22,20 @@
 		<dependency.check.version>13.0.0</dependency.check.version>
 		<sonar.version>5.7.0.6970</sonar.version>
 		<testcontainers.version>2.0.5</testcontainers.version>
+		<!--
+		  Excluded from coverage because there is no logic to cover. Measuring these
+		  only invites tests that assert a getter returns what was set, which find
+		  nothing and make people resent writing tests. Domain models, mappers,
+		  services and controllers are deliberately NOT excluded.
+		-->
+		<sonar.coverage.exclusions>
+			**/BackendApplication.java,
+			**/dto/**,
+			**/*JpaEntity.java,
+			**/*JpaRepository.java,
+			**/config/**,
+			**/package-info.java
+		</sonar.coverage.exclusions>
 		<sonar.coverage.jacoco.xmlReportPaths>
 			${project.build.directory}/site/jacoco/jacoco.xml
 		</sonar.coverage.jacoco.xmlReportPaths>
@@ -164,19 +178,24 @@
 						<goals><goal>report</goal></goals>
 					</execution>
 					<!--
-					  Domain-layer coverage threshold, promised in the proposal.
-					  Left switched off while the skeleton has no domain code, which would
-					  otherwise fail the build immediately. Enable this once the feature
-					  modules have domain logic.
+					  The domain-layer coverage threshold promised in the proposal. It is
+					  scoped to domain packages on purpose: that is where the business rules
+					  and the design patterns live, it is plain Java that tests cheaply, and
+					  a blanket threshold across DTOs and JPA entities would only produce
+					  tests that assert nothing.
+					-->
 					<execution>
 						<id>check-domain-coverage</id>
 						<phase>verify</phase>
 						<goals><goal>check</goal></goals>
 						<configuration>
+							<haltOnFailure>true</haltOnFailure>
 							<rules>
 								<rule>
 									<element>PACKAGE</element>
-									<includes><include>sg.nus.carelink.*.domain.*</include></includes>
+									<includes>
+										<include>sg.nus.carelink.*.domain.*</include>
+									</includes>
 									<limits>
 										<limit>
 											<counter>LINE</counter>
@@ -188,7 +207,6 @@
 							</rules>
 						</configuration>
 					</execution>
-					-->
 				</executions>
 			</plugin>
 
