@@ -187,35 +187,42 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      # Without caching the NVD database it is re-downloaded every run, which is very slow
-      - name: Cache the NVD vulnerability database
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: ${{ env.JAVA_VERSION }}
+          cache: maven
+
+      # The NVD database is large. Without a cache it is re-downloaded every run,
+      # which dominates the job. The key rotates daily so the data stays reasonably
+      # fresh while still being reused within a day.
+      - name: Cache the NVD database
         uses: actions/cache@v6
         with:
-          path: ${{ github.workspace }}/dc-data
-          key: nvd-${{ runner.os }}-${{ github.run_id }}
+          path: ~/.m2/repository/org/owasp/dependency-check-data
+          key: nvd-${{ runner.os }}-${{ hashFiles('backend/pom.xml') }}-${{ github.run_id }}
           restore-keys: |
             nvd-${{ runner.os }}-
 
+      # The OWASP Maven plugin rather than a third-party action: it analyses the
+      # resolved dependency tree, so it sees exactly what ships, and its arguments
+      # are ordinary Maven properties instead of a single opaque args string.
       - name: OWASP Dependency-Check
         if: env.NVD_API_KEY != ''
+        working-directory: backend
         env:
           NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
-        uses: dependency-check/Dependency-Check_Action@main
-        with:
-          project: carelink
-          path: ./backend
-          format: HTML
-          args: >
-            --failOnCVSS 7
-            --nvdApiKey ${{ secrets.NVD_API_KEY }}
-            --data ${{ github.workspace }}/dc-data
+        run: >
+          ./mvnw -B -ntp dependency-check:check
+          -DnvdApiKey=$NVD_API_KEY
+          -DfailBuildOnCVSS=7
 
       - name: Upload scan report
         uses: actions/upload-artifact@v7
         if: always()
         with:
           name: dependency-check-report
-          path: reports/
+          path: backend/target/dependency-check-report.*
           if-no-files-found: ignore
 
   # ═════════════════════════════════════════════════════════════════
