@@ -183,7 +183,12 @@ jobs:
     needs: quality-gate
     if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    # Building the NVD database from cold takes the best part of an hour, even with an
+    # API key, because it pulls the entire CVE corpus. That cost is paid once: every
+    # later run restores it from the cache and only fetches the delta. The budget is
+    # generous so that the first run can finish and populate the cache - a run that
+    # times out saves nothing, which would leave every subsequent run starting cold.
+    timeout-minutes: 120
     steps:
       - uses: actions/checkout@v7
 
@@ -207,6 +212,8 @@ jobs:
       # The OWASP Maven plugin rather than a third-party action: it analyses the
       # resolved dependency tree, so it sees exactly what ships, and its arguments
       # are ordinary Maven properties instead of a single opaque args string.
+      # The key is read from the environment rather than passed as -DnvdApiKey, which
+      # the plugin warns can leak the key into Maven's debug output.
       - name: OWASP Dependency-Check
         if: env.NVD_API_KEY != ''
         working-directory: backend
@@ -214,7 +221,7 @@ jobs:
           NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
         run: >
           ./mvnw -B -ntp dependency-check:check
-          -DnvdApiKey=$NVD_API_KEY
+          -DnvdApiKeyEnvironmentVariable=NVD_API_KEY
           -DfailBuildOnCVSS=7
 
       - name: Upload scan report
