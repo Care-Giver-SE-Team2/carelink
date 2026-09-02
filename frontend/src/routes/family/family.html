@@ -1,0 +1,670 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>CareLink - Family Portal (Schema Aligned)</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <style>
+    body { background-color: #0b1329; }
+    .no-scrollbar::-webkit-scrollbar { display: none; }
+    .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+  </style>
+</head>
+<body class="flex items-center justify-center min-h-screen p-2 sm:p-6 select-none font-sans">
+
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState } = React;
+
+    function FamilyApp() {
+      const [currentTab, setCurrentTab] = useState('home');
+      const [selectedElder, setSelectedElder] = useState('Grandma Tan (Bedok)');
+
+      // 告警审计
+      const [hasActiveAlert, setHasActiveAlert] = useState(true);
+      const [isAlertModalOpen, setIsAlertModalOpen] = useState(false);
+      const [ackAuditLogs, setAckAuditLogs] = useState([]);
+
+      // 换班决策
+      const [shiftDecision, setShiftDecision] = useState(null);
+
+      // 周期评价
+      const [ratingOverall, setRatingOverall] = useState(5);
+      const [ratingPunctuality, setRatingPunctuality] = useState(4);
+      const [renewalChoice, setRenewalChoice] = useState('RENEW_CURRENT');
+      const [reviewSubmitted, setReviewSubmitted] = useState(false);
+
+      // 绑定相关
+      const [pendingBindingRequest, setPendingBindingRequest] = useState({
+        id: 101,
+        seniorName: 'Grandpa Wang (Bukit Batok)',
+        pairingCode: '778899',
+        postalSector: 'Sector 65'
+      });
+      const [selectedRelation, setSelectedRelation] = useState('DAUGHTER');
+      const [boundSeniors, setBoundSeniors] = useState([
+        { id: 1, name: 'Grandma Tan', relation: 'Mother', isPrimary: true, access: 'FULL', postal: 'Bedok (Sector 46)' },
+        { id: 2, name: 'Uncle Lim', relation: 'Uncle', isPrimary: false, access: 'READ_ONLY', postal: 'Ang Mo Kio (Sector 56)' }
+      ]);
+
+      // 准入申请表单（完全对齐 intake_applications 字段）
+      const [isIntakeModalOpen, setIsIntakeModalOpen] = useState(false);
+      const [intakeSuccessBanner, setIntakeSuccessBanner] = useState(false);
+      const [intakeFormData, setIntakeFormData] = useState({
+        seniorName: '',
+        age: '',
+        address: '', // 明确包含 target_address
+        postalCode: '', // 明确包含 postal_code
+        dialects: ['Hokkien', 'Mandarin'], // preferred_dialects
+        mobility: 'INDEPENDENT', // mobility_level
+        medicalNotes: '' // medical_notes
+      });
+      const [submittedApplications, setSubmittedApplications] = useState([]);
+
+      const handleAcknowledgeAlert = () => {
+        const timeStr = new Date().toLocaleTimeString();
+        setAckAuditLogs(prev => [
+          ...prev, 
+          { id: Date.now(), text: `Alert confirmed by Family at ${timeStr} (Audited)` }
+        ]);
+        setHasActiveAlert(false);
+        setIsAlertModalOpen(false);
+      };
+
+      const handleAcceptBinding = () => {
+        if (!pendingBindingRequest) return;
+        const newElder = {
+          id: Date.now(),
+          name: pendingBindingRequest.seniorName,
+          relation: selectedRelation,
+          isPrimary: true,
+          access: 'FULL',
+          postal: pendingBindingRequest.postalSector
+        };
+        setBoundSeniors(prev => [...prev, newElder]);
+        setPendingBindingRequest(null);
+      };
+
+      const toggleDialect = (dialect) => {
+        setIntakeFormData(prev => {
+          const exists = prev.dialects.includes(dialect);
+          const nextDialects = exists 
+            ? prev.dialects.filter(d => d !== dialect)
+            : [...prev.dialects, dialect];
+          return { ...prev, dialects: nextDialects };
+        });
+      };
+
+      const handleIntakeSubmit = (e) => {
+        e.preventDefault();
+        const newApp = {
+          id: Date.now(),
+          seniorName: intakeFormData.seniorName,
+          address: intakeFormData.address, // 保存常住地址
+          postalCode: intakeFormData.postalCode,
+          dialects: intakeFormData.dialects.join(', '),
+          status: 'UNDER_REVIEW'
+        };
+        setSubmittedApplications(prev => [newApp, ...prev]);
+        setIsIntakeModalOpen(false);
+        setIntakeSuccessBanner(true);
+        setTimeout(() => setIntakeSuccessBanner(false), 5000);
+      };
+
+      return (
+        <div className="relative w-full max-w-sm h-[740px] bg-slate-50 rounded-[40px] border-8 border-slate-700 shadow-2xl flex flex-col overflow-hidden">
+          
+          {/* 状态栏 */}
+          <div className="w-full bg-white pt-2 pb-1 px-6 flex justify-between items-center z-10 border-b border-slate-100">
+            <span className="text-xs font-semibold text-slate-800">09:41</span>
+            <div className="w-24 h-4 bg-slate-800 rounded-full"></div>
+            <span className="text-[10px] text-slate-700 font-bold">5G</span>
+          </div>
+
+          {/* 顶栏与长辈切换 */}
+          <div className="w-full bg-white px-4 py-2.5 flex justify-between items-center shadow-sm z-10">
+            <div>
+              <span className="text-teal-700 font-extrabold text-lg tracking-tight">CareLink</span>
+              <span className="ml-1 text-[9px] bg-teal-100 text-teal-800 px-1.5 py-0.5 rounded font-bold">Family</span>
+            </div>
+            <select 
+              value={selectedElder}
+              onChange={(e) => setSelectedElder(e.target.value)}
+              className="text-xs bg-slate-100 border border-slate-300 rounded-full px-2.5 py-1 font-semibold text-slate-700 focus:outline-none max-w-[170px] truncate"
+            >
+              {boundSeniors.map(s => (
+                <option key={s.id} value={`${s.name} (${s.postal})`}>{s.name} ({s.relation})</option>
+              ))}
+            </select>
+          </div>
+
+          {/* 主体内容滚动区 */}
+          <div className="flex-1 overflow-y-auto no-scrollbar p-4 space-y-3.5 pb-20">
+
+            {/* TAB 1: HOME */}
+            {currentTab === 'home' && (
+              <div className="space-y-3.5">
+                {hasActiveAlert ? (
+                  <div className="bg-red-50 border-l-4 border-red-600 p-3 rounded-lg shadow-sm">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-red-900 tracking-wide">⚠️ URGENT ALERT (High BP)</span>
+                      <span className="text-[10px] text-red-700">10:15 AM</span>
+                    </div>
+                    <p className="text-xs text-red-800 mt-1">Nurse reported abnormal reading: <b>168/105 mmHg</b>.</p>
+                    <button 
+                      onClick={() => setIsAlertModalOpen(true)}
+                      className="mt-2 w-full bg-red-600 hover:bg-red-700 text-white text-xs font-bold py-1.5 rounded shadow active:scale-95"
+                    >
+                      View Details & Acknowledge
+                    </button>
+                  </div>
+                ) : (
+                  <div className="bg-emerald-50 border border-emerald-200 text-emerald-800 p-2.5 rounded-lg text-xs flex items-center justify-between">
+                    <span>✓ Alert acknowledged and verified</span>
+                    <span className="text-[10px] font-bold">Audited</span>
+                  </div>
+                )}
+
+                <div className="bg-white rounded-2xl p-3.5 shadow-sm border border-slate-200">
+                  <div className="flex justify-between items-center mb-2">
+                    <span className="text-xs font-bold text-slate-500 uppercase">Today's Live Visit</span>
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800">
+                      ● IN PROGRESS
+                    </span>
+                  </div>
+                  <div className="text-sm font-bold text-slate-800">Caregiver: Siti Aminah</div>
+                  <div className="text-xs text-slate-500">Tasks: Vital Signs & Mobility Support</div>
+                  
+                  <div className="mt-3 space-y-2 relative pl-4 border-l-2 border-slate-200 ml-2 text-xs">
+                    <div>
+                      <span className="font-bold text-emerald-700">09:50 AM</span> - Caregiver Checked-in (GPS Verified)
+                    </div>
+                    <div>
+                      <span className="font-bold text-emerald-700">10:05 AM</span> - Vitals Recorded (Pulse 76, Temp 36.8°C)
+                    </div>
+                    <div className="text-slate-400">
+                      <span>10:45 AM</span> - Expected Checkout
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-blue-50 border border-blue-200 rounded-2xl p-3.5 shadow-sm">
+                  <span className="text-[11px] font-bold text-blue-900 uppercase">Action: Shift Change Request</span>
+                  <p className="text-xs text-blue-800 mt-1">Siti is on leave tomorrow. Proposed substitute: <b>John Chen</b>.</p>
+                  {shiftDecision === null ? (
+                    <div className="flex space-x-2 mt-2.5">
+                      <button 
+                        onClick={() => setShiftDecision('ACCEPTED')}
+                        className="flex-1 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold py-1.5 rounded-lg active:scale-95"
+                      >
+                        Accept Substitute
+                      </button>
+                      <button 
+                        onClick={() => setShiftDecision('RESCHEDULED')}
+                        className="flex-1 bg-white border border-blue-300 text-blue-800 text-xs font-bold py-1.5 rounded-lg"
+                      >
+                        Reschedule
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="mt-2 text-xs font-bold text-blue-900 bg-white py-1 rounded text-center border border-blue-200">
+                      Status: {shiftDecision === 'ACCEPTED' ? '✓ Substitute Accepted' : '⟲ Reschedule Requested'}
+                    </div>
+                  )}
+                </div>
+
+                {ackAuditLogs.length > 0 && (
+                  <div className="bg-slate-100 p-2 rounded-xl border border-slate-200 text-[9px] text-slate-600">
+                    <span className="font-bold uppercase text-slate-500">Audit Logs:</span>
+                    {ackAuditLogs.map(log => <div key={log.id}>• {log.text}</div>)}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* TAB 2: SCHEDULE */}
+            {currentTab === 'schedule' && (
+              <div className="space-y-3.5">
+                <div className="bg-white p-3 rounded-2xl border border-slate-200 shadow-sm">
+                  <div className="flex justify-between items-center mb-2">
+                    <span className="text-xs font-bold text-slate-800">September 2026</span>
+                    <span className="text-[10px] text-teal-600 font-bold">Week 1</span>
+                  </div>
+                  <div className="grid grid-cols-5 gap-1.5 text-center">
+                    {['Mon 1', 'Tue 2', 'Wed 3', 'Thu 4', 'Fri 5'].map((day, idx) => (
+                      <div 
+                        key={day} 
+                        className={`p-2 rounded-xl text-xs flex flex-col items-center ${idx === 1 ? 'bg-teal-600 text-white font-bold shadow' : 'bg-slate-50 text-slate-700'}`}
+                      >
+                        <span className="text-[9px]">{day.split(' ')[0]}</span>
+                        <span className="text-sm mt-0.5">{day.split(' ')[1]}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm space-y-3">
+                  <div className="flex items-center space-x-3">
+                    <div className="w-12 h-12 rounded-full bg-teal-100 flex items-center justify-center text-xl">👩‍⚕️</div>
+                    <div>
+                      <div className="text-sm font-bold text-slate-800">Siti Aminah</div>
+                      <div className="text-xs text-slate-500">Senior Caregiver Specialist</div>
+                      <div className="text-xs text-amber-500 font-bold">★ 4.9 (38 monthly reviews)</div>
+                    </div>
+                  </div>
+                  <div className="pt-2 border-t border-slate-100 space-y-1 text-xs">
+                    <div className="font-bold text-slate-600">Verified Certifications:</div>
+                    <div className="bg-emerald-50 text-emerald-800 p-1.5 rounded">✓ CPR & First Aid (Valid until Dec 2026)</div>
+                    <div className="bg-emerald-50 text-emerald-800 p-1.5 rounded">✓ Senior Mobility Support Level 2</div>
+                  </div>
+                  <div className="pt-2 border-t border-slate-100 text-xs">
+                    <div className="font-bold text-slate-600">Matched Spoken Dialects:</div>
+                    <div className="flex gap-1 mt-1">
+                      <span className="bg-teal-100 text-teal-800 px-2 py-0.5 rounded text-[10px] font-bold">Hokkien</span>
+                      <span className="bg-slate-100 text-slate-700 px-2 py-0.5 rounded text-[10px]">English</span>
+                      <span className="bg-slate-100 text-slate-700 px-2 py-0.5 rounded text-[10px]">Mandarin</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* TAB 3: REPORTS & REVIEWS */}
+            {currentTab === 'reports' && (
+              <div className="space-y-3.5">
+                <div className="bg-teal-50 border border-teal-200 p-4 rounded-2xl shadow-sm space-y-2">
+                  <div className="flex justify-between items-center">
+                    <span className="text-xs font-bold text-teal-800 uppercase">Weekly Care Summary</span>
+                    <span className="text-[10px] bg-teal-200 text-teal-900 px-2 py-0.5 rounded font-bold">Aug 25 - 31</span>
+                  </div>
+                  <p className="text-xs text-teal-950 leading-relaxed">
+                    "Grandma Tan had a smooth week with all 3 visits completed. Her mobility exercise endurance improved noticeably. Blood pressure was slightly high on Thursday."
+                  </p>
+                  <div className="grid grid-cols-3 gap-2 pt-1 text-center">
+                    <div className="bg-white p-1.5 rounded">
+                      <div className="text-[9px] text-slate-400">Visits</div>
+                      <div className="text-xs font-bold text-teal-800">3 / 3</div>
+                    </div>
+                    <div className="bg-white p-1.5 rounded">
+                      <div className="text-[9px] text-slate-400">Avg BP</div>
+                      <div className="text-xs font-bold text-slate-800">135/88</div>
+                    </div>
+                    <div className="bg-white p-1.5 rounded">
+                      <div className="text-[9px] text-slate-400">Mood</div>
+                      <div className="text-xs font-bold text-emerald-700">Positive</div>
+                    </div>
+                  </div>
+                  <div className="bg-teal-100 p-2 rounded text-[9px] text-teal-900">
+                    <b>LEGAL DISCLAIMER:</b> Automated summary for family transparency. NOT a clinical diagnosis.
+                  </div>
+                </div>
+
+                <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm space-y-3">
+                  <div className="text-sm font-bold text-slate-800">Monthly Caregiver Evaluation</div>
+                  <div className="text-[10px] text-slate-500">Period: August 2026 • Caregiver: Siti Aminah</div>
+
+                  {reviewSubmitted ? (
+                    <div className="bg-emerald-50 border border-emerald-200 text-emerald-800 p-3 rounded-xl text-center text-xs">
+                      <div className="font-bold">✓ Monthly Review Submitted!</div>
+                      <div className="text-[10px] mt-0.5">Decision forwarded to Manager roster engine.</div>
+                    </div>
+                  ) : (
+                    <div className="space-y-3 text-xs">
+                      <div>
+                        <span className="font-semibold text-slate-700">1. Overall Satisfaction:</span>
+                        <div className="flex space-x-1 text-amber-400 text-base cursor-pointer mt-0.5">
+                          {[1,2,3,4,5].map(star => (
+                            <span key={star} onClick={() => setRatingOverall(star)}>
+                              {star <= ratingOverall ? '★' : '☆'}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+
+                      <div>
+                        <span className="font-semibold text-slate-700">2. Punctuality & Attendance:</span>
+                        <div className="flex space-x-1 text-amber-400 text-base cursor-pointer mt-0.5">
+                          {[1,2,3,4,5].map(star => (
+                            <span key={star} onClick={() => setRatingPunctuality(star)}>
+                              {star <= ratingPunctuality ? '★' : '☆'}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+
+                      <div className="pt-2 border-t border-slate-100 space-y-1">
+                        <span className="font-bold text-slate-800 block">Renewal Decision:</span>
+                        <label className="flex items-center space-x-2">
+                          <input 
+                            type="radio" 
+                            name="renewal" 
+                            checked={renewalChoice === 'RENEW_CURRENT'}
+                            onChange={() => setRenewalChoice('RENEW_CURRENT')}
+                          />
+                          <span>Renew with current caregiver</span>
+                        </label>
+                        <label className="flex items-center space-x-2">
+                          <input 
+                            type="radio" 
+                            name="renewal" 
+                            checked={renewalChoice === 'REQUEST_CHANGE'}
+                            onChange={() => setRenewalChoice('REQUEST_CHANGE')}
+                          />
+                          <span>Request to change caregiver</span>
+                        </label>
+                      </div>
+
+                      <button 
+                        type="button"
+                        onClick={() => setReviewSubmitted(true)}
+                        className="w-full bg-teal-600 hover:bg-teal-700 text-white font-bold py-2 rounded-xl shadow active:scale-95 mt-1"
+                      >
+                        Submit Monthly Review
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* TAB 4: PROFILE & INTAKE */}
+            {currentTab === 'me' && (
+              <div className="space-y-3.5">
+                {intakeSuccessBanner && (
+                  <div className="bg-emerald-100 border border-emerald-300 text-emerald-800 p-2.5 rounded-xl text-xs flex items-center space-x-2">
+                    <span className="text-base">📋</span>
+                    <div>
+                      <div className="font-bold">Application Submitted!</div>
+                      <div className="text-[10px]">Manager will assess dialect, address and care plan shortly.</div>
+                    </div>
+                  </div>
+                )}
+
+                {/* 待确认绑定请求 */}
+                {pendingBindingRequest && (
+                  <div className="bg-amber-50 border-2 border-amber-400 p-3 rounded-2xl space-y-2">
+                    <div className="flex justify-between items-center">
+                      <span className="text-[9px] font-bold bg-amber-200 text-amber-900 px-2 py-0.5 rounded-full">
+                        Binding Request Received
+                      </span>
+                      <span className="text-[10px] font-mono font-bold text-amber-800">Code: {pendingBindingRequest.pairingCode}</span>
+                    </div>
+                    <div className="text-xs text-amber-950">
+                      <b>{pendingBindingRequest.seniorName}</b> requested to bind with you.
+                    </div>
+                    <div className="text-xs">
+                      <label className="font-bold text-slate-700 block mb-1">Your Relationship:</label>
+                      <select 
+                        value={selectedRelation}
+                        onChange={(e) => setSelectedRelation(e.target.value)}
+                        className="w-full bg-white border border-amber-300 rounded-lg p-1.5 text-xs font-semibold"
+                      >
+                        <option value="DAUGHTER">Daughter</option>
+                        <option value="SON">Son</option>
+                        <option value="SPOUSE">Spouse</option>
+                        <option value="GUARDIAN">Legal Guardian</option>
+                      </select>
+                    </div>
+                    <div className="flex space-x-2 pt-1">
+                      <button 
+                        onClick={handleAcceptBinding}
+                        className="flex-1 bg-teal-600 text-white text-xs font-bold py-1.5 rounded-xl shadow"
+                      >
+                        Confirm & Accept
+                      </button>
+                      <button 
+                        onClick={() => setPendingBindingRequest(null)}
+                        className="bg-slate-200 text-slate-700 text-xs px-3 py-1.5 rounded-xl"
+                      >
+                        Decline
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* 已绑定长辈 */}
+                <div className="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-sm space-y-2">
+                  <div className="flex justify-between items-center text-xs font-bold text-slate-800">
+                    <span>Active Senior Bindings</span>
+                    <span className="text-[10px] bg-slate-100 px-2 py-0.5 rounded text-slate-600">{boundSeniors.length} Linked</span>
+                  </div>
+                  {boundSeniors.map(s => (
+                    <div key={s.id} className="p-2 bg-slate-50 rounded-xl text-xs space-y-0.5">
+                      <div className="flex justify-between">
+                        <span className="font-bold text-slate-800">{s.name}</span>
+                        {s.isPrimary && <span className="text-[9px] bg-teal-100 text-teal-800 px-1 rounded font-bold">Primary</span>}
+                      </div>
+                      <div className="text-[10px] text-slate-500">Relation: {s.relation} • Locality: {s.postal}</div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* 提交准入申请入口 */}
+                <div className="bg-gradient-to-br from-teal-50 to-slate-50 p-4 rounded-2xl border border-teal-200 shadow-sm">
+                  <div className="text-xs font-bold text-slate-800 mb-1">New Elder Intake Application</div>
+                  <p className="text-[10px] text-slate-600 mb-3">
+                    Submit elder profile, address, care tasks, and dialect preference to Care Manager.
+                  </p>
+                  <button 
+                    onClick={() => setIsIntakeModalOpen(true)}
+                    className="w-full bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold py-2.5 rounded-xl shadow active:scale-95"
+                  >
+                    + Fill Intake Application Form
+                  </button>
+
+                  {submittedApplications.length > 0 && (
+                    <div className="mt-3 pt-2 border-t border-teal-200 space-y-1">
+                      <span className="text-[9px] font-bold text-slate-500">Submitted Applications:</span>
+                      {submittedApplications.map(app => (
+                        <div key={app.id} className="bg-white p-2 rounded-lg border border-slate-200 text-[10px] flex justify-between items-center">
+                          <div>
+                            <div className="font-bold text-slate-800">{app.seniorName}</div>
+                            <div className="text-slate-500">{app.address} ({app.postalCode})</div>
+                          </div>
+                          <span className="bg-amber-100 text-amber-800 px-2 py-0.5 rounded font-bold text-[9px]">
+                            {app.status}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+          </div>
+
+          {/* 底部导航栏 */}
+          <div className="absolute bottom-0 left-0 w-full h-16 bg-white border-t border-slate-200 flex justify-around items-center px-2 z-20">
+            <button 
+              onClick={() => setCurrentTab('home')}
+              className={`flex flex-col items-center flex-1 py-1 ${currentTab === 'home' ? 'text-teal-600 font-bold' : 'text-slate-400'}`}
+            >
+              <span className="text-lg">⌂</span>
+              <span className="text-[10px]">Home</span>
+            </button>
+            <button 
+              onClick={() => setCurrentTab('schedule')}
+              className={`flex flex-col items-center flex-1 py-1 ${currentTab === 'schedule' ? 'text-teal-600 font-bold' : 'text-slate-400'}`}
+            >
+              <span className="text-lg">📅</span>
+              <span className="text-[10px]">Schedule</span>
+            </button>
+            <button 
+              onClick={() => setCurrentTab('reports')}
+              className={`flex flex-col items-center flex-1 py-1 ${currentTab === 'reports' ? 'text-teal-600 font-bold' : 'text-slate-400'}`}
+            >
+              <span className="text-lg">📊</span>
+              <span className="text-[10px]">Reports</span>
+            </button>
+            <button 
+              onClick={() => setCurrentTab('me')}
+              className={`flex flex-col items-center flex-1 py-1 ${currentTab === 'me' ? 'text-teal-600 font-bold' : 'text-slate-400'}`}
+            >
+              <span className="text-lg">👤</span>
+              <span className="text-[10px]">Profile</span>
+            </button>
+          </div>
+
+          {/* 准入申请抽屉弹窗 (完整对齐 target_address, postal_code, dialects) */}
+          {isIntakeModalOpen && (
+            <div className="absolute inset-0 bg-slate-900/70 backdrop-blur-sm z-50 flex flex-col justify-end">
+              <div className="bg-white w-full max-h-[92%] rounded-t-[32px] p-5 shadow-2xl flex flex-col overflow-hidden">
+                <div className="flex justify-between items-center pb-2 border-b border-slate-100">
+                  <h3 className="text-sm font-bold text-slate-800">Elder Intake Application</h3>
+                  <button onClick={() => setIsIntakeModalOpen(false)} className="text-slate-400 font-bold text-lg">✕</button>
+                </div>
+
+                <form onSubmit={handleIntakeSubmit} className="flex-1 overflow-y-auto no-scrollbar py-3 space-y-3 text-xs">
+                  {/* 老人姓名 */}
+                  <div>
+                    <label className="font-bold text-slate-700 block mb-1">Elder Full Name</label>
+                    <input 
+                      type="text" 
+                      required
+                      placeholder="e.g. Tan Ah Kow" 
+                      value={intakeFormData.seniorName}
+                      onChange={(e) => setIntakeFormData({...intakeFormData, seniorName: e.target.value})}
+                      className="w-full bg-slate-50 border border-slate-300 rounded-xl p-2 text-xs"
+                    />
+                  </div>
+
+                  {/* 年龄与邮编 */}
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="font-bold text-slate-700 block mb-1">Age</label>
+                      <input 
+                        type="number" 
+                        required
+                        placeholder="e.g. 78" 
+                        value={intakeFormData.age}
+                        onChange={(e) => setIntakeFormData({...intakeFormData, age: e.target.value})}
+                        className="w-full bg-slate-50 border border-slate-300 rounded-xl p-2 text-xs"
+                      />
+                    </div>
+                    <div>
+                      <label className="font-bold text-slate-700 block mb-1">Postal Code (6-digit)</label>
+                      <input 
+                        type="text" 
+                        required
+                        maxLength="6"
+                        placeholder="e.g. 460123" 
+                        value={intakeFormData.postalCode}
+                        onChange={(e) => setIntakeFormData({...intakeFormData, postalCode: e.target.value})}
+                        className="w-full bg-slate-50 border border-slate-300 rounded-xl p-2 text-xs"
+                      />
+                    </div>
+                  </div>
+
+                  {/* 核心补齐：老人常住地址输入框 (target_address) */}
+                  <div>
+                    <label className="font-bold text-slate-700 block mb-1">Residential Address (Block, Street, Unit)</label>
+                    <input 
+                      type="text" 
+                      required
+                      placeholder="e.g. Blk 123 Bedok North Ave 3 #08-456" 
+                      value={intakeFormData.address}
+                      onChange={(e) => setIntakeFormData({...intakeFormData, address: e.target.value})}
+                      className="w-full bg-slate-50 border border-slate-300 rounded-xl p-2 text-xs"
+                    />
+                  </div>
+
+                  {/* 方言偏好 (preferred_dialects) */}
+                  <div>
+                    <label className="font-bold text-slate-700 block mb-1">
+                      Elder Preferred Dialects / Languages
+                      <span className="text-[10px] text-teal-600 block font-normal">(Used for caregiver language matching)</span>
+                    </label>
+                    <div className="grid grid-cols-3 gap-1.5 mt-1">
+                      {['Hokkien', 'Teochew', 'Cantonese', 'Mandarin', 'Malay', 'Tamil'].map(d => (
+                        <label 
+                          key={d} 
+                          onClick={() => toggleDialect(d)}
+                          className={`flex items-center space-x-1.5 p-1.5 rounded-lg border text-[10px] cursor-pointer ${intakeFormData.dialects.includes(d) ? 'bg-teal-50 border-teal-500 font-bold text-teal-800' : 'bg-slate-50 border-slate-200 text-slate-600'}`}
+                        >
+                          <input 
+                            type="checkbox" 
+                            checked={intakeFormData.dialects.includes(d)} 
+                            readOnly 
+                            className="text-teal-600 rounded" 
+                          />
+                          <span>{d}</span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* 行动能力 (mobility_level) */}
+                  <div>
+                    <label className="font-bold text-slate-700 block mb-1">Mobility Condition</label>
+                    <select 
+                      value={intakeFormData.mobility}
+                      onChange={(e) => setIntakeFormData({...intakeFormData, mobility: e.target.value})}
+                      className="w-full bg-slate-50 border border-slate-300 rounded-xl p-2 text-xs"
+                    >
+                      <option value="INDEPENDENT">Independent (Living alone)</option>
+                      <option value="ASSISTIVE_CANE">Requires Walking Cane</option>
+                      <option value="WHEELCHAIR_BEDBOUND">Wheelchair Bound / Bedridden</option>
+                    </select>
+                  </div>
+
+                  {/* 既往病史与禁忌 (medical_notes) */}
+                  <div>
+                    <label className="font-bold text-slate-700 block mb-1">Medical Notes & Precautions</label>
+                    <textarea 
+                      rows="2"
+                      placeholder="e.g. Hypertension, fall risk, mild dementia..."
+                      value={intakeFormData.medicalNotes}
+                      onChange={(e) => setIntakeFormData({...intakeFormData, medicalNotes: e.target.value})}
+                      className="w-full bg-slate-50 border border-slate-300 rounded-xl p-2 text-xs"
+                    ></textarea>
+                  </div>
+
+                  <button 
+                    type="submit" 
+                    className="w-full bg-teal-600 hover:bg-teal-700 text-white font-bold py-2.5 rounded-xl shadow active:scale-95"
+                  >
+                    Submit Intake Application
+                  </button>
+                </form>
+              </div>
+            </div>
+          )}
+
+          {/* 告警弹窗 */}
+          {isAlertModalOpen && (
+            <div className="absolute inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+              <div className="bg-white rounded-3xl w-full p-5 shadow-2xl border border-red-200">
+                <div className="w-10 h-10 bg-red-100 text-red-600 rounded-full flex items-center justify-center mx-auto text-xl font-bold mb-2">
+                  ⚠️
+                </div>
+                <h3 className="text-sm font-bold text-center text-slate-800">Emergency Alert Confirmation</h3>
+                <div className="mt-3 bg-red-50 p-2.5 rounded-xl text-xs space-y-1">
+                  <div><b>Incident:</b> High Blood Pressure</div>
+                  <div><b>Reading:</b> <span className="text-red-700 font-bold">168 / 105 mmHg</span></div>
+                  <div><b>Caregiver:</b> Siti Aminah (On-site)</div>
+                </div>
+                <button 
+                  onClick={handleAcknowledgeAlert}
+                  className="mt-3 w-full bg-red-600 hover:bg-red-700 text-white text-xs font-bold py-2.5 rounded-xl shadow active:scale-95"
+                >
+                  Acknowledge & Confirm Receipt
+                </button>
+              </div>
+            </div>
+          )}
+
+        </div>
+      );
+    }
+
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<FamilyApp />);
+  </script>
+</body>
+</html>
