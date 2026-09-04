@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CareLink Elder Portal Mock</title>
+  <style>
+    :root {
+      --bg: #f4f7fb;
+      --card: #ffffff;
+      --text: #000;
+      --muted: #333;
+      --accent: #14477f;
+      --danger: #b3261e;
+      --border: #777;
+      --ok: #176b3a;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; font-family: system-ui, "Microsoft YaHei", sans-serif;
+      background: var(--bg); color: var(--text); font-size: 22px; line-height: 1.5;
+    }
+    header {
+      background: var(--accent); color: white; padding: 22px 24px;
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    header strong { font-size: 30px; }
+    main { max-width: 720px; margin: 0 auto; padding: 24px; }
+    h1 { font-size: 34px; margin: 0 0 10px; }
+    .hint { color: var(--muted); margin: 0 0 24px; }
+    .menu { display: grid; gap: 18px; }
+    button {
+      width: 100%; min-height: 92px; padding: 16px 20px;
+      border: 2px solid var(--border); border-radius: 14px;
+      background: var(--card); color: var(--text); font: inherit;
+      font-weight: 700; cursor: pointer; text-align: left;
+    }
+    button:hover, button:focus { outline: 4px solid #8db7e5; }
+    .menu button span { display: block; font-size: 17px; font-weight: 500; color: var(--muted); }
+    .sos { background: var(--danger); color: white; border-color: #74150f; text-align: center; font-size: 30px; min-height: 112px; }
+    .back { min-height: 64px; width: auto; margin-bottom: 18px; padding: 8px 20px; }
+    .panel {
+      background: var(--card); border: 2px solid var(--border);
+      border-radius: 14px; padding: 22px; margin-bottom: 18px;
+    }
+    .actions { display: grid; gap: 14px; }
+    .primary { background: var(--accent); color: white; text-align: center; }
+    .secondary { text-align: center; }
+    .stars { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; margin: 14px 0; }
+    .stars button { min-height: 68px; text-align: center; padding: 4px; font-size: 32px; }
+    label { display: block; font-weight: 700; margin-top: 16px; }
+    input, select, textarea {
+      width: 100%; min-height: 64px; border: 2px solid var(--border);
+      border-radius: 10px; padding: 12px; font: inherit; margin-top: 8px;
+    }
+    textarea { min-height: 110px; }
+    .success { border: 3px solid var(--ok); padding: 22px; border-radius: 14px; background: white; }
+    .hidden { display: none; }
+    .icon { font-size: 34px; margin-right: 10px; }
+    @media (max-width: 520px) {
+      body { font-size: 20px; }
+      main { padding: 16px; }
+      h1 { font-size: 30px; }
+    }
+  </style>
+</head>
+<body>
+<header>
+  <strong>CareLink Elder Portal</strong>
+  <span>👴 Mr. Zhang</span>
+</header>
+
+<main>
+  <section id="home">
+    <h1>Hello, Mr. Zhang</h1>
+    <p class="hint">What would you like to do?</p>
+    <div class="menu">
+      <button onclick="show('complete')"><span class="icon">✅</span>Confirm Service Completion<span>Confirm today’s care service and give feedback</span></button>
+      <button onclick="show('extra')"><span class="icon">➕</span>Request Extra Service<span>Medical escort, home haircut, deep cleaning, and more</span></button>
+      <button class="sos" onclick="show('sos')">🆘 Emergency SOS</button>
+      <button onclick="show('family')"><span class="icon">👨‍👩‍👧</span>Link Family Member<span>Add a family member so they can stay informed</span></button>
+    </div>
+  </section>
+
+  <section id="complete" class="hidden">
+    <button class="back" onclick="show('home')">← Back</button>
+    <h1>Confirm Service Completion</h1>
+    <div class="panel">
+      <b>Today’s Care Service</b><br>
+      Caregiver: Ms. Li<br>
+      Time: 14:00 - 16:00<br>
+      Service: Daily companionship
+    </div>
+    <div class="actions">
+      <button class="primary" onclick="document.getElementById('feedback').classList.remove('hidden')">✓ Service Completed</button>
+    </div>
+    <div id="feedback" class="panel hidden">
+      <b>How was today’s service?</b>
+      <div class="stars">
+        <button onclick="rate(1)">★</button><button onclick="rate(2)">★</button>
+        <button onclick="rate(3)">★</button><button onclick="rate(4)">★</button>
+        <button onclick="rate(5)">★</button>
+      </div>
+      <div id="ratingText">Please choose 1–5 stars</div>
+      <label>Comments (optional)</label>
+      <textarea placeholder="For example: Great service and very patient"></textarea>
+      <button class="primary" onclick="done('Your feedback has been submitted. Thank you!')">Submit Feedback</button>
+    </div>
+  </section>
+
+  <section id="extra" class="hidden">
+    <button class="back" onclick="show('home')">← Back</button>
+    <h1>Request Extra Service</h1>
+    <p class="hint">Please choose a service</p>
+    <div class="menu">
+      <button onclick="requestService('Medical Escort')">🏥 Medical Escort<span>A caregiver accompanies you to a medical appointment</span></button>
+      <button onclick="requestService('Home Haircut')">✂️ Home Haircut<span>Get a haircut at home</span></button>
+      <button onclick="requestService('Deep Cleaning')">🧹 Deep Cleaning<span>Additional home cleaning service</span></button>
+    </div>
+  </section>
+
+  <section id="sos" class="hidden">
+    <button class="back" onclick="show('home')">← Back</button>
+    <h1>🆘 Emergency SOS</h1>
+    <div class="panel">
+      <b>Do you need immediate help?</b>
+      <p>Press the red button to simulate notifying your family and care team.</p>
+    </div>
+    <button class="sos" onclick="done('Emergency SOS已发出！家属和照护人员将尽快响应。')">🆘 Send SOS Now</button>
+  </section>
+
+  <section id="family" class="hidden">
+    <button class="back" onclick="show('home')">← Back</button>
+    <h1>Link Family Member</h1>
+    <div class="panel">
+      <label>Family Member Phone Number</label>
+      <input id="phone" inputmode="tel" placeholder="Enter phone number" />
+      <label>Relationship</label>
+      <select id="relation">
+        <option>Son</option><option>Daughter</option><option>Spouse</option><option>Other</option>
+      </select>
+    </div>
+    <button class="primary" onclick="done('The link request has been sent to your family member.')">👨‍👩‍👧 Send Link Request</button>
+  </section>
+
+  <section id="result" class="hidden">
+    <button class="back" onclick="show('home')">← Back to Home</button>
+    <div class="success">
+      <h1>✓ Success</h1>
+      <p id="resultText"></p>
+    </div>
+  </section>
+</main>
+
+<script>
+  const pages = ['home','complete','extra','sos','family','result'];
+  function show(id) {
+    pages.forEach(p => document.getElementById(p).classList.add('hidden'));
+    document.getElementById(id).classList.remove('hidden');
+    window.scrollTo(0,0);
+  }
+  function rate(n) {
+    document.getElementById('ratingText').textContent = 'You selected ' + n + ' star(s)';
+  }
+  function requestService(name) {
+    done('“' + name + '”申请已提交。');
+  }
+  function done(text) {
+    document.getElementById('resultText').textContent = text;
+    show('result');
+  }
+</script>
+</body>
+</html>
