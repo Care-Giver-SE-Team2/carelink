@@ -109,5 +109,7 @@ demo environment deploy that same binary and nothing is ever rebuilt at deployme
 
 ## Branching
 
-`main` is protected: changes arrive by pull request and the quality gate must be green.
+`main` and `develop` are both protected: changes arrive by pull request and the quality
+gate must be green. Feature branches target `develop`; `develop` merges to `main` at the
+end of each sprint.
 Branch names: `feat/<module>-<summary>`, `fix/<summary>`.
