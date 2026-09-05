@@ -60,8 +60,14 @@ jobs:
 
       # SAST shares this job with the build. Splitting it out would repeat the entire
       # build, a textbook case of parallelism that is actually slower.
+      #
+      # SonarCloud's free plan authorizes PR analysis on any branch and push analysis
+      # on the branch configured as main, but not push analysis of another long-lived
+      # branch - a push straight to develop gets "Not authorized or project not found"
+      # at the quality-gate-wait step. So this only runs for PRs and for pushes to main;
+      # develop still gets Sonar feedback whenever a PR is opened against it.
       - name: SonarQube Cloud analysis and quality gate
-        if: env.SONAR_TOKEN != ''
+        if: env.SONAR_TOKEN != '' && (github.event_name == 'pull_request' || github.ref == 'refs/heads/main')
         working-directory: backend
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
