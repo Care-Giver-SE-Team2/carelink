@@ -16,17 +16,17 @@
 -- NOT a migration yet. Once agreed, it is renamed to a timestamped Flyway
 -- script and committed by one person.
 --
--- Result: 31 tables = 28 business tables + audit_log + the two account
+-- Result: 37 tables = 34 business tables + audit_log + the two account
 -- tables (app_user, user_role) that V1__baseline.sql already created. Those
 -- two are repeated in section 0 so this file is complete on its own; they
 -- must be LEFT OUT when the file is turned into a migration.
 --
 -- To try it on an empty database (Docker):
---   docker run -d --name carelink-schema -e MYSQL_ROOT_PASSWORD=root --     -e MYSQL_DATABASE=carelink -p 3307:3306 mysql:8.4
---   docker exec -i carelink-schema mysql -uroot -proot --     < docs/consolidated-schema-draft.sql
+--   docker run -d --name carelink-schema -e MYSQL_ROOT_PASSWORD=root -e MYSQL_DATABASE=carelink -p 3307:3306 mysql:8.4
+--   docker exec -i carelink-schema mysql -uroot -proot < docs/consolidated-schema-draft.sql
 --
 -- Or in MySQL Workbench: create an empty schema named carelink, open this
--- file, Execute all. Verified on MySQL 8.0.43: 31 tables, 40 foreign keys,
+-- file, Execute all. Verified on MySQL 8.0.43: 37 tables, 47 foreign keys,
 -- no errors.
 --
 -- Target: MySQL 8.4 LTS
@@ -450,6 +450,92 @@ CREATE TABLE visit_state_transition (
     CONSTRAINT fk_transition_visit FOREIGN KEY (visit_id) REFERENCES visit (id)
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4;
 
+-- ---------------------------------------------------------------------
+-- Rostering run  (Strategy)
+--
+-- NOT submitted as tables by anyone, but drawn in full on supervisor screens
+-- 1b and 4c: an objective toggle (Continuity / Travel time / Even workload /
+-- Cost), a "constraints checked" panel with HARD and SOFT rules, "suggestion
+-- 1 of 4" per visit with Accept / Next option, and a run summary (visits
+-- covered 6 of 7, continuity kept 5 of 7, added travel +11 km). Stories
+-- B1-B4 describe the same thing.
+--
+-- DECISION 17  A rostering run is recorded, not only its outcome. The
+--              objective is the Strategy that ran; every candidate that was
+--              considered is kept with the result of each constraint check,
+--              so the supervisor can answer "why was this caregiver not
+--              suggested" and the report can show it. Accepting a candidate
+--              creates a visit_assignment; nothing here updates visit
+--              directly.
+-- ---------------------------------------------------------------------
+
+-- The rule set, data-driven so a rule can be switched off or its threshold
+-- changed without a release (screen 1b: "configurable").
+CREATE TABLE rostering_constraint (
+    id              BIGINT       NOT NULL AUTO_INCREMENT,
+    code            VARCHAR(40)  NOT NULL COMMENT 'CERTIFICATION_VALID, DAILY_VISIT_CAP, SECTOR_BAND, DIALECT_MATCH, CONTINUITY, TRAVEL_DISTANCE, DAILY_HOURS_CAP',
+    name            VARCHAR(100) NOT NULL,
+    kind            ENUM('HARD','SOFT') NOT NULL COMMENT 'HARD excludes the candidate; SOFT only changes the score',
+    parameter_value VARCHAR(50)  NULL COMMENT 'threshold shown on screen 4c: 8 visits, 5 km, 8.0 hours',
+    enabled         BOOLEAN      NOT NULL DEFAULT TRUE,
+    PRIMARY KEY (id),
+    UNIQUE KEY uk_rostering_constraint_code (code)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4;
+
+-- One click of "Re-roster" or "find a caregiver". A run covers one or many
+-- visits: an absence vacates several at once (screen 4c re-rosters seven).
+CREATE TABLE rostering_run (
+    id                   BIGINT   NOT NULL AUTO_INCREMENT,
+    trigger_type         ENUM('NEW_VISIT','ABSENCE','MANUAL') NOT NULL,
+    absence_id           BIGINT   NULL COMMENT 'the absence that vacated the visits, when trigger_type = ABSENCE',
+    objective            ENUM('CONTINUITY','TRAVEL_TIME','EVEN_WORKLOAD','COST') NOT NULL COMMENT 'the Strategy that ran; screen 4c objective tabs',
+    requested_by_user_id BIGINT   NULL COMMENT 'soft FK to app_user.id',
+    status               ENUM('PROPOSED','COMMITTED','DISCARDED') NOT NULL DEFAULT 'PROPOSED',
+    visits_total         INT      NOT NULL DEFAULT 0,
+    visits_covered       INT      NOT NULL DEFAULT 0,
+    continuity_kept      INT      NOT NULL DEFAULT 0,
+    added_travel_km      DECIMAL(6,1) NULL,
+    ran_at               DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    committed_at         DATETIME NULL,
+    PRIMARY KEY (id),
+    KEY idx_rostering_run_absence (absence_id),
+    CONSTRAINT fk_rostering_run_absence FOREIGN KEY (absence_id) REFERENCES absence_report (id)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4;
+
+-- Every caregiver considered for every visit in the run, including those a
+-- HARD constraint excluded. "Suggestion 1 of 4" is option_rank 1..4.
+CREATE TABLE rostering_candidate (
+    id               BIGINT       NOT NULL AUTO_INCREMENT,
+    rostering_run_id BIGINT       NOT NULL,
+    visit_id         BIGINT       NOT NULL,
+    caregiver_id     BIGINT       NOT NULL,
+    option_rank      INT          NULL COMMENT 'null when excluded',
+    score            DECIMAL(6,2) NULL COMMENT 'objective score; its meaning depends on rostering_run.objective',
+    outcome          ENUM('SELECTED','SUGGESTED','EXCLUDED') NOT NULL,
+    excluded_by_code VARCHAR(40)  NULL COMMENT 'rostering_constraint.code of the HARD rule that excluded this candidate',
+    PRIMARY KEY (id),
+    KEY idx_candidate_run_visit (rostering_run_id, visit_id, option_rank),
+    KEY idx_candidate_caregiver (caregiver_id),
+    CONSTRAINT fk_candidate_run       FOREIGN KEY (rostering_run_id) REFERENCES rostering_run (id),
+    CONSTRAINT fk_candidate_visit     FOREIGN KEY (visit_id) REFERENCES visit (id),
+    CONSTRAINT fk_candidate_caregiver FOREIGN KEY (caregiver_id) REFERENCES caregiver (id)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4;
+
+-- The "constraints checked" panel on screen 1b, one row per rule per
+-- candidate: Dialect match PASS, Certification valid PASS, Continuity
+-- "2 prior visits", Daily hours cap "6.5 / 8.0".
+CREATE TABLE rostering_candidate_check (
+    id                      BIGINT       NOT NULL AUTO_INCREMENT,
+    rostering_candidate_id  BIGINT       NOT NULL,
+    rostering_constraint_id BIGINT       NOT NULL,
+    result                  ENUM('PASS','FAIL','NOT_APPLICABLE') NOT NULL,
+    detail                  VARCHAR(100) NULL COMMENT 'what the screen shows next to the result',
+    PRIMARY KEY (id),
+    UNIQUE KEY uk_check_candidate_constraint (rostering_candidate_id, rostering_constraint_id),
+    CONSTRAINT fk_check_candidate  FOREIGN KEY (rostering_candidate_id) REFERENCES rostering_candidate (id),
+    CONSTRAINT fk_check_constraint FOREIGN KEY (rostering_constraint_id) REFERENCES rostering_constraint (id)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4;
+
 -- From the caregiver analysis (VisitTaskExecution). The caregiver ticks tasks off
 -- during the visit; each row is one care_plan_node of type TASK as executed on
 -- this visit. UC-CG03, UC-CG05.
@@ -737,6 +823,54 @@ CREATE TABLE audit_log (
 
 
 -- =====================================================================
+-- 9. Notifications  (Observer)
+-- =====================================================================
+
+-- NOT in any submission. UC-FM03 (live feed) and UC-FM05 (know about an
+-- incident at once) both need a record of what was sent to whom. Proof of
+-- concept sends IN_APP only; the channel column exists so SMS or email can
+-- be added as another Observer without touching the tables.
+--
+-- DECISION 18  A notification is one row per recipient, created when a
+--              domain event happens (visit state change, incident raised or
+--              escalated, credential expiring, spot check requested, roster
+--              changed). What a family member receives is decided by their
+--              subscription AND by elder_family_binding.access_scope: the
+--              subscription says what they want, the binding says what they
+--              may see.
+CREATE TABLE notification_subscription (
+    id         BIGINT      NOT NULL AUTO_INCREMENT,
+    user_id    BIGINT      NOT NULL COMMENT 'soft FK to app_user.id',
+    elder_id   BIGINT      NULL COMMENT 'whose events; null = events about the user themself, e.g. credential expiring',
+    event_type VARCHAR(40) NOT NULL COMMENT 'VISIT_STARTED, VISIT_COMPLETED, INCIDENT_RAISED, INCIDENT_ESCALATED, CREDENTIAL_EXPIRING, SPOT_CHECK_REQUESTED, ROSTER_CHANGED',
+    channel    ENUM('IN_APP','SMS','EMAIL') NOT NULL DEFAULT 'IN_APP',
+    enabled    BOOLEAN     NOT NULL DEFAULT TRUE,
+    created_at DATETIME    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    UNIQUE KEY uk_subscription (user_id, elder_id, event_type, channel),
+    CONSTRAINT fk_subscription_elder FOREIGN KEY (elder_id) REFERENCES elder (id)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4;
+
+CREATE TABLE notification (
+    id                BIGINT        NOT NULL AUTO_INCREMENT,
+    recipient_user_id BIGINT        NOT NULL COMMENT 'soft FK to app_user.id',
+    event_type        VARCHAR(40)   NOT NULL,
+    channel           ENUM('IN_APP','SMS','EMAIL') NOT NULL DEFAULT 'IN_APP',
+    title             VARCHAR(150)  NOT NULL,
+    body              VARCHAR(1000) NULL,
+    resource_type     VARCHAR(50)   NULL COMMENT 'what it links to: visit, incident, credential …',
+    resource_id       BIGINT        NULL,
+    status            ENUM('PENDING','SENT','READ','FAILED') NOT NULL DEFAULT 'PENDING',
+    created_at        DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    sent_at           DATETIME      NULL,
+    read_at           DATETIME      NULL,
+    PRIMARY KEY (id),
+    KEY idx_notification_recipient (recipient_user_id, status, created_at),
+    KEY idx_notification_resource (resource_type, resource_id)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4;
+
+
+-- =====================================================================
 -- Dropped from the merge, with the reason
 --
 --   users                      DECISION 4 — app_user + user_role already exist
@@ -764,14 +898,12 @@ CREATE TABLE audit_log (
 --                      the snapshot and no copy is needed
 --   CareException      = incident;  ExceptionTimeline = incident_log
 --
--- Still missing, nobody has modelled these yet
+-- Tables with no submission behind them, added by the merge because a
+-- screen or a story already requires them. Each needs its owner's review.
 --
---   rostering run and its candidates, with the reason each was excluded
---     (stories B1–B4 and supervisor screen 1b: five constraint checks per
---      candidate; the Strategy design problem needs somewhere to record why a
---      caregiver was chosen or ruled out)
---   notification and subscription (UC-FM03, UC-FM05)
---
--- vital_sign remains the one table with no submission behind it; it follows
--- from story C6 and the family mock's "Vitals Recorded (Pulse 76, Temp 36.8)".
+--   vital_sign                                  story C6; family mock "Vitals Recorded"
+--   rostering_constraint, rostering_run,
+--   rostering_candidate, rostering_candidate_check
+--                                               supervisor screens 1b and 4c; stories B1-B4
+--   notification_subscription, notification     UC-FM03, UC-FM05
 -- =====================================================================

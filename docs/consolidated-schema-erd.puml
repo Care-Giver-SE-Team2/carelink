@@ -20,7 +20,7 @@ hide circle
 hide empty methods
 left to right direction
 
-title CareLink — consolidated schema (draft v1.2)\n28 business tables + 3 platform tables · merged from elder / family / supervisor / caregiver submissions
+title CareLink — consolidated schema (draft v1.3)\n34 business tables + 3 platform tables · merged from elder / family / supervisor / caregiver submissions
 
 package "Platform" as P0 {
   entity app_user {
@@ -217,6 +217,46 @@ package "Rostering & visits  (State)" as P3 {
   }
 }
 
+package "Rostering run  (Strategy)" as P3b {
+  entity rostering_constraint {
+    <b>id</b> : BIGINT
+    --
+    code  <i>(unique)</i>
+    name
+    <color:#B3261E>kind</color>  HARD | SOFT
+    parameter_value, enabled
+  }
+  entity rostering_run {
+    <b>id</b> : BIGINT
+    --
+    absence_id  <i>FK</i>
+    trigger_type
+    <color:#B3261E>objective</color>  CONTINUITY | TRAVEL_TIME | EVEN_WORKLOAD | COST
+    status  PROPOSED | COMMITTED | DISCARDED
+    visits_total, visits_covered
+    continuity_kept, added_travel_km
+    requested_by_user_id  <i>(soft FK)</i>
+  }
+  entity rostering_candidate {
+    <b>id</b> : BIGINT
+    --
+    rostering_run_id  <i>FK</i>
+    visit_id  <i>FK</i>
+    caregiver_id  <i>FK</i>
+    option_rank, score
+    outcome  SELECTED | SUGGESTED | EXCLUDED
+    excluded_by_code
+  }
+  entity rostering_candidate_check {
+    <b>id</b> : BIGINT
+    --
+    rostering_candidate_id  <i>FK</i>
+    rostering_constraint_id  <i>FK</i>
+    result  PASS | FAIL
+    detail
+  }
+}
+
 package "Incidents & spot checks  (Chain of Responsibility)" as P4 {
   entity incident {
     <b>id</b> : BIGINT
@@ -303,6 +343,28 @@ package "Reports, services & reviews  (Template Method / redaction)" as P5 {
   }
 }
 
+package "Notifications  (Observer)" as P6 {
+  entity notification_subscription {
+    <b>id</b> : BIGINT
+    --
+    user_id  <i>(soft FK)</i>
+    elder_id  <i>FK</i>
+    event_type
+    <color:#B3261E>channel</color>  IN_APP | SMS | EMAIL
+    enabled
+  }
+  entity notification {
+    <b>id</b> : BIGINT
+    --
+    recipient_user_id  <i>(soft FK)</i>
+    event_type, channel
+    title, body
+    resource_type, resource_id
+    status  PENDING | SENT | READ
+    sent_at, read_at
+  }
+}
+
 ' ---- platform ----
 app_user ||--o{ user_role
 app_user |o..o| elder : soft
@@ -360,6 +422,19 @@ visit ||--o| elder_confirmation
 family_member ||--o{ caregiver_review
 elder ||--o{ caregiver_review
 caregiver ||--o{ caregiver_review
+
+' ---- rostering run ----
+absence_report |o--o{ rostering_run
+rostering_run ||--o{ rostering_candidate
+visit ||--o{ rostering_candidate
+caregiver ||--o{ rostering_candidate
+rostering_candidate ||--o{ rostering_candidate_check
+rostering_constraint ||--o{ rostering_candidate_check
+
+' ---- notifications ----
+elder |o--o{ notification_subscription
+app_user |o..o{ notification_subscription : soft
+app_user |o..o{ notification : soft
 
 legend bottom right
   |= |= |
