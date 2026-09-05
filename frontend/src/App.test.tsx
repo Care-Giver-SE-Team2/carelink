@@ -3,12 +3,13 @@ import { describe, expect, it } from 'vitest'
 import App from './App'
 
 describe('App', () => {
-  it('offers an entry point for each of the four role clients', () => {
+  it('renders the landing page with a sign-in form and dev shortcuts to each role client', () => {
     render(<App />)
 
-    expect(screen.getByRole('heading', { name: /CareLink/i })).toBeInTheDocument()
-    for (const label of ['主管台', '护理员端', '家属端', '老人端']) {
-      expect(screen.getByText(label)).toBeInTheDocument()
+    expect(screen.getByText('CareLink')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: /Sign in/i })).toBeInTheDocument()
+    for (const label of ['Manager', 'Caregiver', 'Family', 'Elder', 'Admin']) {
+      expect(screen.getByRole('link', { name: label })).toBeInTheDocument()
     }
   })
 })

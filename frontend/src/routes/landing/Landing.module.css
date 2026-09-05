@@ -1,0 +1,615 @@
+/*
+ * The app's front door (screen 5a in the design handoff). This page is the
+ * only marketing surface CareLink has, so it does not use the shared
+ * standard/elder theme in shared/theme/theme.css — it is its own design
+ * language (ink + one indigo accent, zero border radius, Instrument Sans /
+ * IBM Plex Mono) per the handoff README. Tokens are local to this module
+ * rather than promoted to shared/theme.css until the rest of the app is
+ * restyled to match.
+ */
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Instrument+Sans:wght@400;500;600;700&display=swap');
+
+.page {
+  --ink: #111111;
+  --muted: #6b6b6b;
+  --muted-light: #9a9a9a;
+  --rule: #e5e3de;
+  --accent: #5b5fa8;
+  --accent-hover: #4b4f96;
+  --accent-tint: #f4f4fa;
+  --green: #2f6f52;
+
+  height: 100dvh;
+  overflow-y: auto;
+  overflow-x: hidden;
+  background: #fff;
+  font-family: 'Instrument Sans', sans-serif;
+}
+
+.canvas {
+  width: 100%;
+  height: 100%;
+  background: #fff;
+  color: var(--ink);
+  display: grid;
+  grid-template-columns: 1fr 500px;
+  grid-template-rows: 100%;
+}
+
+/* ---- tints for icon circles ---- */
+
+.tint-blue {
+  background: #dbe8fd;
+  color: #2f5fb0;
+}
+
+.tint-green {
+  background: #dcf1e4;
+  color: var(--green);
+}
+
+.tint-pink {
+  background: #fbdedd;
+  color: #c2503f;
+}
+
+/* ---- left column: pitch ---- */
+
+.leftCol {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  border-right: 1px solid var(--rule);
+}
+
+.header {
+  display: flex;
+  align-items: baseline;
+  gap: 16px;
+  padding: 52px 56px 0;
+}
+
+.pitch {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  flex: 1;
+  min-height: 0;
+  padding: 76px 56px 56px;
+}
+
+.wordmark {
+  font: 700 29px/1 'Instrument Sans', sans-serif;
+  letter-spacing: -0.03em;
+}
+
+.eyebrow {
+  font: 500 11px/1 'IBM Plex Mono', monospace;
+  letter-spacing: 0.1em;
+  color: var(--muted-light);
+  text-transform: uppercase;
+}
+
+.pitchMain {
+  display: flex;
+  gap: 40px;
+  align-items: flex-start;
+}
+
+.pitchText {
+  flex: 1 1 380px;
+  min-width: 0;
+  max-width: 420px;
+}
+
+.headline {
+  margin: 0;
+  font: 800 52px/1.15 'Instrument Sans', sans-serif;
+  letter-spacing: -0.03em;
+  text-wrap: pretty;
+}
+
+.headlineAccent {
+  color: var(--green);
+}
+
+.dek {
+  margin: 22px 0 0;
+  font: 400 17px/1.65 'Instrument Sans', sans-serif;
+  color: #3a3a3a;
+  text-wrap: pretty;
+}
+
+.features {
+  list-style: none;
+  margin: 32px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.feature {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+}
+
+.featureIcon {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+}
+
+.featureTitle {
+  font: 600 17px/1.3 'Instrument Sans', sans-serif;
+  color: var(--ink);
+}
+
+.featureDescription {
+  margin-top: 4px;
+  font: 400 14.5px/1.5 'Instrument Sans', sans-serif;
+  color: var(--muted);
+}
+
+.illustration {
+  flex: 1.4 1 480px;
+  min-width: 0;
+  align-self: center;
+}
+
+.illustration img {
+  display: block;
+  width: auto;
+  height: auto;
+  max-width: 100%;
+  max-height: 500px;
+  margin: 0 auto;
+}
+
+.proof {
+  margin-top: 48px;
+  padding-top: 32px;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 24px;
+  border-top: 1px solid var(--rule);
+}
+
+.proofCell {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  min-width: 0;
+}
+
+.proofText {
+  min-width: 0;
+}
+
+.proofIcon {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+}
+
+.proofIcon svg {
+  width: 17px;
+  height: 17px;
+}
+
+.proofValue {
+  font: 500 30px/1.1 'IBM Plex Mono', monospace;
+}
+
+.proofUnit {
+  font-size: 18px;
+}
+
+.proofCaption {
+  font: 400 13px/1.5 'IBM Plex Mono', monospace;
+  color: var(--muted);
+  margin-top: 8px;
+}
+
+.footerRow {
+  margin-top: 34px;
+  display: flex;
+  gap: 22px;
+  flex-wrap: wrap;
+  font: 400 11px/1 'IBM Plex Mono', monospace;
+  color: var(--muted-light);
+}
+
+/* ---- right column: sign-in form ---- */
+
+.formColumn {
+  background: #f8f8f6;
+  padding: 76px 48px 56px;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.formTitle {
+  margin: 0;
+  font: 600 24px/1.15 'Instrument Sans', sans-serif;
+  letter-spacing: -0.015em;
+}
+
+.formSubtitle {
+  font: 400 12.5px/1.5 'IBM Plex Mono', monospace;
+  color: var(--muted);
+  margin-top: 8px;
+}
+
+.fields {
+  margin-top: 26px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.fieldLabel {
+  display: block;
+  font: 400 12px/1 'IBM Plex Mono', monospace;
+  color: var(--muted);
+}
+
+.textInput {
+  width: 100%;
+  box-sizing: border-box;
+  margin-top: 7px;
+  border: 1px solid var(--rule);
+  border-radius: 10px;
+  background: #fff;
+  padding: 13px;
+  font: 400 15px/1 'Instrument Sans', sans-serif;
+  color: var(--ink);
+}
+
+.textInput:focus {
+  outline: none;
+  border-color: var(--ink);
+}
+
+.textInput::placeholder {
+  color: var(--muted-light);
+}
+
+.passwordBox {
+  margin-top: 7px;
+  border: 1px solid var(--rule);
+  border-radius: 10px;
+  background: #fff;
+  padding: 13px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.passwordBox:focus-within {
+  border-color: var(--ink);
+}
+
+.passwordInput {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  outline: none;
+  background: transparent;
+  padding: 0;
+  font: 400 15px/1 'Instrument Sans', sans-serif;
+  color: var(--ink);
+}
+
+.passwordInput::placeholder {
+  color: #c8c8c4;
+}
+
+.showToggle {
+  flex: none;
+  min-height: 0;
+  margin: 0 0 0 12px;
+  padding: 0;
+  border: none;
+  border-radius: 0;
+  background: none;
+  font: 400 11px/1 'IBM Plex Mono', monospace;
+  color: var(--accent);
+  cursor: pointer;
+}
+
+.checkboxRow {
+  margin-top: 15px;
+  display: flex;
+  gap: 9px;
+  align-items: center;
+  cursor: pointer;
+  width: fit-content;
+}
+
+.checkboxInput {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+}
+
+.checkboxBox {
+  width: 15px;
+  height: 15px;
+  border: 1px solid var(--ink);
+  border-radius: 4px;
+  background: #fff;
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.checkboxInput:checked + .checkboxBox {
+  background: var(--ink);
+}
+
+.checkboxInput:checked + .checkboxBox::after {
+  content: '';
+  width: 3px;
+  height: 6px;
+  border: solid #fff;
+  border-width: 0 1.5px 1.5px 0;
+  transform: rotate(45deg) translate(-1px, -1px);
+}
+
+.checkboxInput:focus-visible + .checkboxBox {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.checkboxLabel {
+  font: 400 13.5px/1 'Instrument Sans', sans-serif;
+  color: #444;
+}
+
+.submit {
+  width: 100%;
+  min-height: 0;
+  margin-top: 20px;
+  padding: 15px 0;
+  border: 1px solid var(--ink);
+  border-radius: 10px;
+  background: var(--ink);
+  color: #fff;
+  font: 600 15px/1 'Instrument Sans', sans-serif;
+  cursor: pointer;
+}
+
+.submit:hover {
+  background: #333;
+}
+
+.belowSubmit {
+  margin-top: 14px;
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  font: 400 12px/1 'IBM Plex Mono', monospace;
+}
+
+.forgotLink {
+  min-height: 0;
+  padding: 0;
+  border: none;
+  border-radius: 0;
+  background: none;
+  color: var(--accent);
+  font: inherit;
+  cursor: pointer;
+}
+
+.forgotLink:hover {
+  text-decoration: underline;
+}
+
+.forgotNote {
+  color: var(--muted);
+}
+
+.noAccount {
+  margin-top: 34px;
+  padding-top: 26px;
+  border-top: 1px solid var(--rule);
+}
+
+.noAccountEyebrow {
+  font: 500 10px/1 'IBM Plex Mono', monospace;
+  letter-spacing: 0.1em;
+  color: var(--muted-light);
+  text-transform: uppercase;
+}
+
+.applyCard {
+  display: block;
+  margin-top: 13px;
+  border: 1px solid var(--accent);
+  border-radius: 12px;
+  background: #fff;
+  padding: 16px;
+  text-decoration: none;
+}
+
+.applyCard:hover {
+  background: var(--accent-tint);
+}
+
+.applyCardRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.applyCardLabel {
+  font: 600 15px/1.3 'Instrument Sans', sans-serif;
+  color: var(--ink);
+}
+
+.applyCardArrow {
+  font: 500 16px/1 'IBM Plex Mono', monospace;
+  color: var(--accent);
+  flex: none;
+}
+
+.applyCardCaption {
+  font: 400 12.5px/1.5 'IBM Plex Mono', monospace;
+  color: var(--muted);
+  margin-top: 8px;
+}
+
+.elderNote {
+  margin-top: 16px;
+  font: 400 12px/1.6 'Instrument Sans', sans-serif;
+  color: var(--muted);
+  text-wrap: pretty;
+}
+
+.elderNote a {
+  color: var(--accent);
+}
+
+.baseline {
+  margin-top: auto;
+  padding-top: 30px;
+  font: 400 10.5px/1.7 'IBM Plex Mono', monospace;
+  color: var(--muted-light);
+}
+
+/* ---- temporary dev role shortcuts ---- */
+
+.devRoleLinks {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  z-index: 100;
+  display: flex;
+  gap: 8px;
+  padding: 8px;
+  border: 1px solid var(--rule);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(4px);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+}
+
+.devRoleLink {
+  padding: 9px 13px;
+  border: 1px solid var(--rule);
+  border-radius: 7px;
+  background: #fff;
+  color: var(--ink);
+  font: 500 12.5px/1 'IBM Plex Mono', monospace;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.devRoleLink:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: var(--accent-tint);
+}
+
+/* ==========================================================================
+   Responsive overrides
+   ========================================================================== */
+
+/* ---- tablet: 861–1300px ---- */
+@media (min-width: 861px) and (max-width: 1300px) {
+  .pitchMain {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .pitchText {
+    flex: none;
+    max-width: none;
+  }
+
+  .illustration {
+    flex: none;
+    width: 100%;
+    max-width: 480px;
+    align-self: center;
+  }
+
+  .illustration img {
+    max-height: 500px;
+  }
+}
+
+/* ---- mobile: ≤860px ---- */
+@media (max-width: 860px) {
+  .page {
+    height: auto;
+    overflow: visible;
+  }
+
+  .canvas {
+    height: auto;
+    grid-template-columns: 1fr;
+    grid-template-rows: auto;
+  }
+
+  .header {
+    padding: 24px;
+    border-bottom: 1px solid var(--rule);
+  }
+
+  /* Unwrap leftCol so header, form and pitch become independently orderable. */
+  .leftCol {
+    display: contents;
+  }
+
+  .pitch {
+    padding: 40px 24px 24px;
+    border-top: 1px solid var(--rule);
+    order: 3;
+  }
+
+  .pitchMain {
+    flex-direction: column;
+  }
+
+  .pitchText {
+    max-width: none;
+    flex: none;
+  }
+
+  .illustration {
+    flex: none;
+  }
+
+  .illustration img {
+    max-height: none;
+  }
+
+  .proof {
+    grid-template-columns: 1fr;
+    gap: 18px;
+  }
+
+  /* Sign-in comes right after the header since it's the task. */
+  .formColumn {
+    padding: 40px 24px 24px;
+    order: 2;
+  }
+}
