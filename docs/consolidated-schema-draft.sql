@@ -1,0 +1,777 @@
+-- =====================================================================
+-- CareLink — consolidated schema, DRAFT for team review
+--
+-- Merges the four submissions made independently:
+--   docs/elder/elderly_care_system.sql                       (11 tables)
+--   docs/family/family.sql                                   ( 7 tables)
+--   docs/manager/CareLink_Supervisor_Consolidated_Schema.sql (12 tables)
+--     + the per-screen ERDs in CareLink_Supervisor_Screens_and_ERDs.pdf
+--   docs/caregiver/caregiver_data_analysis (EN).docx         (18 logical entities, no SQL)
+--
+-- They modelled the same domain four times, under four different naming
+-- conventions, so they cannot simply be concatenated. Every decision taken
+-- while merging is marked "DECISION" below; each one needs the team's
+-- agreement before this becomes a migration.
+--
+-- NOT a migration yet. Once agreed, it is renamed to a timestamped Flyway
+-- script and committed by one person.
+--
+-- Result: 31 tables = 28 business tables + audit_log + the two account
+-- tables (app_user, user_role) that V1__baseline.sql already created. Those
+-- two are repeated in section 0 so this file is complete on its own; they
+-- must be LEFT OUT when the file is turned into a migration.
+--
+-- To try it on an empty database (Docker):
+--   docker run -d --name carelink-schema -e MYSQL_ROOT_PASSWORD=root --     -e MYSQL_DATABASE=carelink -p 3307:3306 mysql:8.4
+--   docker exec -i carelink-schema mysql -uroot -proot --     < docs/consolidated-schema-draft.sql
+--
+-- Or in MySQL Workbench: create an empty schema named carelink, open this
+-- file, Execute all. Verified on MySQL 8.0.43: 31 tables, 40 foreign keys,
+-- no errors.
+--
+-- Target: MySQL 8.4 LTS
+-- =====================================================================
+
+-- Selects the schema so the file runs as-is in Workbench (error 1046 "No
+-- database selected" otherwise). DELETE this line when the file becomes a
+-- Flyway migration: Flyway connects to the schema itself.
+USE carelink;
+
+-- =====================================================================
+-- 0. Platform: accounts  (ALREADY EXISTS — copied verbatim from
+--    backend/src/main/resources/db/migration/V1__baseline.sql so that this
+--    file runs on an empty schema. Do NOT carry this section into the
+--    migration; Flyway has already applied V1 and would fail on it.)
+-- =====================================================================
+
+CREATE TABLE app_user (
+    id            BIGINT       NOT NULL AUTO_INCREMENT,
+    username      VARCHAR(64)  NOT NULL,
+    password_hash VARCHAR(255) NOT NULL,
+    display_name  VARCHAR(128) NOT NULL,
+    enabled       BOOLEAN      NOT NULL DEFAULT TRUE,
+    created_at    DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    UNIQUE KEY uk_app_user_username (username)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4;
+
+CREATE TABLE user_role (
+    user_id BIGINT      NOT NULL,
+    role    VARCHAR(32) NOT NULL,
+    PRIMARY KEY (user_id, role),
+    CONSTRAINT fk_user_role_user FOREIGN KEY (user_id) REFERENCES app_user (id)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4;
+
+-- ---------------------------------------------------------------------
+-- Conventions applied throughout
+--
+-- DECISION 1  Table names are singular.
+--             Two of the three submissions and the existing baseline already
+--             are; family.sql used plurals.
+--
+-- DECISION 2  The primary key is always `id BIGINT`.
+--             The existing app_user table and family.sql already do this;
+--             elder and manager used <table>_id, and manager used INT.
+--             A foreign key is named <referenced_table>_id.
+--
+-- DECISION 3  The elder is called `elder` everywhere.
+--             The three submissions used elderly / senior / elder. The code
+--             already uses elder (Role.ELDER, /elder route), so the schema
+--             follows the code rather than the other way round.
+--
+-- DECISION 4  Accounts stay in app_user + user_role.
+--             elderly_care_system.sql introduced its own `users` table with a
+--             single-role ENUM. The identity module is already built on
+--             app_user + user_role, which also allows a person to hold more
+--             than one role. The `users` table is dropped from the merge.
+--
+-- DECISION 5  Foreign keys inside a module are real constraints; references
+--             that cross a module boundary store the id without a constraint.
+--             Cross-module constraints make Flyway migration order a shared
+--             problem and let one owner's change break another's table.
+--             Cross-module references are marked "-- soft FK" below.
+--
+-- DECISION 6  utf8mb4 throughout, and every table carries created_at.
+--             Tables that can be edited after creation also carry updated_at.
+-- ---------------------------------------------------------------------
+
+
+-- =====================================================================
+-- 1. People and profiles
+-- =====================================================================
+
+-- Merges elder.elderly + manager.elder, plus the profile fields the supervisor's
+-- per-screen ERDs carried but the consolidated SQL dropped (dialect, lives_alone,
+-- mobility, continuity_preference) and the ones family's intake form collects.
+-- These are the inputs the rostering rules check on screen 1b: dialect match,
+-- postal sector band, continuity of caregiver.
+CREATE TABLE elder (
+    id                     BIGINT       NOT NULL AUTO_INCREMENT,
+    user_id                BIGINT       NULL COMMENT 'soft FK to app_user.id; null until an account is issued',
+    full_name              VARCHAR(100) NOT NULL,
+    gender                 ENUM('MALE','FEMALE','OTHER') NULL,
+    date_of_birth          DATE         NULL,
+    phone                  VARCHAR(20)  NULL,
+    address                VARCHAR(255) NULL,
+    postal_code            VARCHAR(10)  NULL,
+    sector                 VARCHAR(50)  NULL COMMENT 'locality band used when matching caregivers',
+    preferred_dialects     VARCHAR(100) NULL COMMENT 'comma-separated; matched against caregiver.dialects',
+    lives_alone            BOOLEAN      NULL,
+    mobility_level         ENUM('INDEPENDENT','ASSISTIVE_CANE','WHEELCHAIR_BEDBOUND') NULL,
+    continuity_preference  ENUM('PREFERRED','REQUIRED','NONE') NOT NULL DEFAULT 'PREFERRED'
+                           COMMENT 'how strongly the same caregiver should be kept',
+    medical_notes          TEXT         NULL,
+    created_at             DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at             DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    UNIQUE KEY uk_elder_user (user_id)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4;
+
+-- Merges elder.caregiver + manager.caregiver.
+-- The two definitions disagreed on almost everything: BIGINT vs INT,
+-- full_name vs name, and whether a caregiver has an account at all.
+-- Resolved in favour of elder's version (accounts exist, statuses matter)
+-- plus manager's sector.
+CREATE TABLE caregiver (
+    id         BIGINT       NOT NULL AUTO_INCREMENT,
+    user_id    BIGINT       NULL COMMENT 'soft FK to app_user.id',
+    full_name  VARCHAR(100) NOT NULL,
+    phone      VARCHAR(20)  NULL,
+    sector     VARCHAR(50)  NULL,
+    dialects   VARCHAR(100) NULL COMMENT 'comma-separated; supervisor ERD screen 1b',
+    status     ENUM('AVAILABLE','BUSY','INACTIVE') NOT NULL DEFAULT 'AVAILABLE',
+    created_at DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    UNIQUE KEY uk_caregiver_user (user_id)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4;
+
+-- Merges elder.family_member + family.family_members + manager.family_member.
+--
+-- DECISION 7  A family member is an account holder in their own right, not an
+--             attribute of one elder. manager.family_member carried an elder_id,
+--             which cannot express a person who looks after two elders. The
+--             relationship lives in elder_family_binding instead.
+CREATE TABLE family_member (
+    id                  BIGINT       NOT NULL AUTO_INCREMENT,
+    user_id             BIGINT       NULL COMMENT 'soft FK to app_user.id',
+    full_name           VARCHAR(100) NOT NULL,
+    contact_number      VARCHAR(20)  NULL,
+    email               VARCHAR(100) NULL,
+    residential_address VARCHAR(255) NULL,
+    created_at          DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at          DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    UNIQUE KEY uk_family_member_user (user_id)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4;
+
+-- Merges elder.elderly_family_binding + family.senior_family_bindings.
+-- family's version was the richer of the two and is kept almost whole: the
+-- pairing code, who initiated the request, and the access scope all matter and
+-- the elder version had none of them.
+--
+-- access_scope is what UC-FM04 filters a report against, so it is the anchor
+-- for the redaction design problem.
+CREATE TABLE elder_family_binding (
+    id                 BIGINT      NOT NULL AUTO_INCREMENT,
+    elder_id           BIGINT      NOT NULL,
+    family_member_id   BIGINT      NULL COMMENT 'null while a pairing code is outstanding',
+    pairing_code       VARCHAR(6)  NULL COMMENT 'six digits, issued by the elder (UC-EL04)',
+    relationship       ENUM('SON','DAUGHTER','SPOUSE','GUARDIAN','OTHER') NOT NULL DEFAULT 'OTHER',
+    is_primary_contact BOOLEAN     NOT NULL DEFAULT FALSE,
+    access_scope       ENUM('FULL','READ_ONLY') NOT NULL DEFAULT 'FULL',
+    status             ENUM('PENDING_CONFIRMATION','ACTIVE','REJECTED','REVOKED') NOT NULL DEFAULT 'PENDING_CONFIRMATION',
+    requested_by       ENUM('ELDER','FAMILY_MEMBER') NOT NULL DEFAULT 'ELDER',
+    confirmed_at       DATETIME    NULL,
+    expires_at         DATETIME    NULL COMMENT 'delegation expiry; revocation cascades to report access',
+    created_at         DATETIME    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at         DATETIME    NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    UNIQUE KEY uk_elder_family (elder_id, family_member_id),
+    KEY idx_binding_pairing_code (pairing_code),
+    CONSTRAINT fk_binding_elder  FOREIGN KEY (elder_id) REFERENCES elder (id),
+    CONSTRAINT fk_binding_family FOREIGN KEY (family_member_id) REFERENCES family_member (id)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4;
+
+-- From family.intake_applications, unchanged in substance.
+CREATE TABLE intake_application (
+    id                         BIGINT       NOT NULL AUTO_INCREMENT,
+    applicant_family_member_id BIGINT       NOT NULL,
+    target_elder_name          VARCHAR(100) NOT NULL,
+    target_elder_age           INT          NULL,
+    target_address             VARCHAR(255) NOT NULL,
+    postal_code                VARCHAR(10)  NOT NULL,
+    mobility_level             ENUM('INDEPENDENT','ASSISTIVE_CANE','WHEELCHAIR_BEDBOUND') NOT NULL DEFAULT 'INDEPENDENT',
+    preferred_dialects         VARCHAR(100) NULL,
+    care_needs                 JSON         NULL COMMENT 'requested tasks, e.g. ["BATHING","VITALS"]',
+    medical_notes              TEXT         NULL,
+    status                     ENUM('SUBMITTED','UNDER_REVIEW','APPROVED','REJECTED') NOT NULL DEFAULT 'SUBMITTED',
+    reviewed_by_user_id        BIGINT       NULL COMMENT 'soft FK to app_user.id',
+    review_remarks             VARCHAR(255) NULL,
+    created_at                 DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    reviewed_at                DATETIME     NULL,
+    PRIMARY KEY (id),
+    KEY idx_intake_status (status),
+    CONSTRAINT fk_intake_family FOREIGN KEY (applicant_family_member_id) REFERENCES family_member (id)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4;
+
+-- From the supervisor's screen-2a ERD (CREDENTIAL_TYPE), which the consolidated
+-- SQL dropped. A catalogue of certification kinds, so that a plan can require
+-- "first aid" as a type rather than as free text that has to match by string.
+CREATE TABLE credential_type (
+    id         BIGINT       NOT NULL AUTO_INCREMENT,
+    name       VARCHAR(100) NOT NULL,
+    created_at DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    UNIQUE KEY uk_credential_type_name (name)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4;
+
+-- From manager.credential, now pointing at credential_type. SYS01 scans
+-- expiry_date daily; screen 2d shows the 30-day warning threshold.
+CREATE TABLE credential (
+    id                  BIGINT       NOT NULL AUTO_INCREMENT,
+    caregiver_id        BIGINT       NOT NULL,
+    credential_type_id  BIGINT       NOT NULL,
+    reviewed_by_user_id BIGINT       NULL COMMENT 'soft FK to app_user.id',
+    certificate_no      VARCHAR(100) NULL,
+    issuing_body        VARCHAR(150) NULL,
+    valid_from          DATE         NULL,
+    expiry_date         DATE         NOT NULL,
+    status              ENUM('SUBMITTED','PUBLISHED','REJECTED','EXPIRING','EXPIRED','REVOKED')
+                        NOT NULL DEFAULT 'SUBMITTED',
+    created_at          DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at          DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    KEY idx_credential_expiry (expiry_date, status),
+    CONSTRAINT fk_credential_caregiver FOREIGN KEY (caregiver_id) REFERENCES caregiver (id),
+    CONSTRAINT fk_credential_type      FOREIGN KEY (credential_type_id) REFERENCES credential_type (id)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4;
+
+
+-- =====================================================================
+-- 2. Care plan
+-- =====================================================================
+
+-- From manager.care_plan, with supersedes_plan_id and published_at restored from
+-- the supervisor's screen-2a ERD. Screen 2a shows the version history ("v4 vitals
+-- to daily, v3 grooming added"), which is what the supersedes chain records.
+CREATE TABLE care_plan (
+    id                  BIGINT        NOT NULL AUTO_INCREMENT,
+    elder_id            BIGINT        NOT NULL,
+    created_by_user_id  BIGINT        NULL COMMENT 'soft FK to app_user.id',
+    supersedes_plan_id  BIGINT        NULL COMMENT 'the previous version this one replaced',
+    version             INT           NOT NULL DEFAULT 1,
+    status              ENUM('DRAFT','PUBLISHED','SUPERSEDED') NOT NULL DEFAULT 'DRAFT',
+    total_hours         DECIMAL(6,2)  NULL COMMENT 'rolled up from care_plan_node, not entered by hand',
+    published_at        DATETIME      NULL,
+    created_at          DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at          DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    KEY idx_care_plan_elder (elder_id, status),
+    CONSTRAINT fk_care_plan_elder      FOREIGN KEY (elder_id) REFERENCES elder (id),
+    CONSTRAINT fk_care_plan_supersedes FOREIGN KEY (supersedes_plan_id) REFERENCES care_plan (id)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4;
+
+-- This IS in a submission after all: the supervisor's screen-2a ERD has PLAN_NODE,
+-- "a self-referencing tree (sub-plans nest to any depth)". It was dropped when the
+-- twelve-table SQL was consolidated, and it is the table the Composite design
+-- problem is built on. The columns below are his, renamed to the conventions above.
+--
+-- DECISION 8  The plan is a tree, not one flat row. Story A3 requires hours to
+--             roll up "from a task item to the overall plan" across an
+--             indeterminate number of levels, which is the whole reason
+--             Composite was chosen. parent_id null means the node sits directly
+--             under the plan. Screen 2a: "a sub-plan can hold tasks or further
+--             sub-plans to any depth; effort at every level is the sum of its
+--             children".
+CREATE TABLE care_plan_node (
+    id                 BIGINT        NOT NULL AUTO_INCREMENT,
+    care_plan_id       BIGINT        NOT NULL,
+    parent_id          BIGINT        NULL COMMENT 'self reference; null at the top level',
+    node_type          ENUM('SUB_PLAN','TASK') NOT NULL,
+    name               VARCHAR(150)  NOT NULL,
+    service_type       VARCHAR(50)   NULL COMMENT 'bathing, medication reminder, rehabilitation …',
+    schedule_days      VARCHAR(30)   NULL COMMENT 'e.g. MON,WED,FRI or DAILY',
+    duration_per_visit DECIMAL(5,2)  NULL COMMENT 'hours; TASK nodes only',
+    weekly_hours       DECIMAL(6,2)  NULL COMMENT 'TASK: computed; SUB_PLAN: sum of children',
+    evidence_type      ENUM('NONE','CHECKLIST','PHOTO','READING') NOT NULL DEFAULT 'NONE'
+                       COMMENT 'what the caregiver must capture to close the task',
+    display_order      INT           NOT NULL DEFAULT 0,
+    created_at         DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at         DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    KEY idx_plan_node_plan (care_plan_id),
+    KEY idx_plan_node_parent (parent_id),
+    CONSTRAINT fk_plan_node_plan   FOREIGN KEY (care_plan_id) REFERENCES care_plan (id),
+    CONSTRAINT fk_plan_node_parent FOREIGN KEY (parent_id) REFERENCES care_plan_node (id)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4;
+
+-- From the supervisor's screen-2a ERD (CARE_PLAN_REQUIRED_CREDENTIAL). Which
+-- certifications a caregiver must hold to be rostered onto this plan; rostering
+-- checks it ("certification valid: PASS" on screen 1b).
+CREATE TABLE care_plan_required_credential (
+    care_plan_id        BIGINT NOT NULL,
+    credential_type_id  BIGINT NOT NULL,
+    PRIMARY KEY (care_plan_id, credential_type_id),
+    CONSTRAINT fk_cprc_plan FOREIGN KEY (care_plan_id) REFERENCES care_plan (id),
+    CONSTRAINT fk_cprc_type FOREIGN KEY (credential_type_id) REFERENCES credential_type (id)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4;
+
+
+-- =====================================================================
+-- 3. Rostering and visits
+-- =====================================================================
+
+-- From the caregiver analysis (WorkPreference). UC-CG02: what the caregiver would
+-- prefer. Rostering reads it as a soft preference; it never overrides a hard
+-- constraint such as an expired credential or an approved absence.
+CREATE TABLE caregiver_preference (
+    id                      BIGINT       NOT NULL AUTO_INCREMENT,
+    caregiver_id            BIGINT       NOT NULL,
+    preferred_service_types VARCHAR(255) NULL COMMENT 'comma-separated',
+    preferred_sectors       VARCHAR(255) NULL COMMENT 'comma-separated',
+    preferred_time_windows  VARCHAR(255) NULL COMMENT 'e.g. MON 08:00-12:00;WED 13:00-17:00',
+    max_visits_per_day      INT          NULL,
+    max_hours_per_day       DECIMAL(4,1) NULL COMMENT 'screen 1b checks "daily hours cap" against this',
+    updated_at              DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    UNIQUE KEY uk_preference_caregiver (caregiver_id),
+    CONSTRAINT fk_preference_caregiver FOREIGN KEY (caregiver_id) REFERENCES caregiver (id)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4;
+
+-- From the caregiver analysis (Availability). Day-by-day windows the caregiver
+-- can be rostered into. Combined with absence_report to decide who is free.
+CREATE TABLE caregiver_availability (
+    id              BIGINT   NOT NULL AUTO_INCREMENT,
+    caregiver_id    BIGINT   NOT NULL,
+    available_date  DATE     NOT NULL,
+    available_start TIME     NOT NULL,
+    available_end   TIME     NOT NULL,
+    status          ENUM('AVAILABLE','UNAVAILABLE') NOT NULL DEFAULT 'AVAILABLE',
+    created_at      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    KEY idx_availability_caregiver_date (caregiver_id, available_date),
+    CONSTRAINT fk_availability_caregiver FOREIGN KEY (caregiver_id) REFERENCES caregiver (id)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4;
+
+-- From manager.absence_report. CG02 writes it, MG04 reads it.
+CREATE TABLE absence_report (
+    id                  BIGINT   NOT NULL AUTO_INCREMENT,
+    caregiver_id        BIGINT   NOT NULL,
+    reviewed_by_user_id BIGINT   NULL COMMENT 'soft FK to app_user.id',
+    type                ENUM('SICK','ANNUAL','EMERGENCY','OTHER') NOT NULL DEFAULT 'OTHER',
+    start_date          DATE     NOT NULL,
+    end_date            DATE     NOT NULL,
+    reason              VARCHAR(255) NULL,
+    status              ENUM('PENDING','APPROVED','REJECTED') NOT NULL DEFAULT 'PENDING',
+    created_at          DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at          DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    CONSTRAINT fk_absence_caregiver FOREIGN KEY (caregiver_id) REFERENCES caregiver (id)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4;
+
+-- Merges manager.visit + elder.service_order.
+--
+-- DECISION 9  These were the same thing under two names. manager.visit is a
+--             scheduled home visit; elder.service_order is a service with a
+--             caregiver, a time window and a completion confirmation. Keeping
+--             both would mean the caregiver closing a visit while the elder
+--             confirms an order, with nothing joining them.
+--
+--             The merged status list is elder's, which is the one the State
+--             design problem is built on, plus manager's EXCEPTION outcome.
+CREATE TABLE visit (
+    id                 BIGINT   NOT NULL AUTO_INCREMENT,
+    elder_id           BIGINT   NOT NULL,
+    caregiver_id       BIGINT   NULL COMMENT 'null while unassigned',
+    care_plan_node_id  BIGINT   NULL COMMENT 'soft FK to care_plan_node.id; which plan task this fulfils',
+    absence_id         BIGINT   NULL COMMENT 'set when this visit was re-rostered because of an absence',
+    service_type       VARCHAR(50)  NULL,
+    scheduled_start    DATETIME NOT NULL,
+    scheduled_end      DATETIME NULL,
+    checked_in_at      DATETIME NULL,
+    checked_out_at     DATETIME NULL,
+    status             ENUM('SCHEDULED','ARRIVED','IN_PROGRESS','COMPLETED','VERIFIED','EXCEPTION','CANCELLED')
+                       NOT NULL DEFAULT 'SCHEDULED',
+    state_deadline     DATETIME NULL COMMENT 'when the current state must have advanced by; SYS03 infers a missed check-in from it',
+    care_plan_id       BIGINT   NULL COMMENT 'soft FK to care_plan.id: the plan VERSION in force when this visit was created (story A6). Superseded versions are never edited, so pointing at the row is the snapshot',
+    version            INT      NOT NULL DEFAULT 0 COMMENT 'optimistic lock for concurrent state changes',
+    created_at         DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at         DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    KEY idx_visit_elder (elder_id, scheduled_start),
+    KEY idx_visit_caregiver (caregiver_id, scheduled_start),
+    KEY idx_visit_status (status),
+    KEY idx_visit_deadline (status, state_deadline),
+    CONSTRAINT fk_visit_elder     FOREIGN KEY (elder_id) REFERENCES elder (id),
+    CONSTRAINT fk_visit_caregiver FOREIGN KEY (caregiver_id) REFERENCES caregiver (id),
+    CONSTRAINT fk_visit_absence   FOREIGN KEY (absence_id) REFERENCES absence_report (id)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4;
+
+-- From the caregiver analysis (RosterAssignment). visit.caregiver_id above is the
+-- CURRENT assignee, kept there because every roster query needs it. This table is
+-- the history: who was assigned, who was replaced after an absence, and why.
+--
+-- DECISION 15  Caregiver-to-visit is many-to-many over time, one-to-one at any
+--              instant. The caregiver analysis is right that a re-roster must not
+--              erase the previous assignment. So the current one is denormalised
+--              onto visit and the full history lives here.
+CREATE TABLE visit_assignment (
+    id               BIGINT   NOT NULL AUTO_INCREMENT,
+    visit_id         BIGINT   NOT NULL,
+    caregiver_id     BIGINT   NOT NULL,
+    assigned_by_user_id BIGINT NULL COMMENT 'soft FK to app_user.id',
+    status           ENUM('ACTIVE','REPLACED','CANCELLED') NOT NULL DEFAULT 'ACTIVE',
+    reason           VARCHAR(255) NULL COMMENT 'why this assignment was made or replaced',
+    assigned_at      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    ended_at         DATETIME NULL,
+    PRIMARY KEY (id),
+    KEY idx_assignment_visit (visit_id, status),
+    KEY idx_assignment_caregiver (caregiver_id, assigned_at),
+    CONSTRAINT fk_assignment_visit     FOREIGN KEY (visit_id) REFERENCES visit (id),
+    CONSTRAINT fk_assignment_caregiver FOREIGN KEY (caregiver_id) REFERENCES caregiver (id)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4;
+
+-- From the caregiver analysis (VisitStateTransition). Every attempt to move the
+-- visit between states, INCLUDING the ones the state machine rejected. Story C8
+-- asks for exactly this: "rejected transition attempts logged separately from the
+-- legal history". It is the evidence the State design problem is judged on.
+CREATE TABLE visit_state_transition (
+    id               BIGINT   NOT NULL AUTO_INCREMENT,
+    visit_id         BIGINT   NOT NULL,
+    from_state       VARCHAR(20) NOT NULL,
+    to_state         VARCHAR(20) NOT NULL,
+    actor_user_id    BIGINT   NULL COMMENT 'soft FK to app_user.id; null when the system acted',
+    result           ENUM('APPLIED','REJECTED') NOT NULL,
+    rejection_reason VARCHAR(255) NULL,
+    occurred_at      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    KEY idx_transition_visit (visit_id, occurred_at),
+    CONSTRAINT fk_transition_visit FOREIGN KEY (visit_id) REFERENCES visit (id)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4;
+
+-- From the caregiver analysis (VisitTaskExecution). The caregiver ticks tasks off
+-- during the visit; each row is one care_plan_node of type TASK as executed on
+-- this visit. UC-CG03, UC-CG05.
+CREATE TABLE visit_task (
+    id                 BIGINT       NOT NULL AUTO_INCREMENT,
+    visit_id           BIGINT       NOT NULL,
+    care_plan_node_id  BIGINT       NULL COMMENT 'soft FK to care_plan_node.id; the TASK this executes',
+    name               VARCHAR(150) NOT NULL,
+    status             ENUM('PENDING','DONE','SKIPPED','REFUSED') NOT NULL DEFAULT 'PENDING',
+    outcome            VARCHAR(255) NULL,
+    caregiver_note     VARCHAR(500) NULL,
+    completed_at       DATETIME     NULL,
+    PRIMARY KEY (id),
+    KEY idx_visit_task_visit (visit_id),
+    CONSTRAINT fk_visit_task_visit FOREIGN KEY (visit_id) REFERENCES visit (id)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4;
+
+CREATE TABLE vital_sign (
+    id          BIGINT       NOT NULL AUTO_INCREMENT,
+    visit_id    BIGINT       NOT NULL,
+    metric      VARCHAR(50)  NOT NULL COMMENT 'systolic, diastolic, pulse, temperature …',
+    value       DECIMAL(8,2) NOT NULL,
+    unit        VARCHAR(20)  NULL,
+    out_of_range BOOLEAN     NOT NULL DEFAULT FALSE COMMENT 'story C6: highlighted at entry time',
+    recorded_at DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    KEY idx_vital_visit (visit_id),
+    CONSTRAINT fk_vital_visit FOREIGN KEY (visit_id) REFERENCES visit (id)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4;
+
+-- From the caregiver analysis (VisitEvidence). What kinds are required comes from
+-- care_plan_node.evidence_type; the visit cannot close until they are present.
+CREATE TABLE visit_evidence (
+    id                  BIGINT       NOT NULL AUTO_INCREMENT,
+    visit_id            BIGINT       NOT NULL,
+    kind                ENUM('PHOTO','SIGNATURE','CHECKLIST','READING','NOTE') NOT NULL,
+    reference           VARCHAR(255) NOT NULL COMMENT 'stored file reference',
+    verification_status ENUM('UNVERIFIED','VERIFIED','REJECTED') NOT NULL DEFAULT 'UNVERIFIED',
+    captured_at         DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    KEY idx_evidence_visit (visit_id),
+    CONSTRAINT fk_evidence_visit FOREIGN KEY (visit_id) REFERENCES visit (id)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4;
+
+
+-- =====================================================================
+-- 4. Incidents
+-- =====================================================================
+
+-- Merges manager.incident + elder.emergency_alert.
+--
+-- DECISION 10  A one-touch SOS from the elder is an incident, not a separate
+--              kind of record. Keeping emergency_alert apart would mean the
+--              escalation chain and its timeout (SYS02) had to be built twice.
+--              `source` records where it came from; the location columns from
+--              emergency_alert are kept because an SOS carries them.
+CREATE TABLE incident (
+    id                   BIGINT       NOT NULL AUTO_INCREMENT,
+    elder_id             BIGINT       NOT NULL,
+    visit_id             BIGINT       NULL COMMENT 'set when raised during a visit',
+    reported_by_user_id  BIGINT       NULL COMMENT 'soft FK to app_user.id',
+    responder_user_id    BIGINT       NULL COMMENT 'soft FK to app_user.id; current owner',
+    source               ENUM('CAREGIVER','ELDER_SOS','SYSTEM_MISSED_CHECKIN') NOT NULL,
+    category             ENUM('SOS','MEDICAL','FALL','SERVICE','OTHER') NOT NULL DEFAULT 'OTHER',
+    severity             ENUM('LOW','MEDIUM','HIGH') NOT NULL,
+    status               ENUM('OPEN','ACKNOWLEDGED','IN_PROGRESS','RESOLVED','UNRESOLVED_ESCALATED')
+                         NOT NULL DEFAULT 'OPEN',
+    latitude             DECIMAL(10,7) NULL,
+    longitude            DECIMAL(10,7) NULL,
+    location_text        VARCHAR(255) NULL,
+    description          VARCHAR(500) NULL,
+    respond_by           DATETIME     NULL COMMENT 'countdown deadline; SYS02 escalates past this',
+    reported_at          DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    resolved_at          DATETIME     NULL,
+    PRIMARY KEY (id),
+    KEY idx_incident_elder (elder_id, status),
+    KEY idx_incident_deadline (status, respond_by),
+    CONSTRAINT fk_incident_elder FOREIGN KEY (elder_id) REFERENCES elder (id),
+    CONSTRAINT fk_incident_visit FOREIGN KEY (visit_id) REFERENCES visit (id)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4;
+
+-- From manager.incident_log. Story D8 requires every notification and every
+-- timeout to be an immutable record, so nothing here is ever updated.
+CREATE TABLE incident_log (
+    id            BIGINT       NOT NULL AUTO_INCREMENT,
+    incident_id   BIGINT       NOT NULL,
+    actor         VARCHAR(150) NOT NULL,
+    action        VARCHAR(255) NOT NULL,
+    detail        VARCHAR(500) NULL,
+    occurred_at   DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    KEY idx_incident_log_incident (incident_id, occurred_at),
+    CONSTRAINT fk_incident_log_incident FOREIGN KEY (incident_id) REFERENCES incident (id)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4;
+
+-- From family.urgent_alert_acknowledgments, retargeted at incident.
+CREATE TABLE incident_acknowledgement (
+    id               BIGINT       NOT NULL AUTO_INCREMENT,
+    incident_id      BIGINT       NOT NULL,
+    family_member_id BIGINT       NOT NULL,
+    viewed_at        DATETIME     NULL,
+    acknowledged_at  DATETIME     NULL,
+    response_note    VARCHAR(255) NULL,
+    created_at       DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    UNIQUE KEY uk_incident_family (incident_id, family_member_id),
+    CONSTRAINT fk_ack_incident FOREIGN KEY (incident_id) REFERENCES incident (id),
+    CONSTRAINT fk_ack_family   FOREIGN KEY (family_member_id) REFERENCES family_member (id)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4;
+
+
+-- =====================================================================
+-- 5. Spot checks
+-- =====================================================================
+
+-- Merges manager.spot_check + family.home_inspection_consents.
+--
+-- DECISION 11  These were the two ends of one flow: the manager proposes a
+--              check, the family approves it. Two tables would have meant two
+--              statuses that could disagree with each other.
+CREATE TABLE spot_check (
+    id                     BIGINT       NOT NULL AUTO_INCREMENT,
+    elder_id               BIGINT       NOT NULL,
+    caregiver_id           BIGINT       NULL,
+    visit_id               BIGINT       NULL,
+    raised_by_user_id      BIGINT       NULL COMMENT 'soft FK to app_user.id',
+    approving_family_id    BIGINT       NULL,
+    proposed_time          DATETIME     NOT NULL,
+    reason                 VARCHAR(255) NULL,
+    approval_status        ENUM('PENDING_APPROVAL','APPROVED','REJECTED') NOT NULL DEFAULT 'PENDING_APPROVAL',
+    decided_at             DATETIME     NULL,
+    finding                VARCHAR(500) NULL,
+    caregiver_response     VARCHAR(500) NULL COMMENT 'caregiver analysis: the caregiver may respond to a finding',
+    checked_at             DATETIME     NULL,
+    created_at             DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    KEY idx_spot_check_status (approval_status),
+    CONSTRAINT fk_spot_check_elder     FOREIGN KEY (elder_id) REFERENCES elder (id),
+    CONSTRAINT fk_spot_check_caregiver FOREIGN KEY (caregiver_id) REFERENCES caregiver (id),
+    CONSTRAINT fk_spot_check_family    FOREIGN KEY (approving_family_id) REFERENCES family_member (id)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4;
+
+
+-- =====================================================================
+-- 6. Reports
+-- =====================================================================
+
+-- From manager.report. `audience` is what the redaction design problem
+-- switches on, and the scope actually applied comes from
+-- elder_family_binding.access_scope at generation time.
+CREATE TABLE report (
+    id                 BIGINT   NOT NULL AUTO_INCREMENT,
+    elder_id           BIGINT   NOT NULL,
+    generated_by_user_id BIGINT NULL COMMENT 'soft FK to app_user.id',
+    audience           ENUM('FAMILY','REGULATOR','INTERNAL') NOT NULL,
+    period_start       DATE     NOT NULL,
+    period_end         DATE     NOT NULL,
+    status             ENUM('DRAFT','PUBLISHED','ARCHIVED') NOT NULL DEFAULT 'DRAFT',
+    content            JSON     NULL COMMENT 'rendered sections, already filtered for the audience',
+    created_at         DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    KEY idx_report_elder (elder_id, period_start),
+    CONSTRAINT fk_report_elder FOREIGN KEY (elder_id) REFERENCES elder (id)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4;
+
+
+-- =====================================================================
+-- 7. Value-added services and feedback
+-- =====================================================================
+
+-- From elder.value_added_service. A catalogue, edited by the provider.
+CREATE TABLE value_added_service (
+    id           BIGINT        NOT NULL AUTO_INCREMENT,
+    name         VARCHAR(100)  NOT NULL,
+    description  TEXT          NULL,
+    status       ENUM('AVAILABLE','UNAVAILABLE') NOT NULL DEFAULT 'AVAILABLE',
+    created_at   DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at   DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (id)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4;
+
+-- Merges elder.value_added_service_request + family.value_added_service_orders.
+--
+-- DECISION 12  One table, not two. The elder requests (UC-EL02) and the family
+--              approves (UC-FM08) — the same row, two states. Two tables would
+--              have made "which request did this order come from" a join
+--              nobody had modelled.
+--
+-- DECISION 13  No price column. The proposal puts billing and settlement out
+--              of scope, and elder.value_added_service carried a price.
+CREATE TABLE value_added_service_request (
+    id                      BIGINT       NOT NULL AUTO_INCREMENT,
+    elder_id                BIGINT       NOT NULL,
+    value_added_service_id  BIGINT       NOT NULL,
+    requested_by_family_id  BIGINT       NULL COMMENT 'null when the elder requested it directly',
+    approving_family_id     BIGINT       NULL,
+    visit_id                BIGINT       NULL COMMENT 'set once dispatched as a visit',
+    requested_schedule      DATETIME     NULL,
+    special_instructions    TEXT         NULL,
+    status                  ENUM('PENDING_APPROVAL','APPROVED','REJECTED','DISPATCHED','COMPLETED','CANCELLED')
+                            NOT NULL DEFAULT 'PENDING_APPROVAL',
+    decided_at              DATETIME     NULL,
+    created_at              DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at              DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    KEY idx_vas_request_elder (elder_id, status),
+    CONSTRAINT fk_vas_request_elder   FOREIGN KEY (elder_id) REFERENCES elder (id),
+    CONSTRAINT fk_vas_request_service FOREIGN KEY (value_added_service_id) REFERENCES value_added_service (id),
+    CONSTRAINT fk_vas_request_visit   FOREIGN KEY (visit_id) REFERENCES visit (id)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4;
+
+-- Merges elder.service_feedback with the caregiver analysis's ElderConfirmation.
+--
+-- DECISION 16  The elder's confirmation is its own record, not two columns on
+--              visit. The caregiver analysis makes the point precisely: "submitted
+--              by the Elder independently; the Caregiver may not confirm on their
+--              behalf". Keeping it apart from visit.status makes that
+--              independence structural. The elder mock confirms and rates in one
+--              flow (EL01), so the rating lives here too.
+CREATE TABLE elder_confirmation (
+    id                  BIGINT   NOT NULL AUTO_INCREMENT,
+    visit_id            BIGINT   NOT NULL,
+    confirmation_status ENUM('CONFIRMED','DISPUTED','NOT_RESPONDED') NOT NULL DEFAULT 'NOT_RESPONDED',
+    confirmed_by        ENUM('ELDER','FAMILY_REMOTE','CAREGIVER_RECORDED_VERBAL','TIMEOUT_DEFAULT') NULL
+                        COMMENT 'how the confirmation was obtained; decision D1 allows a verbal note recorded by the caregiver',
+    rating              TINYINT  NULL,
+    comment             TEXT     NULL,
+    confirmed_at        DATETIME NULL,
+    created_at          DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    UNIQUE KEY uk_elder_confirmation_visit (visit_id),
+    CONSTRAINT chk_elder_confirmation_rating CHECK (rating IS NULL OR rating BETWEEN 1 AND 5),
+    CONSTRAINT fk_elder_confirmation_visit FOREIGN KEY (visit_id) REFERENCES visit (id)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4;
+
+-- Merges family.periodic_caregiver_reviews with elder.renewal_decision.
+--
+-- DECISION 14  The renewal decision is a column here, not a table of its own.
+--              elder.renewal_decision and family.periodic_caregiver_reviews
+--              recorded the same judgement twice; a periodic review that ends
+--              in a renewal decision is one act, not two.
+CREATE TABLE caregiver_review (
+    id                 BIGINT   NOT NULL AUTO_INCREMENT,
+    family_member_id   BIGINT   NOT NULL,
+    elder_id           BIGINT   NOT NULL,
+    caregiver_id       BIGINT   NOT NULL,
+    period_start       DATE     NOT NULL,
+    period_end         DATE     NOT NULL,
+    overall_rating     TINYINT  NOT NULL,
+    punctuality_score  TINYINT  NULL,
+    care_quality_score TINYINT  NULL,
+    feedback_notes     TEXT     NULL,
+    renewal_decision   ENUM('RENEW_CURRENT','REQUEST_CHANGE','CANCEL_SERVICE') NOT NULL DEFAULT 'RENEW_CURRENT',
+    created_at         DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    KEY idx_review_caregiver (caregiver_id),
+    KEY idx_review_period (period_start, period_end),
+    CONSTRAINT chk_review_rating CHECK (overall_rating BETWEEN 1 AND 5),
+    CONSTRAINT fk_review_family    FOREIGN KEY (family_member_id) REFERENCES family_member (id),
+    CONSTRAINT fk_review_elder     FOREIGN KEY (elder_id) REFERENCES elder (id),
+    CONSTRAINT fk_review_caregiver FOREIGN KEY (caregiver_id) REFERENCES caregiver (id)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4;
+
+
+-- =====================================================================
+-- 8. Platform: audit
+-- =====================================================================
+
+-- From the caregiver analysis (AuditLog), and promised in the proposal as the
+-- non-functional requirement "we can always answer who knew what, and when".
+-- Append-only: rows are never updated or deleted. Owned by the platform layer.
+CREATE TABLE audit_log (
+    id            BIGINT       NOT NULL AUTO_INCREMENT,
+    actor_user_id BIGINT       NULL COMMENT 'soft FK to app_user.id; null for scheduled jobs',
+    action        VARCHAR(50)  NOT NULL COMMENT 'READ, CREATE, UPDATE, STATE_CHANGE, EXPORT …',
+    resource_type VARCHAR(50)  NOT NULL COMMENT 'table or aggregate name',
+    resource_id   BIGINT       NULL,
+    result        ENUM('OK','DENIED','FAILED') NOT NULL DEFAULT 'OK',
+    detail        VARCHAR(500) NULL,
+    occurred_at   DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    KEY idx_audit_resource (resource_type, resource_id, occurred_at),
+    KEY idx_audit_actor (actor_user_id, occurred_at)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4;
+
+
+-- =====================================================================
+-- Dropped from the merge, with the reason
+--
+--   users                      DECISION 4 — app_user + user_role already exist
+--   supervisor                 a supervisor is an app_user holding the MANAGER
+--                              role, not a separate person table
+--   elderly, senior            DECISION 3 — renamed to elder
+--   service_order              DECISION 9 — merged into visit
+--   emergency_alert            DECISION 10 — merged into incident
+--   home_inspection_consents   DECISION 11 — merged into spot_check
+--   value_added_service_orders DECISION 12 — merged into value_added_service_request
+--   renewal_decision           DECISION 14 — a column on caregiver_review
+--   service_feedback           DECISION 16 — merged into elder_confirmation
+--
+-- From the caregiver analysis, mapped rather than added as tables
+--
+--   UserAccount        = app_user + user_role
+--   CaregiverProfile   = caregiver (languages -> dialects, serviceAreas -> sector)
+--   Certification      = credential
+--   LeaveRequest       = absence_report
+--   ElderVisitView     a read model over elder, not a table — the caregiver
+--                      sees a minimal projection, which is a query and an
+--                      authorisation rule, not storage
+--   CarePlanSnapshot   = visit.care_plan_id pointing at the plan version in
+--                      force; superseded versions are immutable, so the row IS
+--                      the snapshot and no copy is needed
+--   CareException      = incident;  ExceptionTimeline = incident_log
+--
+-- Still missing, nobody has modelled these yet
+--
+--   rostering run and its candidates, with the reason each was excluded
+--     (stories B1–B4 and supervisor screen 1b: five constraint checks per
+--      candidate; the Strategy design problem needs somewhere to record why a
+--      caregiver was chosen or ruled out)
+--   notification and subscription (UC-FM03, UC-FM05)
+--
+-- vital_sign remains the one table with no submission behind it; it follows
+-- from story C6 and the family mock's "Vitals Recorded (Pulse 76, Temp 36.8)".
+-- =====================================================================

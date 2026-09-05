@@ -1,0 +1,370 @@
+@startuml merged_erd
+!theme plain
+skinparam linetype ortho
+skinparam backgroundColor white
+skinparam defaultFontName "Segoe UI"
+skinparam defaultFontSize 11
+skinparam packageStyle rectangle
+skinparam package {
+  BorderColor #888888
+  BackgroundColor #FAFAFA
+  FontStyle bold
+}
+skinparam class {
+  BorderColor #444444
+  BackgroundColor #FFFFFF
+  HeaderBackgroundColor #E8EEF5
+  AttributeFontSize 10
+}
+hide circle
+hide empty methods
+left to right direction
+
+title CareLink — consolidated schema (draft v1.2)\n28 business tables + 3 platform tables · merged from elder / family / supervisor / caregiver submissions
+
+package "Platform" as P0 {
+  entity app_user {
+    <b>id</b> : BIGINT
+    --
+    username
+    password_hash
+    display_name
+    enabled
+  }
+  entity user_role {
+    <b>user_id</b> : BIGINT
+    <b>role</b> : VARCHAR
+  }
+  entity audit_log {
+    <b>id</b> : BIGINT
+    --
+    actor_user_id  <i>(soft FK)</i>
+    action, resource_type, resource_id
+    result, detail
+    occurred_at  <i>(append-only)</i>
+  }
+}
+
+package "People & profiles" as P1 {
+  entity elder {
+    <b>id</b> : BIGINT
+    --
+    user_id  <i>(soft FK)</i>
+    full_name, gender, date_of_birth
+    address, postal_code, sector
+    preferred_dialects, lives_alone
+    mobility_level, continuity_preference
+    medical_notes
+  }
+  entity caregiver {
+    <b>id</b> : BIGINT
+    --
+    user_id  <i>(soft FK)</i>
+    full_name, phone
+    sector, dialects
+    status
+  }
+  entity family_member {
+    <b>id</b> : BIGINT
+    --
+    user_id  <i>(soft FK)</i>
+    full_name, contact_number
+    email, residential_address
+  }
+  entity elder_family_binding {
+    <b>id</b> : BIGINT
+    --
+    elder_id  <i>FK</i>
+    family_member_id  <i>FK</i>
+    pairing_code, relationship
+    is_primary_contact
+    <color:#B3261E>access_scope</color>
+    status, requested_by
+    confirmed_at, expires_at
+  }
+  entity intake_application {
+    <b>id</b> : BIGINT
+    --
+    applicant_family_member_id  <i>FK</i>
+    target_elder_name, target_address
+    postal_code, mobility_level
+    preferred_dialects, care_needs
+    medical_notes, status
+    reviewed_by_user_id  <i>(soft FK)</i>
+  }
+  entity credential_type {
+    <b>id</b> : BIGINT
+    --
+    name
+  }
+  entity credential {
+    <b>id</b> : BIGINT
+    --
+    caregiver_id  <i>FK</i>
+    credential_type_id  <i>FK</i>
+    certificate_no, issuing_body
+    valid_from, <color:#B3261E>expiry_date</color>
+    status
+    reviewed_by_user_id  <i>(soft FK)</i>
+  }
+}
+
+package "Care plan  (Composite)" as P2 {
+  entity care_plan {
+    <b>id</b> : BIGINT
+    --
+    elder_id  <i>FK</i>
+    supersedes_plan_id  <i>FK self</i>
+    version, status
+    total_hours  <i>(rolled up)</i>
+    published_at
+    created_by_user_id  <i>(soft FK)</i>
+  }
+  entity care_plan_node {
+    <b>id</b> : BIGINT
+    --
+    care_plan_id  <i>FK</i>
+    <color:#B3261E>parent_id  FK self</color>
+    node_type  SUB_PLAN | TASK
+    name, service_type
+    schedule_days
+    duration_per_visit
+    weekly_hours  <i>(sum of children)</i>
+    evidence_type
+  }
+  entity care_plan_required_credential {
+    <b>care_plan_id</b>  <i>FK</i>
+    <b>credential_type_id</b>  <i>FK</i>
+  }
+}
+
+package "Rostering & visits  (State)" as P3 {
+  entity caregiver_preference {
+    <b>id</b> : BIGINT
+    --
+    caregiver_id  <i>FK (unique)</i>
+    preferred_service_types
+    preferred_sectors, preferred_time_windows
+    max_visits_per_day, max_hours_per_day
+  }
+  entity caregiver_availability {
+    <b>id</b> : BIGINT
+    --
+    caregiver_id  <i>FK</i>
+    available_date
+    available_start, available_end
+    status
+  }
+  entity absence_report {
+    <b>id</b> : BIGINT
+    --
+    caregiver_id  <i>FK</i>
+    type, start_date, end_date
+    reason, status
+    reviewed_by_user_id  <i>(soft FK)</i>
+  }
+  entity visit {
+    <b>id</b> : BIGINT
+    --
+    elder_id  <i>FK</i>
+    caregiver_id  <i>FK</i>  <i>(current)</i>
+    absence_id  <i>FK</i>
+    care_plan_id  <i>(soft FK, version in force)</i>
+    service_type
+    scheduled_start, scheduled_end
+    checked_in_at, checked_out_at
+    <color:#B3261E>status</color>  SCHEDULED → VERIFIED
+    state_deadline, version
+  }
+  entity visit_assignment {
+    <b>id</b> : BIGINT
+    --
+    visit_id  <i>FK</i>
+    caregiver_id  <i>FK</i>
+    status  ACTIVE | REPLACED | CANCELLED
+    reason, assigned_at, ended_at
+  }
+  entity visit_state_transition {
+    <b>id</b> : BIGINT
+    --
+    visit_id  <i>FK</i>
+    from_state, to_state
+    actor_user_id  <i>(soft FK)</i>
+    <color:#B3261E>result</color>  APPLIED | REJECTED
+    rejection_reason, occurred_at
+  }
+  entity visit_task {
+    <b>id</b> : BIGINT
+    --
+    visit_id  <i>FK</i>
+    care_plan_node_id  <i>(soft FK)</i>
+    name, status, outcome
+    caregiver_note, completed_at
+  }
+  entity vital_sign {
+    <b>id</b> : BIGINT
+    --
+    visit_id  <i>FK</i>
+    metric, value, unit
+    out_of_range
+  }
+  entity visit_evidence {
+    <b>id</b> : BIGINT
+    --
+    visit_id  <i>FK</i>
+    kind, reference
+    verification_status, captured_at
+  }
+}
+
+package "Incidents & spot checks  (Chain of Responsibility)" as P4 {
+  entity incident {
+    <b>id</b> : BIGINT
+    --
+    elder_id  <i>FK</i>
+    visit_id  <i>FK</i>
+    source  CAREGIVER | ELDER_SOS | SYSTEM
+    category, <color:#B3261E>severity</color>
+    status
+    latitude, longitude, location_text
+    <color:#B3261E>respond_by</color>  <i>(countdown)</i>
+    reported_by / responder  <i>(soft FK)</i>
+  }
+  entity incident_log {
+    <b>id</b> : BIGINT
+    --
+    incident_id  <i>FK</i>
+    actor, action, detail
+    occurred_at  <i>(append-only)</i>
+  }
+  entity incident_acknowledgement {
+    <b>id</b> : BIGINT
+    --
+    incident_id  <i>FK</i>
+    family_member_id  <i>FK</i>
+    viewed_at, acknowledged_at
+    response_note
+  }
+  entity spot_check {
+    <b>id</b> : BIGINT
+    --
+    elder_id  <i>FK</i>
+    caregiver_id  <i>FK</i>
+    visit_id  <i>FK</i>
+    approving_family_id  <i>FK</i>
+    proposed_time, reason
+    approval_status, finding
+    caregiver_response, checked_at
+  }
+}
+
+package "Reports, services & reviews  (Template Method / redaction)" as P5 {
+  entity report {
+    <b>id</b> : BIGINT
+    --
+    elder_id  <i>FK</i>
+    <color:#B3261E>audience</color>  FAMILY | REGULATOR | INTERNAL
+    period_start, period_end
+    status, content (JSON)
+    generated_by_user_id  <i>(soft FK)</i>
+  }
+  entity value_added_service {
+    <b>id</b> : BIGINT
+    --
+    name, description, status
+  }
+  entity value_added_service_request {
+    <b>id</b> : BIGINT
+    --
+    elder_id  <i>FK</i>
+    value_added_service_id  <i>FK</i>
+    visit_id  <i>FK</i>
+    requested_by_family_id, approving_family_id
+    requested_schedule, status
+  }
+  entity elder_confirmation {
+    <b>id</b> : BIGINT
+    --
+    visit_id  <i>FK (unique)</i>
+    confirmation_status
+    confirmed_by  ELDER | FAMILY_REMOTE | …
+    rating, comment, confirmed_at
+  }
+  entity caregiver_review {
+    <b>id</b> : BIGINT
+    --
+    family_member_id  <i>FK</i>
+    elder_id  <i>FK</i>
+    caregiver_id  <i>FK</i>
+    period_start, period_end
+    overall_rating, punctuality_score
+    care_quality_score
+    renewal_decision
+  }
+}
+
+' ---- platform ----
+app_user ||--o{ user_role
+app_user |o..o| elder : soft
+app_user |o..o| caregiver : soft
+app_user |o..o| family_member : soft
+
+' ---- people ----
+elder ||--o{ elder_family_binding
+family_member ||--o{ elder_family_binding
+family_member ||--o{ intake_application
+caregiver ||--o{ credential
+credential_type ||--o{ credential
+
+' ---- care plan ----
+elder ||--o{ care_plan
+care_plan |o--o| care_plan : supersedes
+care_plan ||--o{ care_plan_node
+care_plan_node |o--o{ care_plan_node : parent
+care_plan ||--o{ care_plan_required_credential
+credential_type ||--o{ care_plan_required_credential
+
+' ---- rostering & visits ----
+caregiver ||--o| caregiver_preference
+caregiver ||--o{ caregiver_availability
+caregiver ||--o{ absence_report
+elder ||--o{ visit
+caregiver |o--o{ visit : current
+absence_report |o--o{ visit : re-rostered
+care_plan |o..o{ visit : version in force
+visit ||--o{ visit_assignment
+caregiver ||--o{ visit_assignment
+visit ||--o{ visit_state_transition
+visit ||--o{ visit_task
+care_plan_node |o..o{ visit_task : soft
+visit ||--o{ vital_sign
+visit ||--o{ visit_evidence
+
+' ---- incidents ----
+elder ||--o{ incident
+visit |o--o{ incident
+incident ||--o{ incident_log
+incident ||--o{ incident_acknowledgement
+family_member ||--o{ incident_acknowledgement
+elder ||--o{ spot_check
+caregiver |o--o{ spot_check
+visit |o--o{ spot_check
+family_member |o--o{ spot_check : approves
+
+' ---- reports & services ----
+elder ||--o{ report
+elder ||--o{ value_added_service_request
+value_added_service ||--o{ value_added_service_request
+visit |o--o| value_added_service_request : dispatched as
+visit ||--o| elder_confirmation
+family_member ||--o{ caregiver_review
+elder ||--o{ caregiver_review
+caregiver ||--o{ caregiver_review
+
+legend bottom right
+  |= |= |
+  | <color:#B3261E>red field</color> | the column a design pattern switches on |
+  | <i>soft FK</i> | id stored, no constraint — crosses a module boundary |
+  | dotted line | soft FK |
+endlegend
+@enduml
