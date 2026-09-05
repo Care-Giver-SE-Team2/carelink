@@ -10,14 +10,16 @@ name: CareLink CI/CD Pipeline
 #      without an image there is nothing to deploy.
 #
 # Triggers are deliberately different: a pull request runs the fast stage only, so
-# feedback stays quick; main runs the whole chain. There is also a nightly sweep and a
-# manual trigger.
+# feedback stays quick; main runs the whole chain. develop runs fast stage plus deep
+# verification and publishes a :develop image for inspection, but never deploys to
+# staging - that environment tracks main, the branch actually headed to production.
+# There is also a nightly sweep and a manual trigger.
 
 on:
   push:
-    branches: [main]
+    branches: [main, develop]
   pull_request:
-    branches: [main]
+    branches: [main, develop]
   schedule:
     - cron: '0 18 * * *'        # 18:00 UTC = 02:00 the next day, Singapore time
   workflow_dispatch:
@@ -230,7 +232,7 @@ jobs:
   build-image:
     name: Build and publish image
     needs: [integration-tests, dependency-scan]
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop')
     runs-on: ubuntu-latest
     timeout-minutes: 30
     permissions:
@@ -243,6 +245,17 @@ jobs:
       # GHCR accepts lowercase image names only, and the organisation name has capitals
       - name: Compute the image name
         run: echo "IMAGE=ghcr.io/$(echo '${{ github.repository }}' | tr '[:upper:]' '[:lower:]')" >> "$GITHUB_ENV"
+
+      # main gets :latest, the branch that actually ships. develop gets :develop, a
+      # moving tag for inspecting the current sprint's integration build - neither
+      # gets deployed anywhere by this workflow.
+      - name: Compute the moving tag
+        run: |
+          if [ "${{ github.ref }}" = "refs/heads/main" ]; then
+            echo "MOVING_TAG=latest" >> "$GITHUB_ENV"
+          else
+            echo "MOVING_TAG=develop" >> "$GITHUB_ENV"
+          fi
 
       # The default docker driver cannot export a GHA cache; the docker-container driver can
       - uses: docker/setup-buildx-action@v4
@@ -259,7 +272,7 @@ jobs:
           push: true
           tags: |
             ${{ env.IMAGE }}:${{ github.sha }}
-            ${{ env.IMAGE }}:latest
+            ${{ env.IMAGE }}:${{ env.MOVING_TAG }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
@@ -294,6 +307,7 @@ jobs:
   deploy-staging:
     name: Deploy to staging, smoke test, DAST
     needs: build-image
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     environment: staging
     timeout-minutes: 30
