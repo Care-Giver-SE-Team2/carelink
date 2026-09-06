@@ -37,6 +37,10 @@ RUN apt-get update \
 WORKDIR /app
 COPY --from=backend /src/target/*.jar app.jar
 RUN chown carelink:carelink /app/app.jar
+# The commit this image was built from, exposed at /actuator/info so a deployment
+# can be verified from outside ("is staging running what I just pushed?").
+ARG GIT_SHA=unknown
+ENV APP_COMMIT=$GIT_SHA
 USER carelink
 EXPOSE 8080
 ENTRYPOINT ["java", "-jar", "/app/app.jar"]

@@ -6,11 +6,16 @@ services:
       MYSQL_DATABASE: carelink
       MYSQL_USER: carelink
       MYSQL_PASSWORD: ${MYSQL_PASSWORD:-devpass}
+    # Ping over TCP, not the socket: while MySQL initialises it runs a temporary
+    # server that answers on the socket only, so a socket ping reports "healthy"
+    # seconds before the real server accepts connections and the backend then
+    # dies with "Communications link failure" (seen once in the pipeline).
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 --protocol=tcp -uroot -p$$MYSQL_ROOT_PASSWORD --silent"]
       interval: 5s
       timeout: 3s
-      retries: 20
+      retries: 24
+      start_period: 20s
     networks: [carelink]
 
   backend:

@@ -22,9 +22,9 @@ functionality yet** — feature module boundaries are still being agreed.
 | Application | Starts, serves health probes, authenticates against the database |
 | `shared/` | Security, error handling, business-threshold configuration |
 | `identity/` | Reference implementation of the four layers, with unit tests |
-| Schema | `app_user` and `user_role` only; no feature tables, no seed data |
-| Pipeline | All nine jobs green, image published to GHCR, staging deployed and scanned |
-| Not yet wired | SonarCloud token, NVD API key, branch protection |
+| Schema | V1 accounts + V2 care domain, 37 tables merged from the four member submissions; no seed data |
+| Pipeline | All nine jobs green, image published to GHCR, staging VM updated and scanned |
+| Not yet wired | Branch protection (deferred until feature work starts) |
 
 ---
 
@@ -85,7 +85,7 @@ push ───┼─ Frontend: lint, unit tests, build          ─┼──→ 
                                                                                 publish image
                                                                                      │ main only
                                                                                      ▼
-                                                         Deploy to staging, smoke test, DAST
+                                             Staging VM pulls the image; smoke test, DAST
                                                                                      │
                                                                                      ▼
                                                                           Pipeline summary
@@ -98,8 +98,8 @@ push ───┼─ Frontend: lint, unit tests, build          ─┼──→ 
 | Fast feedback | Secret scanning across the whole history | Same |
 | Gate | Quality gate — passes only when all three are green | The single required check for branch protection |
 | Deep verification | Integration tests; SCA blocking on CVSS ≥ 7 | main, nightly, manual. Skipped on PRs |
-| Delivery | Image to GHCR, tagged with the commit SHA and `latest` | Pushes to main |
-| Deployment | Start the stack, smoke test, ZAP baseline scan | Pushes to main |
+| Delivery | Image to GHCR, tagged with the commit SHA, `latest` and `staging` | Pushes to main |
+| Deployment | The staging VM pulls the `:staging` tag itself; the job waits for it to report the new commit, smoke-tests and runs the ZAP baseline scan against the live address (`deploy/staging/README.md`) | Pushes to main |
 | Promotion | `promote-demo.yml`, manual with a named approver | On demand |
 
 **Build once, deploy many.** The image is built once in the delivery stage; staging and the
