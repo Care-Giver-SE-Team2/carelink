@@ -22,8 +22,13 @@ The rollout is **pull-based**: the machine fetches the image, the pipeline never
 into it. So port 22 stays open only to the team's own addresses, GitHub's runners need
 no SSH key and no AWS credentials, and there is one less secret to leak.
 
-Rollback is a tag move: re-tag an earlier `<sha>` image as `:staging` (or run
-`promote-demo.yml` logic in reverse) and the timer rolls back within a minute.
+Rollback is a tag move: Actions > Rollback staging > Run workflow with the commit to
+go back to. It points `:staging` at that commit's image and the timer rolls back within
+a minute. Migrations already applied stay applied; fix those forward with a new script.
+
+To freeze the environment for a demonstration, stop the timer on the machine
+(`sudo systemctl stop carelink-update.timer`) and start it again afterwards; pushes to
+main keep publishing images but the VM stops picking them up.
 
 ## The machine
 

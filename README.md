@@ -101,10 +101,10 @@ push ───┼─ Frontend: lint, unit tests, build          ─┼──→ 
 | Deep verification | Integration tests; SCA blocking on CVSS ≥ 7 | main, nightly, manual. Skipped on PRs |
 | Delivery | Image to GHCR, tagged with the commit SHA, `latest` and `staging` | Pushes to main |
 | Deployment | The staging VM pulls the `:staging` tag itself; the job waits for it to report the new commit, smoke-tests and runs the ZAP baseline scan against the live address (`deploy/staging/README.md`) | Pushes to main |
-| Promotion | `promote-demo.yml`, manual with a named approver | On demand |
+| Rollback | `rollback.yml`: points `:staging` back at an earlier commit's image and waits for the VM to report it. Code only; migrations stay applied | On demand |
 
-**Build once, deploy many.** The image is built once in the delivery stage; staging and the
-demo environment deploy that same binary and nothing is ever rebuilt at deployment time.
+**Build once, deploy many.** The image is built once in the delivery stage; deployment and
+rollback only move a tag, so what runs is always a binary the pipeline already verified.
 
 ---
 
