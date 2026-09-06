@@ -1,0 +1,172 @@
+openapi: 3.0.3
+
+info:
+  title: CareLink API
+  description: |
+    This is a spec-first (design-first) API contract: it is hand-written and
+    reviewed before the corresponding backend endpoint is implemented. It is
+    the source of truth for the HTTP contract — controllers must match it,
+    not the other way around.
+  version: 0.0.1
+  license:
+    name: UNLICENSED
+
+servers:
+  - url: /api
+    description: Same-origin, relative to whichever host serves the front end.
+
+tags:
+  - name: Auth
+    description: Session-based sign-in and identity.
+
+paths:
+  /auth/login:
+    post:
+      tags: [Auth]
+      summary: Sign in
+      description: >
+        Starts a server-side session on success. The session is carried by an
+        HttpOnly `JSESSIONID` cookie set on the response; the front end does
+        not read or manage it directly.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Signed in.
+          headers:
+            Set-Cookie:
+              description: Session cookie (`JSESSIONID`) and CSRF cookie (`XSRF-TOKEN`).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CurrentUserResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          description: >
+            Invalid username or password. The two cases are not distinguished,
+            so this response cannot be used to enumerate accounts.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+
+  /auth/logout:
+    post:
+      tags: [Auth]
+      summary: Sign out
+      description: Ends the current session and clears the `JSESSIONID` cookie.
+      responses:
+        '204':
+          description: Signed out.
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /auth/me:
+    get:
+      tags: [Auth]
+      summary: Get the current user
+      description: >
+        Returns the identity of the caller associated with the current
+        session. The front end uses `roles` to decide which screens to show.
+      responses:
+        '200':
+          description: The current user.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CurrentUserResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+components:
+  securitySchemes:
+    sessionCookie:
+      type: apiKey
+      in: cookie
+      name: JSESSIONID
+      description: >
+        Server-side session established by `POST /auth/login`. State-changing
+        requests must also echo the `XSRF-TOKEN` cookie value in an
+        `X-XSRF-TOKEN` header.
+
+  schemas:
+    LoginRequest:
+      type: object
+      required: [username, password]
+      properties:
+        username:
+          type: string
+          minLength: 1
+        password:
+          type: string
+          minLength: 1
+          format: password
+
+    CurrentUserResponse:
+      type: object
+      required: [id, username, displayName, roles]
+      properties:
+        id:
+          type: integer
+          format: int64
+        username:
+          type: string
+        displayName:
+          type: string
+        roles:
+          type: array
+          items:
+            type: string
+          description: Sorted, upper-case role names, e.g. `ELDER`, `FAMILY`, `MANAGER`.
+
+    ProblemDetail:
+      description: RFC 9457 `application/problem+json` body. Every error response uses this shape.
+      type: object
+      properties:
+        type:
+          type: string
+          format: uri
+        title:
+          type: string
+        status:
+          type: integer
+        detail:
+          type: string
+        instance:
+          type: string
+          format: uri
+      additionalProperties: true
+
+  responses:
+    Unauthorized:
+      description: No active session.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetail'
+
+    ValidationError:
+      description: Request failed validation.
+      content:
+        application/problem+json:
+          schema:
+            allOf:
+              - $ref: '#/components/schemas/ProblemDetail'
+              - type: object
+                properties:
+                  fields:
+                    type: object
+                    additionalProperties:
+                      type: string
+                    description: Field name to validation message.
+
+security:
+  - sessionCookie: []

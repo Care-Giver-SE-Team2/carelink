@@ -45,6 +45,8 @@ class SecurityConfig {
 						.requestMatchers("/api/auth/login").permitAll()
 						// Front-end static assets.
 						.requestMatchers("/", "/index.html", "/favicon.ico", "/assets/**", "/vite.svg").permitAll()
+						// Swagger UI and the hand-written OpenAPI contract it renders.
+						.requestMatchers("/docs/index.html", "/openapi.yaml", "/webjars/**").permitAll()
 						.anyRequest().authenticated())
 				// The CSRF token cookie is deliberately NOT HttpOnly, and static analysis will
 				// flag it (sonar java:S3330). The front end has to read this cookie in order to
