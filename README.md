@@ -71,6 +71,51 @@ npm run test:coverage            # single run with coverage
 
 ---
 
+## Repository map
+
+Where things live and what each place is for. The rules behind the layout are in
+[ARCHITECTURE.md](ARCHITECTURE.md).
+
+```
+CareLink/
+├─ backend/                      Spring Boot monolith; the built front end is packaged into its jar
+│  └─ src/main/java/sg/nus/carelink/
+│     ├─ identity/               login and accounts — the reference module, all four layers present
+│     ├─ profile/                elder, caregiver, family member, binding, intake, credentials
+│     ├─ careplan/               care plan tree and required credentials
+│     ├─ rostering/              availability, absences, rostering runs and constraint checks
+│     ├─ visit/                  visit state machine, tasks, vitals, evidence, elder confirmation
+│     ├─ incident/               incidents, escalation log, family acknowledgement, spot checks
+│     ├─ report/                 reports, value-added services, periodic caregiver reviews
+│     ├─ notification/           subscriptions and notifications
+│     └─ shared/                 security, error handling, request interceptor, config, audit
+│  └─ src/main/resources/db/migration/   Flyway scripts: V1 accounts, V2 care domain (37 tables)
+│  └─ src/test/java/             unit tests, ArchUnit rules, *IT integration tests (need Docker)
+├─ frontend/src/
+│  ├─ routes/<role>/             manager, caregiver, family, elder pages; landing; not-found
+│  └─ shared/                    api/client.ts (one fetch wrapper), components, theme
+├─ deploy/staging/               what runs on the staging VM: compose, update timer, installer
+├─ docs/                         the four member submissions, merged ERD, OpenAPI contract
+├─ .github/workflows/            cicd-pipeline.yml, rollback.yml, docs-pages.yml
+├─ Dockerfile, docker-compose.yml
+└─ ARCHITECTURE.md, README.md
+```
+
+Inside a feature module the split is by layer: `controller/` (HTTP in and out),
+`application/` (use cases), `domain/` (business rules, plain Java), `infrastructure/`
+(persistence, security). Every module except `identity` currently holds only
+`infrastructure/persistence/`: one `<Table>JpaEntity` and `<Table>JpaRepository` per
+table, generated from the V2 migration and validated against the schema at start-up.
+The module owner adds the other three layers following `identity/`; the order is in
+ARCHITECTURE.md, section 4.
+
+The schema is code. A table changes by adding `V3__<what>.sql` next to V1 and V2, never by
+editing the database by hand: every environment (each developer's machine, the CI
+containers, the staging VM) rebuilds the same tables from these scripts on start-up, and
+the application refuses to start if its entities and the tables disagree.
+
+---
+
 ## Pipeline
 
 One workflow, `cicd-pipeline.yml`, nine jobs. **Anything independent runs in parallel;
