@@ -22,7 +22,9 @@ COPY backend/src ./src
 COPY --from=frontend /app/dist ./src/main/resources/static
 # The hand-written OpenAPI contract lives at repo root, not in backend/; the pom
 # resolves it via a relative path (../docs/api), so it must land one level above WORKDIR.
-COPY docs/api/openapi.yaml /docs/api/openapi.yaml
+# Both the final contract and the superseded draft are copied - the pom picks up
+# whichever of the two it's configured to include.
+COPY docs/api/openapi.yaml docs/api/openapi-draft.yaml /docs/api/
 RUN ./mvnw -B -ntp clean package -DskipTests
 
 # ---------- 3. Runtime ----------

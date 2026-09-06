@@ -20,7 +20,11 @@
 	<script>
 		window.onload = () => {
 			window.ui = SwaggerUIBundle({
-				url: './openapi.yaml',
+				urls: [
+					{ url: './openapi.yaml', name: 'Final' },
+					{ url: './openapi-draft.yaml', name: 'Draft' }
+				],
+				"urls.primaryName": 'Final',
 				dom_id: '#swagger-ui',
 				presets: [SwaggerUIBundle.presets.apis, SwaggerUIStandalonePreset],
 				layout: 'StandaloneLayout'
