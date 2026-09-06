@@ -22,6 +22,11 @@ services:
       MYSQL_PASSWORD: ${MYSQL_PASSWORD:?set in /opt/carelink/.env}
     volumes:
       - db-data:/var/lib/mysql
+    # Reachable from the machine itself only. Team members open the database
+    # through an SSH tunnel (Workbench: "Standard TCP/IP over SSH"); 3306 is never
+    # published to the internet.
+    ports:
+      - "127.0.0.1:3306:3306"
     # Ping over TCP, not the socket: while MySQL initialises it runs a temporary
     # server that answers on the socket only, so a socket ping reports "healthy"
     # seconds before the real server accepts connections and the backend then
