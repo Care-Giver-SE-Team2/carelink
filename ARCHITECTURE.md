@@ -63,7 +63,9 @@ backend/src/main/java/sg/nus/carelink/
 │  ├─ security/              SecurityConfig, Role
 │  ├─ error/                 BusinessRuleViolation, ResourceNotFound
 │  │                         (plain Java, so the domain layer may depend on it)
-│  ├─ web/                   GlobalExceptionHandler, one ProblemDetail shape
+│  ├─ web/                   GlobalExceptionHandler (one ProblemDetail shape),
+│  │                         RequestContextInterceptor + WebMvcConfig (login check,
+│  │                         X-Request-Id, user in every log line, access log)
 │  ├─ config/                CareLinkProperties, business thresholds in one place
 │  ├─ audit/                 auditing (to be built)
 │  └─ scheduling/            scheduled-task support (to be built)
@@ -223,6 +225,15 @@ authentication. When authentication needs the hash it goes through its own narro
 **`shared/security/SecurityConfig` imports nothing from `identity`.** The
 `UserDetailsService` is injected by type. That keeps the dependency `identity -> shared`
 one-way, so the two never form a cycle — which rule 4 below would reject.
+
+**Cross-cutting request handling lives in `shared/web`, not in controllers.** Spring
+Security's filter chain decides whether a request may enter at all. Behind it,
+`RequestContextInterceptor` runs around every `/api/**` call except `/api/auth/login`: it
+refuses anything without an authenticated user (defence in depth), returns an
+`X-Request-Id`, puts the request id and username into the logging MDC, and writes one
+access-log line per request. A controller therefore never checks "is someone logged in"
+and never logs who called it — both are already done. Which *role* may call an endpoint is
+declared on the method with `@PreAuthorize("hasRole('MANAGER')")`.
 
 ---
 

@@ -23,7 +23,21 @@ management:
     health:
       probes:
         enabled: true
+  info:
+    env:
+      enabled: true
+
+# Shown at /actuator/info. APP_COMMIT is set by the Dockerfile from the commit the
+# image was built from; the deploy job compares it with the commit it just pushed.
+info:
+  app:
+    name: carelink
+    commit: ${APP_COMMIT:unknown}
 
 logging:
   level:
     sg.nus.carelink: INFO
+  pattern:
+    # requestId and user are put in the MDC by RequestContextInterceptor, so every
+    # line written while handling an API request says who and which request.
+    level: "%5p [%X{requestId:-}] [%X{user:-}]"
