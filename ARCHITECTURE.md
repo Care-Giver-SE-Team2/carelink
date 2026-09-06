@@ -90,11 +90,12 @@ backend/src/main/java/sg/nus/carelink/
 ├─ incident/                 incidents, escalation log, family acknowledgement, spot checks
 ├─ report/                   reports, value-added services, periodic caregiver reviews
 ├─ notification/             subscriptions and notifications
-│     each has exactly identity's folders. infrastructure/persistence/entity/ and
-│     /repository/ are filled (one JPA entity + repository per table, generated from
-│     V2__care_domain.sql); controller/, application/, domain/model/, domain/repository/
-│     and persistence/adapter/ hold a package-info.java saying what goes there and are
-│     the module owner's work, following identity/
+│     each has exactly identity's folders and, per table, the same set of classes:
+│     domain/model/<X> (record), domain/repository/<X>Repository (port),
+│     persistence/entity/<X>JpaEntity, persistence/repository/<X>JpaRepository,
+│     persistence/adapter/<X>Mapper + <X>RepositoryAdapter; plus one <Module>Service and
+│     <Module>Controller. All generated from V2__care_domain.sql as a compiling, tested
+│     starting point; the design work (aggregates, behaviour, use cases) is the owner's
 │
 └─ shared/audit/persistence/ entity/ + repository/ for audit_log (cross-cutting, so it lives in shared)
 ```
@@ -242,12 +243,13 @@ database** — see `src/test/.../identity/application/InMemoryAppUserRepository.
 
 ### Starting a module from the generated entities
 
-Every table already has a `<Table>JpaEntity` in `infrastructure/persistence/entity/` and a
-`<Table>JpaRepository` in `infrastructure/persistence/repository/`, validated column by
-column against the schema when the application starts (`ddl-auto: validate`). They are
-deliberately plain: ids instead of `@ManyToOne` (so modules never import each other's
-entities), enums nested in the entity, no business logic. Every other layer folder
-already exists with a `package-info.java` describing it. What the owner adds, in this order:
+Every table already has the whole vertical slice, generated and tested: a domain record,
+a repository port, the JPA entity (validated column by column against the schema at
+start-up, `ddl-auto: validate`), the Spring Data repository, and the mapper + adapter that
+implement the port. Each module also has a `<Module>Service` with one lookup use case and
+a `<Module>Controller` with one endpoint, so the wiring can be seen end to end. Everything
+is deliberately plain: ids instead of `@ManyToOne` (so modules never import each other's
+classes), enums nested, no business logic yet. What the owner changes, in this order:
 
 1. `domain/model/` — the aggregate as ordinary Java with the business rules
    (`AppUser` in identity is the template); the domain enums belong here too.

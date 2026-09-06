@@ -29,7 +29,7 @@ import java.time.LocalDateTime;
  * references to other aggregates are plain ids (DECISION 5 in the schema), so no
  * module depends on another module's persistence classes. The domain model that
  * carries the business rules lives in the module's domain.model package; the mapper
- * between the two belongs in persistence.adapter.
+ * between the two is in persistence.adapter.
  *
  * <p>The schema is owned by Flyway. Hibernate validates this mapping at start-up
  * and never alters the table.
@@ -107,11 +107,15 @@ public class ElderJpaEntity {
 	@Column(name = "updated_at", nullable = false, insertable = false, updatable = false)
 	private LocalDateTime updatedAt;
 
-	protected ElderJpaEntity() {
+	public ElderJpaEntity() {
 	}
 
 	public Long getId() {
 		return id;
+	}
+
+	public void setId(Long id) {
+		this.id = id;
 	}
 
 	public Long getUserId() {

@@ -3,6 +3,8 @@ package sg.nus.carelink.shared.security;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.context.annotation.ComponentScan;
+import org.springframework.context.annotation.FilterType;
 import org.springframework.context.annotation.Import;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
@@ -18,7 +20,11 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * rule that silently stops matching (a typo'd path, a reordered matcher) fails here
  * instead of only being noticed in a browser.
  */
-@WebMvcTest
+// The slice only needs AuthController (its IdentityService is mocked below). The feature
+// modules' controllers would each drag in their service, which is not what this test is
+// about, so they are kept out of the slice.
+@WebMvcTest(excludeFilters = @ComponentScan.Filter(
+		type = FilterType.REGEX, pattern = "sg\\.nus\\.carelink\\.(?!identity\\.).*\\.controller\\..*"))
 @Import(SecurityConfig.class)
 class SecurityConfigTest {
 

@@ -105,11 +105,11 @@ Inside every module the folders are the same: `controller/` (HTTP in and out),
 `application/` (use cases), `domain/model/` and `domain/repository/` (business rules and
 ports, plain Java), `infrastructure/persistence/entity/`, `/repository/` and `/adapter/`
 (the JPA entity, the Spring Data repository, and the adapter that implements the domain
-port). In `identity` all of them are filled; in the other modules `entity/` and
-`repository/` are generated from the V2 migration and validated against the schema at
-start-up, while the remaining folders hold a `package-info.java` describing what belongs
-there. The module owner fills them following `identity/`; the order is in
-ARCHITECTURE.md, section 4.
+port). Every module is filled the same way: per table a domain record, a port, an entity,
+a Spring Data repository, a mapper and an adapter, each with a unit test; per module a
+service and a controller. In `identity` these carry real behaviour; elsewhere they are a
+generated, compiling, tested starting point that mirrors the V2 migration, for the module
+owner to reshape. The order of work is in ARCHITECTURE.md, section 4.
 
 The schema is code. A table changes by adding `V3__<what>.sql` next to V1 and V2, never by
 editing the database by hand: every environment (each developer's machine, the CI
