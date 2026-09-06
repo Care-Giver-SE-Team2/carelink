@@ -1,0 +1,144 @@
+package sg.nus.carelink.visit.infrastructure.persistence;
+
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.Table;
+
+import java.time.LocalDateTime;
+
+/**
+ * JPA entity for table visit_assignment.
+ *
+ * From the caregiver analysis (RosterAssignment). visit.caregiver_id above is the
+ * CURRENT assignee, kept there because every roster query needs it. This table is
+ * the history: who was assigned, who was replaced after an absence, and why.
+ *
+ * DECISION 15  Caregiver-to-visit is many-to-many over time, one-to-one at any
+ *              instant. The caregiver analysis is right that a re-roster must not
+ *              erase the previous assignment. So the current one is denormalised
+ *              onto visit and the full history lives here.
+ *
+ * <p>Generated from V2__care_domain.sql as a starting point; edit freely, it will not
+ * be regenerated. Mirrors identity's AppUserJpaEntity: package-private, no domain
+ * logic, references to other aggregates are plain ids (DECISION 5 in the schema),
+ * so no module depends on another module's persistence classes.
+ *
+ * <p>The schema is owned by Flyway. Hibernate validates this mapping at start-up
+ * and never alters the table.
+ */
+@Entity
+@Table(name = "visit_assignment")
+class VisitAssignmentJpaEntity {
+
+	enum Status {
+		ACTIVE, REPLACED, CANCELLED
+	}
+
+	@Id
+	@GeneratedValue(strategy = GenerationType.IDENTITY)
+	private Long id;
+
+	@Column(name = "visit_id", nullable = false)
+	private Long visitId;
+
+	@Column(name = "caregiver_id", nullable = false)
+	private Long caregiverId;
+
+	/** soft FK to app_user.id */
+	@Column(name = "assigned_by_user_id")
+	private Long assignedByUserId;
+
+	@Enumerated(EnumType.STRING)
+	@Column(name = "status", nullable = false)
+	private Status status = Status.ACTIVE;
+
+	/** why this assignment was made or replaced */
+	@Column(name = "reason", length = 255)
+	private String reason;
+
+	@Column(name = "assigned_at", nullable = false)
+	private LocalDateTime assignedAt;
+
+	@Column(name = "ended_at")
+	private LocalDateTime endedAt;
+
+	/** soft FK to rostering_candidate.id: the run and option this assignment came from; null when assigned by hand */
+	@Column(name = "rostering_candidate_id")
+	private Long rosteringCandidateId;
+
+	protected VisitAssignmentJpaEntity() {
+	}
+
+	Long getId() {
+		return id;
+	}
+
+	Long getVisitId() {
+		return visitId;
+	}
+
+	void setVisitId(Long visitId) {
+		this.visitId = visitId;
+	}
+
+	Long getCaregiverId() {
+		return caregiverId;
+	}
+
+	void setCaregiverId(Long caregiverId) {
+		this.caregiverId = caregiverId;
+	}
+
+	Long getAssignedByUserId() {
+		return assignedByUserId;
+	}
+
+	void setAssignedByUserId(Long assignedByUserId) {
+		this.assignedByUserId = assignedByUserId;
+	}
+
+	Status getStatus() {
+		return status;
+	}
+
+	void setStatus(Status status) {
+		this.status = status;
+	}
+
+	String getReason() {
+		return reason;
+	}
+
+	void setReason(String reason) {
+		this.reason = reason;
+	}
+
+	LocalDateTime getAssignedAt() {
+		return assignedAt;
+	}
+
+	void setAssignedAt(LocalDateTime assignedAt) {
+		this.assignedAt = assignedAt;
+	}
+
+	LocalDateTime getEndedAt() {
+		return endedAt;
+	}
+
+	void setEndedAt(LocalDateTime endedAt) {
+		this.endedAt = endedAt;
+	}
+
+	Long getRosteringCandidateId() {
+		return rosteringCandidateId;
+	}
+
+	void setRosteringCandidateId(Long rosteringCandidateId) {
+		this.rosteringCandidateId = rosteringCandidateId;
+	}
+}

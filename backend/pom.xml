@@ -39,6 +39,13 @@
 		<sonar.coverage.jacoco.xmlReportPaths>
 			${project.build.directory}/site/jacoco/jacoco.xml
 		</sonar.coverage.jacoco.xmlReportPaths>
+		<!--
+		  JPA entities are structurally repetitive by nature (one field, one getter, one
+		  setter per column); duplication detection on them reports noise, not a defect.
+		-->
+		<sonar.cpd.exclusions>
+			**/*JpaEntity.java
+		</sonar.cpd.exclusions>
 	</properties>
 
 	<dependencyManagement>

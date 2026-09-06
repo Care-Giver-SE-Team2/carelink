@@ -76,8 +76,23 @@ backend/src/main/java/sg/nus/carelink/
 │  ├─ domain/                (3) domain
 │  └─ infrastructure/        (4) persistence
 │
-└─ <feature module>/         same skeleton, once module boundaries are agreed
+├─ profile/                  elder, caregiver, family member, binding, intake, credentials
+├─ careplan/                 care plan tree and required credentials
+├─ rostering/                availability, absences, rostering runs and constraint checks
+├─ visit/                    visit state machine, tasks, vitals, evidence, elder confirmation
+├─ incident/                 incidents, escalation log, family acknowledgement, spot checks
+├─ report/                   reports, value-added services, periodic caregiver reviews
+├─ notification/             subscriptions and notifications
+│     each: infrastructure/persistence/ holds one JPA entity + repository per table,
+│           generated from V2__care_domain.sql; domain/, application/ and controller/
+│           are the module owner's work, following identity/
+│
+└─ shared/audit/persistence/ audit_log entity (cross-cutting, so it lives in shared)
 ```
+
+The module split above follows the sections of the schema. It is a starting point, not a
+verdict: moving a package is a one-line IDE refactor, and the slice rule in
+LayerDependencyTest will tell you if the move created a cycle.
 
 Outer level splits by feature, inner level splits by layer. Not the other way round: there
 is no top-level `controller/` package holding every controller in the system.
@@ -215,6 +230,24 @@ class AppUserRepositoryAdapter implements AppUserRepository {
 The arrow points `infrastructure -> domain`, not the other way. That is why a test can
 supply a twenty-line fake and exercise the application layer with **no Spring and no
 database** — see `src/test/.../identity/application/InMemoryAppUserRepository.java`.
+
+### Starting a module from the generated entities
+
+Every table already has a `<Table>JpaEntity` and `<Table>JpaRepository` in its module's
+`infrastructure/persistence` package, validated column by column against the schema
+when the application starts (`ddl-auto: validate`). They are deliberately plain: ids
+instead of `@ManyToOne` (so modules never import each other's entities), enums nested in
+the entity, package-private. What the owner adds, in this order:
+
+1. `domain/model/` — the aggregate as ordinary Java with the business rules
+   (`AppUser` in identity is the template); the domain enums belong here too.
+2. `domain/repository/` — the port the application layer talks to.
+3. `infrastructure/persistence/` — a mapper and a repository adapter that implement the
+   port using the generated entity, as `AppUserMapper` and `AppUserRepositoryAdapter` do.
+4. `application/` and `controller/` — the use cases and the HTTP surface.
+
+A change to a table is a new Flyway script (`V3__…`) followed by the matching edit to the
+entity; the application refuses to start if the two disagree.
 
 ### Two decisions worth copying
 

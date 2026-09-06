@@ -22,6 +22,7 @@ functionality yet** — feature module boundaries are still being agreed.
 | Application | Starts, serves health probes, authenticates against the database |
 | `shared/` | Security, error handling, business-threshold configuration |
 | `identity/` | Reference implementation of the four layers, with unit tests |
+| Feature modules | Packages for profile, care plan, rostering, visit, incident, report, notification, with a validated JPA entity and repository per table; domain and application layers are each owner's next step |
 | Schema | V1 accounts + V2 care domain, 37 tables merged from the four member submissions; no seed data |
 | Pipeline | All nine jobs green, image published to GHCR, staging VM updated and scanned |
 | Not yet wired | Branch protection (deferred until feature work starts) |
