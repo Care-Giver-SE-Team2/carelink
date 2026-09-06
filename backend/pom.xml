@@ -174,16 +174,18 @@
 			  The OpenAPI contract lives at repo root (docs/api/), not under this
 			  module, because it is written before the code and is a contract the
 			  front end reads too - not an artifact of the backend build. This
-			  copies it onto the classpath so Spring serves it at /openapi.yaml
-			  alongside the Swagger UI page in static/docs/. The Docker build
-			  copies docs/api/ to the same relative location before this runs -
-			  see Dockerfile.
+			  copies both the final contract and the superseded draft onto the
+			  classpath so Spring serves them at /openapi.yaml and
+			  /openapi-draft.yaml alongside the Swagger UI page in static/docs/.
+			  The Docker build copies docs/api/ to the same relative location
+			  before this runs - see Dockerfile.
 			-->
 			<resource>
 				<directory>${project.basedir}/../docs/api</directory>
 				<targetPath>static</targetPath>
 				<includes>
 					<include>openapi.yaml</include>
+					<include>openapi-draft.yaml</include>
 				</includes>
 			</resource>
 		</resources>
