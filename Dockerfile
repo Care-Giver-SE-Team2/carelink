@@ -20,6 +20,9 @@ RUN chmod +x mvnw && ./mvnw -B -ntp dependency:go-offline
 COPY backend/src ./src
 # Put the front-end output in static so Spring serves it directly
 COPY --from=frontend /app/dist ./src/main/resources/static
+# The hand-written OpenAPI contract lives at repo root, not in backend/; the pom
+# resolves it via a relative path (../docs/api), so it must land one level above WORKDIR.
+COPY docs/api/openapi.yaml /docs/api/openapi.yaml
 RUN ./mvnw -B -ntp clean package -DskipTests
 
 # ---------- 3. Runtime ----------

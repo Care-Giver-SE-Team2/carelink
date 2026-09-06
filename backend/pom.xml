@@ -88,6 +88,20 @@
 			<scope>runtime</scope>
 		</dependency>
 
+		<!--
+		  Swagger UI to browse the hand-written, spec-first contract at
+		  docs/api/openapi.yaml (see the resources declaration below). This is
+		  static assets only - nothing here inspects controllers or generates a
+		  spec, so the UI can never drift silently from what was actually
+		  designed; a controller that disagrees with the spec is a bug to fix,
+		  not something the tooling papers over.
+		-->
+		<dependency>
+			<groupId>org.webjars</groupId>
+			<artifactId>swagger-ui</artifactId>
+			<version>5.27.0</version>
+		</dependency>
+
 		<!-- Testing -->
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
@@ -145,6 +159,27 @@
 	</dependencies>
 
 	<build>
+		<resources>
+			<resource>
+				<directory>${project.basedir}/src/main/resources</directory>
+			</resource>
+			<!--
+			  The OpenAPI contract lives at repo root (docs/api/), not under this
+			  module, because it is written before the code and is a contract the
+			  front end reads too - not an artifact of the backend build. This
+			  copies it onto the classpath so Spring serves it at /openapi.yaml
+			  alongside the Swagger UI page in static/docs/. The Docker build
+			  copies docs/api/ to the same relative location before this runs -
+			  see Dockerfile.
+			-->
+			<resource>
+				<directory>${project.basedir}/../docs/api</directory>
+				<targetPath>static</targetPath>
+				<includes>
+					<include>openapi.yaml</include>
+				</includes>
+			</resource>
+		</resources>
 		<plugins>
 			<plugin>
 				<groupId>org.springframework.boot</groupId>
