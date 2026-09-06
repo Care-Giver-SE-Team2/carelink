@@ -71,10 +71,17 @@ backend/src/main/java/sg/nus/carelink/
 │  └─ scheduling/            scheduled-task support (to be built)
 │
 ├─ identity/                 reference implementation, all four layers present
-│  ├─ controller/            (1) presentation
-│  ├─ application/           (2) application
-│  ├─ domain/                (3) domain
-│  └─ infrastructure/        (4) persistence
+│  ├─ controller/            (1) presentation: AuthController + dto/
+│  ├─ application/           (2) application: IdentityService, UserDirectory
+│  ├─ domain/
+│  │  ├─ model/              (3) domain model: AppUser
+│  │  └─ repository/         (3) domain ports: AppUserRepository
+│  └─ infrastructure/        (4) implementations
+│     ├─ persistence/
+│     │  ├─ entity/          AppUserJpaEntity
+│     │  ├─ repository/      AppUserJpaRepository (Spring Data)
+│     │  └─ adapter/         AppUserMapper, AppUserRepositoryAdapter (implements the port)
+│     └─ security/           UserDetailsService, authentication query
 │
 ├─ profile/                  elder, caregiver, family member, binding, intake, credentials
 ├─ careplan/                 care plan tree and required credentials
@@ -83,11 +90,13 @@ backend/src/main/java/sg/nus/carelink/
 ├─ incident/                 incidents, escalation log, family acknowledgement, spot checks
 ├─ report/                   reports, value-added services, periodic caregiver reviews
 ├─ notification/             subscriptions and notifications
-│     each: infrastructure/persistence/ holds one JPA entity + repository per table,
-│           generated from V2__care_domain.sql; domain/, application/ and controller/
-│           are the module owner's work, following identity/
+│     each has exactly identity's folders. infrastructure/persistence/entity/ and
+│     /repository/ are filled (one JPA entity + repository per table, generated from
+│     V2__care_domain.sql); controller/, application/, domain/model/, domain/repository/
+│     and persistence/adapter/ hold a package-info.java saying what goes there and are
+│     the module owner's work, following identity/
 │
-└─ shared/audit/persistence/ audit_log entity (cross-cutting, so it lives in shared)
+└─ shared/audit/persistence/ entity/ + repository/ for audit_log (cross-cutting, so it lives in shared)
 ```
 
 The module split above follows the sections of the schema. It is a starting point, not a
@@ -233,17 +242,18 @@ database** — see `src/test/.../identity/application/InMemoryAppUserRepository.
 
 ### Starting a module from the generated entities
 
-Every table already has a `<Table>JpaEntity` and `<Table>JpaRepository` in its module's
-`infrastructure/persistence` package, validated column by column against the schema
-when the application starts (`ddl-auto: validate`). They are deliberately plain: ids
-instead of `@ManyToOne` (so modules never import each other's entities), enums nested in
-the entity, package-private. What the owner adds, in this order:
+Every table already has a `<Table>JpaEntity` in `infrastructure/persistence/entity/` and a
+`<Table>JpaRepository` in `infrastructure/persistence/repository/`, validated column by
+column against the schema when the application starts (`ddl-auto: validate`). They are
+deliberately plain: ids instead of `@ManyToOne` (so modules never import each other's
+entities), enums nested in the entity, no business logic. Every other layer folder
+already exists with a `package-info.java` describing it. What the owner adds, in this order:
 
 1. `domain/model/` — the aggregate as ordinary Java with the business rules
    (`AppUser` in identity is the template); the domain enums belong here too.
 2. `domain/repository/` — the port the application layer talks to.
-3. `infrastructure/persistence/` — a mapper and a repository adapter that implement the
-   port using the generated entity, as `AppUserMapper` and `AppUserRepositoryAdapter` do.
+3. `infrastructure/persistence/adapter/` — a mapper and a repository adapter that implement
+   the port using the generated entity, as `AppUserMapper` and `AppUserRepositoryAdapter` do.
 4. `application/` and `controller/` — the use cases and the HTTP surface.
 
 A change to a table is a new Flyway script (`V3__…`) followed by the matching edit to the

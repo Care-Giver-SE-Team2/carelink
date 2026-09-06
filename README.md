@@ -101,12 +101,14 @@ CareLink/
 └─ ARCHITECTURE.md, README.md
 ```
 
-Inside a feature module the split is by layer: `controller/` (HTTP in and out),
-`application/` (use cases), `domain/` (business rules, plain Java), `infrastructure/`
-(persistence, security). Every module except `identity` currently holds only
-`infrastructure/persistence/`: one `<Table>JpaEntity` and `<Table>JpaRepository` per
-table, generated from the V2 migration and validated against the schema at start-up.
-The module owner adds the other three layers following `identity/`; the order is in
+Inside every module the folders are the same: `controller/` (HTTP in and out),
+`application/` (use cases), `domain/model/` and `domain/repository/` (business rules and
+ports, plain Java), `infrastructure/persistence/entity/`, `/repository/` and `/adapter/`
+(the JPA entity, the Spring Data repository, and the adapter that implements the domain
+port). In `identity` all of them are filled; in the other modules `entity/` and
+`repository/` are generated from the V2 migration and validated against the schema at
+start-up, while the remaining folders hold a `package-info.java` describing what belongs
+there. The module owner fills them following `identity/`; the order is in
 ARCHITECTURE.md, section 4.
 
 The schema is code. A table changes by adding `V3__<what>.sql` next to V1 and V2, never by
