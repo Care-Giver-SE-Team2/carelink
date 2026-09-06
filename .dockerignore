@@ -4,7 +4,10 @@
 **/coverage
 .git
 .github
-docs
+# Design documents are not build inputs, except the OpenAPI contract, which the
+# backend build copies onto the classpath (see Dockerfile and backend/pom.xml).
+docs/**
+!docs/api/openapi.yaml
 *.md
 zap-out
 reports
