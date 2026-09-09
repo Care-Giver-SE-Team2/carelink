@@ -1,0 +1,63 @@
+@startuml
+title Activity Diagram - FM06 Schedule Change\n(Based on Current CareLink Database Design)
+
+skinparam shadowing false
+skinparam activity {
+    BackgroundColor White
+    BorderColor Black
+    FontName Arial
+}
+skinparam defaultFontName Arial
+
+|Caregiver|
+start
+:Submit absence report\n[absence_report];
+:Provide absence details\n(type, time range, reason);
+
+|Manager|
+:Review absence report\n[absence_report];
+
+if (Approve absence?) then (Yes)
+    :Set absence status = APPROVED\n[absence_report];
+
+    |System|
+    :Create rostering run\n[rostering_run]\nstatus = PROPOSED;
+    :Identify affected visits\n[visit];
+    :Generate candidate caregivers\n[rostering_candidate];
+    :Check constraints for each candidate\n[rostering_candidate_check];
+
+    note right
+      Constraint results are recorded per candidate.
+      Examples from rostering_constraint:
+      - CERTIFICATION_VALID
+      - DAILY_VISIT_CAP
+      - SECTOR_BAND
+      - DIALECT_MATCH
+      - CONTINUITY
+      - TRAVEL_DISTANCE
+      - DAILY_HOURS_CAP
+    end note
+
+    if (Any qualified candidate?) then (Yes)
+        :Select best candidate\nbased on objective, score and rules;
+        :Set rostering run = COMMITTED\n[rostering_run];
+        :Set old assignment = REPLACED\n[visit_assignment];
+        :Create new assignment = ACTIVE\n[visit_assignment];
+        :Update current caregiver\n[visit.caregiver_id];
+        :Create ROSTER_CHANGED notification\n[notification];
+
+        |Family Member|
+        :Receive roster change notification\n[notification];
+        :View updated visit schedule\n[visit];
+        stop
+    else (No)
+        :Keep run result with uncovered visit(s)\n[rostering_run];
+        stop
+    endif
+
+else (No)
+    :Set absence status = REJECTED\n[absence_report];
+    stop
+endif
+
+@enduml
