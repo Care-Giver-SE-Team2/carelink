@@ -765,6 +765,134 @@ paths:
                     items:
                       $ref: '#/components/schemas/Credential'
 
+  /caregivers/me:
+    get:
+      tags: [Caregivers]
+      summary: Get my caregiver profile
+      x-status: draft
+      description: >
+        Returns the profile of the authenticated caregiver. This self-service
+        route avoids exposing a caller-selectable caregiver identifier.
+      responses:
+        '200':
+          description: The caller's caregiver profile.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Caregiver'
+    patch:
+      tags: [Caregivers]
+      summary: Update my caregiver contact details
+      x-status: draft
+      description: >
+        Caregivers may update their own contact details only. Employment
+        status remains manager-controlled.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CaregiverSelfUpdateRequest'
+      responses:
+        '200':
+          description: Updated caregiver profile.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Caregiver'
+
+  /caregivers/me/preferences:
+    get:
+      tags: [Caregivers]
+      summary: Get my work preferences
+      x-status: draft
+      description: >
+        UC-CG02. Preferences are roster-planning input only; they never
+        override an active credential requirement or approved absence.
+      responses:
+        '200':
+          description: The caller's current work preferences.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CaregiverPreference'
+    put:
+      tags: [Caregivers]
+      summary: Replace my work preferences
+      x-status: draft
+      description: >
+        UC-CG02. Replaces the caregiver's soft preferences used by roster
+        planning. It does not change any roster assignment directly.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CaregiverPreferenceUpdateRequest'
+      responses:
+        '200':
+          description: Work preferences saved.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CaregiverPreference'
+
+  /caregivers/me/availability:
+    get:
+      tags: [Caregivers]
+      summary: List my daily availability
+      x-status: draft
+      description: >
+        UC-CG02. Returns the caller's daily availability windows. Approved
+        leave is considered separately by roster planning and is not editable
+        through this route.
+      parameters:
+        - name: dateFrom
+          in: query
+          required: true
+          schema: { type: string, format: date }
+        - name: dateTo
+          in: query
+          required: true
+          schema: { type: string, format: date }
+      responses:
+        '200':
+          description: Availability records in the requested date range.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/CaregiverAvailability'
+
+  /caregivers/me/availability/{availableDate}:
+    parameters:
+      - name: availableDate
+        in: path
+        required: true
+        schema: { type: string, format: date }
+    put:
+      tags: [Caregivers]
+      summary: Set my availability for one day
+      x-status: draft
+      description: >
+        UC-CG02. Creates or replaces one daily availability window. The
+        selected window remains subject to manager roster decisions and hard
+        constraints.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CaregiverAvailabilityUpsertRequest'
+      responses:
+        '200':
+          description: Availability record saved.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CaregiverAvailability'
+
   /caregivers/{caregiverId}/reviews:
     parameters:
       - $ref: '#/components/parameters/CaregiverId'
@@ -1153,6 +1281,30 @@ paths:
         '404':
           $ref: '#/components/responses/NotFound'
 
+  /visits/{visitId}/work-pack:
+    parameters:
+      - $ref: '#/components/parameters/VisitId'
+    get:
+      tags: [Visits]
+      summary: Get the caregiver work pack for an assigned visit
+      x-status: draft
+      description: >
+        UC-CG03. Returns only the minimum elder information, care-plan
+        instructions, tasks and evidence requirements needed for the caller's
+        assigned visit. The response must not become a general elder-record
+        endpoint.
+      responses:
+        '200':
+          description: Assigned caregiver work pack.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CaregiverVisitWorkPack'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
   /visits/{visitId}/check-in:
     parameters:
       - $ref: '#/components/parameters/VisitId'
@@ -1173,6 +1325,31 @@ paths:
                 $ref: '#/components/schemas/Visit'
         '409':
           $ref: '#/components/responses/Conflict'
+
+  /visits/{visitId}/tasks:
+    parameters:
+      - $ref: '#/components/parameters/VisitId'
+    get:
+      tags: [Visits]
+      summary: List tasks for an assigned visit
+      x-status: draft
+      description: >
+        UC-CG03. Lists the task-execution state for the caller's assigned
+        visit. Task completion remains available through the task-specific
+        completion route.
+      responses:
+        '200':
+          description: Visit tasks.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/VisitTask'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
 
   /visits/{visitId}/tasks/{taskId}/complete:
     parameters:
@@ -1207,6 +1384,24 @@ paths:
   /visits/{visitId}/vitals:
     parameters:
       - $ref: '#/components/parameters/VisitId'
+    get:
+      tags: [Visits]
+      summary: List vital-sign readings for an assigned visit
+      x-status: draft
+      description: UC-CG03. Returns readings previously recorded for this visit.
+      responses:
+        '200':
+          description: Vital-sign readings.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/VitalSign'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
     post:
       tags: [Visits]
       summary: Record a vital-sign reading
@@ -1229,6 +1424,24 @@ paths:
   /visits/{visitId}/evidence:
     parameters:
       - $ref: '#/components/parameters/VisitId'
+    get:
+      tags: [Visits]
+      summary: List evidence for an assigned visit
+      x-status: draft
+      description: UC-CG03 and UC-CG05. Returns evidence metadata, not an unrestricted file archive.
+      responses:
+        '200':
+          description: Evidence metadata for the visit.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/VisitEvidence'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
     post:
       tags: [Visits]
       summary: Attach visit evidence
@@ -1306,9 +1519,9 @@ paths:
       description: >
         UC-EL01. One large tap in the elder view. Independent of the
         caregiver's closure — the caregiver cannot submit this on the
-        elder's behalf; `confirmedBy` records how it was actually obtained,
-        including the `CAREGIVER_RECORDED_VERBAL` and `TIMEOUT_DEFAULT`
-        fallbacks.
+        elder's behalf. A response of `DISPUTED` opens an incident; no
+        response by the deadline auto-closes the visit without creating an
+        elder-confirmation record.
       requestBody:
         required: true
         content:
@@ -2655,7 +2868,7 @@ components:
     # ---------------- Caregivers & certifications ----------------
     CaregiverStatus:
       type: string
-      enum: [AVAILABLE, BUSY, INACTIVE]
+      enum: [ONBOARDING, AVAILABLE, BUSY, INACTIVE]
 
     Caregiver:
       type: object
@@ -2689,6 +2902,74 @@ components:
         - type: object
           properties:
             status: { $ref: '#/components/schemas/CaregiverStatus' }
+
+    CaregiverSelfUpdateRequest:
+      type: object
+      minProperties: 1
+      description: Self-service fields only; employment status is manager-controlled.
+      properties:
+        phone: { type: string }
+
+    CaregiverPreference:
+      type: object
+      required: [caregiverId]
+      description: >
+        Soft roster-planning preferences. They must never override valid
+        credentials, approved leave or other hard constraints.
+      properties:
+        caregiverId: { type: integer, format: int64, readOnly: true }
+        preferredServiceTypes:
+          type: array
+          items: { type: string }
+        preferredSectors:
+          type: array
+          items: { type: string }
+        preferredTimeWindows:
+          type: array
+          items: { type: string, example: '09:00-13:00' }
+        maxVisitsPerDay: { type: integer, format: int32, minimum: 0, nullable: true }
+        maxHoursPerDay: { type: number, format: double, minimum: 0, nullable: true }
+        updatedAt: { type: string, format: date-time, readOnly: true }
+
+    CaregiverPreferenceUpdateRequest:
+      type: object
+      description: Replaces the caller's stored soft work preferences.
+      properties:
+        preferredServiceTypes:
+          type: array
+          items: { type: string }
+        preferredSectors:
+          type: array
+          items: { type: string }
+        preferredTimeWindows:
+          type: array
+          items: { type: string, example: '09:00-13:00' }
+        maxVisitsPerDay: { type: integer, format: int32, minimum: 0, nullable: true }
+        maxHoursPerDay: { type: number, format: double, minimum: 0, nullable: true }
+
+    CaregiverAvailabilityStatus:
+      type: string
+      enum: [AVAILABLE, UNAVAILABLE]
+
+    CaregiverAvailability:
+      type: object
+      required: [id, caregiverId, availableDate, availableStart, availableEnd, status]
+      properties:
+        id: { type: integer, format: int64, readOnly: true }
+        caregiverId: { type: integer, format: int64, readOnly: true }
+        availableDate: { type: string, format: date }
+        availableStart: { type: string, format: time }
+        availableEnd: { type: string, format: time }
+        status: { $ref: '#/components/schemas/CaregiverAvailabilityStatus' }
+        updatedAt: { type: string, format: date-time, readOnly: true }
+
+    CaregiverAvailabilityUpsertRequest:
+      type: object
+      required: [availableStart, availableEnd, status]
+      properties:
+        availableStart: { type: string, format: time }
+        availableEnd: { type: string, format: time }
+        status: { $ref: '#/components/schemas/CaregiverAvailabilityStatus' }
 
     CredentialStatus:
       type: string
@@ -2896,7 +3177,7 @@ components:
     # ---------------- Visits ----------------
     VisitStatus:
       type: string
-      enum: [SCHEDULED, ARRIVED, IN_PROGRESS, COMPLETED, VERIFIED, EXCEPTION, CANCELLED]
+      enum: [SCHEDULED, ARRIVED, IN_PROGRESS, COMPLETED, VERIFIED, AUTO_CLOSED, EXCEPTION, CANCELLED]
 
     Visit:
       type: object
@@ -2940,6 +3221,43 @@ components:
         outcome: { type: string }
         caregiverNote: { type: string }
         completedAt: { type: string, format: date-time, nullable: true }
+
+    CaregiverElderVisitView:
+      type: object
+      required: [elderId, preferredName]
+      description: >
+        Minimum elder information required by the caregiver for one assigned
+        visit. It intentionally excludes the elder's general profile and
+        unrestricted clinical record.
+      properties:
+        elderId: { type: integer, format: int64 }
+        preferredName: { type: string }
+        serviceAddress: { type: string }
+        postalSector: { type: string }
+        languageNeeds:
+          type: array
+          items: { type: string }
+        accessNotes: { type: string, nullable: true }
+        emergencyNotes: { type: string, nullable: true }
+
+    CaregiverVisitWorkPack:
+      type: object
+      required: [visit, elder, tasks, requiredEvidenceKinds]
+      description: The read-only execution view prepared for an assigned caregiver.
+      properties:
+        visit: { $ref: '#/components/schemas/Visit' }
+        elder: { $ref: '#/components/schemas/CaregiverElderVisitView' }
+        carePlanId: { type: integer, format: int64, nullable: true }
+        carePlanVersion: { type: integer, format: int32, nullable: true }
+        serviceInstructions:
+          type: array
+          items: { type: string }
+        tasks:
+          type: array
+          items: { $ref: '#/components/schemas/VisitTask' }
+        requiredEvidenceKinds:
+          type: array
+          items: { type: string, enum: [PHOTO, SIGNATURE, CHECKLIST, READING, NOTE] }
 
     VitalSign:
       type: object
@@ -2990,18 +3308,13 @@ components:
           enum: [STRUCTURED, MODEL, MANUAL_FORM]
         extractedOutcome: { type: string }
 
-    ConfirmedBy:
-      type: string
-      enum: [ELDER, FAMILY_REMOTE, CAREGIVER_RECORDED_VERBAL, TIMEOUT_DEFAULT]
-
     ElderConfirmation:
       type: object
       required: [id, visitId, confirmationStatus]
       properties:
         id: { type: integer, format: int64 }
         visitId: { type: integer, format: int64 }
-        confirmationStatus: { type: string, enum: [CONFIRMED, DISPUTED, NOT_RESPONDED] }
-        confirmedBy: { $ref: '#/components/schemas/ConfirmedBy' }
+        confirmationStatus: { type: string, enum: [CONFIRMED, DISPUTED] }
         rating: { type: integer, minimum: 1, maximum: 5, nullable: true }
         comment: { type: string }
         confirmedAt: { type: string, format: date-time, nullable: true }

@@ -1,0 +1,145 @@
+document:
+  title: Chenyu Caregiver API Draft Additions
+  version: 0.1.0
+  status: draft
+  language: English
+  source_contract: docs/api/openapi-draft.yaml
+  scope: >
+    Caregiver-owned data and the minimum cross-role read access required for
+    caregiver visit execution. This document records additions made to the
+    source OpenAPI draft; it is not an implementation-status report.
+
+design_rules:
+  - Caregivers write only caregiver-owned profile contact data, work preferences,
+    availability, leave requests, visit execution records, evidence, vital signs
+    and factual care-exception reports.
+  - Manager-owned employment status, roster decisions and care-plan authoring are
+    not writable through caregiver self-service endpoints.
+  - A caregiver receives only the minimum elder information and care-plan snapshot
+    needed for an assigned visit.
+  - Work preferences are soft roster-planning input and never override active
+    credentials, approved leave or other hard constraints.
+  - Elder service confirmation is independent. A caregiver cannot confirm a visit
+    on the elder's behalf.
+
+added_operations:
+  - operation_id: getMyCaregiverProfile
+    method: GET
+    path: /caregivers/me
+    use_cases: [CG01, CG02]
+    data_read: [CaregiverProfile]
+    response: Caregiver
+    reason: Returns the authenticated caregiver's profile without exposing a caller-selectable caregiver identifier.
+
+  - operation_id: updateMyCaregiverContact
+    method: PATCH
+    path: /caregivers/me
+    use_cases: [CG02]
+    data_written: [CaregiverProfile.phone]
+    request: CaregiverSelfUpdateRequest
+    response: Caregiver
+    reason: Allows self-service contact updates while keeping employment status manager-controlled.
+
+  - operation_id: getMyWorkPreferences
+    method: GET
+    path: /caregivers/me/preferences
+    use_cases: [CG02]
+    data_read: [CaregiverPreference]
+    response: CaregiverPreference
+    reason: Lets the caregiver review the stored soft roster-planning preferences.
+
+  - operation_id: replaceMyWorkPreferences
+    method: PUT
+    path: /caregivers/me/preferences
+    use_cases: [CG02]
+    data_written: [CaregiverPreference]
+    request: CaregiverPreferenceUpdateRequest
+    response: CaregiverPreference
+    reason: Stores preferred service types, sectors, time windows and workload limits without changing a roster directly.
+
+  - operation_id: listMyAvailability
+    method: GET
+    path: /caregivers/me/availability
+    use_cases: [CG02]
+    query_parameters: [dateFrom, dateTo]
+    data_read: [CaregiverAvailability]
+    response: CaregiverAvailability[]
+    reason: Provides the daily availability windows used alongside approved leave in roster planning.
+
+  - operation_id: setMyDailyAvailability
+    method: PUT
+    path: /caregivers/me/availability/{availableDate}
+    use_cases: [CG02]
+    data_written: [CaregiverAvailability]
+    request: CaregiverAvailabilityUpsertRequest
+    response: CaregiverAvailability
+    reason: Creates or replaces one daily availability window for the authenticated caregiver.
+
+  - operation_id: getAssignedVisitWorkPack
+    method: GET
+    path: /visits/{visitId}/work-pack
+    use_cases: [CG03]
+    data_read: [Visit, ElderVisitView, CarePlanSnapshot, VisitTask]
+    response: CaregiverVisitWorkPack
+    access_control: Only the caregiver assigned to the visit may read it.
+    reason: Supplies the minimum elder details, instructions, tasks and required evidence kinds needed to execute a visit.
+
+  - operation_id: listAssignedVisitTasks
+    method: GET
+    path: /visits/{visitId}/tasks
+    use_cases: [CG03, CG05]
+    data_read: [VisitTask]
+    response: VisitTask[]
+    access_control: Only the caregiver assigned to the visit may read it.
+    reason: Complements the existing task-completion operation with a read model for execution progress.
+
+  - operation_id: listAssignedVisitVitals
+    method: GET
+    path: /visits/{visitId}/vitals
+    use_cases: [CG03]
+    data_read: [VitalSign]
+    response: VitalSign[]
+    access_control: Only the caregiver assigned to the visit may read it.
+    reason: Lets the caregiver review readings already recorded during the current visit.
+
+  - operation_id: listAssignedVisitEvidence
+    method: GET
+    path: /visits/{visitId}/evidence
+    use_cases: [CG03, CG05]
+    data_read: [VisitEvidence]
+    response: VisitEvidence[]
+    access_control: Only the caregiver assigned to the visit may read it.
+    reason: Lets the caregiver check submitted evidence metadata before closing a visit.
+
+schema_additions:
+  - CaregiverSelfUpdateRequest
+  - CaregiverPreference
+  - CaregiverPreferenceUpdateRequest
+  - CaregiverAvailabilityStatus
+  - CaregiverAvailability
+  - CaregiverAvailabilityUpsertRequest
+  - CaregiverElderVisitView
+  - CaregiverVisitWorkPack
+
+alignment_corrections:
+  - subject: CaregiverStatus
+    change: Added ONBOARDING to match the caregiver lifecycle in the current data design.
+  - subject: VisitStatus
+    change: Added AUTO_CLOSED for a completed visit with no elder response by the confirmation deadline.
+  - subject: ElderConfirmation
+    change: Removed NOT_RESPONDED and confirmedBy because no-response auto-closes the visit without an elder-confirmation record.
+  - subject: POST /visits/{visitId}/confirm
+    change: Clarified that the elder confirms independently; a disputed response opens an incident and a timeout creates no confirmation record.
+
+existing_operations_used_by_caregiver:
+  - GET /caregivers/me/schedule
+  - POST /leave-requests
+  - GET /visits
+  - GET /visits/{visitId}
+  - POST /visits/{visitId}/check-in
+  - POST /visits/{visitId}/tasks/{taskId}/complete
+  - POST /visits/{visitId}/vitals
+  - POST /visits/{visitId}/evidence
+  - POST /visits/{visitId}/close
+  - GET /visits/{visitId}/timeline
+  - POST /incidents

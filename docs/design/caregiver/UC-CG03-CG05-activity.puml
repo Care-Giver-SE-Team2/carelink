@@ -1,0 +1,103 @@
+@startuml UC-CG03-CG05-activity
+title UC-CG03 + UC-CG05 — Execute Home Visit to Independent Service Confirmation
+
+skinparam backgroundColor white
+skinparam shadowing false
+skinparam defaultFontName "Microsoft YaHei"
+skinparam activity {
+  BackgroundColor #FFFFFF
+  BorderColor #3C4652
+  DiamondBackgroundColor #FFF8E8
+  DiamondBorderColor #B7791F
+}
+
+|Caregiver|
+start
+:Open assigned visit and read the approved care plan;
+note right
+Objects read: Visit,
+CarePlanSnapshot
+end note
+
+|System / Visit state|
+:Verify assignee, time window and current state;
+if (Legal state transition?) then (yes)
+  :Append SCHEDULED → ARRIVED
+  [VisitStateTransition = APPLIED];
+else (no)
+  :Append rejected transition
+  [VisitStateTransition = REJECTED];
+  |Caregiver|
+  :Show the rejection reason;
+  stop
+endif
+
+|Caregiver|
+:Check in and begin care;
+|System / Visit state|
+:Set Visit = IN_PROGRESS;
+
+repeat
+  |Caregiver|
+  :Perform each planned task;
+  :Record task outcome and observations;
+  note right
+  Object written: VisitTask
+  end note
+  :Capture required evidence and vital signs;
+  note right
+  Objects written: VisitEvidence,
+  VitalSign
+  end note
+
+  if (Care exception found?) then (yes)
+    :Report facts and severity (UC-CG04);
+    |System / Visit state|
+    :Create Incident [source = CAREGIVER]
+    and set Visit = EXCEPTION;
+    |Manager|
+    :Hand off to UC-MG05 / UC-SYS02
+    for take-over and escalation;
+    stop
+  endif
+
+  |System / Visit state|
+  :Validate completed tasks and required evidence;
+repeat while (Anything missing or rejected?) is (yes)
+
+|Caregiver|
+:Check out and submit visit completion;
+|System / Visit state|
+:Append IN_PROGRESS → COMPLETED
+[VisitStateTransition = APPLIED];
+:Set Visit = COMPLETED
+(awaiting elder);
+:Create permitted VISIT_COMPLETED notifications;
+
+|Family Notification|
+:Receive service-completion notification
+when subscription and access scope allow it;
+
+|Elder|
+:Review the completed visit independently;
+if (Confirm service?) then (yes)
+  |System / Visit state|
+  :Create ElderConfirmation = CONFIRMED;
+  |Manager|
+  :Audit/verify visit when required;
+  |System / Visit state|
+  :Set Visit = VERIFIED;
+  stop
+elseif (Dispute?) then (yes)
+  |System / Visit state|
+  :Create ElderConfirmation = DISPUTED
+and open Incident;
+  |Manager|
+  :Hand off to UC-MG05;
+  stop
+else (no response by deadline)
+  |System / Visit state|
+  :Set Visit = AUTO_CLOSED;
+  stop
+endif
+@enduml
