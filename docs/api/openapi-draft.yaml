@@ -909,6 +909,71 @@ paths:
         '409':
           $ref: '#/components/responses/Conflict'
 
+  /leave-requests/{id}/affected-visits:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: integer, format: int64 }
+    get:
+      tags: [Leave]
+      summary: Visits this absence orphans
+      x-status: draft
+      description: >
+        UC-MG04 step 1. The visits assigned to the absent caregiver that fall
+        inside the absence and have not started — the list the manager sees
+        with the absence notification, before deciding to re-roster.
+      responses:
+        '200':
+          description: Affected visits, SCHEDULED only.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Visit'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /visits/{visitId}/change-decision:
+    parameters:
+      - $ref: '#/components/parameters/VisitId'
+    post:
+      tags: [Leave]
+      summary: Family answers a proposed change to a visit
+      x-status: draft
+      description: >
+        UC-MG04 steps 4–5 (the former UC-FM06). When re-rostering changes the
+        caregiver or the time of a visit, the family is sent the proposal and
+        answers here: accept the replacement, reschedule (the visit re-enters
+        the run with the new window), or skip this one (`CANCELLED`, recorded
+        as a family cancellation, not a missed visit). The deadline is an
+        organisation setting (default 2 hours); when it passes unanswered the
+        scheduled job applies the default plan — normally the best-ranked
+        replacement — and the decision is logged as `DEFAULT_APPLIED`, which
+        is distinguishable from a family choice.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VisitChangeDecisionRequest'
+      responses:
+        '200':
+          description: Decision recorded; the visit reflects it.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Visit'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '409':
+          description: The proposal has already been answered or the deadline has passed.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+
   # ===================================================================
   # Rostering — draft
   # ===================================================================
@@ -1418,16 +1483,190 @@ paths:
       summary: Escalate to the next responder
       x-status: draft
       description: >
-        The escalation chain is assembled at call time from severity, time
-        of day and who is currently on duty — not a fixed configuration.
-        Also invoked by the scheduled job when `respondBy` passes unclaimed.
+        UC-SYS02. The chain was assembled when the incident was opened (see
+        `/incidents/{id}/escalation-chain`); this moves the incident to its
+        next level: the new responder is set, both the previous and the new
+        responder are notified, the trigger (`TIMEOUT` from the scheduled scan
+        or `MANUAL` from a manager) and the reason are written to the
+        timeline, and the next level's countdown starts. A level whose
+        responder is off duty is skipped and the skip is logged. The previous
+        responder's entry is never removed: responsibility accumulates, it
+        does not transfer. When the chain is exhausted the incident becomes
+        `UNRESOLVED_ESCALATED`, is pinned to the top-level view and the family
+        is notified.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                reason:
+                  type: string
+                  description: Free text; the scheduled scan writes "response countdown expired".
       responses:
         '200':
-          description: Escalated; new `responderUserId` and `respondBy` set.
+          description: Escalated; new `responderUserId` and `respondBy` set, or `UNRESOLVED_ESCALATED` if the chain is exhausted.
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Incident'
+        '409':
+          description: The incident is no longer waiting for a responder (already claimed or resolved) — the "almost escalated" case, which is logged.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+
+  /incidents/{id}/escalation-chain:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: integer, format: int64 }
+    get:
+      tags: [Incidents]
+      summary: The escalation chain assembled for this incident
+      x-status: draft
+      description: >
+        UC-MG05 / UC-SYS02. Shows the chain exactly as it was assembled at
+        runtime for this incident — each level's responder, that level's
+        countdown, and which level is current. Two incidents of the same
+        category can have different chains (night vs day, who is on duty),
+        which is why the chain is read per incident rather than configured.
+      responses:
+        '200':
+          description: Ordered levels, first responder first.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EscalationChain'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /incidents/{id}/contact-attempts:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: integer, format: int64 }
+    post:
+      tags: [Incidents]
+      summary: Record an attempt to contact the family
+      x-status: draft
+      description: >
+        UC-MG05 step 4. Every attempt is recorded whether or not the family was
+        reached, with the channel and the reason when not. A `NOT_REACHED`
+        outcome is what lets the manager apply the standard playbook without
+        waiting (4a); when every channel fails the timeline shows "family not
+        reached" and the dashboard asks for manual contact (4b).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ContactAttemptRequest'
+      responses:
+        '201':
+          description: Attempt appended to the timeline.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IncidentLogEntry'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+
+  /incidents/{id}/playbook:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: integer, format: int64 }
+    post:
+      tags: [Incidents]
+      summary: Apply a standard response playbook
+      x-status: draft
+      description: >
+        UC-MG05 step 5 / 4a. When the family cannot be reached, or agrees to
+        it, the manager confirms the standard playbook for the incident's
+        category and severity; the steps it prescribes are appended to the
+        timeline as the manager carries them out. The playbook is chosen
+        from `/incident-playbooks`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [playbookCode]
+              properties:
+                playbookCode: { type: string, example: FALL_MEDIUM }
+      responses:
+        '200':
+          description: Playbook recorded on the incident.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IncidentDetail'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /incidents/{id}/severity:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: integer, format: int64 }
+    post:
+      tags: [Incidents]
+      summary: Raise or lower the severity
+      x-status: draft
+      description: >
+        UC-MG05 5a. When the situation worsens the manager raises the severity;
+        the escalation chain is re-assembled for the new severity and the
+        countdown restarted, but the same incident and the same timeline
+        continue — no new incident is opened.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [severity]
+              properties:
+                severity: { $ref: '#/components/schemas/IncidentSeverity' }
+                reason: { type: string }
+      responses:
+        '200':
+          description: Severity changed; chain re-assembled.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Incident'
+
+  /incident-playbooks:
+    get:
+      tags: [Incidents]
+      summary: Standard response playbooks
+      x-status: draft
+      description: The organisation's standard responses per category and severity, as configured (not code constants).
+      parameters:
+        - name: category
+          in: query
+          schema:
+            $ref: '#/components/schemas/IncidentCategory'
+        - name: severity
+          in: query
+          schema:
+            $ref: '#/components/schemas/IncidentSeverity'
+      responses:
+        '200':
+          description: Matching playbooks.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/IncidentPlaybook'
 
   /incidents/{id}/resolve:
     parameters:
@@ -1439,13 +1678,22 @@ paths:
       tags: [Incidents]
       summary: Resolve the incident
       x-status: draft
+      description: >
+        UC-MG05 step 6. Only the current responder may resolve. An incident is
+        never closed automatically: without this call it stays open and keeps
+        escalating.
       requestBody:
+        required: true
         content:
           application/json:
             schema:
               type: object
+              required: [resolutionNote]
               properties:
                 resolutionNote: { type: string }
+                outcome:
+                  type: string
+                  enum: [HANDLED_ON_SITE, REFERRED_TO_MEDICAL_CARE, FALSE_ALARM]
       responses:
         '200':
           description: Resolved.
@@ -1453,6 +1701,18 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Incident'
+        '403':
+          description: The caller is not the current responder.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+        '409':
+          description: Already resolved.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
 
   /incidents/{id}/acknowledge:
     parameters:
@@ -1540,7 +1800,7 @@ paths:
       tags: [Spot checks]
       summary: Approve or reject a spot check
       x-status: draft
-      description: UC-FM07.
+      description: UC-MG08 step 3 / 3a (the former UC-FM07). A check never proceeds without the family's consent; a rejection needs a reason and closes the request with no record against anyone.
       requestBody:
         required: true
         content:
@@ -1552,6 +1812,9 @@ paths:
                 decision:
                   type: string
                   enum: [APPROVED, REJECTED]
+                reason:
+                  type: string
+                  description: Required when rejecting.
       responses:
         '200':
           description: Decision recorded.
@@ -1570,17 +1833,115 @@ paths:
       tags: [Spot checks]
       summary: Record spot-check findings
       x-status: draft
+      description: >
+        UC-MG08 step 4, from the manager's phone on site. `SATISFACTORY` or
+        `NEEDS_IMPROVEMENT` is written to the caregiver's record, visible to
+        the caregiver and the family, and feeds rostering as a reference (never
+        as a penalty on its own). `CAREGIVER_ABSENT` (4a) converts the check
+        into a missed-visit incident handled through UC-MG05 and closes the
+        check; `ELDER_NOT_HOME` (4b) closes the check without any record
+        against the caregiver.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SpotCheckCompleteRequest'
+      responses:
+        '200':
+          description: Findings recorded; `incidentId` set when an incident was opened.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SpotCheck'
+        '409':
+          description: The check is not in an approved, open state.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+
+  /spot-checks/{id}/withdraw:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: integer, format: int64 }
+    post:
+      tags: [Spot checks]
+      summary: Withdraw a spot check
+      x-status: draft
+      description: UC-MG08 4b / failure path. Closes the request with the manager's reason; no visit record is produced and the care plan is untouched.
       requestBody:
         required: true
         content:
           application/json:
             schema:
               type: object
+              required: [reason]
               properties:
-                finding: { type: string }
+                reason: { type: string }
       responses:
         '200':
-          description: Findings recorded.
+          description: Closed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SpotCheck'
+
+  /spot-checks/{id}/reschedule:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: integer, format: int64 }
+    post:
+      tags: [Spot checks]
+      summary: Propose a new time for a spot check
+      x-status: draft
+      description: >
+        UC-MG08 4b. The check goes back to `PENDING_APPROVAL` — a new time needs
+        the family's consent again.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [proposedTime]
+              properties:
+                proposedTime: { type: string, format: date-time }
+      responses:
+        '200':
+          description: Re-proposed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SpotCheck'
+
+  /spot-checks/{id}/caregiver-response:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: integer, format: int64 }
+    post:
+      tags: [Spot checks]
+      summary: Caregiver responds to the findings
+      x-status: draft
+      description: The finding is visible to the caregiver (unlike elder ratings) and they may answer it once; the response sits next to the finding.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [response]
+              properties:
+                response: { type: string }
+      responses:
+        '200':
+          description: Response recorded.
           content:
             application/json:
               schema:
@@ -1595,9 +1956,16 @@ paths:
       summary: Generate periodic reports
       x-status: draft
       description: >
-        UC-MG07. One week of records becomes three audience-filtered
-        artefacts in a single run — `FAMILY`, `REGULATOR` and `INTERNAL`
-        share a skeleton but not a filtering rule. The `FAMILY` filter is
+        UC-MG07. Run by the scheduler at the end of each period and by a
+        manager on demand. One period of records becomes three
+        audience-filtered artefacts in a single run — `FAMILY`, `REGULATOR`
+        and `INTERNAL` share a skeleton but not a filtering rule. Unclosed
+        visits in the period do not block generation: the report is marked
+        `dataComplete: false` and lists the missing items (2a). If the
+        language-model summary is unavailable the family version falls back to
+        the structured template (3a), reported via `generatedBy`. Omit
+        `elderId` to generate for every elder, which is what the scheduler
+        does. The `FAMILY` filter is
         specified precisely (per the supervisor side's screen-2c mock):
         scoped to elders the requesting family member is actively bound to;
         caregiver identity reduced to name only, no staff-performance data;
@@ -1611,14 +1979,17 @@ paths:
           application/json:
             schema:
               type: object
-              required: [elderId, periodStart, periodEnd]
+              required: [periodStart, periodEnd]
               properties:
-                elderId: { type: integer, format: int64 }
+                elderId:
+                  type: integer
+                  format: int64
+                  description: One elder; omit for all elders with records in the period.
                 periodStart: { type: string, format: date }
                 periodEnd: { type: string, format: date }
       responses:
         '202':
-          description: One report per audience generated.
+          description: One report per audience (per elder) generated and archived.
           content:
             application/json:
               schema:
@@ -1673,6 +2044,75 @@ paths:
           content:
             application/pdf:
               schema: { type: string, format: binary }
+        '503':
+          description: Rendering failed; the report is still readable at `/reports/{id}` and the export can be retried (5b).
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+
+  /reports/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: integer, format: int64 }
+    get:
+      tags: [Reports]
+      summary: Read a report online
+      x-status: draft
+      description: >
+        The report's sections, already filtered for its audience. Readable
+        even when PDF export fails (5b). A family member can only read
+        `FAMILY` reports of elders they are bound to. There is deliberately no
+        DELETE and no PUT on a report: an archived report cannot be removed
+        or edited in place (5a); corrections are appended as amendments.
+      responses:
+        '200':
+          description: Report with its sections and amendments.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReportDetail'
+        '403':
+          description: Not the reader's audience.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /reports/{id}/amendments:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: integer, format: int64 }
+    post:
+      tags: [Reports]
+      summary: Append a correction to an archived report
+      x-status: draft
+      description: >
+        UC-MG07 business rule: an archived report is immutable, so a
+        correction is a dated, signed note appended to it — the original text
+        stays as it was generated.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [note]
+              properties:
+                note: { type: string }
+      responses:
+        '201':
+          description: Amendment appended.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReportAmendment'
 
   /elders/{elderId}/weekly-summary:
     parameters:
@@ -2353,6 +2793,23 @@ components:
         endDate: { type: string, format: date }
         reason: { type: string }
 
+    VisitChangeDecisionRequest:
+      type: object
+      required: [decision]
+      properties:
+        decision:
+          type: string
+          enum: [ACCEPT_REPLACEMENT, RESCHEDULE, SKIP]
+        newWindowStart:
+          type: string
+          format: date-time
+          description: Required for RESCHEDULE.
+        newWindowEnd:
+          type: string
+          format: date-time
+          description: Required for RESCHEDULE.
+        note: { type: string }
+
     # ---------------- Rostering ----------------
     RosteringObjective:
       type: string
@@ -2382,6 +2839,13 @@ components:
         visitsCovered: { type: integer }
         continuityKept: { type: integer }
         addedTravelKm: { type: number, format: double, nullable: true }
+        uncoveredVisitIds:
+          type: array
+          description: >
+            UC-MG04 3a: visits for which no feasible replacement exists. Each
+            has already been turned into an incident so it cannot vanish; the
+            manager confirms coverage against this list.
+          items: { type: integer, format: int64 }
         ranAt: { type: string, format: date-time }
         committedAt: { type: string, format: date-time, nullable: true }
 
@@ -2636,12 +3100,68 @@ components:
         - $ref: '#/components/schemas/Incident'
         - type: object
           properties:
+            playbookCode: { type: string, nullable: true }
             log:
               type: array
               items: { $ref: '#/components/schemas/IncidentLogEntry' }
             acknowledgements:
               type: array
               items: { $ref: '#/components/schemas/IncidentAcknowledgement' }
+
+    EscalationLevel:
+      type: object
+      required: [level, responderUserId, countdownMinutes]
+      properties:
+        level: { type: integer, example: 1 }
+        responderUserId: { type: integer, format: int64 }
+        responderRole: { type: string, example: MANAGER }
+        countdownMinutes:
+          type: integer
+          description: This level's response window; configured per severity and level, not a constant.
+        status:
+          type: string
+          enum: [PENDING, CURRENT, TIMED_OUT, SKIPPED_OFF_DUTY, CLAIMED]
+        respondBy: { type: string, format: date-time, nullable: true }
+
+    EscalationChain:
+      type: object
+      required: [incidentId, assembledAt, levels]
+      properties:
+        incidentId: { type: integer, format: int64 }
+        assembledAt: { type: string, format: date-time }
+        assembledFrom:
+          type: object
+          description: The inputs the chain was built from, so the choice is explainable afterwards.
+          properties:
+            severity: { $ref: '#/components/schemas/IncidentSeverity' }
+            timeOfDay: { type: string, enum: [DAY, NIGHT] }
+            onDutyUserIds:
+              type: array
+              items: { type: integer, format: int64 }
+        currentLevel: { type: integer }
+        levels:
+          type: array
+          items: { $ref: '#/components/schemas/EscalationLevel' }
+
+    ContactAttemptRequest:
+      type: object
+      required: [channel, outcome]
+      properties:
+        channel: { type: string, enum: [PHONE, PUSH, EMAIL] }
+        outcome: { type: string, enum: [REACHED, NOT_REACHED] }
+        note: { type: string, description: "What was agreed, or why the family could not be reached." }
+
+    IncidentPlaybook:
+      type: object
+      required: [code, category, severity, steps]
+      properties:
+        code: { type: string, example: FALL_MEDIUM }
+        category: { $ref: '#/components/schemas/IncidentCategory' }
+        severity: { $ref: '#/components/schemas/IncidentSeverity' }
+        title: { type: string }
+        steps:
+          type: array
+          items: { type: string }
 
     # ---------------- Spot checks ----------------
     SpotCheck:
@@ -2655,11 +3175,26 @@ components:
         approvingFamilyId: { type: integer, format: int64, nullable: true }
         proposedTime: { type: string, format: date-time }
         reason: { type: string }
-        approvalStatus: { type: string, enum: [PENDING_APPROVAL, APPROVED, REJECTED] }
+        approvalStatus: { type: string, enum: [PENDING_APPROVAL, APPROVED, REJECTED, WITHDRAWN, COMPLETED] }
         decidedAt: { type: string, format: date-time, nullable: true }
-        finding: { type: string, nullable: true }
+        closedReason: { type: string, nullable: true, description: "Family's rejection reason or manager's withdrawal reason." }
+        outcome: { $ref: '#/components/schemas/SpotCheckOutcome' }
+        finding: { type: string, nullable: true, description: "The manager's note on site." }
         caregiverResponse: { type: string, nullable: true }
+        incidentId: { type: integer, format: int64, nullable: true, description: "Set when the check turned into a missed-visit incident (4a)." }
         checkedAt: { type: string, format: date-time, nullable: true }
+
+    SpotCheckOutcome:
+      type: string
+      nullable: true
+      enum: [SATISFACTORY, NEEDS_IMPROVEMENT, CAREGIVER_ABSENT, ELDER_NOT_HOME]
+
+    SpotCheckCompleteRequest:
+      type: object
+      required: [outcome]
+      properties:
+        outcome: { $ref: '#/components/schemas/SpotCheckOutcome' }
+        finding: { type: string }
 
     SpotCheckCreateRequest:
       type: object
@@ -2685,7 +3220,50 @@ components:
         periodStart: { type: string, format: date }
         periodEnd: { type: string, format: date }
         status: { type: string, enum: [DRAFT, PUBLISHED, ARCHIVED] }
+        dataComplete:
+          type: boolean
+          description: false when the period had unclosed visits (2a); the gaps are listed in `missingItems`.
+        missingItems:
+          type: array
+          items: { type: string, example: "Visit 8812 on 2026-09-03 not closed" }
+        generatedBy:
+          type: string
+          enum: [MODEL, TEMPLATE]
+          description: FAMILY version only — TEMPLATE when the language model was unavailable (3a).
         createdAt: { type: string, format: date-time }
+        archivedAt: { type: string, format: date-time, nullable: true }
+
+    ReportSection:
+      type: object
+      required: [title, body]
+      properties:
+        title: { type: string, example: Service completion }
+        body: { type: string }
+
+    ReportAmendment:
+      type: object
+      required: [id, note, authorUserId, createdAt]
+      properties:
+        id: { type: integer, format: int64 }
+        note: { type: string }
+        authorUserId: { type: integer, format: int64 }
+        createdAt: { type: string, format: date-time }
+
+    ReportDetail:
+      allOf:
+        - $ref: '#/components/schemas/Report'
+        - type: object
+          properties:
+            sections:
+              type: array
+              items: { $ref: '#/components/schemas/ReportSection' }
+            disclaimer:
+              type: string
+              nullable: true
+              description: Fixed text, always present on the FAMILY version.
+            amendments:
+              type: array
+              items: { $ref: '#/components/schemas/ReportAmendment' }
 
     WeeklySummary:
       type: object

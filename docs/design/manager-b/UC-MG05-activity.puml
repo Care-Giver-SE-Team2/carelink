@@ -1,0 +1,76 @@
+@startuml UC-MG05-activity
+' UC-MG05 Take over and handle a care exception, with the UC-SYS02 timeout escalation
+' branch. Source: docs (use-case specification v3.0). Render: plantuml -tpng this file.
+skinparam backgroundColor white
+skinparam defaultFontName "Segoe UI"
+skinparam defaultFontSize 12
+skinparam activity {
+  BackgroundColor #FFFFFF
+  BorderColor #444444
+  DiamondBackgroundColor #FFFFFF
+  DiamondBorderColor #444444
+}
+skinparam swimlane {
+  BorderColor #888888
+  TitleFontStyle bold
+}
+title UC-MG05  Take over and handle a care exception\n(with UC-SYS02 automatic escalation on timeout)
+
+|System|
+start
+:Exception recorded
+(caregiver report, elder SOS,
+or missed check-in);
+:Assemble the escalation chain **at runtime**
+from severity, time of day and who is on duty;
+:Assign the first responder,
+start the response countdown (respondBy);
+|Manager|
+:Named task highlighted on the dashboard;
+
+while (Taken over before the countdown expires?) is (no, timeout)
+  |System|
+  if (Next level on the chain?) then (yes)
+    :UC-SYS02: hand over to the next level,
+    notify old and new responder,
+    log the timeout and its reason,
+    start the next level's countdown;
+  else (chain exhausted)
+    :Mark UNRESOLVED_ESCALATED,
+    pin to the top-level view,
+    notify the family;
+    stop
+  endif
+endwhile (yes)
+
+|Manager|
+:Take over: countdown stops,
+elder background shown
+(history, previous incidents);
+:Contact the family (phone or push);
+|Family|
+if (Reached?) then (yes)
+  :Agree the response with the manager;
+  |Manager|
+  :Log the contact as REACHED;
+else (not reached)
+  |Manager|
+  :Log the contact as NOT REACHED
+  and the reason;
+  :Apply the standard playbook
+  for this category;
+endif
+:Carry out the response;
+if (Situation worsens?) then (yes)
+  :Raise the severity;
+  |System|
+  :Re-assemble the chain for the new severity,
+  the timeline continues, no new incident;
+  |Manager|
+endif
+:Record the resolution and close the incident;
+|System|
+:Every step, with its timestamp, is in the incident timeline
+(rejected and timed-out take-overs included);
+stop
+@enduml
