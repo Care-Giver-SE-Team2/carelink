@@ -1,88 +1,91 @@
 openapi: 3.0.3
-
 info:
   title: CareLink API
-  description: |
-    This is a spec-first (design-first) API contract: it is hand-written and
+  description: 'This is a spec-first (design-first) API contract: it is hand-written and
+
     reviewed before the corresponding backend endpoint is implemented. It is
+
     the source of truth for the HTTP contract — controllers must match it,
+
     not the other way around.
 
+
     Only the `Auth` group is backed by a running controller today. Every
+
     other group is a draft: agreed enough to shape the frontend and the
+
     schema, but not yet implemented, and open to change as each feature
+
     module is actually built. Draft operations carry `x-status: draft` in
+
     this file; implemented ones carry `x-status: implemented`.
+
+    '
   version: 0.0.1
   license:
     name: UNLICENSED
-
 servers:
-  - url: /api
-    description: Same-origin, relative to whichever host serves the front end.
-
+- url: /api
+  description: Same-origin, relative to whichever host serves the front end.
 tags:
-  - name: Auth
-    description: Session-based sign-in and identity.
-  - name: Elders
-    description: Elder profiles and the family bindings that link them to family accounts.
-  - name: Family members
-    description: >
-      A family member is an independent account holder, not an attribute of
-      one elder — the relationship to an elder lives entirely in the family
-      binding, so one family member can look after more than one elder.
-  - name: Care plans
-    description: >
-      The care plan tree (UC-MG01). A plan is versioned; a node is either a
-      TASK or a SUB_PLAN, and a SUB_PLAN's effort is the rolled-up sum of its
-      children, to any depth.
-  - name: Intake
-    description: Family-submitted applications that, once approved, provision an elder profile (UC-FM01).
-  - name: Caregivers
-    description: Caregiver accounts, certifications and self-service schedule (UC-MG02, UC-MG06, UC-CG01).
-  - name: Leave
-    description: Absence reporting and the re-rostering it triggers (UC-CG02, UC-MG04).
-  - name: Rostering
-    description: >
-      Composing a roster (UC-MG03). The objective is a Strategy chosen per
-      run; the run keeps every candidate considered, not only the outcome, so
-      "why wasn't this caregiver suggested" is answerable after the fact.
-  - name: Visits
-    description: >
-      Executing and closing a visit (UC-CG03, UC-CG05). Legal transitions and
-      required evidence both depend on the visit's service type; illegal
-      transitions are refused and recorded, never silently dropped.
-  - name: Incidents
-    description: >
-      Care exceptions (UC-CG04, UC-MG05, UC-FM05). The escalation chain is
-      assembled at the moment it's needed from severity, time of day and who
-      is on duty — there is no fixed chain to configure.
-  - name: Spot checks
-    description: Manager-initiated home service spot checks and the family's approval of them (UC-MG08, UC-FM07).
-  - name: Reports
-    description: Periodic, audience-filtered reports and the family's weekly plain-language summary (UC-MG07, UC-FM04).
-  - name: Value-added services
-    description: Non-billable service requests — intent and a work order only, never a charge (UC-EL02, UC-FM08).
-  - name: Reviews
-    description: Family ratings of a caregiver and the renewal decision that follows (UC-FM09).
-  - name: Emergency
-    description: The elder's one-tap SOS (UC-EL03) — bypasses the ordinary incident queue entirely.
-  - name: Notifications
-    description: In-application and email notifications (no push infrastructure is in scope).
+- name: Auth
+  description: Session-based sign-in and identity.
+- name: Elders
+  description: Elder profiles and the family bindings that link them to family accounts.
+- name: Family members
+  description: 'A family member is an independent account holder, not an attribute of one elder — the relationship to an elder
+    lives entirely in the family binding, so one family member can look after more than one elder.
 
+    '
+- name: Care plans
+  description: 'The care plan tree (UC-MG01). A plan is versioned; a node is either a TASK or a SUB_PLAN, and a SUB_PLAN''s
+    effort is the rolled-up sum of its children, to any depth.
+
+    '
+- name: Intake
+  description: Family-submitted applications that, once approved, provision an elder profile (UC-FM01).
+- name: Caregivers
+  description: Caregiver accounts, certifications and self-service schedule (UC-MG02, UC-MG06, UC-CG01).
+- name: Leave
+  description: Absence reporting and the re-rostering it triggers (UC-CG02, UC-MG04).
+- name: Rostering
+  description: 'Composing a roster (UC-MG03). The objective is a Strategy chosen per run; the run keeps every candidate considered,
+    not only the outcome, so "why wasn''t this caregiver suggested" is answerable after the fact.
+
+    '
+- name: Visits
+  description: 'Executing and closing a visit (UC-CG03, UC-CG05). Legal transitions and required evidence both depend on the
+    visit''s service type; illegal transitions are refused and recorded, never silently dropped.
+
+    '
+- name: Incidents
+  description: 'Care exceptions (UC-CG04, UC-MG05, UC-FM05). The escalation chain is assembled at the moment it''s needed
+    from severity, time of day and who is on duty — there is no fixed chain to configure.
+
+    '
+- name: Spot checks
+  description: Manager-initiated home service spot checks and the family's approval of them (UC-MG08, UC-FM07).
+- name: Reports
+  description: Periodic, audience-filtered reports and the family's weekly plain-language summary (UC-MG07, UC-FM04).
+- name: Value-added services
+  description: Non-billable service requests — intent and a work order only, never a charge (UC-EL02, UC-FM08).
+- name: Reviews
+  description: Family ratings of a caregiver and the renewal decision that follows (UC-FM09).
+- name: Emergency
+  description: The elder's one-tap SOS (UC-EL03) — bypasses the ordinary incident queue entirely.
+- name: Notifications
+  description: In-application and email notifications (no push infrastructure is in scope).
 paths:
-  # ===================================================================
-  # Auth — implemented
-  # ===================================================================
   /auth/login:
     post:
-      tags: [Auth]
+      tags:
+      - Auth
       summary: Sign in
       x-status: implemented
-      description: >
-        Starts a server-side session on success. The session is carried by an
-        HttpOnly `JSESSIONID` cookie set on the response; the front end does
-        not read or manage it directly.
+      description: 'Starts a server-side session on success. The session is carried by an HttpOnly `JSESSIONID` cookie set
+        on the response; the front end does not read or manage it directly.
+
+        '
       security: []
       requestBody:
         required: true
@@ -105,17 +108,18 @@ paths:
         '400':
           $ref: '#/components/responses/ValidationError'
         '401':
-          description: >
-            Invalid username or password. The two cases are not distinguished,
-            so this response cannot be used to enumerate accounts.
+          description: 'Invalid username or password. The two cases are not distinguished, so this response cannot be used
+            to enumerate accounts.
+
+            '
           content:
             application/problem+json:
               schema:
                 $ref: '#/components/schemas/ProblemDetail'
-
   /auth/logout:
     post:
-      tags: [Auth]
+      tags:
+      - Auth
       summary: Sign out
       x-status: implemented
       description: Ends the current session and clears the `JSESSIONID` cookie.
@@ -124,15 +128,16 @@ paths:
           description: Signed out.
         '401':
           $ref: '#/components/responses/Unauthorized'
-
   /auth/me:
     get:
-      tags: [Auth]
+      tags:
+      - Auth
       summary: Get the current user
       x-status: implemented
-      description: >
-        Returns the identity of the caller associated with the current
-        session. The front end uses `roles` to decide which screens to show.
+      description: 'Returns the identity of the caller associated with the current session. The front end uses `roles` to
+        decide which screens to show.
+
+        '
       responses:
         '200':
           description: The current user.
@@ -142,29 +147,28 @@ paths:
                 $ref: '#/components/schemas/CurrentUserResponse'
         '401':
           $ref: '#/components/responses/Unauthorized'
-
-  # ===================================================================
-  # Elders & family bindings — draft
-  # ===================================================================
   /elders:
     get:
-      tags: [Elders]
+      tags:
+      - Elders
       summary: List elders
       x-status: draft
-      description: >
-        Manager sees every elder. Family sees only the elders they are
-        actively bound to; this is enforced server-side, not by a client
-        filter.
+      description: 'Manager sees every elder. Family sees only the elders they are actively bound to; this is enforced server-side,
+        not by a client filter.
+
+        '
       parameters:
-        - $ref: '#/components/parameters/Page'
-        - $ref: '#/components/parameters/Size'
-        - name: sector
-          in: query
-          schema: { type: string }
-        - name: search
-          in: query
-          description: Matches against name.
-          schema: { type: string }
+      - $ref: '#/components/parameters/Page'
+      - $ref: '#/components/parameters/Size'
+      - name: sector
+        in: query
+        schema:
+          type: string
+      - name: search
+        in: query
+        description: Matches against name.
+        schema:
+          type: string
       responses:
         '200':
           description: Page of elders.
@@ -175,12 +179,14 @@ paths:
         '401':
           $ref: '#/components/responses/Unauthorized'
     post:
-      tags: [Elders]
+      tags:
+      - Elders
       summary: Establish elder profile and care plan
       x-status: draft
-      description: >
-        UC-MG01. Establishes the elder profile. Usually called after an
-        intake application is approved, rather than directly.
+      description: 'UC-MG01. Establishes the elder profile. Usually called after an intake application is approved, rather
+        than directly.
+
+        '
       requestBody:
         required: true
         content:
@@ -200,12 +206,12 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/Forbidden'
-
   /elders/{elderId}:
     parameters:
-      - $ref: '#/components/parameters/ElderId'
+    - $ref: '#/components/parameters/ElderId'
     get:
-      tags: [Elders]
+      tags:
+      - Elders
       summary: Get an elder profile
       x-status: draft
       responses:
@@ -222,7 +228,8 @@ paths:
         '404':
           $ref: '#/components/responses/NotFound'
     patch:
-      tags: [Elders]
+      tags:
+      - Elders
       summary: Update an elder profile
       x-status: draft
       requestBody:
@@ -242,19 +249,19 @@ paths:
           $ref: '#/components/responses/ValidationError'
         '404':
           $ref: '#/components/responses/NotFound'
-
   /elders/{elderId}/care-plan:
     parameters:
-      - $ref: '#/components/parameters/ElderId'
+    - $ref: '#/components/parameters/ElderId'
     get:
-      tags: [Care plans]
+      tags:
+      - Care plans
       summary: Get the current care plan
       x-status: draft
-      description: >
-        Returns the published plan as a node tree. `weeklyHours` on a
-        SUB_PLAN node is computed server-side as the sum of its subtree, the
-        same way it is for a single TASK node — a whole sub-plan must count
-        toward the effort total the same way a single task does.
+      description: 'Returns the published plan as a node tree. `weeklyHours` on a SUB_PLAN node is computed server-side as
+        the sum of its subtree, the same way it is for a single TASK node — a whole sub-plan must count toward the effort
+        total the same way a single task does.
+
+        '
       responses:
         '200':
           description: Care plan with its node tree.
@@ -265,14 +272,14 @@ paths:
         '404':
           $ref: '#/components/responses/NotFound'
     put:
-      tags: [Care plans]
+      tags:
+      - Care plans
       summary: Replace the care plan
       x-status: draft
-      description: >
-        Publishes a new version of the plan. The previous PUBLISHED version
-        is marked SUPERSEDED and kept, never edited in place — a visit
-        already in flight points at the version that was in force when it was
-        created (see `Visit.carePlanId`).
+      description: 'Publishes a new version of the plan. The previous PUBLISHED version is marked SUPERSEDED and kept, never
+        edited in place — a visit already in flight points at the version that was in force when it was created (see `Visit.carePlanId`).
+
+        '
       requestBody:
         required: true
         content:
@@ -288,16 +295,18 @@ paths:
                 $ref: '#/components/schemas/CarePlan'
         '400':
           $ref: '#/components/responses/ValidationError'
-
   /elders/{elderId}/care-plan/nodes/{nodeId}/children:
     parameters:
-      - $ref: '#/components/parameters/ElderId'
-      - name: nodeId
-        in: path
-        required: true
-        schema: { type: integer, format: int64 }
+    - $ref: '#/components/parameters/ElderId'
+    - name: nodeId
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
     post:
-      tags: [Care plans]
+      tags:
+      - Care plans
       summary: Add a task or sub-plan node
       x-status: draft
       description: Adds one child under an existing node, at any depth.
@@ -318,16 +327,18 @@ paths:
           $ref: '#/components/responses/ValidationError'
         '404':
           $ref: '#/components/responses/NotFound'
-
   /elders/{elderId}/care-plan/nodes/{nodeId}:
     parameters:
-      - $ref: '#/components/parameters/ElderId'
-      - name: nodeId
-        in: path
-        required: true
-        schema: { type: integer, format: int64 }
+    - $ref: '#/components/parameters/ElderId'
+    - name: nodeId
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
     delete:
-      tags: [Care plans]
+      tags:
+      - Care plans
       summary: Remove a node and its subtree
       x-status: draft
       responses:
@@ -335,12 +346,12 @@ paths:
           description: Node (and any descendants) removed.
         '404':
           $ref: '#/components/responses/NotFound'
-
   /elders/{elderId}/family-bindings:
     parameters:
-      - $ref: '#/components/parameters/ElderId'
+    - $ref: '#/components/parameters/ElderId'
     get:
-      tags: [Elders]
+      tags:
+      - Elders
       summary: List family bindings for an elder
       x-status: draft
       responses:
@@ -352,16 +363,22 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/ElderFamilyBinding'
+      parameters:
+      - name: status
+        in: query
+        required: false
+        schema:
+          $ref: '#/components/schemas/BindingStatus'
     post:
-      tags: [Elders]
+      tags:
+      - Elders
       summary: Propose a family binding
       x-status: draft
-      description: >
-        UC-FM10, UC-EL04. Either the elder or a family member can initiate;
-        the binding sits `PENDING_CONFIRMATION` until the other party
-        confirms it via `POST /family-bindings/{bindingId}/confirm`. The
-        elder side issues a six-digit pairing code out of band for the
-        family member to enter.
+      description: 'UC-FM10, UC-EL04. Either the elder or a family member can initiate; the binding sits `PENDING_CONFIRMATION`
+        until the other party confirms it via `POST /family-bindings/{bindingId}/confirm`. The elder side issues a six-digit
+        pairing code out of band for the family member to enter.
+
+        '
       requestBody:
         required: true
         content:
@@ -377,15 +394,17 @@ paths:
                 $ref: '#/components/schemas/ElderFamilyBinding'
         '400':
           $ref: '#/components/responses/ValidationError'
-
   /family-bindings/{bindingId}/confirm:
     parameters:
-      - name: bindingId
-        in: path
-        required: true
-        schema: { type: integer, format: int64 }
+    - name: bindingId
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
     post:
-      tags: [Elders]
+      tags:
+      - Elders
       summary: Confirm a proposed family binding
       x-status: draft
       description: The party that did not initiate confirms; the binding becomes ACTIVE.
@@ -400,15 +419,17 @@ paths:
           $ref: '#/components/responses/NotFound'
         '409':
           $ref: '#/components/responses/Conflict'
-
   /family-bindings/{bindingId}:
     parameters:
-      - name: bindingId
-        in: path
-        required: true
-        schema: { type: integer, format: int64 }
+    - name: bindingId
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
     delete:
-      tags: [Elders]
+      tags:
+      - Elders
       summary: Revoke a family binding
       x-status: draft
       responses:
@@ -416,20 +437,17 @@ paths:
           description: Binding revoked.
         '404':
           $ref: '#/components/responses/NotFound'
-
-  # ===================================================================
-  # Family members — draft
-  # ===================================================================
   /family-members/me:
     get:
-      tags: [Family members]
+      tags:
+      - Family members
       summary: Get my family member profile
       x-status: draft
-      description: >
-        The caller's own profile. A family member is a standalone account
-        holder — this endpoint has no elder-scoped variant, since which
-        elders a family member sees is entirely a matter of their bindings
-        (`GET /elders`), not of this profile.
+      description: 'The caller''s own profile. A family member is a standalone account holder — this endpoint has no elder-scoped
+        variant, since which elders a family member sees is entirely a matter of their bindings (`GET /elders`), not of this
+        profile.
+
+        '
       responses:
         '200':
           description: Profile.
@@ -440,7 +458,8 @@ paths:
         '401':
           $ref: '#/components/responses/Unauthorized'
     patch:
-      tags: [Family members]
+      tags:
+      - Family members
       summary: Update my family member profile
       x-status: draft
       requestBody:
@@ -458,22 +477,19 @@ paths:
                 $ref: '#/components/schemas/FamilyMember'
         '400':
           $ref: '#/components/responses/ValidationError'
-
-  # ===================================================================
-  # Intake — draft
-  # ===================================================================
   /intake-applications:
     get:
-      tags: [Intake]
+      tags:
+      - Intake
       summary: List intake applications
       x-status: draft
       parameters:
-        - $ref: '#/components/parameters/Page'
-        - $ref: '#/components/parameters/Size'
-        - name: status
-          in: query
-          schema:
-            $ref: '#/components/schemas/IntakeStatus'
+      - $ref: '#/components/parameters/Page'
+      - $ref: '#/components/parameters/Size'
+      - name: status
+        in: query
+        schema:
+          $ref: '#/components/schemas/IntakeStatus'
       responses:
         '200':
           description: Page of applications.
@@ -486,11 +502,15 @@ paths:
                     type: array
                     items:
                       $ref: '#/components/schemas/IntakeApplication'
-                  page: { type: integer }
-                  size: { type: integer }
-                  totalElements: { type: integer }
+                  page:
+                    type: integer
+                  size:
+                    type: integer
+                  totalElements:
+                    type: integer
     post:
-      tags: [Intake]
+      tags:
+      - Intake
       summary: Submit an intake application
       x-status: draft
       description: UC-FM01. Submitted by a family member on behalf of a prospective elder.
@@ -509,15 +529,17 @@ paths:
                 $ref: '#/components/schemas/IntakeApplication'
         '400':
           $ref: '#/components/responses/ValidationError'
-
   /intake-applications/{id}:
     parameters:
-      - name: id
-        in: path
-        required: true
-        schema: { type: integer, format: int64 }
+    - name: id
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
     get:
-      tags: [Intake]
+      tags:
+      - Intake
       summary: Get an intake application
       x-status: draft
       responses:
@@ -529,15 +551,17 @@ paths:
                 $ref: '#/components/schemas/IntakeApplication'
         '404':
           $ref: '#/components/responses/NotFound'
-
   /intake-applications/{id}/decision:
     parameters:
-      - name: id
-        in: path
-        required: true
-        schema: { type: integer, format: int64 }
+    - name: id
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
     post:
-      tags: [Intake]
+      tags:
+      - Intake
       summary: Approve or reject an intake application
       x-status: draft
       description: Approving provisions the elder profile via `POST /elders` internally and returns its id.
@@ -547,11 +571,14 @@ paths:
           application/json:
             schema:
               type: object
-              required: [decision]
+              required:
+              - decision
               properties:
                 decision:
                   type: string
-                  enum: [APPROVED, REJECTED]
+                  enum:
+                  - APPROVED
+                  - REJECTED
                 remarks:
                   type: string
       responses:
@@ -563,27 +590,28 @@ paths:
                 $ref: '#/components/schemas/IntakeApplication'
         '409':
           $ref: '#/components/responses/Conflict'
-
-  # ===================================================================
-  # Caregivers & certifications — draft
-  # ===================================================================
   /caregivers:
     get:
-      tags: [Caregivers]
+      tags:
+      - Caregivers
       summary: List caregivers
       x-status: draft
       parameters:
-        - $ref: '#/components/parameters/Page'
-        - $ref: '#/components/parameters/Size'
-        - name: sector
-          in: query
-          schema: { type: string }
-        - name: dialect
-          in: query
-          schema: { type: string }
-        - name: credentialTypeId
-          in: query
-          schema: { type: integer, format: int64 }
+      - $ref: '#/components/parameters/Page'
+      - $ref: '#/components/parameters/Size'
+      - name: sector
+        in: query
+        schema:
+          type: string
+      - name: dialect
+        in: query
+        schema:
+          type: string
+      - name: credentialTypeId
+        in: query
+        schema:
+          type: integer
+          format: int64
       responses:
         '200':
           description: Page of caregivers.
@@ -596,11 +624,15 @@ paths:
                     type: array
                     items:
                       $ref: '#/components/schemas/Caregiver'
-                  page: { type: integer }
-                  size: { type: integer }
-                  totalElements: { type: integer }
+                  page:
+                    type: integer
+                  size:
+                    type: integer
+                  totalElements:
+                    type: integer
     post:
-      tags: [Caregivers]
+      tags:
+      - Caregivers
       summary: Assign caregiver account
       x-status: draft
       description: UC-MG02. Creates the caregiver profile; certifications are attached separately.
@@ -619,12 +651,12 @@ paths:
                 $ref: '#/components/schemas/Caregiver'
         '400':
           $ref: '#/components/responses/ValidationError'
-
   /caregivers/{caregiverId}:
     parameters:
-      - $ref: '#/components/parameters/CaregiverId'
+    - $ref: '#/components/parameters/CaregiverId'
     get:
-      tags: [Caregivers]
+      tags:
+      - Caregivers
       summary: Get a caregiver profile
       x-status: draft
       responses:
@@ -637,7 +669,8 @@ paths:
         '404':
           $ref: '#/components/responses/NotFound'
     patch:
-      tags: [Caregivers]
+      tags:
+      - Caregivers
       summary: Update a caregiver profile
       x-status: draft
       requestBody:
@@ -653,12 +686,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Caregiver'
-
   /caregivers/{caregiverId}/credentials:
     parameters:
-      - $ref: '#/components/parameters/CaregiverId'
+    - $ref: '#/components/parameters/CaregiverId'
     get:
-      tags: [Caregivers]
+      tags:
+      - Caregivers
       summary: List a caregiver's certifications
       x-status: draft
       responses:
@@ -671,7 +704,8 @@ paths:
                 items:
                   $ref: '#/components/schemas/Credential'
     post:
-      tags: [Caregivers]
+      tags:
+      - Caregivers
       summary: Attach a certification
       x-status: draft
       description: UC-MG02. Created `SUBMITTED`; does not count toward rostering eligibility until published.
@@ -688,16 +722,18 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Credential'
-
   /caregivers/{caregiverId}/credentials/{credentialId}:
     parameters:
-      - $ref: '#/components/parameters/CaregiverId'
-      - name: credentialId
-        in: path
-        required: true
-        schema: { type: integer, format: int64 }
+    - $ref: '#/components/parameters/CaregiverId'
+    - name: credentialId
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
     patch:
-      tags: [Caregivers]
+      tags:
+      - Caregivers
       summary: Update certification evidence or expiry
       x-status: draft
       requestBody:
@@ -713,22 +749,24 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Credential'
-
   /caregivers/{caregiverId}/credentials/{credentialId}/publish:
     parameters:
-      - $ref: '#/components/parameters/CaregiverId'
-      - name: credentialId
-        in: path
-        required: true
-        schema: { type: integer, format: int64 }
+    - $ref: '#/components/parameters/CaregiverId'
+    - name: credentialId
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
     post:
-      tags: [Caregivers]
+      tags:
+      - Caregivers
       summary: Review and publish a certification
       x-status: draft
-      description: >
-        UC-MG06. Moves a reviewed credential to `PUBLISHED`, the only status
-        that counts as a PASS against `care_plan_required_credential` and the
-        `CERTIFICATION_VALID` rostering constraint.
+      description: 'UC-MG06. Moves a reviewed credential to `PUBLISHED`, the only status that counts as a PASS against `care_plan_required_credential`
+        and the `CERTIFICATION_VALID` rostering constraint.
+
+        '
       responses:
         '200':
           description: Published.
@@ -738,16 +776,16 @@ paths:
                 $ref: '#/components/schemas/Credential'
         '409':
           $ref: '#/components/responses/Conflict'
-
   /caregivers/me/schedule:
     get:
-      tags: [Caregivers]
+      tags:
+      - Caregivers
       summary: My schedule and certification alerts
       x-status: draft
-      description: >
-        UC-CG01. The caller's own upcoming visits, plus certifications whose
-        `expiryDate` falls inside the configurable warning window (30 days
-        by default).
+      description: 'UC-CG01. The caller''s own upcoming visits, plus certifications whose `expiryDate` falls inside the configurable
+        warning window (30 days by default).
+
+        '
       responses:
         '200':
           description: Schedule and alerts.
@@ -764,15 +802,16 @@ paths:
                     type: array
                     items:
                       $ref: '#/components/schemas/Credential'
-
   /caregivers/me:
     get:
-      tags: [Caregivers]
+      tags:
+      - Caregivers
       summary: Get my caregiver profile
       x-status: draft
-      description: >
-        Returns the profile of the authenticated caregiver. This self-service
-        route avoids exposing a caller-selectable caregiver identifier.
+      description: 'Returns the profile of the authenticated caregiver. This self-service route avoids exposing a caller-selectable
+        caregiver identifier.
+
+        '
       responses:
         '200':
           description: The caller's caregiver profile.
@@ -781,12 +820,13 @@ paths:
               schema:
                 $ref: '#/components/schemas/Caregiver'
     patch:
-      tags: [Caregivers]
+      tags:
+      - Caregivers
       summary: Update my caregiver contact details
       x-status: draft
-      description: >
-        Caregivers may update their own contact details only. Employment
-        status remains manager-controlled.
+      description: 'Caregivers may update their own contact details only. Employment status remains manager-controlled.
+
+        '
       requestBody:
         required: true
         content:
@@ -800,15 +840,16 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Caregiver'
-
   /caregivers/me/preferences:
     get:
-      tags: [Caregivers]
+      tags:
+      - Caregivers
       summary: Get my work preferences
       x-status: draft
-      description: >
-        UC-CG02. Preferences are roster-planning input only; they never
-        override an active credential requirement or approved absence.
+      description: 'UC-CG02. Preferences are roster-planning input only; they never override an active credential requirement
+        or approved absence.
+
+        '
       responses:
         '200':
           description: The caller's current work preferences.
@@ -817,12 +858,14 @@ paths:
               schema:
                 $ref: '#/components/schemas/CaregiverPreference'
     put:
-      tags: [Caregivers]
+      tags:
+      - Caregivers
       summary: Replace my work preferences
       x-status: draft
-      description: >
-        UC-CG02. Replaces the caregiver's soft preferences used by roster
-        planning. It does not change any roster assignment directly.
+      description: 'UC-CG02. Replaces the caregiver''s soft preferences used by roster planning. It does not change any roster
+        assignment directly.
+
+        '
       requestBody:
         required: true
         content:
@@ -836,25 +879,29 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/CaregiverPreference'
-
   /caregivers/me/availability:
     get:
-      tags: [Caregivers]
+      tags:
+      - Caregivers
       summary: List my daily availability
       x-status: draft
-      description: >
-        UC-CG02. Returns the caller's daily availability windows. Approved
-        leave is considered separately by roster planning and is not editable
-        through this route.
+      description: 'UC-CG02. Returns the caller''s daily availability windows. Approved leave is considered separately by
+        roster planning and is not editable through this route.
+
+        '
       parameters:
-        - name: dateFrom
-          in: query
-          required: true
-          schema: { type: string, format: date }
-        - name: dateTo
-          in: query
-          required: true
-          schema: { type: string, format: date }
+      - name: dateFrom
+        in: query
+        required: true
+        schema:
+          type: string
+          format: date
+      - name: dateTo
+        in: query
+        required: true
+        schema:
+          type: string
+          format: date
       responses:
         '200':
           description: Availability records in the requested date range.
@@ -864,21 +911,23 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/CaregiverAvailability'
-
   /caregivers/me/availability/{availableDate}:
     parameters:
-      - name: availableDate
-        in: path
-        required: true
-        schema: { type: string, format: date }
+    - name: availableDate
+      in: path
+      required: true
+      schema:
+        type: string
+        format: date
     put:
-      tags: [Caregivers]
+      tags:
+      - Caregivers
       summary: Set my availability for one day
       x-status: draft
-      description: >
-        UC-CG02. Creates or replaces one daily availability window. The
-        selected window remains subject to manager roster decisions and hard
-        constraints.
+      description: 'UC-CG02. Creates or replaces one daily availability window. The selected window remains subject to manager
+        roster decisions and hard constraints.
+
+        '
       requestBody:
         required: true
         content:
@@ -892,12 +941,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/CaregiverAvailability'
-
   /caregivers/{caregiverId}/reviews:
     parameters:
-      - $ref: '#/components/parameters/CaregiverId'
+    - $ref: '#/components/parameters/CaregiverId'
     get:
-      tags: [Reviews]
+      tags:
+      - Reviews
       summary: List reviews for a caregiver
       x-status: draft
       responses:
@@ -909,8 +958,17 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/CaregiverReview'
+      parameters:
+      - name: elderId
+        in: query
+        required: false
+        description: Restrict reviews to an elder actively bound to the authenticated family member.
+        schema:
+          type: integer
+          format: int64
     post:
-      tags: [Reviews]
+      tags:
+      - Reviews
       summary: Rate the caregiver and decide on renewal
       x-status: draft
       description: UC-FM09. One periodic act — the rating and the renewal decision are recorded together.
@@ -929,24 +987,24 @@ paths:
                 $ref: '#/components/schemas/CaregiverReview'
         '400':
           $ref: '#/components/responses/ValidationError'
-
-  # ===================================================================
-  # Leave & re-rostering — draft
-  # ===================================================================
   /leave-requests:
     get:
-      tags: [Leave]
+      tags:
+      - Leave
       summary: List leave requests
       x-status: draft
       description: Manager's queue, filtered by status; a caregiver sees only their own.
       parameters:
-        - $ref: '#/components/parameters/Page'
-        - $ref: '#/components/parameters/Size'
-        - name: status
-          in: query
-          schema:
-            type: string
-            enum: [PENDING, APPROVED, REJECTED]
+      - $ref: '#/components/parameters/Page'
+      - $ref: '#/components/parameters/Size'
+      - name: status
+        in: query
+        schema:
+          type: string
+          enum:
+          - PENDING
+          - APPROVED
+          - REJECTED
       responses:
         '200':
           description: Page of leave requests.
@@ -959,11 +1017,15 @@ paths:
                     type: array
                     items:
                       $ref: '#/components/schemas/AbsenceReport'
-                  page: { type: integer }
-                  size: { type: integer }
-                  totalElements: { type: integer }
+                  page:
+                    type: integer
+                  size:
+                    type: integer
+                  totalElements:
+                    type: integer
     post:
-      tags: [Leave]
+      tags:
+      - Leave
       summary: Submit a leave request
       x-status: draft
       description: UC-CG02.
@@ -982,15 +1044,17 @@ paths:
                 $ref: '#/components/schemas/AbsenceReport'
         '400':
           $ref: '#/components/responses/ValidationError'
-
   /leave-requests/{id}/decision:
     parameters:
-      - name: id
-        in: path
-        required: true
-        schema: { type: integer, format: int64 }
+    - name: id
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
     post:
-      tags: [Leave]
+      tags:
+      - Leave
       summary: Approve or deny a leave request
       x-status: draft
       requestBody:
@@ -999,11 +1063,14 @@ paths:
           application/json:
             schema:
               type: object
-              required: [decision]
+              required:
+              - decision
               properties:
                 decision:
                   type: string
-                  enum: [APPROVED, REJECTED]
+                  enum:
+                  - APPROVED
+                  - REJECTED
       responses:
         '200':
           description: Decision recorded.
@@ -1011,22 +1078,23 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/AbsenceReport'
-
   /leave-requests/{id}/reroster:
     parameters:
-      - name: id
-        in: path
-        required: true
-        schema: { type: integer, format: int64 }
+    - name: id
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
     post:
-      tags: [Leave]
+      tags:
+      - Leave
       summary: Re-roster the visits this absence orphaned
       x-status: draft
-      description: >
-        UC-MG04. Approving a leave request only marks the caregiver
-        unavailable — this is the separate, explicit step that spins off a
-        `RosteringRun` (`triggerType: ABSENCE`) scoped to just the affected
-        visits.
+      description: 'UC-MG04. Approving a leave request only marks the caregiver unavailable — this is the separate, explicit
+        step that spins off a `RosteringRun` (`triggerType: ABSENCE`) scoped to just the affected visits.
+
+        '
       responses:
         '202':
           description: Rostering run started.
@@ -1036,21 +1104,23 @@ paths:
                 $ref: '#/components/schemas/RosteringRun'
         '409':
           $ref: '#/components/responses/Conflict'
-
   /leave-requests/{id}/affected-visits:
     parameters:
-      - name: id
-        in: path
-        required: true
-        schema: { type: integer, format: int64 }
+    - name: id
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
     get:
-      tags: [Leave]
+      tags:
+      - Leave
       summary: Visits this absence orphans
       x-status: draft
-      description: >
-        UC-MG04 step 1. The visits assigned to the absent caregiver that fall
-        inside the absence and have not started — the list the manager sees
-        with the absence notification, before deciding to re-roster.
+      description: 'UC-MG04 step 1. The visits assigned to the absent caregiver that fall inside the absence and have not
+        started — the list the manager sees with the absence notification, before deciding to re-roster.
+
+        '
       responses:
         '200':
           description: Affected visits, SCHEDULED only.
@@ -1062,24 +1132,22 @@ paths:
                   $ref: '#/components/schemas/Visit'
         '404':
           $ref: '#/components/responses/NotFound'
-
   /visits/{visitId}/change-decision:
     parameters:
-      - $ref: '#/components/parameters/VisitId'
+    - $ref: '#/components/parameters/VisitId'
     post:
-      tags: [Leave]
+      tags:
+      - Leave
       summary: Family answers a proposed change to a visit
       x-status: draft
-      description: >
-        UC-MG04 steps 4–5 (the former UC-FM06). When re-rostering changes the
-        caregiver or the time of a visit, the family is sent the proposal and
-        answers here: accept the replacement, reschedule (the visit re-enters
-        the run with the new window), or skip this one (`CANCELLED`, recorded
-        as a family cancellation, not a missed visit). The deadline is an
-        organisation setting (default 2 hours); when it passes unanswered the
-        scheduled job applies the default plan — normally the best-ranked
-        replacement — and the decision is logged as `DEFAULT_APPLIED`, which
-        is distinguishable from a family choice.
+      description: 'UC-MG04 steps 4–5 (the former UC-FM06). When re-rostering changes the caregiver or the time of a visit,
+        the family is sent the proposal and answers here: accept the replacement, reschedule (the visit re-enters the run
+        with the new window), or skip this one (`CANCELLED`, recorded as a family cancellation, not a missed visit). The deadline
+        is an organisation setting (default 2 hours); when it passes unanswered the scheduled job applies the default plan
+        — normally the best-ranked replacement — and the decision is logged as `DEFAULT_APPLIED`, which is distinguishable
+        from a family choice.
+
+        '
       requestBody:
         required: true
         content:
@@ -1101,20 +1169,17 @@ paths:
             application/problem+json:
               schema:
                 $ref: '#/components/schemas/ProblemDetail'
-
-  # ===================================================================
-  # Rostering — draft
-  # ===================================================================
   /rostering-runs:
     post:
-      tags: [Rostering]
+      tags:
+      - Rostering
       summary: Compose a periodic visit roster
       x-status: draft
-      description: >
-        UC-MG03. Starts a run against the chosen objective (the Strategy).
-        `useLanguageModel: true` asks for a model-suggested roster; the run
-        still completes on the rule engine when the model service is
-        unreachable, reported via `strategyUsed`.
+      description: 'UC-MG03. Starts a run against the chosen objective (the Strategy). `useLanguageModel: true` asks for a
+        model-suggested roster; the run still completes on the rule engine when the model service is unreachable, reported
+        via `strategyUsed`.
+
+        '
       requestBody:
         required: true
         content:
@@ -1130,21 +1195,23 @@ paths:
                 $ref: '#/components/schemas/RosteringRun'
         '400':
           $ref: '#/components/responses/ValidationError'
-
   /rostering-runs/{id}:
     parameters:
-      - name: id
-        in: path
-        required: true
-        schema: { type: integer, format: int64 }
+    - name: id
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
     get:
-      tags: [Rostering]
+      tags:
+      - Rostering
       summary: Get a rostering run
       x-status: draft
-      description: >
-        Includes the run summary shown on the roster screen: visits covered,
-        continuity kept, added travel distance, and which strategy actually
-        ran.
+      description: 'Includes the run summary shown on the roster screen: visits covered, continuity kept, added travel distance,
+        and which strategy actually ran.
+
+        '
       responses:
         '200':
           description: Run detail.
@@ -1154,25 +1221,29 @@ paths:
                 $ref: '#/components/schemas/RosteringRun'
         '404':
           $ref: '#/components/responses/NotFound'
-
   /rostering-runs/{id}/candidates:
     parameters:
-      - name: id
-        in: path
-        required: true
-        schema: { type: integer, format: int64 }
+    - name: id
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
     get:
-      tags: [Rostering]
+      tags:
+      - Rostering
       summary: List candidates considered in a run
       x-status: draft
-      description: >
-        Every caregiver considered for every visit in the run, including ones
-        a HARD constraint excluded, each with its own constraint-check
-        results — the "why wasn't this caregiver suggested" answer.
+      description: 'Every caregiver considered for every visit in the run, including ones a HARD constraint excluded, each
+        with its own constraint-check results — the "why wasn''t this caregiver suggested" answer.
+
+        '
       parameters:
-        - name: visitId
-          in: query
-          schema: { type: integer, format: int64 }
+      - name: visitId
+        in: query
+        schema:
+          type: integer
+          format: int64
       responses:
         '200':
           description: Candidates, ranked per visit.
@@ -1182,20 +1253,23 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/RosteringCandidate'
-
   /rostering-runs/{id}/publish:
     parameters:
-      - name: id
-        in: path
-        required: true
-        schema: { type: integer, format: int64 }
+    - name: id
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
     post:
-      tags: [Rostering]
+      tags:
+      - Rostering
       summary: Commit selected candidates into visit assignments
       x-status: draft
-      description: >
-        Turns each `SELECTED` candidate into a real `VisitAssignment`. Moves
-        the run to `COMMITTED`; a run left `PROPOSED` never touches a visit.
+      description: 'Turns each `SELECTED` candidate into a real `VisitAssignment`. Moves the run to `COMMITTED`; a run left
+        `PROPOSED` never touches a visit.
+
+        '
       requestBody:
         content:
           application/json:
@@ -1205,7 +1279,9 @@ paths:
                 candidateIds:
                   type: array
                   description: Optional subset to commit; omit to commit every SELECTED candidate.
-                  items: { type: integer, format: int64 }
+                  items:
+                    type: integer
+                    format: int64
       responses:
         '200':
           description: Committed.
@@ -1215,38 +1291,43 @@ paths:
                 $ref: '#/components/schemas/RosteringRun'
         '409':
           $ref: '#/components/responses/Conflict'
-
-  # ===================================================================
-  # Visits — draft
-  # ===================================================================
   /visits:
     get:
-      tags: [Visits]
+      tags:
+      - Visits
       summary: List visits
       x-status: draft
-      description: >
-        Role-scoped: manager can filter freely, caregiver sees only their
-        own, family and elder see only bound elders'. Also serves UC-CG06
-        (historical records) with a past `dateTo`.
+      description: 'Role-scoped: manager can filter freely, caregiver sees only their own, family and elder see only bound
+        elders''. Also serves UC-CG06 (historical records) with a past `dateTo`.
+
+        '
       parameters:
-        - $ref: '#/components/parameters/Page'
-        - $ref: '#/components/parameters/Size'
-        - name: elderId
-          in: query
-          schema: { type: integer, format: int64 }
-        - name: caregiverId
-          in: query
-          schema: { type: integer, format: int64 }
-        - name: dateFrom
-          in: query
-          schema: { type: string, format: date }
-        - name: dateTo
-          in: query
-          schema: { type: string, format: date }
-        - name: status
-          in: query
-          schema:
-            $ref: '#/components/schemas/VisitStatus'
+      - $ref: '#/components/parameters/Page'
+      - $ref: '#/components/parameters/Size'
+      - name: elderId
+        in: query
+        schema:
+          type: integer
+          format: int64
+      - name: caregiverId
+        in: query
+        schema:
+          type: integer
+          format: int64
+      - name: dateFrom
+        in: query
+        schema:
+          type: string
+          format: date
+      - name: dateTo
+        in: query
+        schema:
+          type: string
+          format: date
+      - name: status
+        in: query
+        schema:
+          $ref: '#/components/schemas/VisitStatus'
       responses:
         '200':
           description: Page of visits.
@@ -1259,15 +1340,18 @@ paths:
                     type: array
                     items:
                       $ref: '#/components/schemas/Visit'
-                  page: { type: integer }
-                  size: { type: integer }
-                  totalElements: { type: integer }
-
+                  page:
+                    type: integer
+                  size:
+                    type: integer
+                  totalElements:
+                    type: integer
   /visits/{visitId}:
     parameters:
-      - $ref: '#/components/parameters/VisitId'
+    - $ref: '#/components/parameters/VisitId'
     get:
-      tags: [Visits]
+      tags:
+      - Visits
       summary: Get a visit
       x-status: draft
       description: UC-FM03 (live status) reads this directly, typically polled.
@@ -1280,19 +1364,18 @@ paths:
                 $ref: '#/components/schemas/Visit'
         '404':
           $ref: '#/components/responses/NotFound'
-
   /visits/{visitId}/work-pack:
     parameters:
-      - $ref: '#/components/parameters/VisitId'
+    - $ref: '#/components/parameters/VisitId'
     get:
-      tags: [Visits]
+      tags:
+      - Visits
       summary: Get the caregiver work pack for an assigned visit
       x-status: draft
-      description: >
-        UC-CG03. Returns only the minimum elder information, care-plan
-        instructions, tasks and evidence requirements needed for the caller's
-        assigned visit. The response must not become a general elder-record
-        endpoint.
+      description: 'UC-CG03. Returns only the minimum elder information, care-plan instructions, tasks and evidence requirements
+        needed for the caller''s assigned visit. The response must not become a general elder-record endpoint.
+
+        '
       responses:
         '200':
           description: Assigned caregiver work pack.
@@ -1304,18 +1387,18 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
-
   /visits/{visitId}/check-in:
     parameters:
-      - $ref: '#/components/parameters/VisitId'
+    - $ref: '#/components/parameters/VisitId'
     post:
-      tags: [Visits]
+      tags:
+      - Visits
       summary: Check in to start the visit
       x-status: draft
-      description: >
-        UC-CG03. Legal only from `SCHEDULED`; any other current state is
-        rejected with `409` and the attempt is still written to
-        `visit_state_transition` as `REJECTED`.
+      description: 'UC-CG03. Legal only from `SCHEDULED`; any other current state is rejected with `409` and the attempt is
+        still written to `visit_state_transition` as `REJECTED`.
+
+        '
       responses:
         '200':
           description: Visit now `IN_PROGRESS`.
@@ -1325,18 +1408,18 @@ paths:
                 $ref: '#/components/schemas/Visit'
         '409':
           $ref: '#/components/responses/Conflict'
-
   /visits/{visitId}/tasks:
     parameters:
-      - $ref: '#/components/parameters/VisitId'
+    - $ref: '#/components/parameters/VisitId'
     get:
-      tags: [Visits]
+      tags:
+      - Visits
       summary: List tasks for an assigned visit
       x-status: draft
-      description: >
-        UC-CG03. Lists the task-execution state for the caller's assigned
-        visit. Task completion remains available through the task-specific
-        completion route.
+      description: 'UC-CG03. Lists the task-execution state for the caller''s assigned visit. Task completion remains available
+        through the task-specific completion route.
+
+        '
       responses:
         '200':
           description: Visit tasks.
@@ -1350,16 +1433,18 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
-
   /visits/{visitId}/tasks/{taskId}/complete:
     parameters:
-      - $ref: '#/components/parameters/VisitId'
-      - name: taskId
-        in: path
-        required: true
-        schema: { type: integer, format: int64 }
+    - $ref: '#/components/parameters/VisitId'
+    - name: taskId
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
     post:
-      tags: [Visits]
+      tags:
+      - Visits
       summary: Mark a care-plan task done
       x-status: draft
       requestBody:
@@ -1370,9 +1455,14 @@ paths:
               properties:
                 status:
                   type: string
-                  enum: [DONE, SKIPPED, REFUSED]
-                outcome: { type: string }
-                caregiverNote: { type: string }
+                  enum:
+                  - DONE
+                  - SKIPPED
+                  - REFUSED
+                outcome:
+                  type: string
+                caregiverNote:
+                  type: string
       responses:
         '200':
           description: Task updated.
@@ -1380,12 +1470,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/VisitTask'
-
   /visits/{visitId}/vitals:
     parameters:
-      - $ref: '#/components/parameters/VisitId'
+    - $ref: '#/components/parameters/VisitId'
     get:
-      tags: [Visits]
+      tags:
+      - Visits
       summary: List vital-sign readings for an assigned visit
       x-status: draft
       description: UC-CG03. Returns readings previously recorded for this visit.
@@ -1403,7 +1493,8 @@ paths:
         '404':
           $ref: '#/components/responses/NotFound'
     post:
-      tags: [Visits]
+      tags:
+      - Visits
       summary: Record a vital-sign reading
       x-status: draft
       description: A reading outside the configured normal range is flagged `outOfRange` at entry time, not after the fact.
@@ -1420,12 +1511,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/VitalSign'
-
   /visits/{visitId}/evidence:
     parameters:
-      - $ref: '#/components/parameters/VisitId'
+    - $ref: '#/components/parameters/VisitId'
     get:
-      tags: [Visits]
+      tags:
+      - Visits
       summary: List evidence for an assigned visit
       x-status: draft
       description: UC-CG03 and UC-CG05. Returns evidence metadata, not an unrestricted file archive.
@@ -1443,25 +1534,32 @@ paths:
         '404':
           $ref: '#/components/responses/NotFound'
     post:
-      tags: [Visits]
+      tags:
+      - Visits
       summary: Attach visit evidence
       x-status: draft
-      description: >
-        Photo, signature, checklist, reading or note. The frontend queues
-        this in the browser while offline and resubmits on reconnect; the
-        endpoint itself has no notion of that — it just accepts whatever
-        arrives, whenever it arrives.
+      description: 'Photo, signature, checklist, reading or note. The frontend queues this in the browser while offline and
+        resubmits on reconnect; the endpoint itself has no notion of that — it just accepts whatever arrives, whenever it
+        arrives.
+
+        '
       requestBody:
         required: true
         content:
           multipart/form-data:
             schema:
               type: object
-              required: [kind]
+              required:
+              - kind
               properties:
                 kind:
                   type: string
-                  enum: [PHOTO, SIGNATURE, CHECKLIST, READING, NOTE]
+                  enum:
+                  - PHOTO
+                  - SIGNATURE
+                  - CHECKLIST
+                  - READING
+                  - NOTE
                 file:
                   type: string
                   format: binary
@@ -1472,21 +1570,20 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/VisitEvidence'
-
   /visits/{visitId}/close:
     parameters:
-      - $ref: '#/components/parameters/VisitId'
+    - $ref: '#/components/parameters/VisitId'
     post:
-      tags: [Visits]
+      tags:
+      - Visits
       summary: Verify and close a visit
       x-status: draft
-      description: >
-        UC-CG05. Required prior state, required evidence kinds and legal
-        next state all depend on `visit.serviceType` (via the care plan
-        node). Supply either structured closure fields, or `noteText` for
-        the language model to turn into one; the fallback is the manual
-        structured form when the model is unavailable. Response reports
-        which path was used via `closureSource`.
+      description: 'UC-CG05. Required prior state, required evidence kinds and legal next state all depend on `visit.serviceType`
+        (via the care plan node). Supply either structured closure fields, or `noteText` for the language model to turn into
+        one; the fallback is the manual structured form when the model is unavailable. Response reports which path was used
+        via `closureSource`.
+
+        '
       requestBody:
         required: true
         content:
@@ -1508,20 +1605,19 @@ paths:
                 $ref: '#/components/schemas/ProblemDetail'
         '409':
           $ref: '#/components/responses/Conflict'
-
   /visits/{visitId}/confirm:
     parameters:
-      - $ref: '#/components/parameters/VisitId'
+    - $ref: '#/components/parameters/VisitId'
     post:
-      tags: [Visits]
+      tags:
+      - Visits
       summary: Confirm service completion and give feedback
       x-status: draft
-      description: >
-        UC-EL01. One large tap in the elder view. Independent of the
-        caregiver's closure — the caregiver cannot submit this on the
-        elder's behalf. A response of `DISPUTED` opens an incident; no
-        response by the deadline auto-closes the visit without creating an
-        elder-confirmation record.
+      description: 'UC-EL01. One large tap in the elder view. Independent of the caregiver''s closure — the caregiver cannot
+        submit this on the elder''s behalf. A response of `DISPUTED` opens an incident; no response by the deadline auto-closes
+        the visit without creating an elder-confirmation record.
+
+        '
       requestBody:
         required: true
         content:
@@ -1535,15 +1631,16 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ElderConfirmation'
-
   /visits/{visitId}/timeline:
     parameters:
-      - $ref: '#/components/parameters/VisitId'
+    - $ref: '#/components/parameters/VisitId'
     get:
-      tags: [Visits]
+      tags:
+      - Visits
       summary: Full state-transition history
       x-status: draft
-      description: Includes transitions the state machine refused, not only the ones it applied — the auditability trail for this visit.
+      description: Includes transitions the state machine refused, not only the ones it applied — the auditability trail for
+        this visit.
       responses:
         '200':
           description: Ordered transition history.
@@ -1553,12 +1650,12 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/VisitStateTransition'
-
   /visits/{visitId}/shift-change/decision:
     parameters:
-      - $ref: '#/components/parameters/VisitId'
+    - $ref: '#/components/parameters/VisitId'
     post:
-      tags: [Visits]
+      tags:
+      - Visits
       summary: Decide on a proposed shift change
       x-status: draft
       description: UC-FM06. Family approves or rejects a proposed caregiver swap for this visit.
@@ -1568,12 +1665,16 @@ paths:
           application/json:
             schema:
               type: object
-              required: [decision]
+              required:
+              - decision
               properties:
                 decision:
                   type: string
-                  enum: [APPROVED, REJECTED]
-                note: { type: string }
+                  enum:
+                  - APPROVED
+                  - REJECTED
+                note:
+                  type: string
       responses:
         '200':
           description: Decision recorded.
@@ -1581,28 +1682,28 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Visit'
-
-  # ===================================================================
-  # Incidents — draft
-  # ===================================================================
   /incidents:
     get:
-      tags: [Incidents]
+      tags:
+      - Incidents
       summary: List incidents
       x-status: draft
       description: Manager's queue.
       parameters:
-        - $ref: '#/components/parameters/Page'
-        - $ref: '#/components/parameters/Size'
-        - name: status
-          in: query
-          schema:
-            $ref: '#/components/schemas/IncidentStatus'
-        - name: severity
-          in: query
-          schema:
-            type: string
-            enum: [LOW, MEDIUM, HIGH]
+      - $ref: '#/components/parameters/Page'
+      - $ref: '#/components/parameters/Size'
+      - name: status
+        in: query
+        schema:
+          $ref: '#/components/schemas/IncidentStatus'
+      - name: severity
+        in: query
+        schema:
+          type: string
+          enum:
+          - LOW
+          - MEDIUM
+          - HIGH
       responses:
         '200':
           description: Page of incidents.
@@ -1615,17 +1716,21 @@ paths:
                     type: array
                     items:
                       $ref: '#/components/schemas/Incident'
-                  page: { type: integer }
-                  size: { type: integer }
-                  totalElements: { type: integer }
+                  page:
+                    type: integer
+                  size:
+                    type: integer
+                  totalElements:
+                    type: integer
     post:
-      tags: [Incidents]
+      tags:
+      - Incidents
       summary: Report a care exception
       x-status: draft
-      description: >
-        UC-CG04. Also created automatically by the missed-check-in scheduled
-        scan (`source: SYSTEM_MISSED_CHECKIN`) — a visit nobody checked in
-        for is converted into an exception rather than left to vanish.
+      description: 'UC-CG04. Also created automatically by the missed-check-in scheduled scan (`source: SYSTEM_MISSED_CHECKIN`)
+        — a visit nobody checked in for is converted into an exception rather than left to vanish.
+
+        '
       requestBody:
         required: true
         content:
@@ -1639,21 +1744,23 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Incident'
-
   /incidents/{id}:
     parameters:
-      - name: id
-        in: path
-        required: true
-        schema: { type: integer, format: int64 }
+    - name: id
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
     get:
-      tags: [Incidents]
+      tags:
+      - Incidents
       summary: Get an incident and its full timeline
       x-status: draft
-      description: >
-        Who reported it, who responded, every notification attempt, and when
-        the bound family member acknowledged it — this is the query that
-        replaces the three-day chat-log reconstruction.
+      description: 'Who reported it, who responded, every notification attempt, and when the bound family member acknowledged
+        it — this is the query that replaces the three-day chat-log reconstruction.
+
+        '
       responses:
         '200':
           description: Incident with its log.
@@ -1663,15 +1770,17 @@ paths:
                 $ref: '#/components/schemas/IncidentDetail'
         '404':
           $ref: '#/components/responses/NotFound'
-
   /incidents/{id}/claim:
     parameters:
-      - name: id
-        in: path
-        required: true
-        schema: { type: integer, format: int64 }
+    - name: id
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
     post:
-      tags: [Incidents]
+      tags:
+      - Incidents
       summary: Take over the incident
       x-status: draft
       description: UC-MG05. Manager becomes `responderUserId`; starts the response countdown (`respondBy`).
@@ -1684,29 +1793,27 @@ paths:
                 $ref: '#/components/schemas/Incident'
         '409':
           $ref: '#/components/responses/Conflict'
-
   /incidents/{id}/escalate:
     parameters:
-      - name: id
-        in: path
-        required: true
-        schema: { type: integer, format: int64 }
+    - name: id
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
     post:
-      tags: [Incidents]
+      tags:
+      - Incidents
       summary: Escalate to the next responder
       x-status: draft
-      description: >
-        UC-SYS02. The chain was assembled when the incident was opened (see
-        `/incidents/{id}/escalation-chain`); this moves the incident to its
-        next level: the new responder is set, both the previous and the new
-        responder are notified, the trigger (`TIMEOUT` from the scheduled scan
-        or `MANUAL` from a manager) and the reason are written to the
-        timeline, and the next level's countdown starts. A level whose
-        responder is off duty is skipped and the skip is logged. The previous
-        responder's entry is never removed: responsibility accumulates, it
-        does not transfer. When the chain is exhausted the incident becomes
-        `UNRESOLVED_ESCALATED`, is pinned to the top-level view and the family
-        is notified.
+      description: 'UC-SYS02. The chain was assembled when the incident was opened (see `/incidents/{id}/escalation-chain`);
+        this moves the incident to its next level: the new responder is set, both the previous and the new responder are notified,
+        the trigger (`TIMEOUT` from the scheduled scan or `MANUAL` from a manager) and the reason are written to the timeline,
+        and the next level''s countdown starts. A level whose responder is off duty is skipped and the skip is logged. The
+        previous responder''s entry is never removed: responsibility accumulates, it does not transfer. When the chain is
+        exhausted the incident becomes `UNRESOLVED_ESCALATED`, is pinned to the top-level view and the family is notified.
+
+        '
       requestBody:
         content:
           application/json:
@@ -1724,28 +1831,30 @@ paths:
               schema:
                 $ref: '#/components/schemas/Incident'
         '409':
-          description: The incident is no longer waiting for a responder (already claimed or resolved) — the "almost escalated" case, which is logged.
+          description: The incident is no longer waiting for a responder (already claimed or resolved) — the "almost escalated"
+            case, which is logged.
           content:
             application/problem+json:
               schema:
                 $ref: '#/components/schemas/ProblemDetail'
-
   /incidents/{id}/escalation-chain:
     parameters:
-      - name: id
-        in: path
-        required: true
-        schema: { type: integer, format: int64 }
+    - name: id
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
     get:
-      tags: [Incidents]
+      tags:
+      - Incidents
       summary: The escalation chain assembled for this incident
       x-status: draft
-      description: >
-        UC-MG05 / UC-SYS02. Shows the chain exactly as it was assembled at
-        runtime for this incident — each level's responder, that level's
-        countdown, and which level is current. Two incidents of the same
-        category can have different chains (night vs day, who is on duty),
-        which is why the chain is read per incident rather than configured.
+      description: 'UC-MG05 / UC-SYS02. Shows the chain exactly as it was assembled at runtime for this incident — each level''s
+        responder, that level''s countdown, and which level is current. Two incidents of the same category can have different
+        chains (night vs day, who is on duty), which is why the chain is read per incident rather than configured.
+
+        '
       responses:
         '200':
           description: Ordered levels, first responder first.
@@ -1755,23 +1864,24 @@ paths:
                 $ref: '#/components/schemas/EscalationChain'
         '404':
           $ref: '#/components/responses/NotFound'
-
   /incidents/{id}/contact-attempts:
     parameters:
-      - name: id
-        in: path
-        required: true
-        schema: { type: integer, format: int64 }
+    - name: id
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
     post:
-      tags: [Incidents]
+      tags:
+      - Incidents
       summary: Record an attempt to contact the family
       x-status: draft
-      description: >
-        UC-MG05 step 4. Every attempt is recorded whether or not the family was
-        reached, with the channel and the reason when not. A `NOT_REACHED`
-        outcome is what lets the manager apply the standard playbook without
-        waiting (4a); when every channel fails the timeline shows "family not
-        reached" and the dashboard asks for manual contact (4b).
+      description: 'UC-MG05 step 4. Every attempt is recorded whether or not the family was reached, with the channel and
+        the reason when not. A `NOT_REACHED` outcome is what lets the manager apply the standard playbook without waiting
+        (4a); when every channel fails the timeline shows "family not reached" and the dashboard asks for manual contact (4b).
+
+        '
       requestBody:
         required: true
         content:
@@ -1787,32 +1897,36 @@ paths:
                 $ref: '#/components/schemas/IncidentLogEntry'
         '400':
           $ref: '#/components/responses/ValidationError'
-
   /incidents/{id}/playbook:
     parameters:
-      - name: id
-        in: path
-        required: true
-        schema: { type: integer, format: int64 }
+    - name: id
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
     post:
-      tags: [Incidents]
+      tags:
+      - Incidents
       summary: Apply a standard response playbook
       x-status: draft
-      description: >
-        UC-MG05 step 5 / 4a. When the family cannot be reached, or agrees to
-        it, the manager confirms the standard playbook for the incident's
-        category and severity; the steps it prescribes are appended to the
-        timeline as the manager carries them out. The playbook is chosen
-        from `/incident-playbooks`.
+      description: 'UC-MG05 step 5 / 4a. When the family cannot be reached, or agrees to it, the manager confirms the standard
+        playbook for the incident''s category and severity; the steps it prescribes are appended to the timeline as the manager
+        carries them out. The playbook is chosen from `/incident-playbooks`.
+
+        '
       requestBody:
         required: true
         content:
           application/json:
             schema:
               type: object
-              required: [playbookCode]
+              required:
+              - playbookCode
               properties:
-                playbookCode: { type: string, example: FALL_MEDIUM }
+                playbookCode:
+                  type: string
+                  example: FALL_MEDIUM
       responses:
         '200':
           description: Playbook recorded on the incident.
@@ -1822,32 +1936,37 @@ paths:
                 $ref: '#/components/schemas/IncidentDetail'
         '404':
           $ref: '#/components/responses/NotFound'
-
   /incidents/{id}/severity:
     parameters:
-      - name: id
-        in: path
-        required: true
-        schema: { type: integer, format: int64 }
+    - name: id
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
     post:
-      tags: [Incidents]
+      tags:
+      - Incidents
       summary: Raise or lower the severity
       x-status: draft
-      description: >
-        UC-MG05 5a. When the situation worsens the manager raises the severity;
-        the escalation chain is re-assembled for the new severity and the
-        countdown restarted, but the same incident and the same timeline
-        continue — no new incident is opened.
+      description: 'UC-MG05 5a. When the situation worsens the manager raises the severity; the escalation chain is re-assembled
+        for the new severity and the countdown restarted, but the same incident and the same timeline continue — no new incident
+        is opened.
+
+        '
       requestBody:
         required: true
         content:
           application/json:
             schema:
               type: object
-              required: [severity]
+              required:
+              - severity
               properties:
-                severity: { $ref: '#/components/schemas/IncidentSeverity' }
-                reason: { type: string }
+                severity:
+                  $ref: '#/components/schemas/IncidentSeverity'
+                reason:
+                  type: string
       responses:
         '200':
           description: Severity changed; chain re-assembled.
@@ -1855,22 +1974,22 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Incident'
-
   /incident-playbooks:
     get:
-      tags: [Incidents]
+      tags:
+      - Incidents
       summary: Standard response playbooks
       x-status: draft
       description: The organisation's standard responses per category and severity, as configured (not code constants).
       parameters:
-        - name: category
-          in: query
-          schema:
-            $ref: '#/components/schemas/IncidentCategory'
-        - name: severity
-          in: query
-          schema:
-            $ref: '#/components/schemas/IncidentSeverity'
+      - name: category
+        in: query
+        schema:
+          $ref: '#/components/schemas/IncidentCategory'
+      - name: severity
+        in: query
+        schema:
+          $ref: '#/components/schemas/IncidentSeverity'
       responses:
         '200':
           description: Matching playbooks.
@@ -1880,33 +1999,40 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/IncidentPlaybook'
-
   /incidents/{id}/resolve:
     parameters:
-      - name: id
-        in: path
-        required: true
-        schema: { type: integer, format: int64 }
+    - name: id
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
     post:
-      tags: [Incidents]
+      tags:
+      - Incidents
       summary: Resolve the incident
       x-status: draft
-      description: >
-        UC-MG05 step 6. Only the current responder may resolve. An incident is
-        never closed automatically: without this call it stays open and keeps
-        escalating.
+      description: 'UC-MG05 step 6. Only the current responder may resolve. An incident is never closed automatically: without
+        this call it stays open and keeps escalating.
+
+        '
       requestBody:
         required: true
         content:
           application/json:
             schema:
               type: object
-              required: [resolutionNote]
+              required:
+              - resolutionNote
               properties:
-                resolutionNote: { type: string }
+                resolutionNote:
+                  type: string
                 outcome:
                   type: string
-                  enum: [HANDLED_ON_SITE, REFERRED_TO_MEDICAL_CARE, FALSE_ALARM]
+                  enum:
+                  - HANDLED_ON_SITE
+                  - REFERRED_TO_MEDICAL_CARE
+                  - FALSE_ALARM
       responses:
         '200':
           description: Resolved.
@@ -1926,15 +2052,17 @@ paths:
             application/problem+json:
               schema:
                 $ref: '#/components/schemas/ProblemDetail'
-
   /incidents/{id}/acknowledge:
     parameters:
-      - name: id
-        in: path
-        required: true
-        schema: { type: integer, format: int64 }
+    - name: id
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
     post:
-      tags: [Incidents]
+      tags:
+      - Incidents
       summary: Acknowledge an urgent alert
       x-status: draft
       description: UC-FM05. Family acknowledging stops that recipient's countdown; it does not resolve the incident itself.
@@ -1944,7 +2072,8 @@ paths:
             schema:
               type: object
               properties:
-                responseNote: { type: string }
+                responseNote:
+                  type: string
       responses:
         '200':
           description: Acknowledged.
@@ -1952,23 +2081,23 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/IncidentAcknowledgement'
-
-  # ===================================================================
-  # Spot checks — draft
-  # ===================================================================
   /spot-checks:
     get:
-      tags: [Spot checks]
+      tags:
+      - Spot checks
       summary: List spot checks
       x-status: draft
       parameters:
-        - $ref: '#/components/parameters/Page'
-        - $ref: '#/components/parameters/Size'
-        - name: approvalStatus
-          in: query
-          schema:
-            type: string
-            enum: [PENDING_APPROVAL, APPROVED, REJECTED]
+      - $ref: '#/components/parameters/Page'
+      - $ref: '#/components/parameters/Size'
+      - name: approvalStatus
+        in: query
+        schema:
+          type: string
+          enum:
+          - PENDING_APPROVAL
+          - APPROVED
+          - REJECTED
       responses:
         '200':
           description: Page of spot checks.
@@ -1981,11 +2110,15 @@ paths:
                     type: array
                     items:
                       $ref: '#/components/schemas/SpotCheck'
-                  page: { type: integer }
-                  size: { type: integer }
-                  totalElements: { type: integer }
+                  page:
+                    type: integer
+                  size:
+                    type: integer
+                  totalElements:
+                    type: integer
     post:
-      tags: [Spot checks]
+      tags:
+      - Spot checks
       summary: Schedule a home service spot check
       x-status: draft
       description: UC-MG08. Created `PENDING_APPROVAL`; the family must approve it before it proceeds (UC-FM07).
@@ -2002,29 +2135,35 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/SpotCheck'
-
   /spot-checks/{id}/family-approval:
     parameters:
-      - name: id
-        in: path
-        required: true
-        schema: { type: integer, format: int64 }
+    - name: id
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
     post:
-      tags: [Spot checks]
+      tags:
+      - Spot checks
       summary: Approve or reject a spot check
       x-status: draft
-      description: UC-MG08 step 3 / 3a (the former UC-FM07). A check never proceeds without the family's consent; a rejection needs a reason and closes the request with no record against anyone.
+      description: UC-MG08 step 3 / 3a (the former UC-FM07). A check never proceeds without the family's consent; a rejection
+        needs a reason and closes the request with no record against anyone.
       requestBody:
         required: true
         content:
           application/json:
             schema:
               type: object
-              required: [decision]
+              required:
+              - decision
               properties:
                 decision:
                   type: string
-                  enum: [APPROVED, REJECTED]
+                  enum:
+                  - APPROVED
+                  - REJECTED
                 reason:
                   type: string
                   description: Required when rejecting.
@@ -2035,25 +2174,25 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/SpotCheck'
-
   /spot-checks/{id}/complete:
     parameters:
-      - name: id
-        in: path
-        required: true
-        schema: { type: integer, format: int64 }
+    - name: id
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
     post:
-      tags: [Spot checks]
+      tags:
+      - Spot checks
       summary: Record spot-check findings
       x-status: draft
-      description: >
-        UC-MG08 step 4, from the manager's phone on site. `SATISFACTORY` or
-        `NEEDS_IMPROVEMENT` is written to the caregiver's record, visible to
-        the caregiver and the family, and feeds rostering as a reference (never
-        as a penalty on its own). `CAREGIVER_ABSENT` (4a) converts the check
-        into a missed-visit incident handled through UC-MG05 and closes the
-        check; `ELDER_NOT_HOME` (4b) closes the check without any record
-        against the caregiver.
+      description: 'UC-MG08 step 4, from the manager''s phone on site. `SATISFACTORY` or `NEEDS_IMPROVEMENT` is written to
+        the caregiver''s record, visible to the caregiver and the family, and feeds rostering as a reference (never as a penalty
+        on its own). `CAREGIVER_ABSENT` (4a) converts the check into a missed-visit incident handled through UC-MG05 and closes
+        the check; `ELDER_NOT_HOME` (4b) closes the check without any record against the caregiver.
+
+        '
       requestBody:
         required: true
         content:
@@ -2073,27 +2212,32 @@ paths:
             application/problem+json:
               schema:
                 $ref: '#/components/schemas/ProblemDetail'
-
   /spot-checks/{id}/withdraw:
     parameters:
-      - name: id
-        in: path
-        required: true
-        schema: { type: integer, format: int64 }
+    - name: id
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
     post:
-      tags: [Spot checks]
+      tags:
+      - Spot checks
       summary: Withdraw a spot check
       x-status: draft
-      description: UC-MG08 4b / failure path. Closes the request with the manager's reason; no visit record is produced and the care plan is untouched.
+      description: UC-MG08 4b / failure path. Closes the request with the manager's reason; no visit record is produced and
+        the care plan is untouched.
       requestBody:
         required: true
         content:
           application/json:
             schema:
               type: object
-              required: [reason]
+              required:
+              - reason
               properties:
-                reason: { type: string }
+                reason:
+                  type: string
       responses:
         '200':
           description: Closed.
@@ -2101,29 +2245,34 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/SpotCheck'
-
   /spot-checks/{id}/reschedule:
     parameters:
-      - name: id
-        in: path
-        required: true
-        schema: { type: integer, format: int64 }
+    - name: id
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
     post:
-      tags: [Spot checks]
+      tags:
+      - Spot checks
       summary: Propose a new time for a spot check
       x-status: draft
-      description: >
-        UC-MG08 4b. The check goes back to `PENDING_APPROVAL` — a new time needs
-        the family's consent again.
+      description: 'UC-MG08 4b. The check goes back to `PENDING_APPROVAL` — a new time needs the family''s consent again.
+
+        '
       requestBody:
         required: true
         content:
           application/json:
             schema:
               type: object
-              required: [proposedTime]
+              required:
+              - proposedTime
               properties:
-                proposedTime: { type: string, format: date-time }
+                proposedTime:
+                  type: string
+                  format: date-time
       responses:
         '200':
           description: Re-proposed.
@@ -2131,27 +2280,32 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/SpotCheck'
-
   /spot-checks/{id}/caregiver-response:
     parameters:
-      - name: id
-        in: path
-        required: true
-        schema: { type: integer, format: int64 }
+    - name: id
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
     post:
-      tags: [Spot checks]
+      tags:
+      - Spot checks
       summary: Caregiver responds to the findings
       x-status: draft
-      description: The finding is visible to the caregiver (unlike elder ratings) and they may answer it once; the response sits next to the finding.
+      description: The finding is visible to the caregiver (unlike elder ratings) and they may answer it once; the response
+        sits next to the finding.
       requestBody:
         required: true
         content:
           application/json:
             schema:
               type: object
-              required: [response]
+              required:
+              - response
               properties:
-                response: { type: string }
+                response:
+                  type: string
       responses:
         '200':
           description: Response recorded.
@@ -2159,47 +2313,43 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/SpotCheck'
-
-  # ===================================================================
-  # Reports — draft
-  # ===================================================================
   /reports/generate:
     post:
-      tags: [Reports]
+      tags:
+      - Reports
       summary: Generate periodic reports
       x-status: draft
-      description: >
-        UC-MG07. Run by the scheduler at the end of each period and by a
-        manager on demand. One period of records becomes three
-        audience-filtered artefacts in a single run — `FAMILY`, `REGULATOR`
-        and `INTERNAL` share a skeleton but not a filtering rule. Unclosed
-        visits in the period do not block generation: the report is marked
-        `dataComplete: false` and lists the missing items (2a). If the
-        language-model summary is unavailable the family version falls back to
-        the structured template (3a), reported via `generatedBy`. Omit
-        `elderId` to generate for every elder, which is what the scheduler
-        does. The `FAMILY` filter is
-        specified precisely (per the supervisor side's screen-2c mock):
-        scoped to elders the requesting family member is actively bound to;
-        caregiver identity reduced to name only, no staff-performance data;
-        vital-sign readings given as ranges, not raw values; other elders'
-        records excluded entirely; a medical disclaimer is always present.
-        The `REGULATOR` and `INTERNAL` filters are not yet specified and are
-        pending their owners.
+      description: 'UC-MG07. Run by the scheduler at the end of each period and by a manager on demand. One period of records
+        becomes three audience-filtered artefacts in a single run — `FAMILY`, `REGULATOR` and `INTERNAL` share a skeleton
+        but not a filtering rule. Unclosed visits in the period do not block generation: the report is marked `dataComplete:
+        false` and lists the missing items (2a). If the language-model summary is unavailable the family version falls back
+        to the structured template (3a), reported via `generatedBy`. Omit `elderId` to generate for every elder, which is
+        what the scheduler does. The `FAMILY` filter is specified precisely (per the supervisor side''s screen-2c mock): scoped
+        to elders the requesting family member is actively bound to; caregiver identity reduced to name only, no staff-performance
+        data; vital-sign readings given as ranges, not raw values; other elders'' records excluded entirely; a medical disclaimer
+        is always present. The `REGULATOR` and `INTERNAL` filters are not yet specified and are pending their owners.
+
+        '
       requestBody:
         required: true
         content:
           application/json:
             schema:
               type: object
-              required: [periodStart, periodEnd]
+              required:
+              - periodStart
+              - periodEnd
               properties:
                 elderId:
                   type: integer
                   format: int64
                   description: One elder; omit for all elders with records in the period.
-                periodStart: { type: string, format: date }
-                periodEnd: { type: string, format: date }
+                periodStart:
+                  type: string
+                  format: date
+                periodEnd:
+                  type: string
+                  format: date
       responses:
         '202':
           description: One report per audience (per elder) generated and archived.
@@ -2209,22 +2359,24 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/Report'
-
   /reports:
     get:
-      tags: [Reports]
+      tags:
+      - Reports
       summary: List generated reports
       x-status: draft
       parameters:
-        - $ref: '#/components/parameters/Page'
-        - $ref: '#/components/parameters/Size'
-        - name: elderId
-          in: query
-          schema: { type: integer, format: int64 }
-        - name: audience
-          in: query
-          schema:
-            $ref: '#/components/schemas/ReportAudience'
+      - $ref: '#/components/parameters/Page'
+      - $ref: '#/components/parameters/Size'
+      - name: elderId
+        in: query
+        schema:
+          type: integer
+          format: int64
+      - name: audience
+        in: query
+        schema:
+          $ref: '#/components/schemas/ReportAudience'
       responses:
         '200':
           description: Page of reports.
@@ -2237,18 +2389,23 @@ paths:
                     type: array
                     items:
                       $ref: '#/components/schemas/Report'
-                  page: { type: integer }
-                  size: { type: integer }
-                  totalElements: { type: integer }
-
+                  page:
+                    type: integer
+                  size:
+                    type: integer
+                  totalElements:
+                    type: integer
   /reports/{id}/export:
     parameters:
-      - name: id
-        in: path
-        required: true
-        schema: { type: integer, format: int64 }
+    - name: id
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
     get:
-      tags: [Reports]
+      tags:
+      - Reports
       summary: Export a report
       x-status: draft
       responses:
@@ -2256,30 +2413,33 @@ paths:
           description: Rendered file.
           content:
             application/pdf:
-              schema: { type: string, format: binary }
+              schema:
+                type: string
+                format: binary
         '503':
           description: Rendering failed; the report is still readable at `/reports/{id}` and the export can be retried (5b).
           content:
             application/problem+json:
               schema:
                 $ref: '#/components/schemas/ProblemDetail'
-
   /reports/{id}:
     parameters:
-      - name: id
-        in: path
-        required: true
-        schema: { type: integer, format: int64 }
+    - name: id
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
     get:
-      tags: [Reports]
+      tags:
+      - Reports
       summary: Read a report online
       x-status: draft
-      description: >
-        The report's sections, already filtered for its audience. Readable
-        even when PDF export fails (5b). A family member can only read
-        `FAMILY` reports of elders they are bound to. There is deliberately no
-        DELETE and no PUT on a report: an archived report cannot be removed
-        or edited in place (5a); corrections are appended as amendments.
+      description: 'The report''s sections, already filtered for its audience. Readable even when PDF export fails (5b). A
+        family member can only read `FAMILY` reports of elders they are bound to. There is deliberately no DELETE and no PUT
+        on a report: an archived report cannot be removed or edited in place (5a); corrections are appended as amendments.
+
+        '
       responses:
         '200':
           description: Report with its sections and amendments.
@@ -2295,30 +2455,34 @@ paths:
                 $ref: '#/components/schemas/ProblemDetail'
         '404':
           $ref: '#/components/responses/NotFound'
-
   /reports/{id}/amendments:
     parameters:
-      - name: id
-        in: path
-        required: true
-        schema: { type: integer, format: int64 }
+    - name: id
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
     post:
-      tags: [Reports]
+      tags:
+      - Reports
       summary: Append a correction to an archived report
       x-status: draft
-      description: >
-        UC-MG07 business rule: an archived report is immutable, so a
-        correction is a dated, signed note appended to it — the original text
-        stays as it was generated.
+      description: 'UC-MG07 business rule: an archived report is immutable, so a correction is a dated, signed note appended
+        to it — the original text stays as it was generated.
+
+        '
       requestBody:
         required: true
         content:
           application/json:
             schema:
               type: object
-              required: [note]
+              required:
+              - note
               properties:
-                note: { type: string }
+                note:
+                  type: string
       responses:
         '201':
           description: Amendment appended.
@@ -2326,19 +2490,18 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ReportAmendment'
-
   /elders/{elderId}/weekly-summary:
     parameters:
-      - $ref: '#/components/parameters/ElderId'
+    - $ref: '#/components/parameters/ElderId'
     get:
-      tags: [Reports]
+      tags:
+      - Reports
       summary: Plain-language weekly summary
       x-status: draft
-      description: >
-        UC-FM04. Language-model output over the week's structured records,
-        with a rule-based (template) fallback when the model is unavailable.
-        Never carries clinical judgement — `disclaimer` is fixed text on
-        every response.
+      description: 'UC-FM04. Language-model output over the week''s structured records, with a rule-based (template) fallback
+        when the model is unavailable. Never carries clinical judgement — `disclaimer` is fixed text on every response.
+
+        '
       responses:
         '200':
           description: Weekly summary.
@@ -2346,13 +2509,10 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/WeeklySummary'
-
-  # ===================================================================
-  # Value-added services — draft
-  # ===================================================================
   /value-added-services:
     get:
-      tags: [Value-added services]
+      tags:
+      - Value-added services
       summary: List the service catalogue
       x-status: draft
       responses:
@@ -2364,22 +2524,24 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/ValueAddedService'
-
   /value-added-service-requests:
     get:
-      tags: [Value-added services]
+      tags:
+      - Value-added services
       summary: List value-added service requests
       x-status: draft
       parameters:
-        - $ref: '#/components/parameters/Page'
-        - $ref: '#/components/parameters/Size'
-        - name: elderId
-          in: query
-          schema: { type: integer, format: int64 }
-        - name: status
-          in: query
-          schema:
-            $ref: '#/components/schemas/ValueAddedServiceRequestStatus'
+      - $ref: '#/components/parameters/Page'
+      - $ref: '#/components/parameters/Size'
+      - name: elderId
+        in: query
+        schema:
+          type: integer
+          format: int64
+      - name: status
+        in: query
+        schema:
+          $ref: '#/components/schemas/ValueAddedServiceRequestStatus'
       responses:
         '200':
           description: Page of requests.
@@ -2392,17 +2554,21 @@ paths:
                     type: array
                     items:
                       $ref: '#/components/schemas/ValueAddedServiceRequest'
-                  page: { type: integer }
-                  size: { type: integer }
-                  totalElements: { type: integer }
+                  page:
+                    type: integer
+                  size:
+                    type: integer
+                  totalElements:
+                    type: integer
     post:
-      tags: [Value-added services]
+      tags:
+      - Value-added services
       summary: Request a value-added service
       x-status: draft
-      description: >
-        UC-EL02. Elder-initiated by default; `requestedByFamilyId` is set
-        when a family member requests on the elder's behalf instead. Records
-        intent only — no price, no payment.
+      description: 'UC-EL02. Elder-initiated by default; `requestedByFamilyId` is set when a family member requests on the
+        elder''s behalf instead. Records intent only — no price, no payment.
+
+        '
       requestBody:
         required: true
         content:
@@ -2416,15 +2582,17 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ValueAddedServiceRequest'
-
   /value-added-service-requests/{id}/decision:
     parameters:
-      - name: id
-        in: path
-        required: true
-        schema: { type: integer, format: int64 }
+    - name: id
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
     post:
-      tags: [Value-added services]
+      tags:
+      - Value-added services
       summary: Approve or decline a service request
       x-status: draft
       description: UC-FM08. Approval generates a work order (`DISPATCHED`); no money moves.
@@ -2434,11 +2602,14 @@ paths:
           application/json:
             schema:
               type: object
-              required: [decision]
+              required:
+              - decision
               properties:
                 decision:
                   type: string
-                  enum: [APPROVED, REJECTED]
+                  enum:
+                  - APPROVED
+                  - REJECTED
       responses:
         '200':
           description: Decision recorded.
@@ -2446,22 +2617,19 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ValueAddedServiceRequest'
-
-  # ===================================================================
-  # Emergency — draft
-  # ===================================================================
   /elders/{elderId}/emergency-calls:
     parameters:
-      - $ref: '#/components/parameters/ElderId'
+    - $ref: '#/components/parameters/ElderId'
     post:
-      tags: [Emergency]
+      tags:
+      - Emergency
       summary: Trigger an emergency call for help
       x-status: draft
-      description: >
-        UC-EL03. One large tap in the elder view. Skips the ordinary queue:
-        opens a `severity: HIGH`, `category: SOS` incident and notifies
-        bound family and the on-duty manager synchronously, in the same
-        request — not on the next scheduled scan.
+      description: 'UC-EL03. One large tap in the elder view. Skips the ordinary queue: opens a `severity: HIGH`, `category:
+        SOS` incident and notifies bound family and the on-duty manager synchronously, in the same request — not on the next
+        scheduled scan.
+
+        '
       responses:
         '201':
           description: Emergency call raised as a critical incident.
@@ -2469,43 +2637,53 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Incident'
-
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EmergencyCallCreateRequest'
   /emergency-calls/{id}:
     parameters:
-      - name: id
-        in: path
-        required: true
-        schema: { type: integer, format: int64 }
+    - name: id
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
     get:
-      tags: [Emergency]
+      tags:
+      - Emergency
       summary: Get the status of a triggered emergency call
       x-status: draft
-      description: An alias over the resulting incident, kept as its own path so the elder/family UI doesn't need to know it's the same resource.
+      description: An alias over the resulting incident, kept as its own path so the elder/family UI doesn't need to know
+        it's the same resource.
       responses:
         '200':
           description: Incident detail.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Incident'
-
-  # ===================================================================
-  # Notifications — draft
-  # ===================================================================
+                $ref: '#/components/schemas/IncidentDetail'
   /notifications/me:
     get:
-      tags: [Notifications]
+      tags:
+      - Notifications
       summary: My notification inbox
       x-status: draft
       description: In-application and email only; there is no push infrastructure, so this is a pull inbox.
       parameters:
-        - $ref: '#/components/parameters/Page'
-        - $ref: '#/components/parameters/Size'
-        - name: status
-          in: query
-          schema:
-            type: string
-            enum: [PENDING, SENT, READ, FAILED]
+      - $ref: '#/components/parameters/Page'
+      - $ref: '#/components/parameters/Size'
+      - name: status
+        in: query
+        schema:
+          type: string
+          enum:
+          - PENDING
+          - SENT
+          - READ
+          - FAILED
       responses:
         '200':
           description: Page of notifications.
@@ -2518,18 +2696,23 @@ paths:
                     type: array
                     items:
                       $ref: '#/components/schemas/Notification'
-                  page: { type: integer }
-                  size: { type: integer }
-                  totalElements: { type: integer }
-
+                  page:
+                    type: integer
+                  size:
+                    type: integer
+                  totalElements:
+                    type: integer
   /notifications/{id}/read:
     parameters:
-      - name: id
-        in: path
-        required: true
-        schema: { type: integer, format: int64 }
+    - name: id
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
     post:
-      tags: [Notifications]
+      tags:
+      - Notifications
       summary: Mark a notification read
       x-status: draft
       responses:
@@ -2539,48 +2722,91 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Notification'
-
+  /family-bindings/{bindingId}/decision:
+    parameters:
+    - name: bindingId
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
+    post:
+      tags:
+      - Elders
+      summary: Confirm or reject a proposed family binding
+      x-status: draft
+      description: The party that did not initiate the binding decides whether to accept or reject it. CONFIRM moves the binding
+        to ACTIVE; REJECT moves it to REJECTED.
+      responses:
+        '200':
+          description: Binding active.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ElderFamilyBinding'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FamilyBindingDecisionRequest'
 components:
   securitySchemes:
     sessionCookie:
       type: apiKey
       in: cookie
       name: JSESSIONID
-      description: >
-        Server-side session established by `POST /auth/login`. State-changing
-        requests must also echo the `XSRF-TOKEN` cookie value in an
-        `X-XSRF-TOKEN` header.
+      description: 'Server-side session established by `POST /auth/login`. State-changing requests must also echo the `XSRF-TOKEN`
+        cookie value in an `X-XSRF-TOKEN` header.
 
+        '
   parameters:
     Page:
       name: page
       in: query
-      schema: { type: integer, minimum: 0, default: 0 }
+      schema:
+        type: integer
+        minimum: 0
+        default: 0
     Size:
       name: size
       in: query
-      schema: { type: integer, minimum: 1, maximum: 200, default: 20 }
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 200
+        default: 20
     ElderId:
       name: elderId
       in: path
       required: true
-      schema: { type: integer, format: int64 }
+      schema:
+        type: integer
+        format: int64
     CaregiverId:
       name: caregiverId
       in: path
       required: true
-      schema: { type: integer, format: int64 }
+      schema:
+        type: integer
+        format: int64
     VisitId:
       name: visitId
       in: path
       required: true
-      schema: { type: integer, format: int64 }
-
+      schema:
+        type: integer
+        format: int64
   schemas:
-    # ---------------- Auth (implemented) ----------------
     LoginRequest:
       type: object
-      required: [username, password]
+      required:
+      - username
+      - password
       properties:
         username:
           type: string
@@ -2589,10 +2815,13 @@ components:
           type: string
           minLength: 1
           format: password
-
     CurrentUserResponse:
       type: object
-      required: [id, username, displayName, roles]
+      required:
+      - id
+      - username
+      - displayName
+      - roles
       properties:
         id:
           type: integer
@@ -2606,7 +2835,6 @@ components:
           items:
             type: string
           description: Sorted, upper-case role names, e.g. `ELDER`, `FAMILY`, `MANAGER`.
-
     ProblemDetail:
       description: RFC 9457 `application/problem+json` body. Every error response uses this shape.
       type: object
@@ -2624,463 +2852,883 @@ components:
           type: string
           format: uri
       additionalProperties: true
-
-    # ---------------- Elders & care plans ----------------
     Gender:
       type: string
-      enum: [MALE, FEMALE, OTHER]
+      enum:
+      - MALE
+      - FEMALE
+      - OTHER
     MobilityLevel:
       type: string
-      enum: [INDEPENDENT, ASSISTIVE_CANE, WHEELCHAIR_BEDBOUND]
+      enum:
+      - INDEPENDENT
+      - ASSISTIVE_CANE
+      - WHEELCHAIR_BEDBOUND
     ContinuityPreference:
       type: string
-      enum: [PREFERRED, REQUIRED, NONE]
-
+      enum:
+      - PREFERRED
+      - REQUIRED
+      - NONE
     Elder:
       type: object
-      required: [id, fullName]
+      required:
+      - id
+      - fullName
       properties:
-        id: { type: integer, format: int64 }
-        fullName: { type: string }
-        gender: { $ref: '#/components/schemas/Gender' }
-        dateOfBirth: { type: string, format: date }
-        phone: { type: string }
-        address: { type: string }
-        postalCode: { type: string }
-        sector: { type: string, description: Locality band used when matching caregivers. }
+        id:
+          type: integer
+          format: int64
+        fullName:
+          type: string
+        gender:
+          $ref: '#/components/schemas/Gender'
+        dateOfBirth:
+          type: string
+          format: date
+        phone:
+          type: string
+        address:
+          type: string
+        postalCode:
+          type: string
+        sector:
+          type: string
+          description: Locality band used when matching caregivers.
         preferredDialects:
           type: array
-          items: { type: string }
-        livesAlone: { type: boolean }
-        mobilityLevel: { $ref: '#/components/schemas/MobilityLevel' }
-        continuityPreference: { $ref: '#/components/schemas/ContinuityPreference' }
-        medicalNotes: { type: string }
-        createdAt: { type: string, format: date-time }
-        updatedAt: { type: string, format: date-time }
-
+          items:
+            type: string
+        livesAlone:
+          type: boolean
+        mobilityLevel:
+          $ref: '#/components/schemas/MobilityLevel'
+        continuityPreference:
+          $ref: '#/components/schemas/ContinuityPreference'
+        medicalNotes:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
     ElderPage:
       type: object
       properties:
         items:
           type: array
-          items: { $ref: '#/components/schemas/Elder' }
-        page: { type: integer }
-        size: { type: integer }
-        totalElements: { type: integer }
-
+          items:
+            $ref: '#/components/schemas/Elder'
+        page:
+          type: integer
+        size:
+          type: integer
+        totalElements:
+          type: integer
     ElderCreateRequest:
       type: object
-      required: [fullName]
+      required:
+      - fullName
       properties:
-        fullName: { type: string }
-        gender: { $ref: '#/components/schemas/Gender' }
-        dateOfBirth: { type: string, format: date }
-        phone: { type: string }
-        address: { type: string }
-        postalCode: { type: string }
-        sector: { type: string }
+        fullName:
+          type: string
+        gender:
+          $ref: '#/components/schemas/Gender'
+        dateOfBirth:
+          type: string
+          format: date
+        phone:
+          type: string
+        address:
+          type: string
+        postalCode:
+          type: string
+        sector:
+          type: string
         preferredDialects:
           type: array
-          items: { type: string }
-        livesAlone: { type: boolean }
-        mobilityLevel: { $ref: '#/components/schemas/MobilityLevel' }
-        continuityPreference: { $ref: '#/components/schemas/ContinuityPreference' }
-        medicalNotes: { type: string }
+          items:
+            type: string
+        livesAlone:
+          type: boolean
+        mobilityLevel:
+          $ref: '#/components/schemas/MobilityLevel'
+        continuityPreference:
+          $ref: '#/components/schemas/ContinuityPreference'
+        medicalNotes:
+          type: string
         fromIntakeApplicationId:
           type: integer
           format: int64
           description: Set when this profile is being provisioned from an approved intake application.
-
     ElderUpdateRequest:
       allOf:
-        - $ref: '#/components/schemas/ElderCreateRequest'
-
+      - $ref: '#/components/schemas/ElderCreateRequest'
     CarePlanStatus:
       type: string
-      enum: [DRAFT, PUBLISHED, SUPERSEDED]
+      enum:
+      - DRAFT
+      - PUBLISHED
+      - SUPERSEDED
     CarePlanNodeType:
       type: string
-      enum: [SUB_PLAN, TASK]
+      enum:
+      - SUB_PLAN
+      - TASK
     EvidenceType:
       type: string
-      enum: [NONE, CHECKLIST, PHOTO, READING]
-
+      enum:
+      - NONE
+      - CHECKLIST
+      - PHOTO
+      - READING
     CarePlanNode:
       type: object
-      required: [id, nodeType, name]
+      required:
+      - id
+      - nodeType
+      - name
       properties:
-        id: { type: integer, format: int64 }
-        parentId: { type: integer, format: int64, nullable: true }
-        nodeType: { $ref: '#/components/schemas/CarePlanNodeType' }
-        name: { type: string }
-        serviceType: { type: string, description: "bathing, medication reminder, rehabilitation, …" }
-        scheduleDays: { type: string, example: "MON,WED,FRI" }
-        durationPerVisit: { type: number, format: double, description: Hours; TASK nodes only. }
+        id:
+          type: integer
+          format: int64
+        parentId:
+          type: integer
+          format: int64
+          nullable: true
+        nodeType:
+          $ref: '#/components/schemas/CarePlanNodeType'
+        name:
+          type: string
+        serviceType:
+          type: string
+          description: bathing, medication reminder, rehabilitation, …
+        scheduleDays:
+          type: string
+          example: MON,WED,FRI
+        durationPerVisit:
+          type: number
+          format: double
+          description: Hours; TASK nodes only.
         weeklyHours:
           type: number
           format: double
-          description: >
-            TASK: entered. SUB_PLAN: computed server-side as the sum of its
-            children's weeklyHours, recursively — never entered by hand.
-        evidenceType: { $ref: '#/components/schemas/EvidenceType' }
-        displayOrder: { type: integer }
+          description: 'TASK: entered. SUB_PLAN: computed server-side as the sum of its children''s weeklyHours, recursively
+            — never entered by hand.
+
+            '
+        evidenceType:
+          $ref: '#/components/schemas/EvidenceType'
+        displayOrder:
+          type: integer
         children:
           type: array
-          items: { $ref: '#/components/schemas/CarePlanNode' }
-
+          items:
+            $ref: '#/components/schemas/CarePlanNode'
     CarePlan:
       type: object
-      required: [id, elderId, version, status]
+      required:
+      - id
+      - elderId
+      - version
+      - status
       properties:
-        id: { type: integer, format: int64 }
-        elderId: { type: integer, format: int64 }
-        version: { type: integer }
-        status: { $ref: '#/components/schemas/CarePlanStatus' }
+        id:
+          type: integer
+          format: int64
+        elderId:
+          type: integer
+          format: int64
+        version:
+          type: integer
+        status:
+          $ref: '#/components/schemas/CarePlanStatus'
         totalHours:
           type: number
           format: double
           description: Rolled up from the node tree, not entered by hand.
         requiredCredentialTypeIds:
           type: array
-          items: { type: integer, format: int64 }
-        publishedAt: { type: string, format: date-time }
-        rootNode: { $ref: '#/components/schemas/CarePlanNode' }
-
+          items:
+            type: integer
+            format: int64
+        publishedAt:
+          type: string
+          format: date-time
+        rootNode:
+          $ref: '#/components/schemas/CarePlanNode'
     CarePlanNodeCreateRequest:
       type: object
-      required: [nodeType, name]
+      required:
+      - nodeType
+      - name
       properties:
-        nodeType: { $ref: '#/components/schemas/CarePlanNodeType' }
-        name: { type: string }
-        serviceType: { type: string }
-        scheduleDays: { type: string }
-        durationPerVisit: { type: number, format: double }
-        evidenceType: { $ref: '#/components/schemas/EvidenceType' }
-        displayOrder: { type: integer }
-
+        nodeType:
+          $ref: '#/components/schemas/CarePlanNodeType'
+        name:
+          type: string
+        serviceType:
+          type: string
+        scheduleDays:
+          type: string
+        durationPerVisit:
+          type: number
+          format: double
+        evidenceType:
+          $ref: '#/components/schemas/EvidenceType'
+        displayOrder:
+          type: integer
     CarePlanReplaceRequest:
       type: object
-      required: [rootNode]
+      required:
+      - rootNode
       properties:
         requiredCredentialTypeIds:
           type: array
-          items: { type: integer, format: int64 }
+          items:
+            type: integer
+            format: int64
         rootNode:
           $ref: '#/components/schemas/CarePlanNodeCreateRequest'
           description: The root's children may themselves be full node trees.
-
     BindingRelationship:
       type: string
-      enum: [SON, DAUGHTER, SPOUSE, GUARDIAN, OTHER]
+      enum:
+      - SON
+      - DAUGHTER
+      - SPOUSE
+      - GUARDIAN
+      - OTHER
     BindingAccessScope:
       type: string
-      enum: [FULL, READ_ONLY]
+      enum:
+      - FULL
+      - READ_ONLY
     BindingStatus:
       type: string
-      enum: [PENDING_CONFIRMATION, ACTIVE, REJECTED, REVOKED]
-
+      enum:
+      - PENDING_CONFIRMATION
+      - ACTIVE
+      - REJECTED
+      - REVOKED
     ElderFamilyBinding:
       type: object
-      required: [id, elderId, status]
+      required:
+      - id
+      - elderId
+      - status
+      - familyMemberId
+      - relationship
+      - isPrimaryContact
+      - accessScope
+      - createdAt
       properties:
-        id: { type: integer, format: int64 }
-        elderId: { type: integer, format: int64 }
-        familyMemberId: { type: integer, format: int64, nullable: true }
-        pairingCode: { type: string, description: "Six digits, issued by the elder side while pending." }
-        relationship: { $ref: '#/components/schemas/BindingRelationship' }
-        isPrimaryContact: { type: boolean }
-        accessScope: { $ref: '#/components/schemas/BindingAccessScope' }
-        status: { $ref: '#/components/schemas/BindingStatus' }
-        requestedBy: { type: string, enum: [ELDER, FAMILY_MEMBER] }
-        confirmedAt: { type: string, format: date-time, nullable: true }
-        expiresAt: { type: string, format: date-time, nullable: true }
-
+        id:
+          type: integer
+          format: int64
+        elderId:
+          type: integer
+          format: int64
+        familyMemberId:
+          type: integer
+          format: int64
+          nullable: true
+        pairingCode:
+          type: string
+          description: Six digits, issued by the elder side while pending.
+        relationship:
+          $ref: '#/components/schemas/BindingRelationship'
+        isPrimaryContact:
+          type: boolean
+        accessScope:
+          $ref: '#/components/schemas/BindingAccessScope'
+        status:
+          $ref: '#/components/schemas/BindingStatus'
+        requestedBy:
+          type: string
+          enum:
+          - ELDER
+          - FAMILY_MEMBER
+        confirmedAt:
+          type: string
+          format: date-time
+          nullable: true
+        expiresAt:
+          type: string
+          format: date-time
+          nullable: true
+        familyMemberName:
+          type: string
+          description: Display name assembled from the family member account.
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
     FamilyBindingCreateRequest:
       type: object
       properties:
-        familyMemberId: { type: integer, format: int64, description: Omit when the elder is issuing a pairing code instead. }
-        relationship: { $ref: '#/components/schemas/BindingRelationship' }
-        accessScope: { $ref: '#/components/schemas/BindingAccessScope' }
-
-    # ---------------- Family members ----------------
+        familyMemberId:
+          type: integer
+          format: int64
+          description: Omit when the elder is issuing a pairing code instead.
+        relationship:
+          $ref: '#/components/schemas/BindingRelationship'
+        accessScope:
+          $ref: '#/components/schemas/BindingAccessScope'
+          default: FULL
+        isPrimaryContact:
+          type: boolean
+          default: false
+      required:
+      - familyMemberId
+      - relationship
     FamilyMember:
       type: object
-      required: [id, fullName]
+      required:
+      - id
+      - fullName
       properties:
-        id: { type: integer, format: int64 }
-        fullName: { type: string }
-        contactNumber: { type: string }
-        email: { type: string, format: email }
-        residentialAddress: { type: string }
-        createdAt: { type: string, format: date-time }
-        updatedAt: { type: string, format: date-time }
-
+        id:
+          type: integer
+          format: int64
+        fullName:
+          type: string
+        contactNumber:
+          type: string
+        email:
+          type: string
+          format: email
+        residentialAddress:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
     FamilyMemberUpdateRequest:
       type: object
       properties:
-        fullName: { type: string }
-        contactNumber: { type: string }
-        email: { type: string, format: email }
-        residentialAddress: { type: string }
-
-    # ---------------- Intake ----------------
+        fullName:
+          type: string
+        contactNumber:
+          type: string
+        email:
+          type: string
+          format: email
+        residentialAddress:
+          type: string
     IntakeStatus:
       type: string
-      enum: [SUBMITTED, UNDER_REVIEW, APPROVED, REJECTED]
-
+      enum:
+      - SUBMITTED
+      - UNDER_REVIEW
+      - APPROVED
+      - REJECTED
     IntakeApplication:
       type: object
-      required: [id, targetElderName, status]
+      required:
+      - id
+      - targetElderName
+      - status
       properties:
-        id: { type: integer, format: int64 }
-        applicantFamilyMemberId: { type: integer, format: int64 }
-        targetElderName: { type: string }
-        targetElderAge: { type: integer }
-        targetAddress: { type: string }
-        postalCode: { type: string }
-        mobilityLevel: { $ref: '#/components/schemas/MobilityLevel' }
-        preferredDialects: { type: string }
+        id:
+          type: integer
+          format: int64
+        applicantFamilyMemberId:
+          type: integer
+          format: int64
+        targetElderName:
+          type: string
+        targetElderAge:
+          type: integer
+        targetAddress:
+          type: string
+        postalCode:
+          type: string
+        mobilityLevel:
+          $ref: '#/components/schemas/MobilityLevel'
+        preferredDialects:
+          type: string
         careNeeds:
           type: array
-          items: { type: string }
-          example: ["BATHING", "VITALS"]
-        medicalNotes: { type: string }
-        status: { $ref: '#/components/schemas/IntakeStatus' }
-        reviewRemarks: { type: string }
-        createdAt: { type: string, format: date-time }
-        reviewedAt: { type: string, format: date-time, nullable: true }
-
+          items:
+            type: string
+          example:
+          - BATHING
+          - VITALS
+        medicalNotes:
+          type: string
+        status:
+          $ref: '#/components/schemas/IntakeStatus'
+        reviewRemarks:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        reviewedAt:
+          type: string
+          format: date-time
+          nullable: true
     IntakeApplicationCreateRequest:
       type: object
-      required: [targetElderName, targetAddress, postalCode]
+      required:
+      - targetElderName
+      - targetAddress
+      - postalCode
       properties:
-        targetElderName: { type: string }
-        targetElderAge: { type: integer }
-        targetAddress: { type: string }
-        postalCode: { type: string }
-        mobilityLevel: { $ref: '#/components/schemas/MobilityLevel' }
-        preferredDialects: { type: string }
+        targetElderName:
+          type: string
+        targetElderAge:
+          type: integer
+        targetAddress:
+          type: string
+        postalCode:
+          type: string
+        mobilityLevel:
+          $ref: '#/components/schemas/MobilityLevel'
+        preferredDialects:
+          type: string
         careNeeds:
           type: array
-          items: { type: string }
-        medicalNotes: { type: string }
-
-    # ---------------- Caregivers & certifications ----------------
+          items:
+            type: string
+        medicalNotes:
+          type: string
     CaregiverStatus:
       type: string
-      enum: [ONBOARDING, AVAILABLE, BUSY, INACTIVE]
-
+      enum:
+      - ONBOARDING
+      - AVAILABLE
+      - BUSY
+      - INACTIVE
     Caregiver:
       type: object
-      required: [id, fullName, status]
+      required:
+      - id
+      - fullName
+      - status
       properties:
-        id: { type: integer, format: int64 }
-        fullName: { type: string }
-        phone: { type: string }
-        sector: { type: string }
+        id:
+          type: integer
+          format: int64
+        fullName:
+          type: string
+        phone:
+          type: string
+        sector:
+          type: string
         dialects:
           type: array
-          items: { type: string }
-        status: { $ref: '#/components/schemas/CaregiverStatus' }
-        createdAt: { type: string, format: date-time }
-        updatedAt: { type: string, format: date-time }
-
+          items:
+            type: string
+        status:
+          $ref: '#/components/schemas/CaregiverStatus'
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
     CaregiverCreateRequest:
       type: object
-      required: [fullName]
+      required:
+      - fullName
       properties:
-        fullName: { type: string }
-        phone: { type: string }
-        sector: { type: string }
+        fullName:
+          type: string
+        phone:
+          type: string
+        sector:
+          type: string
         dialects:
           type: array
-          items: { type: string }
-
+          items:
+            type: string
     CaregiverUpdateRequest:
       allOf:
-        - $ref: '#/components/schemas/CaregiverCreateRequest'
-        - type: object
-          properties:
-            status: { $ref: '#/components/schemas/CaregiverStatus' }
-
+      - $ref: '#/components/schemas/CaregiverCreateRequest'
+      - type: object
+        properties:
+          status:
+            $ref: '#/components/schemas/CaregiverStatus'
     CaregiverSelfUpdateRequest:
       type: object
       minProperties: 1
       description: Self-service fields only; employment status is manager-controlled.
       properties:
-        phone: { type: string }
-
+        phone:
+          type: string
     CaregiverPreference:
       type: object
-      required: [caregiverId]
-      description: >
-        Soft roster-planning preferences. They must never override valid
-        credentials, approved leave or other hard constraints.
+      required:
+      - caregiverId
+      description: 'Soft roster-planning preferences. They must never override valid credentials, approved leave or other
+        hard constraints.
+
+        '
       properties:
-        caregiverId: { type: integer, format: int64, readOnly: true }
+        caregiverId:
+          type: integer
+          format: int64
+          readOnly: true
         preferredServiceTypes:
           type: array
-          items: { type: string }
+          items:
+            type: string
         preferredSectors:
           type: array
-          items: { type: string }
+          items:
+            type: string
         preferredTimeWindows:
           type: array
-          items: { type: string, example: '09:00-13:00' }
-        maxVisitsPerDay: { type: integer, format: int32, minimum: 0, nullable: true }
-        maxHoursPerDay: { type: number, format: double, minimum: 0, nullable: true }
-        updatedAt: { type: string, format: date-time, readOnly: true }
-
+          items:
+            type: string
+            example: 09:00-13:00
+        maxVisitsPerDay:
+          type: integer
+          format: int32
+          minimum: 0
+          nullable: true
+        maxHoursPerDay:
+          type: number
+          format: double
+          minimum: 0
+          nullable: true
+        updatedAt:
+          type: string
+          format: date-time
+          readOnly: true
     CaregiverPreferenceUpdateRequest:
       type: object
       description: Replaces the caller's stored soft work preferences.
       properties:
         preferredServiceTypes:
           type: array
-          items: { type: string }
+          items:
+            type: string
         preferredSectors:
           type: array
-          items: { type: string }
+          items:
+            type: string
         preferredTimeWindows:
           type: array
-          items: { type: string, example: '09:00-13:00' }
-        maxVisitsPerDay: { type: integer, format: int32, minimum: 0, nullable: true }
-        maxHoursPerDay: { type: number, format: double, minimum: 0, nullable: true }
-
+          items:
+            type: string
+            example: 09:00-13:00
+        maxVisitsPerDay:
+          type: integer
+          format: int32
+          minimum: 0
+          nullable: true
+        maxHoursPerDay:
+          type: number
+          format: double
+          minimum: 0
+          nullable: true
     CaregiverAvailabilityStatus:
       type: string
-      enum: [AVAILABLE, UNAVAILABLE]
-
+      enum:
+      - AVAILABLE
+      - UNAVAILABLE
     CaregiverAvailability:
       type: object
-      required: [id, caregiverId, availableDate, availableStart, availableEnd, status]
+      required:
+      - id
+      - caregiverId
+      - availableDate
+      - availableStart
+      - availableEnd
+      - status
       properties:
-        id: { type: integer, format: int64, readOnly: true }
-        caregiverId: { type: integer, format: int64, readOnly: true }
-        availableDate: { type: string, format: date }
-        availableStart: { type: string, format: time }
-        availableEnd: { type: string, format: time }
-        status: { $ref: '#/components/schemas/CaregiverAvailabilityStatus' }
-        updatedAt: { type: string, format: date-time, readOnly: true }
-
+        id:
+          type: integer
+          format: int64
+          readOnly: true
+        caregiverId:
+          type: integer
+          format: int64
+          readOnly: true
+        availableDate:
+          type: string
+          format: date
+        availableStart:
+          type: string
+          format: time
+        availableEnd:
+          type: string
+          format: time
+        status:
+          $ref: '#/components/schemas/CaregiverAvailabilityStatus'
+        updatedAt:
+          type: string
+          format: date-time
+          readOnly: true
     CaregiverAvailabilityUpsertRequest:
       type: object
-      required: [availableStart, availableEnd, status]
+      required:
+      - availableStart
+      - availableEnd
+      - status
       properties:
-        availableStart: { type: string, format: time }
-        availableEnd: { type: string, format: time }
-        status: { $ref: '#/components/schemas/CaregiverAvailabilityStatus' }
-
+        availableStart:
+          type: string
+          format: time
+        availableEnd:
+          type: string
+          format: time
+        status:
+          $ref: '#/components/schemas/CaregiverAvailabilityStatus'
     CredentialStatus:
       type: string
-      enum: [SUBMITTED, PUBLISHED, REJECTED, EXPIRING, EXPIRED, REVOKED]
-
+      enum:
+      - SUBMITTED
+      - PUBLISHED
+      - REJECTED
+      - EXPIRING
+      - EXPIRED
+      - REVOKED
     Credential:
       type: object
-      required: [id, caregiverId, credentialTypeId, expiryDate, status]
+      required:
+      - id
+      - caregiverId
+      - credentialTypeId
+      - expiryDate
+      - status
       properties:
-        id: { type: integer, format: int64 }
-        caregiverId: { type: integer, format: int64 }
-        credentialTypeId: { type: integer, format: int64 }
-        credentialTypeName: { type: string, readOnly: true }
-        certificateNo: { type: string }
-        issuingBody: { type: string }
-        validFrom: { type: string, format: date }
-        expiryDate: { type: string, format: date }
-        status: { $ref: '#/components/schemas/CredentialStatus' }
-        createdAt: { type: string, format: date-time }
-        updatedAt: { type: string, format: date-time }
-
+        id:
+          type: integer
+          format: int64
+        caregiverId:
+          type: integer
+          format: int64
+        credentialTypeId:
+          type: integer
+          format: int64
+        credentialTypeName:
+          type: string
+          readOnly: true
+        certificateNo:
+          type: string
+        issuingBody:
+          type: string
+        validFrom:
+          type: string
+          format: date
+        expiryDate:
+          type: string
+          format: date
+        status:
+          $ref: '#/components/schemas/CredentialStatus'
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
     CredentialCreateRequest:
       type: object
-      required: [credentialTypeId, expiryDate]
+      required:
+      - credentialTypeId
+      - expiryDate
       properties:
-        credentialTypeId: { type: integer, format: int64 }
-        certificateNo: { type: string }
-        issuingBody: { type: string }
-        validFrom: { type: string, format: date }
-        expiryDate: { type: string, format: date }
-
+        credentialTypeId:
+          type: integer
+          format: int64
+        certificateNo:
+          type: string
+        issuingBody:
+          type: string
+        validFrom:
+          type: string
+          format: date
+        expiryDate:
+          type: string
+          format: date
     CredentialUpdateRequest:
       type: object
       properties:
-        certificateNo: { type: string }
-        issuingBody: { type: string }
-        validFrom: { type: string, format: date }
-        expiryDate: { type: string, format: date }
-        status: { $ref: '#/components/schemas/CredentialStatus' }
-
+        certificateNo:
+          type: string
+        issuingBody:
+          type: string
+        validFrom:
+          type: string
+          format: date
+        expiryDate:
+          type: string
+          format: date
+        status:
+          $ref: '#/components/schemas/CredentialStatus'
     CaregiverReview:
       type: object
-      required: [id, familyMemberId, elderId, caregiverId, overallRating, renewalDecision]
+      required:
+      - id
+      - familyMemberId
+      - elderId
+      - caregiverId
+      - overallRating
+      - renewalDecision
       properties:
-        id: { type: integer, format: int64 }
-        familyMemberId: { type: integer, format: int64 }
-        elderId: { type: integer, format: int64 }
-        caregiverId: { type: integer, format: int64 }
-        periodStart: { type: string, format: date }
-        periodEnd: { type: string, format: date }
-        overallRating: { type: integer, minimum: 1, maximum: 5 }
-        punctualityScore: { type: integer, minimum: 1, maximum: 5, nullable: true }
-        careQualityScore: { type: integer, minimum: 1, maximum: 5, nullable: true }
-        feedbackNotes: { type: string }
+        id:
+          type: integer
+          format: int64
+        familyMemberId:
+          type: integer
+          format: int64
+        elderId:
+          type: integer
+          format: int64
+        caregiverId:
+          type: integer
+          format: int64
+        periodStart:
+          type: string
+          format: date
+        periodEnd:
+          type: string
+          format: date
+        overallRating:
+          type: integer
+          minimum: 1
+          maximum: 5
+        punctualityScore:
+          type: integer
+          minimum: 1
+          maximum: 5
+          nullable: true
+        careQualityScore:
+          type: integer
+          minimum: 1
+          maximum: 5
+          nullable: true
+        feedbackNotes:
+          type: string
         renewalDecision:
           type: string
-          enum: [RENEW_CURRENT, REQUEST_CHANGE, CANCEL_SERVICE]
-        createdAt: { type: string, format: date-time }
-
+          enum:
+          - RENEW_CURRENT
+          - REQUEST_CHANGE
+          - CANCEL_SERVICE
+        createdAt:
+          type: string
+          format: date-time
+        caregiverName:
+          type: string
     CaregiverReviewCreateRequest:
       type: object
-      required: [elderId, periodStart, periodEnd, overallRating, renewalDecision]
+      required:
+      - elderId
+      - periodStart
+      - periodEnd
+      - overallRating
+      - renewalDecision
       properties:
-        elderId: { type: integer, format: int64 }
-        periodStart: { type: string, format: date }
-        periodEnd: { type: string, format: date }
-        overallRating: { type: integer, minimum: 1, maximum: 5 }
-        punctualityScore: { type: integer, minimum: 1, maximum: 5 }
-        careQualityScore: { type: integer, minimum: 1, maximum: 5 }
-        feedbackNotes: { type: string }
+        elderId:
+          type: integer
+          format: int64
+        periodStart:
+          type: string
+          format: date
+        periodEnd:
+          type: string
+          format: date
+        overallRating:
+          type: integer
+          minimum: 1
+          maximum: 5
+        punctualityScore:
+          type: integer
+          minimum: 1
+          maximum: 5
+        careQualityScore:
+          type: integer
+          minimum: 1
+          maximum: 5
+        feedbackNotes:
+          type: string
         renewalDecision:
           type: string
-          enum: [RENEW_CURRENT, REQUEST_CHANGE, CANCEL_SERVICE]
-
-    # ---------------- Leave ----------------
+          enum:
+          - RENEW_CURRENT
+          - REQUEST_CHANGE
+          - CANCEL_SERVICE
     AbsenceType:
       type: string
-      enum: [SICK, ANNUAL, EMERGENCY, OTHER]
+      enum:
+      - SICK
+      - ANNUAL
+      - EMERGENCY
+      - OTHER
     AbsenceStatus:
       type: string
-      enum: [PENDING, APPROVED, REJECTED]
-
+      enum:
+      - PENDING
+      - APPROVED
+      - REJECTED
     AbsenceReport:
       type: object
-      required: [id, caregiverId, type, startDate, endDate, status]
+      required:
+      - id
+      - caregiverId
+      - type
+      - startDate
+      - endDate
+      - status
       properties:
-        id: { type: integer, format: int64 }
-        caregiverId: { type: integer, format: int64 }
-        type: { $ref: '#/components/schemas/AbsenceType' }
-        startDate: { type: string, format: date }
-        endDate: { type: string, format: date }
-        reason: { type: string }
-        status: { $ref: '#/components/schemas/AbsenceStatus' }
-        createdAt: { type: string, format: date-time }
-
+        id:
+          type: integer
+          format: int64
+        caregiverId:
+          type: integer
+          format: int64
+        type:
+          $ref: '#/components/schemas/AbsenceType'
+        startDate:
+          type: string
+          format: date
+        endDate:
+          type: string
+          format: date
+        reason:
+          type: string
+        status:
+          $ref: '#/components/schemas/AbsenceStatus'
+        createdAt:
+          type: string
+          format: date-time
     AbsenceReportCreateRequest:
       type: object
-      required: [type, startDate, endDate]
+      required:
+      - type
+      - startDate
+      - endDate
       properties:
-        type: { $ref: '#/components/schemas/AbsenceType' }
-        startDate: { type: string, format: date }
-        endDate: { type: string, format: date }
-        reason: { type: string }
-
+        type:
+          $ref: '#/components/schemas/AbsenceType'
+        startDate:
+          type: string
+          format: date
+        endDate:
+          type: string
+          format: date
+        reason:
+          type: string
     VisitChangeDecisionRequest:
       type: object
-      required: [decision]
+      required:
+      - decision
       properties:
         decision:
           type: string
-          enum: [ACCEPT_REPLACEMENT, RESCHEDULE, SKIP]
+          enum:
+          - ACCEPT_REPLACEMENT
+          - RESCHEDULE
+          - SKIP
         newWindowStart:
           type: string
           format: date-time
@@ -3089,562 +3737,1234 @@ components:
           type: string
           format: date-time
           description: Required for RESCHEDULE.
-        note: { type: string }
-
-    # ---------------- Rostering ----------------
+        note:
+          type: string
     RosteringObjective:
       type: string
-      enum: [CONTINUITY, TRAVEL_TIME, EVEN_WORKLOAD, COST]
+      enum:
+      - CONTINUITY
+      - TRAVEL_TIME
+      - EVEN_WORKLOAD
+      - COST
     RosteringTrigger:
       type: string
-      enum: [NEW_VISIT, ABSENCE, MANUAL]
+      enum:
+      - NEW_VISIT
+      - ABSENCE
+      - MANUAL
     RosteringRunStatus:
       type: string
-      enum: [PROPOSED, COMMITTED, DISCARDED]
+      enum:
+      - PROPOSED
+      - COMMITTED
+      - DISCARDED
     RosteringStrategyUsed:
       type: string
-      enum: [MODEL, RULE_ENGINE]
+      enum:
+      - MODEL
+      - RULE_ENGINE
       description: Which implementation of the objective actually ran.
-
     RosteringRun:
       type: object
-      required: [id, triggerType, objective, status]
+      required:
+      - id
+      - triggerType
+      - objective
+      - status
       properties:
-        id: { type: integer, format: int64 }
-        triggerType: { $ref: '#/components/schemas/RosteringTrigger' }
-        absenceId: { type: integer, format: int64, nullable: true }
-        objective: { $ref: '#/components/schemas/RosteringObjective' }
-        status: { $ref: '#/components/schemas/RosteringRunStatus' }
-        strategyUsed: { $ref: '#/components/schemas/RosteringStrategyUsed' }
-        visitsTotal: { type: integer }
-        visitsCovered: { type: integer }
-        continuityKept: { type: integer }
-        addedTravelKm: { type: number, format: double, nullable: true }
+        id:
+          type: integer
+          format: int64
+        triggerType:
+          $ref: '#/components/schemas/RosteringTrigger'
+        absenceId:
+          type: integer
+          format: int64
+          nullable: true
+        objective:
+          $ref: '#/components/schemas/RosteringObjective'
+        status:
+          $ref: '#/components/schemas/RosteringRunStatus'
+        strategyUsed:
+          $ref: '#/components/schemas/RosteringStrategyUsed'
+        visitsTotal:
+          type: integer
+        visitsCovered:
+          type: integer
+        continuityKept:
+          type: integer
+        addedTravelKm:
+          type: number
+          format: double
+          nullable: true
         uncoveredVisitIds:
           type: array
-          description: >
-            UC-MG04 3a: visits for which no feasible replacement exists. Each
-            has already been turned into an incident so it cannot vanish; the
-            manager confirms coverage against this list.
-          items: { type: integer, format: int64 }
-        ranAt: { type: string, format: date-time }
-        committedAt: { type: string, format: date-time, nullable: true }
+          description: 'UC-MG04 3a: visits for which no feasible replacement exists. Each has already been turned into an
+            incident so it cannot vanish; the manager confirms coverage against this list.
 
+            '
+          items:
+            type: integer
+            format: int64
+        ranAt:
+          type: string
+          format: date-time
+        committedAt:
+          type: string
+          format: date-time
+          nullable: true
     RosteringRunCreateRequest:
       type: object
-      required: [objective]
+      required:
+      - objective
       properties:
-        periodStart: { type: string, format: date }
-        periodEnd: { type: string, format: date }
-        objective: { $ref: '#/components/schemas/RosteringObjective' }
+        periodStart:
+          type: string
+          format: date
+        periodEnd:
+          type: string
+          format: date
+        objective:
+          $ref: '#/components/schemas/RosteringObjective'
         visitIds:
           type: array
-          items: { type: integer, format: int64 }
+          items:
+            type: integer
+            format: int64
           description: Optional explicit scope; omit to roster every unassigned visit in the period.
         useLanguageModel:
           type: boolean
           default: true
-
     RosteringCandidateOutcome:
       type: string
-      enum: [SELECTED, SUGGESTED, EXCLUDED]
-
+      enum:
+      - SELECTED
+      - SUGGESTED
+      - EXCLUDED
     RosteringCandidateCheck:
       type: object
       properties:
-        constraintCode: { type: string, example: DIALECT_MATCH }
-        constraintName: { type: string }
-        kind: { type: string, enum: [HARD, SOFT] }
-        result: { type: string, enum: [PASS, FAIL, NOT_APPLICABLE] }
-        detail: { type: string, example: "2 prior visits" }
-
+        constraintCode:
+          type: string
+          example: DIALECT_MATCH
+        constraintName:
+          type: string
+        kind:
+          type: string
+          enum:
+          - HARD
+          - SOFT
+        result:
+          type: string
+          enum:
+          - PASS
+          - FAIL
+          - NOT_APPLICABLE
+        detail:
+          type: string
+          example: 2 prior visits
     RosteringCandidate:
       type: object
-      required: [id, visitId, caregiverId, outcome]
+      required:
+      - id
+      - visitId
+      - caregiverId
+      - outcome
       properties:
-        id: { type: integer, format: int64 }
-        rosteringRunId: { type: integer, format: int64 }
-        visitId: { type: integer, format: int64 }
-        caregiverId: { type: integer, format: int64 }
-        optionRank: { type: integer, nullable: true, description: "\"Suggestion 1 of 4\" — null when excluded." }
-        score: { type: number, format: double, nullable: true }
-        outcome: { $ref: '#/components/schemas/RosteringCandidateOutcome' }
-        excludedByCode: { type: string, nullable: true }
+        id:
+          type: integer
+          format: int64
+        rosteringRunId:
+          type: integer
+          format: int64
+        visitId:
+          type: integer
+          format: int64
+        caregiverId:
+          type: integer
+          format: int64
+        optionRank:
+          type: integer
+          nullable: true
+          description: '"Suggestion 1 of 4" — null when excluded.'
+        score:
+          type: number
+          format: double
+          nullable: true
+        outcome:
+          $ref: '#/components/schemas/RosteringCandidateOutcome'
+        excludedByCode:
+          type: string
+          nullable: true
         checks:
           type: array
-          items: { $ref: '#/components/schemas/RosteringCandidateCheck' }
-
-    # ---------------- Visits ----------------
+          items:
+            $ref: '#/components/schemas/RosteringCandidateCheck'
     VisitStatus:
       type: string
-      enum: [SCHEDULED, ARRIVED, IN_PROGRESS, COMPLETED, VERIFIED, AUTO_CLOSED, EXCEPTION, CANCELLED]
-
+      enum:
+      - SCHEDULED
+      - ARRIVED
+      - IN_PROGRESS
+      - COMPLETED
+      - VERIFIED
+      - AUTO_CLOSED
+      - EXCEPTION
+      - CANCELLED
     Visit:
       type: object
-      required: [id, elderId, status, scheduledStart]
+      required:
+      - id
+      - elderId
+      - status
+      - scheduledStart
       properties:
-        id: { type: integer, format: int64 }
-        elderId: { type: integer, format: int64 }
-        caregiverId: { type: integer, format: int64, nullable: true }
-        carePlanNodeId: { type: integer, format: int64, nullable: true }
+        id:
+          type: integer
+          format: int64
+        elderId:
+          type: integer
+          format: int64
+        caregiverId:
+          type: integer
+          format: int64
+          nullable: true
+        carePlanNodeId:
+          type: integer
+          format: int64
+          nullable: true
         carePlanId:
           type: integer
           format: int64
           nullable: true
-          description: The care plan VERSION in force when this visit was created — a snapshot by reference, since superseded versions are never edited.
-        absenceId: { type: integer, format: int64, nullable: true }
-        serviceType: { type: string }
-        scheduledStart: { type: string, format: date-time }
-        scheduledEnd: { type: string, format: date-time, nullable: true }
-        checkedInAt: { type: string, format: date-time, nullable: true }
-        checkedOutAt: { type: string, format: date-time, nullable: true }
-        status: { $ref: '#/components/schemas/VisitStatus' }
+          description: The care plan VERSION in force when this visit was created — a snapshot by reference, since superseded
+            versions are never edited.
+        absenceId:
+          type: integer
+          format: int64
+          nullable: true
+        serviceType:
+          type: string
+        scheduledStart:
+          type: string
+          format: date-time
+        scheduledEnd:
+          type: string
+          format: date-time
+          nullable: true
+        checkedInAt:
+          type: string
+          format: date-time
+          nullable: true
+        checkedOutAt:
+          type: string
+          format: date-time
+          nullable: true
+        status:
+          $ref: '#/components/schemas/VisitStatus'
         stateDeadline:
           type: string
           format: date-time
           nullable: true
-          description: When the current state must have advanced by; the missed-check-in scan infers an exception from this passing unattended.
-
+          description: When the current state must have advanced by; the missed-check-in scan infers an exception from this
+            passing unattended.
+        assignmentHistory:
+          type: array
+          description: Previous and current caregiver assignments, including replacement status, reason and assignment times.
+          items:
+            $ref: '#/components/schemas/VisitAssignmentHistoryItem'
     VisitTaskStatus:
       type: string
-      enum: [PENDING, DONE, SKIPPED, REFUSED]
-
+      enum:
+      - PENDING
+      - DONE
+      - SKIPPED
+      - REFUSED
     VisitTask:
       type: object
-      required: [id, visitId, name, status]
+      required:
+      - id
+      - visitId
+      - name
+      - status
       properties:
-        id: { type: integer, format: int64 }
-        visitId: { type: integer, format: int64 }
-        carePlanNodeId: { type: integer, format: int64, nullable: true }
-        name: { type: string }
-        status: { $ref: '#/components/schemas/VisitTaskStatus' }
-        outcome: { type: string }
-        caregiverNote: { type: string }
-        completedAt: { type: string, format: date-time, nullable: true }
-
+        id:
+          type: integer
+          format: int64
+        visitId:
+          type: integer
+          format: int64
+        carePlanNodeId:
+          type: integer
+          format: int64
+          nullable: true
+        name:
+          type: string
+        status:
+          $ref: '#/components/schemas/VisitTaskStatus'
+        outcome:
+          type: string
+        caregiverNote:
+          type: string
+        completedAt:
+          type: string
+          format: date-time
+          nullable: true
     CaregiverElderVisitView:
       type: object
-      required: [elderId, preferredName]
-      description: >
-        Minimum elder information required by the caregiver for one assigned
-        visit. It intentionally excludes the elder's general profile and
-        unrestricted clinical record.
+      required:
+      - elderId
+      - preferredName
+      description: 'Minimum elder information required by the caregiver for one assigned visit. It intentionally excludes
+        the elder''s general profile and unrestricted clinical record.
+
+        '
       properties:
-        elderId: { type: integer, format: int64 }
-        preferredName: { type: string }
-        serviceAddress: { type: string }
-        postalSector: { type: string }
+        elderId:
+          type: integer
+          format: int64
+        preferredName:
+          type: string
+        serviceAddress:
+          type: string
+        postalSector:
+          type: string
         languageNeeds:
           type: array
-          items: { type: string }
-        accessNotes: { type: string, nullable: true }
-        emergencyNotes: { type: string, nullable: true }
-
+          items:
+            type: string
+        accessNotes:
+          type: string
+          nullable: true
+        emergencyNotes:
+          type: string
+          nullable: true
     CaregiverVisitWorkPack:
       type: object
-      required: [visit, elder, tasks, requiredEvidenceKinds]
+      required:
+      - visit
+      - elder
+      - tasks
+      - requiredEvidenceKinds
       description: The read-only execution view prepared for an assigned caregiver.
       properties:
-        visit: { $ref: '#/components/schemas/Visit' }
-        elder: { $ref: '#/components/schemas/CaregiverElderVisitView' }
-        carePlanId: { type: integer, format: int64, nullable: true }
-        carePlanVersion: { type: integer, format: int32, nullable: true }
+        visit:
+          $ref: '#/components/schemas/Visit'
+        elder:
+          $ref: '#/components/schemas/CaregiverElderVisitView'
+        carePlanId:
+          type: integer
+          format: int64
+          nullable: true
+        carePlanVersion:
+          type: integer
+          format: int32
+          nullable: true
         serviceInstructions:
           type: array
-          items: { type: string }
+          items:
+            type: string
         tasks:
           type: array
-          items: { $ref: '#/components/schemas/VisitTask' }
+          items:
+            $ref: '#/components/schemas/VisitTask'
         requiredEvidenceKinds:
           type: array
-          items: { type: string, enum: [PHOTO, SIGNATURE, CHECKLIST, READING, NOTE] }
-
+          items:
+            type: string
+            enum:
+            - PHOTO
+            - SIGNATURE
+            - CHECKLIST
+            - READING
+            - NOTE
     VitalSign:
       type: object
-      required: [id, visitId, metric, value]
+      required:
+      - id
+      - visitId
+      - metric
+      - value
       properties:
-        id: { type: integer, format: int64 }
-        visitId: { type: integer, format: int64 }
-        metric: { type: string, example: systolic }
-        value: { type: number, format: double }
-        unit: { type: string }
-        outOfRange: { type: boolean }
-        recordedAt: { type: string, format: date-time }
-
+        id:
+          type: integer
+          format: int64
+        visitId:
+          type: integer
+          format: int64
+        metric:
+          type: string
+          example: systolic
+        value:
+          type: number
+          format: double
+        unit:
+          type: string
+        outOfRange:
+          type: boolean
+        recordedAt:
+          type: string
+          format: date-time
     VitalSignCreateRequest:
       type: object
-      required: [metric, value]
+      required:
+      - metric
+      - value
       properties:
-        metric: { type: string }
-        value: { type: number, format: double }
-        unit: { type: string }
-
+        metric:
+          type: string
+        value:
+          type: number
+          format: double
+        unit:
+          type: string
     VisitEvidence:
       type: object
-      required: [id, visitId, kind, reference]
+      required:
+      - id
+      - visitId
+      - kind
+      - reference
       properties:
-        id: { type: integer, format: int64 }
-        visitId: { type: integer, format: int64 }
-        kind: { type: string, enum: [PHOTO, SIGNATURE, CHECKLIST, READING, NOTE] }
-        reference: { type: string, description: Stored file reference. }
-        verificationStatus: { type: string, enum: [UNVERIFIED, VERIFIED, REJECTED] }
-        capturedAt: { type: string, format: date-time }
-
+        id:
+          type: integer
+          format: int64
+        visitId:
+          type: integer
+          format: int64
+        kind:
+          type: string
+          enum:
+          - PHOTO
+          - SIGNATURE
+          - CHECKLIST
+          - READING
+          - NOTE
+        reference:
+          type: string
+          description: Stored file reference.
+        verificationStatus:
+          type: string
+          enum:
+          - UNVERIFIED
+          - VERIFIED
+          - REJECTED
+        capturedAt:
+          type: string
+          format: date-time
     VisitCloseRequest:
       type: object
       properties:
         noteText:
           type: string
-          description: Free-text closure note for the language model to structure. Mutually exclusive with the structured fields below in practice, though both may be sent.
-        outcome: { type: string }
-        followUpNeeded: { type: boolean }
-
+          description: Free-text closure note for the language model to structure. Mutually exclusive with the structured
+            fields below in practice, though both may be sent.
+        outcome:
+          type: string
+        followUpNeeded:
+          type: boolean
     VisitCloseResponse:
       type: object
       properties:
-        visit: { $ref: '#/components/schemas/Visit' }
+        visit:
+          $ref: '#/components/schemas/Visit'
         closureSource:
           type: string
-          enum: [STRUCTURED, MODEL, MANUAL_FORM]
-        extractedOutcome: { type: string }
-
+          enum:
+          - STRUCTURED
+          - MODEL
+          - MANUAL_FORM
+        extractedOutcome:
+          type: string
     ElderConfirmation:
       type: object
-      required: [id, visitId, confirmationStatus]
+      required:
+      - id
+      - visitId
+      - confirmationStatus
+      - visitStatus
+      - confirmedAt
       properties:
-        id: { type: integer, format: int64 }
-        visitId: { type: integer, format: int64 }
-        confirmationStatus: { type: string, enum: [CONFIRMED, DISPUTED] }
-        rating: { type: integer, minimum: 1, maximum: 5, nullable: true }
-        comment: { type: string }
-        confirmedAt: { type: string, format: date-time, nullable: true }
-
+        id:
+          type: integer
+          format: int64
+        visitId:
+          type: integer
+          format: int64
+        confirmationStatus:
+          type: string
+          enum:
+          - CONFIRMED
+          - DISPUTED
+        rating:
+          type: integer
+          minimum: 1
+          maximum: 5
+          nullable: true
+        comment:
+          type: string
+        confirmedAt:
+          type: string
+          format: date-time
+          nullable: true
+        visitStatus:
+          $ref: '#/components/schemas/VisitStatus'
     ElderConfirmationCreateRequest:
       type: object
-      required: [confirmationStatus]
+      required:
+      - confirmationStatus
       properties:
-        confirmationStatus: { type: string, enum: [CONFIRMED, DISPUTED] }
-        rating: { type: integer, minimum: 1, maximum: 5 }
-        comment: { type: string }
-
+        confirmationStatus:
+          type: string
+          enum:
+          - CONFIRMED
+          - DISPUTED
+        rating:
+          type: integer
+          minimum: 1
+          maximum: 5
+        comment:
+          type: string
     VisitStateTransition:
       type: object
-      required: [id, visitId, fromState, toState, result]
+      required:
+      - id
+      - visitId
+      - fromState
+      - toState
+      - result
       properties:
-        id: { type: integer, format: int64 }
-        visitId: { type: integer, format: int64 }
-        fromState: { type: string }
-        toState: { type: string }
-        actorUserId: { type: integer, format: int64, nullable: true, description: Null when the system acted. }
-        result: { type: string, enum: [APPLIED, REJECTED] }
-        rejectionReason: { type: string, nullable: true }
-        occurredAt: { type: string, format: date-time }
-
-    # ---------------- Incidents ----------------
+        id:
+          type: integer
+          format: int64
+        visitId:
+          type: integer
+          format: int64
+        fromState:
+          type: string
+        toState:
+          type: string
+        actorUserId:
+          type: integer
+          format: int64
+          nullable: true
+          description: Null when the system acted.
+        result:
+          type: string
+          enum:
+          - APPLIED
+          - REJECTED
+        rejectionReason:
+          type: string
+          nullable: true
+        occurredAt:
+          type: string
+          format: date-time
     IncidentSource:
       type: string
-      enum: [CAREGIVER, ELDER_SOS, SYSTEM_MISSED_CHECKIN]
+      enum:
+      - CAREGIVER
+      - ELDER_SOS
+      - SYSTEM_MISSED_CHECKIN
     IncidentCategory:
       type: string
-      enum: [SOS, MEDICAL, FALL, SERVICE, OTHER]
+      enum:
+      - SOS
+      - MEDICAL
+      - FALL
+      - SERVICE
+      - OTHER
     IncidentSeverity:
       type: string
-      enum: [LOW, MEDIUM, HIGH]
+      enum:
+      - LOW
+      - MEDIUM
+      - HIGH
     IncidentStatus:
       type: string
-      enum: [OPEN, ACKNOWLEDGED, IN_PROGRESS, RESOLVED, UNRESOLVED_ESCALATED]
-
+      enum:
+      - OPEN
+      - ACKNOWLEDGED
+      - IN_PROGRESS
+      - RESOLVED
+      - UNRESOLVED_ESCALATED
     Incident:
       type: object
-      required: [id, elderId, source, severity, status]
+      required:
+      - id
+      - elderId
+      - source
+      - severity
+      - status
       properties:
-        id: { type: integer, format: int64 }
-        elderId: { type: integer, format: int64 }
-        visitId: { type: integer, format: int64, nullable: true }
-        reportedByUserId: { type: integer, format: int64, nullable: true }
-        responderUserId: { type: integer, format: int64, nullable: true }
-        source: { $ref: '#/components/schemas/IncidentSource' }
-        category: { $ref: '#/components/schemas/IncidentCategory' }
-        severity: { $ref: '#/components/schemas/IncidentSeverity' }
-        status: { $ref: '#/components/schemas/IncidentStatus' }
-        latitude: { type: number, format: double, nullable: true }
-        longitude: { type: number, format: double, nullable: true }
-        locationText: { type: string, nullable: true }
-        description: { type: string }
+        id:
+          type: integer
+          format: int64
+        elderId:
+          type: integer
+          format: int64
+        visitId:
+          type: integer
+          format: int64
+          nullable: true
+        reportedByUserId:
+          type: integer
+          format: int64
+          nullable: true
+        responderUserId:
+          type: integer
+          format: int64
+          nullable: true
+        source:
+          $ref: '#/components/schemas/IncidentSource'
+        category:
+          $ref: '#/components/schemas/IncidentCategory'
+        severity:
+          $ref: '#/components/schemas/IncidentSeverity'
+        status:
+          $ref: '#/components/schemas/IncidentStatus'
+        latitude:
+          type: number
+          format: double
+          nullable: true
+        longitude:
+          type: number
+          format: double
+          nullable: true
+        locationText:
+          type: string
+          nullable: true
+        description:
+          type: string
         respondBy:
           type: string
           format: date-time
           nullable: true
           description: Countdown deadline; past this, the scheduled job escalates automatically.
-        reportedAt: { type: string, format: date-time }
-        resolvedAt: { type: string, format: date-time, nullable: true }
-
+        reportedAt:
+          type: string
+          format: date-time
+        resolvedAt:
+          type: string
+          format: date-time
+          nullable: true
     IncidentCreateRequest:
       type: object
-      required: [elderId, category, severity]
+      required:
+      - elderId
+      - category
+      - severity
       properties:
-        elderId: { type: integer, format: int64 }
-        visitId: { type: integer, format: int64 }
-        category: { $ref: '#/components/schemas/IncidentCategory' }
-        severity: { $ref: '#/components/schemas/IncidentSeverity' }
-        description: { type: string }
-
+        elderId:
+          type: integer
+          format: int64
+        visitId:
+          type: integer
+          format: int64
+        category:
+          $ref: '#/components/schemas/IncidentCategory'
+        severity:
+          $ref: '#/components/schemas/IncidentSeverity'
+        description:
+          type: string
     IncidentLogEntry:
       type: object
       properties:
-        id: { type: integer, format: int64 }
-        actor: { type: string }
-        action: { type: string }
-        detail: { type: string }
-        occurredAt: { type: string, format: date-time }
-
+        id:
+          type: integer
+          format: int64
+        actor:
+          type: string
+        action:
+          type: string
+        detail:
+          type: string
+        occurredAt:
+          type: string
+          format: date-time
     IncidentAcknowledgement:
       type: object
       properties:
-        id: { type: integer, format: int64 }
-        incidentId: { type: integer, format: int64 }
-        familyMemberId: { type: integer, format: int64 }
-        viewedAt: { type: string, format: date-time, nullable: true }
-        acknowledgedAt: { type: string, format: date-time, nullable: true }
-        responseNote: { type: string, nullable: true }
-
+        id:
+          type: integer
+          format: int64
+        incidentId:
+          type: integer
+          format: int64
+        familyMemberId:
+          type: integer
+          format: int64
+        viewedAt:
+          type: string
+          format: date-time
+          nullable: true
+        acknowledgedAt:
+          type: string
+          format: date-time
+          nullable: true
+        responseNote:
+          type: string
+          nullable: true
     IncidentDetail:
       allOf:
-        - $ref: '#/components/schemas/Incident'
-        - type: object
-          properties:
-            playbookCode: { type: string, nullable: true }
-            log:
-              type: array
-              items: { $ref: '#/components/schemas/IncidentLogEntry' }
-            acknowledgements:
-              type: array
-              items: { $ref: '#/components/schemas/IncidentAcknowledgement' }
-
+      - $ref: '#/components/schemas/Incident'
+      - type: object
+        properties:
+          playbookCode:
+            type: string
+            nullable: true
+          log:
+            type: array
+            items:
+              $ref: '#/components/schemas/IncidentLogEntry'
+          acknowledgements:
+            type: array
+            items:
+              $ref: '#/components/schemas/IncidentAcknowledgement'
+          timeline:
+            type: array
+            description: Handling history for the incident.
+            items:
+              $ref: '#/components/schemas/IncidentLogEntry'
     EscalationLevel:
       type: object
-      required: [level, responderUserId, countdownMinutes]
+      required:
+      - level
+      - responderUserId
+      - countdownMinutes
       properties:
-        level: { type: integer, example: 1 }
-        responderUserId: { type: integer, format: int64 }
-        responderRole: { type: string, example: MANAGER }
+        level:
+          type: integer
+          example: 1
+        responderUserId:
+          type: integer
+          format: int64
+        responderRole:
+          type: string
+          example: MANAGER
         countdownMinutes:
           type: integer
           description: This level's response window; configured per severity and level, not a constant.
         status:
           type: string
-          enum: [PENDING, CURRENT, TIMED_OUT, SKIPPED_OFF_DUTY, CLAIMED]
-        respondBy: { type: string, format: date-time, nullable: true }
-
+          enum:
+          - PENDING
+          - CURRENT
+          - TIMED_OUT
+          - SKIPPED_OFF_DUTY
+          - CLAIMED
+        respondBy:
+          type: string
+          format: date-time
+          nullable: true
     EscalationChain:
       type: object
-      required: [incidentId, assembledAt, levels]
+      required:
+      - incidentId
+      - assembledAt
+      - levels
       properties:
-        incidentId: { type: integer, format: int64 }
-        assembledAt: { type: string, format: date-time }
+        incidentId:
+          type: integer
+          format: int64
+        assembledAt:
+          type: string
+          format: date-time
         assembledFrom:
           type: object
           description: The inputs the chain was built from, so the choice is explainable afterwards.
           properties:
-            severity: { $ref: '#/components/schemas/IncidentSeverity' }
-            timeOfDay: { type: string, enum: [DAY, NIGHT] }
+            severity:
+              $ref: '#/components/schemas/IncidentSeverity'
+            timeOfDay:
+              type: string
+              enum:
+              - DAY
+              - NIGHT
             onDutyUserIds:
               type: array
-              items: { type: integer, format: int64 }
-        currentLevel: { type: integer }
+              items:
+                type: integer
+                format: int64
+        currentLevel:
+          type: integer
         levels:
           type: array
-          items: { $ref: '#/components/schemas/EscalationLevel' }
-
+          items:
+            $ref: '#/components/schemas/EscalationLevel'
     ContactAttemptRequest:
       type: object
-      required: [channel, outcome]
+      required:
+      - channel
+      - outcome
       properties:
-        channel: { type: string, enum: [PHONE, PUSH, EMAIL] }
-        outcome: { type: string, enum: [REACHED, NOT_REACHED] }
-        note: { type: string, description: "What was agreed, or why the family could not be reached." }
-
+        channel:
+          type: string
+          enum:
+          - PHONE
+          - PUSH
+          - EMAIL
+        outcome:
+          type: string
+          enum:
+          - REACHED
+          - NOT_REACHED
+        note:
+          type: string
+          description: What was agreed, or why the family could not be reached.
     IncidentPlaybook:
       type: object
-      required: [code, category, severity, steps]
+      required:
+      - code
+      - category
+      - severity
+      - steps
       properties:
-        code: { type: string, example: FALL_MEDIUM }
-        category: { $ref: '#/components/schemas/IncidentCategory' }
-        severity: { $ref: '#/components/schemas/IncidentSeverity' }
-        title: { type: string }
+        code:
+          type: string
+          example: FALL_MEDIUM
+        category:
+          $ref: '#/components/schemas/IncidentCategory'
+        severity:
+          $ref: '#/components/schemas/IncidentSeverity'
+        title:
+          type: string
         steps:
           type: array
-          items: { type: string }
-
-    # ---------------- Spot checks ----------------
+          items:
+            type: string
     SpotCheck:
       type: object
-      required: [id, elderId, proposedTime, approvalStatus]
+      required:
+      - id
+      - elderId
+      - proposedTime
+      - approvalStatus
       properties:
-        id: { type: integer, format: int64 }
-        elderId: { type: integer, format: int64 }
-        caregiverId: { type: integer, format: int64, nullable: true }
-        visitId: { type: integer, format: int64, nullable: true }
-        approvingFamilyId: { type: integer, format: int64, nullable: true }
-        proposedTime: { type: string, format: date-time }
-        reason: { type: string }
-        approvalStatus: { type: string, enum: [PENDING_APPROVAL, APPROVED, REJECTED, WITHDRAWN, COMPLETED] }
-        decidedAt: { type: string, format: date-time, nullable: true }
-        closedReason: { type: string, nullable: true, description: "Family's rejection reason or manager's withdrawal reason." }
-        outcome: { $ref: '#/components/schemas/SpotCheckOutcome' }
-        finding: { type: string, nullable: true, description: "The manager's note on site." }
-        caregiverResponse: { type: string, nullable: true }
-        incidentId: { type: integer, format: int64, nullable: true, description: "Set when the check turned into a missed-visit incident (4a)." }
-        checkedAt: { type: string, format: date-time, nullable: true }
-
+        id:
+          type: integer
+          format: int64
+        elderId:
+          type: integer
+          format: int64
+        caregiverId:
+          type: integer
+          format: int64
+          nullable: true
+        visitId:
+          type: integer
+          format: int64
+          nullable: true
+        approvingFamilyId:
+          type: integer
+          format: int64
+          nullable: true
+        proposedTime:
+          type: string
+          format: date-time
+        reason:
+          type: string
+        approvalStatus:
+          type: string
+          enum:
+          - PENDING_APPROVAL
+          - APPROVED
+          - REJECTED
+          - WITHDRAWN
+          - COMPLETED
+        decidedAt:
+          type: string
+          format: date-time
+          nullable: true
+        closedReason:
+          type: string
+          nullable: true
+          description: Family's rejection reason or manager's withdrawal reason.
+        outcome:
+          $ref: '#/components/schemas/SpotCheckOutcome'
+        finding:
+          type: string
+          nullable: true
+          description: The manager's note on site.
+        caregiverResponse:
+          type: string
+          nullable: true
+        incidentId:
+          type: integer
+          format: int64
+          nullable: true
+          description: Set when the check turned into a missed-visit incident (4a).
+        checkedAt:
+          type: string
+          format: date-time
+          nullable: true
+        elderName:
+          type: string
+        caregiverName:
+          type: string
+        approvingFamilyMemberId:
+          type: integer
+          format: int64
+          nullable: true
+          description: Family member who approved or rejected the spot check.
     SpotCheckOutcome:
       type: string
       nullable: true
-      enum: [SATISFACTORY, NEEDS_IMPROVEMENT, CAREGIVER_ABSENT, ELDER_NOT_HOME]
-
+      enum:
+      - SATISFACTORY
+      - NEEDS_IMPROVEMENT
+      - CAREGIVER_ABSENT
+      - ELDER_NOT_HOME
     SpotCheckCompleteRequest:
       type: object
-      required: [outcome]
+      required:
+      - outcome
       properties:
-        outcome: { $ref: '#/components/schemas/SpotCheckOutcome' }
-        finding: { type: string }
-
+        outcome:
+          $ref: '#/components/schemas/SpotCheckOutcome'
+        finding:
+          type: string
     SpotCheckCreateRequest:
       type: object
-      required: [elderId, proposedTime]
+      required:
+      - elderId
+      - proposedTime
       properties:
-        elderId: { type: integer, format: int64 }
-        caregiverId: { type: integer, format: int64 }
-        proposedTime: { type: string, format: date-time }
-        reason: { type: string }
-
-    # ---------------- Reports ----------------
+        elderId:
+          type: integer
+          format: int64
+        caregiverId:
+          type: integer
+          format: int64
+        proposedTime:
+          type: string
+          format: date-time
+        reason:
+          type: string
     ReportAudience:
       type: string
-      enum: [FAMILY, REGULATOR, INTERNAL]
-
+      enum:
+      - FAMILY
+      - REGULATOR
+      - INTERNAL
     Report:
       type: object
-      required: [id, elderId, audience, periodStart, periodEnd, status]
+      required:
+      - id
+      - elderId
+      - audience
+      - periodStart
+      - periodEnd
+      - status
       properties:
-        id: { type: integer, format: int64 }
-        elderId: { type: integer, format: int64 }
-        audience: { $ref: '#/components/schemas/ReportAudience' }
-        periodStart: { type: string, format: date }
-        periodEnd: { type: string, format: date }
-        status: { type: string, enum: [DRAFT, PUBLISHED, ARCHIVED] }
+        id:
+          type: integer
+          format: int64
+        elderId:
+          type: integer
+          format: int64
+        audience:
+          $ref: '#/components/schemas/ReportAudience'
+        periodStart:
+          type: string
+          format: date
+        periodEnd:
+          type: string
+          format: date
+        status:
+          type: string
+          enum:
+          - DRAFT
+          - PUBLISHED
+          - ARCHIVED
         dataComplete:
           type: boolean
           description: false when the period had unclosed visits (2a); the gaps are listed in `missingItems`.
         missingItems:
           type: array
-          items: { type: string, example: "Visit 8812 on 2026-09-03 not closed" }
+          items:
+            type: string
+            example: Visit 8812 on 2026-09-03 not closed
         generatedBy:
           type: string
-          enum: [MODEL, TEMPLATE]
+          enum:
+          - MODEL
+          - TEMPLATE
           description: FAMILY version only — TEMPLATE when the language model was unavailable (3a).
-        createdAt: { type: string, format: date-time }
-        archivedAt: { type: string, format: date-time, nullable: true }
-
+        createdAt:
+          type: string
+          format: date-time
+        archivedAt:
+          type: string
+          format: date-time
+          nullable: true
     ReportSection:
       type: object
-      required: [title, body]
+      required:
+      - title
+      - body
       properties:
-        title: { type: string, example: Service completion }
-        body: { type: string }
-
+        title:
+          type: string
+          example: Service completion
+        body:
+          type: string
     ReportAmendment:
       type: object
-      required: [id, note, authorUserId, createdAt]
+      required:
+      - id
+      - note
+      - authorUserId
+      - createdAt
       properties:
-        id: { type: integer, format: int64 }
-        note: { type: string }
-        authorUserId: { type: integer, format: int64 }
-        createdAt: { type: string, format: date-time }
-
+        id:
+          type: integer
+          format: int64
+        note:
+          type: string
+        authorUserId:
+          type: integer
+          format: int64
+        createdAt:
+          type: string
+          format: date-time
     ReportDetail:
       allOf:
-        - $ref: '#/components/schemas/Report'
-        - type: object
-          properties:
-            sections:
-              type: array
-              items: { $ref: '#/components/schemas/ReportSection' }
-            disclaimer:
-              type: string
-              nullable: true
-              description: Fixed text, always present on the FAMILY version.
-            amendments:
-              type: array
-              items: { $ref: '#/components/schemas/ReportAmendment' }
-
+      - $ref: '#/components/schemas/Report'
+      - type: object
+        properties:
+          sections:
+            type: array
+            items:
+              $ref: '#/components/schemas/ReportSection'
+          disclaimer:
+            type: string
+            nullable: true
+            description: Fixed text, always present on the FAMILY version.
+          amendments:
+            type: array
+            items:
+              $ref: '#/components/schemas/ReportAmendment'
     WeeklySummary:
       type: object
       properties:
-        elderId: { type: integer, format: int64 }
-        periodStart: { type: string, format: date }
-        periodEnd: { type: string, format: date }
-        summaryText: { type: string }
-        generatedBy: { type: string, enum: [MODEL, TEMPLATE] }
+        elderId:
+          type: integer
+          format: int64
+        periodStart:
+          type: string
+          format: date
+        periodEnd:
+          type: string
+          format: date
+        summaryText:
+          type: string
+        generatedBy:
+          type: string
+          enum:
+          - MODEL
+          - TEMPLATE
         disclaimer:
           type: string
           description: Fixed text on every response — the summary never carries clinical judgement.
-
-    # ---------------- Value-added services ----------------
     ValueAddedService:
       type: object
-      required: [id, name, status]
+      required:
+      - id
+      - name
+      - status
       properties:
-        id: { type: integer, format: int64 }
-        name: { type: string }
-        description: { type: string }
-        status: { type: string, enum: [AVAILABLE, UNAVAILABLE] }
-
+        id:
+          type: integer
+          format: int64
+        name:
+          type: string
+        description:
+          type: string
+        status:
+          type: string
+          enum:
+          - AVAILABLE
+          - UNAVAILABLE
     ValueAddedServiceRequestStatus:
       type: string
-      enum: [PENDING_APPROVAL, APPROVED, REJECTED, DISPATCHED, COMPLETED, CANCELLED]
-
+      enum:
+      - PENDING_APPROVAL
+      - APPROVED
+      - REJECTED
+      - DISPATCHED
+      - COMPLETED
+      - CANCELLED
     ValueAddedServiceRequest:
       type: object
-      required: [id, elderId, valueAddedServiceId, status]
+      required:
+      - id
+      - elderId
+      - valueAddedServiceId
+      - status
+      - createdAt
       properties:
-        id: { type: integer, format: int64 }
-        elderId: { type: integer, format: int64 }
-        valueAddedServiceId: { type: integer, format: int64 }
-        requestedByFamilyId: { type: integer, format: int64, nullable: true }
-        approvingFamilyId: { type: integer, format: int64, nullable: true }
-        visitId: { type: integer, format: int64, nullable: true, description: Set once dispatched as a visit. }
-        requestedSchedule: { type: string, format: date-time, nullable: true }
-        specialInstructions: { type: string }
-        status: { $ref: '#/components/schemas/ValueAddedServiceRequestStatus' }
-        decidedAt: { type: string, format: date-time, nullable: true }
-
+        id:
+          type: integer
+          format: int64
+        elderId:
+          type: integer
+          format: int64
+        valueAddedServiceId:
+          type: integer
+          format: int64
+        requestedByFamilyId:
+          type: integer
+          format: int64
+          nullable: true
+        approvingFamilyId:
+          type: integer
+          format: int64
+          nullable: true
+        visitId:
+          type: integer
+          format: int64
+          nullable: true
+          description: Set once dispatched as a visit.
+        requestedSchedule:
+          type: string
+          format: date-time
+          nullable: true
+        specialInstructions:
+          type: string
+        status:
+          $ref: '#/components/schemas/ValueAddedServiceRequestStatus'
+        decidedAt:
+          type: string
+          format: date-time
+          nullable: true
+        elderName:
+          type: string
+          description: Display name assembled from the related elder record.
+        serviceName:
+          type: string
+          description: Display name assembled from the related value-added service.
+        createdAt:
+          type: string
+          format: date-time
     ValueAddedServiceRequestCreate:
       type: object
-      required: [elderId, valueAddedServiceId]
+      required:
+      - elderId
+      - valueAddedServiceId
       properties:
-        elderId: { type: integer, format: int64 }
-        valueAddedServiceId: { type: integer, format: int64 }
-        requestedSchedule: { type: string, format: date-time }
-        specialInstructions: { type: string }
-
-    # ---------------- Notifications ----------------
+        elderId:
+          type: integer
+          format: int64
+        valueAddedServiceId:
+          type: integer
+          format: int64
+        requestedSchedule:
+          type: string
+          format: date-time
+        specialInstructions:
+          type: string
     Notification:
       type: object
-      required: [id, eventType, channel, title, status]
+      required:
+      - id
+      - eventType
+      - channel
+      - title
+      - status
       properties:
-        id: { type: integer, format: int64 }
-        eventType: { type: string, example: INCIDENT_ESCALATED }
-        channel: { type: string, enum: [IN_APP, SMS, EMAIL] }
-        title: { type: string }
-        body: { type: string }
-        resourceType: { type: string, nullable: true }
-        resourceId: { type: integer, format: int64, nullable: true }
-        status: { type: string, enum: [PENDING, SENT, READ, FAILED] }
-        createdAt: { type: string, format: date-time }
-        sentAt: { type: string, format: date-time, nullable: true }
-        readAt: { type: string, format: date-time, nullable: true }
-
+        id:
+          type: integer
+          format: int64
+        eventType:
+          type: string
+          example: INCIDENT_ESCALATED
+        channel:
+          type: string
+          enum:
+          - IN_APP
+          - SMS
+          - EMAIL
+        title:
+          type: string
+        body:
+          type: string
+        resourceType:
+          type: string
+          nullable: true
+        resourceId:
+          type: integer
+          format: int64
+          nullable: true
+        status:
+          type: string
+          enum:
+          - PENDING
+          - SENT
+          - READ
+          - FAILED
+        createdAt:
+          type: string
+          format: date-time
+        sentAt:
+          type: string
+          format: date-time
+          nullable: true
+        readAt:
+          type: string
+          format: date-time
+          nullable: true
+    EmergencyCallCreateRequest:
+      type: object
+      properties:
+        latitude:
+          type: number
+          format: double
+          minimum: -90
+          maximum: 90
+          description: Current latitude if location permission is available.
+        longitude:
+          type: number
+          format: double
+          minimum: -180
+          maximum: 180
+          description: Current longitude if location permission is available.
+        locationText:
+          type: string
+          description: Human-readable location.
+        description:
+          type: string
+          description: Optional description of the emergency.
+    FamilyBindingDecisionRequest:
+      type: object
+      required:
+      - decision
+      properties:
+        decision:
+          type: string
+          enum:
+          - CONFIRM
+          - REJECT
+    VisitAssignmentHistoryItem:
+      type: object
+      properties:
+        caregiverId:
+          type: integer
+          format: int64
+        caregiverName:
+          type: string
+        status:
+          type: string
+        reason:
+          type: string
+          nullable: true
+        assignedAt:
+          type: string
+          format: date-time
+        endedAt:
+          type: string
+          format: date-time
+          nullable: true
   responses:
     Unauthorized:
       description: No active session.
@@ -3652,42 +4972,37 @@ components:
         application/problem+json:
           schema:
             $ref: '#/components/schemas/ProblemDetail'
-
     Forbidden:
       description: Authenticated, but not permitted to act on this resource (e.g. an elder outside the caller's scope).
       content:
         application/problem+json:
           schema:
             $ref: '#/components/schemas/ProblemDetail'
-
     NotFound:
       description: No resource with this id.
       content:
         application/problem+json:
           schema:
             $ref: '#/components/schemas/ProblemDetail'
-
     Conflict:
       description: The request is well-formed but illegal in the resource's current state (e.g. an out-of-order visit transition).
       content:
         application/problem+json:
           schema:
             $ref: '#/components/schemas/ProblemDetail'
-
     ValidationError:
       description: Request failed validation.
       content:
         application/problem+json:
           schema:
             allOf:
-              - $ref: '#/components/schemas/ProblemDetail'
-              - type: object
-                properties:
-                  fields:
-                    type: object
-                    additionalProperties:
-                      type: string
-                    description: Field name to validation message.
-
+            - $ref: '#/components/schemas/ProblemDetail'
+            - type: object
+              properties:
+                fields:
+                  type: object
+                  additionalProperties:
+                    type: string
+                  description: Field name to validation message.
 security:
-  - sessionCookie: []
+- sessionCookie: []
