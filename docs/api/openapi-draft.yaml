@@ -492,43 +492,105 @@ paths:
           $ref: '#/components/schemas/IntakeStatus'
       responses:
         '200':
-          description: Page of applications.
+          description: >-
+            Family response uses the explicitly listed family schema. Other roles retain the original response
+            schema; the server chooses by authenticated role, never by a client projection flag.
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  items:
-                    type: array
+                anyOf:
+                - $ref: '#/components/schemas/FamilyIntakeApplicationPage'
+                - type: object
+                  properties:
                     items:
-                      $ref: '#/components/schemas/IntakeApplication'
-                  page:
-                    type: integer
-                  size:
-                    type: integer
-                  totalElements:
-                    type: integer
+                      type: array
+                      items:
+                        $ref: '#/components/schemas/IntakeApplication'
+                    page:
+                      type: integer
+                    size:
+                      type: integer
+                    totalElements:
+                      type: integer
+        '400':
+          $ref: '#/components/responses/FamilyValidationError'
+        '401':
+          $ref: '#/components/responses/FamilyUnauthorized'
+        '403':
+          $ref: '#/components/responses/FamilyForbidden'
+      x-contract-status: specified
+      x-family-use-cases:
+      - UC-FM01
+      x-family-owner: Member 4 (FM01-FM05 behaviour); source data remains with its assigned owner.
+      security:
+      - sessionCookie: []
+      operationId: listIntakeApplications
+      description: >-
+        Family callers see only applications they submitted, including review status and family-visible remarks.
+        Order by createdAt descending, then id descending. Empty results are 200 with items=[]. Managers retain
+        the existing review-list behaviour. Pagination counts are computed after the role filter.
+
+
+        Family identity is resolved from the session. No existing elder or active binding is required to submit or
+        read the caller's own intake application. Family reads/writes are restricted to that applicant.
+      x-family-response-schema:
+        $ref: '#/components/schemas/FamilyIntakeApplicationPage'
     post:
       tags:
       - Intake
       summary: Submit an intake application
       x-status: draft
-      description: UC-FM01. Submitted by a family member on behalf of a prospective elder.
+      description: >-
+        Submit an intake application as the current family member. Trim required text and reject blanks. Omitted
+        mobilityLevel uses INDEPENDENT. Success creates only the application in SUBMITTED and returns 201; it does
+        not create an elder, care plan or binding. Approval belongs to MG01. The initial contract does not promise
+        request-level idempotency: after an ambiguous network failure, query the caller's applications before
+        explicitly resubmitting rather than automatically retrying the POST.
+
+
+        Family identity is resolved from the session. No existing elder or active binding is required to submit or
+        read the caller's own intake application. Family reads/writes are restricted to that applicant.
+
+
+        State-changing calls require the existing session cookie and the current XSRF-TOKEN cookie value in the
+        X-XSRF-TOKEN header. Missing/invalid CSRF protection is 403. No caller-supplied user ID or timestamp is
+        accepted.
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/IntakeApplicationCreateRequest'
+              $ref: '#/components/schemas/FamilyIntakeApplicationCreateRequest'
       responses:
         '201':
-          description: Application submitted.
+          description: Successful family operation.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/IntakeApplication'
+                $ref: '#/components/schemas/FamilyIntakeApplication'
         '400':
-          $ref: '#/components/responses/ValidationError'
+          $ref: '#/components/responses/FamilyValidationError'
+        '401':
+          $ref: '#/components/responses/FamilyUnauthorized'
+        '403':
+          $ref: '#/components/responses/FamilyForbidden'
+      x-contract-status: specified
+      x-use-cases:
+      - UC-FM01
+      x-family-owner: Member 4 (FM01-FM05 behaviour); source data remains with its assigned owner.
+      security:
+      - sessionCookie: []
+      operationId: familyPostIntakeApplications
+      parameters:
+      - name: X-XSRF-TOKEN
+        in: header
+        required: true
+        description: Echo the current XSRF-TOKEN cookie; use the platform session/CSRF bootstrap flow.
+        schema:
+          type: string
+          minLength: 1
+      x-family-response-schema:
+        $ref: '#/components/schemas/FamilyIntakeApplication'
   /intake-applications/{id}:
     parameters:
     - name: id
@@ -544,13 +606,38 @@ paths:
       x-status: draft
       responses:
         '200':
-          description: Application detail.
+          description: >-
+            Family response uses the explicitly listed family schema. Other roles retain the original response
+            schema; the server chooses by authenticated role, never by a client projection flag.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/IntakeApplication'
+                anyOf:
+                - $ref: '#/components/schemas/FamilyIntakeApplication'
+                - $ref: '#/components/schemas/IntakeApplication'
+        '401':
+          $ref: '#/components/responses/FamilyUnauthorized'
+        '403':
+          $ref: '#/components/responses/FamilyForbidden'
         '404':
           $ref: '#/components/responses/NotFound'
+      x-contract-status: specified
+      x-family-use-cases:
+      - UC-FM01
+      x-family-owner: Member 4 (FM01-FM05 behaviour); source data remains with its assigned owner.
+      security:
+      - sessionCookie: []
+      operationId: getIntakeApplication
+      description: >-
+        Read the current family member's application and its review progress; another applicant's ID is 403. The
+        response elderId is null until approval links a formal elder. An approved application is not an active
+        binding. Managers retain their existing application-detail view.
+
+
+        Family identity is resolved from the session. No existing elder or active binding is required to submit or
+        read the caller's own intake application. Family reads/writes are restricted to that applicant.
+      x-family-response-schema:
+        $ref: '#/components/schemas/FamilyIntakeApplication'
   /intake-applications/{id}/decision:
     parameters:
     - name: id
@@ -661,13 +748,46 @@ paths:
       x-status: draft
       responses:
         '200':
-          description: Caregiver detail.
+          description: >-
+            Family response uses the explicitly listed family schema. Other roles retain the original response
+            schema; the server chooses by authenticated role, never by a client projection flag.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Caregiver'
+                anyOf:
+                - $ref: '#/components/schemas/FamilyCaregiverView'
+                - $ref: '#/components/schemas/Caregiver'
+        '401':
+          $ref: '#/components/responses/FamilyUnauthorized'
+        '403':
+          $ref: '#/components/responses/FamilyForbidden'
         '404':
           $ref: '#/components/responses/NotFound'
+      x-contract-status: specified
+      x-family-use-cases:
+      - UC-FM02
+      x-family-owner: Member 4 (FM01-FM05 behaviour); source data remains with its assigned owner.
+      security:
+      - sessionCookie: []
+      operationId: getCaregiver
+      description: >-
+        Family callers may read the public profile of a caregiver assigned to a visit of an elder they can
+        currently access. Historical assigned visits also establish this relationship while the elder binding
+        remains valid. An arbitrary unrelated caregiver ID is forbidden. Return the FamilyCaregiverView only;
+        other roles retain their existing profile behaviour.
+
+
+        Family callers are identified from the authenticated session, never a caller-supplied familyMemberId. For
+        family callers, care resources require an ACTIVE binding to their actual elder, with no revocation and no
+        elapsed expiresAt, and the applicable access scope at request time. Revocation/expiry takes effect on
+        subsequent reads and writes, including historical content. Reading a family care resource records the
+        caller, resource and server access time in the internal audit trail. Read access alone does not imply
+        explicit acknowledgement. FULL/READ_ONLY do not imply different clinical field sets: both may use the
+        family read projections below; an authorised notification recipient may record read/view/acknowledgement
+        under either scope because those commands record the recipient response, not a change to the elder care
+        record.
+      x-family-response-schema:
+        $ref: '#/components/schemas/FamilyCaregiverView'
     patch:
       tags:
       - Caregivers
@@ -696,13 +816,54 @@ paths:
       x-status: draft
       responses:
         '200':
-          description: Certifications, including unpublished ones.
+          description: >-
+            Family response uses the explicitly listed family schema. Other roles retain the original response
+            schema; the server chooses by authenticated role, never by a client projection flag.
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/Credential'
+                anyOf:
+                - type: array
+                  items:
+                    $ref: '#/components/schemas/FamilyCredentialView'
+                - type: array
+                  items:
+                    $ref: '#/components/schemas/Credential'
+        '401':
+          $ref: '#/components/responses/FamilyUnauthorized'
+        '403':
+          $ref: '#/components/responses/FamilyForbidden'
+        '404':
+          $ref: '#/components/responses/FamilyNotFound'
+      x-contract-status: specified
+      x-family-use-cases:
+      - UC-FM02
+      x-family-owner: Member 4 (FM01-FM05 behaviour); source data remains with its assigned owner.
+      security:
+      - sessionCookie: []
+      operationId: listCaregiverCredentials
+      description: >-
+        For FAMILY, require the same accessible-visit/caregiver relationship as the public profile. Return only
+        credentials approved for public display, ordered by credentialTypeId then id. Exclude SUBMITTED/REJECTED
+        material, certificate numbers and review metadata. A previously public credential may remain visible as
+        EXPIRING, EXPIRED or REVOKED; never present an expired/revoked credential as valid. An existing accessible
+        caregiver with no public credentials returns []. The original unfiltered credential array, including
+        unpublished items, is reserved for authorised non-family roles.
+
+
+        Family callers are identified from the authenticated session, never a caller-supplied familyMemberId. For
+        family callers, care resources require an ACTIVE binding to their actual elder, with no revocation and no
+        elapsed expiresAt, and the applicable access scope at request time. Revocation/expiry takes effect on
+        subsequent reads and writes, including historical content. Reading a family care resource records the
+        caller, resource and server access time in the internal audit trail. Read access alone does not imply
+        explicit acknowledgement. FULL/READ_ONLY do not imply different clinical field sets: both may use the
+        family read projections below; an authorised notification recipient may record read/view/acknowledgement
+        under either scope because those commands record the recipient response, not a change to the elder care
+        record.
+      x-family-response-schema:
+        type: array
+        items:
+          $ref: '#/components/schemas/FamilyCredentialView'
     post:
       tags:
       - Caregivers
@@ -1297,10 +1458,30 @@ paths:
       - Visits
       summary: List visits
       x-status: draft
-      description: 'Role-scoped: manager can filter freely, caregiver sees only their own, family and elder see only bound
-        elders''. Also serves UC-CG06 (historical records) with a past `dateTo`.
+      description: >-
+        Role-scoped: manager can filter freely, caregiver sees only their own, family and elder see only bound
+        elders'. Also serves UC-CG06 (historical records) with a past `dateTo`.
 
-        '
+
+
+        Family behaviour: query visits only for currently bound, authorised elders; an explicitly inaccessible
+        elderId or unrelated caregiverId is 403. An omitted elderId includes all currently accessible elders.
+        Provide dateFrom and dateTo together, or omit both to use the current Monday-to-Sunday week in
+        Asia/Singapore. Dates are inclusive local dates: filter scheduledStart from dateFrom 00:00 up to but
+        excluding the day after dateTo 00:00. A reversed range or one missing date is 400 for FAMILY. Sort by
+        scheduledStart ascending then id ascending, paginate after filtering, and return 200 with items=[] for no
+        visits. Null caregiverId means not assigned. Other roles keep their existing date-filter behaviour.
+
+
+        Family callers are identified from the authenticated session, never a caller-supplied familyMemberId. For
+        family callers, care resources require an ACTIVE binding to their actual elder, with no revocation and no
+        elapsed expiresAt, and the applicable access scope at request time. Revocation/expiry takes effect on
+        subsequent reads and writes, including historical content. Reading a family care resource records the
+        caller, resource and server access time in the internal audit trail. Read access alone does not imply
+        explicit acknowledgement. FULL/READ_ONLY do not imply different clinical field sets: both may use the
+        family read projections below; an authorised notification recipient may record read/view/acknowledgement
+        under either scope because those commands record the recipient response, not a change to the elder care
+        record.
       parameters:
       - $ref: '#/components/parameters/Page'
       - $ref: '#/components/parameters/Size'
@@ -1330,22 +1511,42 @@ paths:
           $ref: '#/components/schemas/VisitStatus'
       responses:
         '200':
-          description: Page of visits.
+          description: >-
+            Family response uses the explicitly listed family schema. Other roles retain the original response
+            schema; the server chooses by authenticated role, never by a client projection flag.
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  items:
-                    type: array
+                anyOf:
+                - $ref: '#/components/schemas/FamilyVisitPage'
+                - type: object
+                  properties:
                     items:
-                      $ref: '#/components/schemas/Visit'
-                  page:
-                    type: integer
-                  size:
-                    type: integer
-                  totalElements:
-                    type: integer
+                      type: array
+                      items:
+                        $ref: '#/components/schemas/Visit'
+                    page:
+                      type: integer
+                    size:
+                      type: integer
+                    totalElements:
+                      type: integer
+        '400':
+          $ref: '#/components/responses/FamilyValidationError'
+        '401':
+          $ref: '#/components/responses/FamilyUnauthorized'
+        '403':
+          $ref: '#/components/responses/FamilyForbidden'
+      x-contract-status: specified
+      x-family-use-cases:
+      - UC-FM02
+      - UC-FM03
+      x-family-owner: Member 4 (FM01-FM05 behaviour); source data remains with its assigned owner.
+      security:
+      - sessionCookie: []
+      operationId: listVisits
+      x-family-response-schema:
+        $ref: '#/components/schemas/FamilyVisitPage'
   /visits/{visitId}:
     parameters:
     - $ref: '#/components/parameters/VisitId'
@@ -1354,16 +1555,52 @@ paths:
       - Visits
       summary: Get a visit
       x-status: draft
-      description: UC-FM03 (live status) reads this directly, typically polled.
+      description: >-
+        UC-FM03 (live status) reads this directly, typically polled.
+
+
+        Read the authorised family live view. asOf is the server snapshot time, not a fabricated visit event. The
+        current page may poll approximately every 15 seconds while visible and stop when hidden or closed; back
+        off after failures and label retained data stale. Never infer an actual state change from the clock. Stop
+        displaying protected content after 401/403. Tasks are read through GET /visits/{visitId}/tasks. No
+        WebSocket or push infrastructure is required. Non-family readers retain the existing Visit response.
+
+
+        Family callers are identified from the authenticated session, never a caller-supplied familyMemberId. For
+        family callers, care resources require an ACTIVE binding to their actual elder, with no revocation and no
+        elapsed expiresAt, and the applicable access scope at request time. Revocation/expiry takes effect on
+        subsequent reads and writes, including historical content. Reading a family care resource records the
+        caller, resource and server access time in the internal audit trail. Read access alone does not imply
+        explicit acknowledgement. FULL/READ_ONLY do not imply different clinical field sets: both may use the
+        family read projections below; an authorised notification recipient may record read/view/acknowledgement
+        under either scope because those commands record the recipient response, not a change to the elder care
+        record.
       responses:
         '200':
-          description: Visit detail.
+          description: >-
+            Family response uses the explicitly listed family schema. Other roles retain the original response
+            schema; the server chooses by authenticated role, never by a client projection flag.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Visit'
+                anyOf:
+                - $ref: '#/components/schemas/FamilyVisitView'
+                - $ref: '#/components/schemas/Visit'
+        '401':
+          $ref: '#/components/responses/FamilyUnauthorized'
+        '403':
+          $ref: '#/components/responses/FamilyForbidden'
         '404':
           $ref: '#/components/responses/NotFound'
+      x-contract-status: specified
+      x-family-use-cases:
+      - UC-FM03
+      x-family-owner: Member 4 (FM01-FM05 behaviour); source data remains with its assigned owner.
+      security:
+      - sessionCookie: []
+      operationId: getVisit
+      x-family-response-schema:
+        $ref: '#/components/schemas/FamilyVisitView'
   /visits/{visitId}/work-pack:
     parameters:
     - $ref: '#/components/parameters/VisitId'
@@ -1414,25 +1651,65 @@ paths:
     get:
       tags:
       - Visits
-      summary: List tasks for an assigned visit
+      summary: List visit tasks for the current role
       x-status: draft
-      description: 'UC-CG03. Lists the task-execution state for the caller''s assigned visit. Task completion remains available
+      description: >-
+        UC-CG03. Lists the task-execution state for the caller's assigned visit. Task completion remains available
         through the task-specific completion route.
 
-        '
+
+        Family behaviour (UC-FM03): Read family-visible task progress for an authorised visit, ordered by task id.
+        Task definitions come from the plan owner and actual execution outcomes from the visit owner. Return []
+        when the existing visit has no tasks. Only DONE counts as completed; SKIPPED and REFUSED remain distinct.
+        This endpoint never changes task or visit state.
+
+
+        Family callers are identified from the authenticated session, never a caller-supplied familyMemberId. For
+        family callers, care resources require an ACTIVE binding to their actual elder, with no revocation and no
+        elapsed expiresAt, and the applicable access scope at request time. Revocation/expiry takes effect on
+        subsequent reads and writes, including historical content. Reading a family care resource records the
+        caller, resource and server access time in the internal audit trail. Read access alone does not imply
+        explicit acknowledgement. FULL/READ_ONLY do not imply different clinical field sets: both may use the
+        family read projections below; an authorised notification recipient may record read/view/acknowledgement
+        under either scope because those commands record the recipient response, not a change to the elder care
+        record.
+
+
+        The server selects the response by the authenticated role. The family projection excludes internal
+        caregiver notes and unclassified outcomes; callers cannot request another role's projection. Family errors
+        use FamilyProblemDetail within the existing shared problem response shape.
       responses:
         '200':
-          description: Visit tasks.
+          description: >-
+            Visit tasks. Family callers receive FamilyVisitTaskView items; caregivers retain VisitTask items. The
+            server selects by authenticated role.
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/VisitTask'
+                anyOf:
+                - type: array
+                  items:
+                    $ref: '#/components/schemas/FamilyVisitTaskView'
+                - type: array
+                  items:
+                    $ref: '#/components/schemas/VisitTask'
+        '401':
+          $ref: '#/components/responses/FamilyUnauthorized'
         '403':
           $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
+      x-contract-status: specified
+      x-family-owner: Member 4 (FM01-FM05 behaviour); source data remains with its assigned owner.
+      security:
+      - sessionCookie: []
+      x-family-response-schema:
+        type: array
+        items:
+          $ref: '#/components/schemas/FamilyVisitTaskView'
+      x-family-use-cases:
+      - UC-FM03
+      operationId: getVisitTasks
   /visits/{visitId}/tasks/{taskId}/complete:
     parameters:
     - $ref: '#/components/parameters/VisitId'
@@ -1639,17 +1916,58 @@ paths:
       - Visits
       summary: Full state-transition history
       x-status: draft
-      description: Includes transitions the state machine refused, not only the ones it applied — the auditability trail for
+      description: >-
+        Includes transitions the state machine refused, not only the ones it applied — the auditability trail for
         this visit.
+
+
+        For FAMILY return only APPLIED service transitions in occurredAt ascending, then id ascending order.
+        Exclude refused attempts, rejection reasons and internal actor IDs from the family response. A valid visit
+        without applied transitions returns []. The internal audit history keeps both APPLIED and REJECTED;
+        filtering the family response does not delete evidence or change existing authorised audit views.
+
+
+        Family callers are identified from the authenticated session, never a caller-supplied familyMemberId. For
+        family callers, care resources require an ACTIVE binding to their actual elder, with no revocation and no
+        elapsed expiresAt, and the applicable access scope at request time. Revocation/expiry takes effect on
+        subsequent reads and writes, including historical content. Reading a family care resource records the
+        caller, resource and server access time in the internal audit trail. Read access alone does not imply
+        explicit acknowledgement. FULL/READ_ONLY do not imply different clinical field sets: both may use the
+        family read projections below; an authorised notification recipient may record read/view/acknowledgement
+        under either scope because those commands record the recipient response, not a change to the elder care
+        record.
       responses:
         '200':
-          description: Ordered transition history.
+          description: >-
+            Family response uses the explicitly listed family schema. Other roles retain the original response
+            schema; the server chooses by authenticated role, never by a client projection flag.
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/VisitStateTransition'
+                anyOf:
+                - type: array
+                  items:
+                    $ref: '#/components/schemas/FamilyVisitTimelineEntry'
+                - type: array
+                  items:
+                    $ref: '#/components/schemas/VisitStateTransition'
+        '401':
+          $ref: '#/components/responses/FamilyUnauthorized'
+        '403':
+          $ref: '#/components/responses/FamilyForbidden'
+        '404':
+          $ref: '#/components/responses/FamilyNotFound'
+      x-contract-status: specified
+      x-family-use-cases:
+      - UC-FM03
+      x-family-owner: Member 4 (FM01-FM05 behaviour); source data remains with its assigned owner.
+      security:
+      - sessionCookie: []
+      operationId: getVisitTimeline
+      x-family-response-schema:
+        type: array
+        items:
+          $ref: '#/components/schemas/FamilyVisitTimelineEntry'
   /visits/{visitId}/shift-change/decision:
     parameters:
     - $ref: '#/components/parameters/VisitId'
@@ -1757,19 +2075,68 @@ paths:
       - Incidents
       summary: Get an incident and its full timeline
       x-status: draft
-      description: 'Who reported it, who responded, every notification attempt, and when the bound family member acknowledged
+      description: >-
+        Who reported it, who responded, every notification attempt, and when the bound family member acknowledged
         it — this is the query that replaces the three-day chat-log reconstruction.
 
-        '
+
+
+        For FAMILY, authorise access using the authenticated family identity, an ACTIVE and unexpired binding to
+        the actual incident elder, and the applicable access scope. Derive the current familyMemberId from the
+        session; the caller cannot choose another family member. The existence, delivery success or read state of
+        a notification is not an authorisation condition. An otherwise authorised family member may read the
+        incident and record their own view or acknowledgement even if no IN_APP notification exists or
+        notification creation/delivery failed. Urgent alerts cannot be disabled through optional subscription
+        preferences; that rule never overrides binding/access checks. The response window starts with the first
+        successful urgent IN_APP notification creation for this incident/recipient and uses the configured
+        interval (default two hours); further notices, polling and email retries do not reset it. GET
+        /incidents/{id} returns acknowledgeBy, which is null when no response window has been established. A
+        missing or failed notification does not block reading, viewing or acknowledging the incident. Later
+        notification creation must preserve any already-recorded acknowledgement and must not restart waiting
+        reminders for that family member. This recipient window is independent of manager incident status,
+        respondBy and escalation. A family response contains safe incident facts, handling status and only the
+        current family member's acknowledgement. Exclude raw coordinates, playbook, internal logs,
+        responder/reporter user IDs and other recipients' acknowledgements. A GET is an access audit event, not
+        proof of an explicit view or acknowledgement. The family page records a successful display with POST
+        /incidents/{id}/view. Authorised non-family roles retain the full original incident timeline.
+
+
+        Family callers are identified from the authenticated session, never a caller-supplied familyMemberId. For
+        family callers, care resources require an ACTIVE binding to their actual elder, with no revocation and no
+        elapsed expiresAt, and the applicable access scope at request time. Revocation/expiry takes effect on
+        subsequent reads and writes, including historical content. Reading a family care resource records the
+        caller, resource and server access time in the internal audit trail. Read access alone does not imply
+        explicit acknowledgement. FULL/READ_ONLY do not imply different clinical field sets: both may use the
+        family read projections below; an authorised family member may record their own incident
+        view/acknowledgement under either scope because those commands record that family member's response, not a
+        change to the elder care record. Notification read commands separately require ownership of the
+        notification; no notification record is required for these incident operations.
       responses:
         '200':
-          description: Incident with its log.
+          description: >-
+            Family response uses the explicitly listed family schema. Other roles retain the original response
+            schema; the server chooses by authenticated role, never by a client projection flag.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/IncidentDetail'
+                anyOf:
+                - $ref: '#/components/schemas/FamilyIncidentDetail'
+                - $ref: '#/components/schemas/IncidentDetail'
+        '401':
+          $ref: '#/components/responses/FamilyUnauthorized'
+        '403':
+          $ref: '#/components/responses/FamilyForbidden'
         '404':
           $ref: '#/components/responses/NotFound'
+      x-contract-status: specified
+      x-family-use-cases:
+      - UC-FM05
+      x-family-owner: Member 4 (FM01-FM05 behaviour); source data remains with its assigned owner.
+      security:
+      - sessionCookie: []
+      operationId: getIncident
+      x-family-response-schema:
+        $ref: '#/components/schemas/FamilyIncidentDetail'
   /incidents/{id}/claim:
     parameters:
     - name: id
@@ -2065,22 +2432,83 @@ paths:
       - Incidents
       summary: Acknowledge an urgent alert
       x-status: draft
-      description: UC-FM05. Family acknowledging stops that recipient's countdown; it does not resolve the incident itself.
+      description: >-
+        For FAMILY, authorise access using the authenticated family identity, an ACTIVE and unexpired binding to
+        the actual incident elder, and the applicable access scope. Derive the current familyMemberId from the
+        session; the caller cannot choose another family member. The existence, delivery success or read state of
+        a notification is not an authorisation condition. An otherwise authorised family member may read the
+        incident and record their own view or acknowledgement even if no IN_APP notification exists or
+        notification creation/delivery failed. Urgent alerts cannot be disabled through optional subscription
+        preferences; that rule never overrides binding/access checks. The response window starts with the first
+        successful urgent IN_APP notification creation for this incident/recipient and uses the configured
+        interval (default two hours); further notices, polling and email retries do not reset it. GET
+        /incidents/{id} returns acknowledgeBy, which is null when no response window has been established. A
+        missing or failed notification does not block reading, viewing or acknowledging the incident. Later
+        notification creation must preserve any already-recorded acknowledgement and must not restart waiting
+        reminders for that family member. This recipient window is independent of manager incident status,
+        respondBy and escalation. FAMILY-only explicit acknowledgement. Accept an optional responseNote up to 255
+        characters. Atomically create/update one record per incident/family pair. The first accepted request fixes
+        acknowledgedAt and responseNote; repeated/concurrent requests return 200 with the original values, even if
+        a retry carries a different note. The command does not fabricate viewedAt or mark another notification
+        read. Acknowledgement stops further waiting reminders for this recipient only. Late acknowledgements,
+        including after incident resolution, are recorded at their true server time while access remains valid;
+        they do not undo prior escalation, alter incident.status, resolve the incident or stop the manager
+        escalation chain.
+
+
+        Family callers are identified from the authenticated session, never a caller-supplied familyMemberId. For
+        family callers, care resources require an ACTIVE binding to their actual elder, with no revocation and no
+        elapsed expiresAt, and the applicable access scope at request time. Revocation/expiry takes effect on
+        subsequent reads and writes, including historical content. Reading a family care resource records the
+        caller, resource and server access time in the internal audit trail. Read access alone does not imply
+        explicit acknowledgement. FULL/READ_ONLY do not imply different clinical field sets: both may use the
+        family read projections below; an authorised family member may record their own incident
+        view/acknowledgement under either scope because those commands record that family member's response, not a
+        change to the elder care record. Notification read commands separately require ownership of the
+        notification; no notification record is required for these incident operations.
+
+
+        State-changing calls require the existing session cookie and the current XSRF-TOKEN cookie value in the
+        X-XSRF-TOKEN header. Missing/invalid CSRF protection is 403. No caller-supplied user ID or timestamp is
+        accepted.
       requestBody:
+        required: false
         content:
           application/json:
             schema:
-              type: object
-              properties:
-                responseNote:
-                  type: string
+              $ref: '#/components/schemas/FamilyIncidentAcknowledgeRequest'
       responses:
         '200':
-          description: Acknowledged.
+          description: Successful family operation.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/IncidentAcknowledgement'
+                $ref: '#/components/schemas/FamilyIncidentAcknowledgement'
+        '400':
+          $ref: '#/components/responses/FamilyValidationError'
+        '401':
+          $ref: '#/components/responses/FamilyUnauthorized'
+        '403':
+          $ref: '#/components/responses/FamilyForbidden'
+        '404':
+          $ref: '#/components/responses/FamilyNotFound'
+      x-contract-status: specified
+      x-use-cases:
+      - UC-FM05
+      x-family-owner: Member 4 (FM01-FM05 behaviour); source data remains with its assigned owner.
+      security:
+      - sessionCookie: []
+      operationId: familyPostIncidentsIdAcknowledge
+      parameters:
+      - name: X-XSRF-TOKEN
+        in: header
+        required: true
+        description: Echo the current XSRF-TOKEN cookie; use the platform session/CSRF bootstrap flow.
+        schema:
+          type: string
+          minLength: 1
+      x-family-response-schema:
+        $ref: '#/components/schemas/FamilyIncidentAcknowledgement'
   /spot-checks:
     get:
       tags:
@@ -2379,22 +2807,63 @@ paths:
           $ref: '#/components/schemas/ReportAudience'
       responses:
         '200':
-          description: Page of reports.
+          description: >-
+            Family response uses the explicitly listed family schema. Other roles retain the original response
+            schema; the server chooses by authenticated role, never by a client projection flag.
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  items:
-                    type: array
+                anyOf:
+                - $ref: '#/components/schemas/FamilyReportPage'
+                - type: object
+                  properties:
                     items:
-                      $ref: '#/components/schemas/Report'
-                  page:
-                    type: integer
-                  size:
-                    type: integer
-                  totalElements:
-                    type: integer
+                      type: array
+                      items:
+                        $ref: '#/components/schemas/Report'
+                    page:
+                      type: integer
+                    size:
+                      type: integer
+                    totalElements:
+                      type: integer
+        '400':
+          $ref: '#/components/responses/FamilyValidationError'
+        '401':
+          $ref: '#/components/responses/FamilyUnauthorized'
+        '403':
+          $ref: '#/components/responses/FamilyForbidden'
+      x-contract-status: specified
+      x-family-use-cases:
+      - UC-FM04
+      x-family-owner: Member 4 (FM01-FM05 behaviour); source data remains with its assigned owner.
+      security:
+      - sessionCookie: []
+      operationId: listReports
+      description: >-
+        Family access is limited to FAMILY reports of elders currently in scope, in PUBLISHED or ARCHIVED state.
+        DRAFT and non-FAMILY reports are forbidden. Apply the same current-authorisation and content rules on
+        list, online detail, weekly summary and PDF export. Generation-time permission is not permanent reading
+        permission. Family content uses caregiver names only, no staff-performance data, vital ranges rather than
+        raw measurements, no other elders, and a fixed medical disclaimer. Redact any unsafe legacy content at
+        read/export without mutating the archived original. All report generation and amendments remain with MG07.
+        For FAMILY, omitted audience means FAMILY; explicitly requesting REGULATOR or INTERNAL is 403. An omitted
+        elderId spans currently accessible elders only. Order by periodStart descending, createdAt descending,
+        then id descending and paginate after filtering; no reports returns 200 with items=[]. Other roles retain
+        their existing report-list schema and audience rules.
+
+
+        Family callers are identified from the authenticated session, never a caller-supplied familyMemberId. For
+        family callers, care resources require an ACTIVE binding to their actual elder, with no revocation and no
+        elapsed expiresAt, and the applicable access scope at request time. Revocation/expiry takes effect on
+        subsequent reads and writes, including historical content. Reading a family care resource records the
+        caller, resource and server access time in the internal audit trail. Read access alone does not imply
+        explicit acknowledgement. FULL/READ_ONLY do not imply different clinical field sets: both may use the
+        family read projections below; an authorised notification recipient may record read/view/acknowledgement
+        under either scope because those commands record the recipient response, not a change to the elder care
+        record.
+      x-family-response-schema:
+        $ref: '#/components/schemas/FamilyReportPage'
   /reports/{id}/export:
     parameters:
     - name: id
@@ -2416,12 +2885,49 @@ paths:
               schema:
                 type: string
                 format: binary
-        '503':
-          description: Rendering failed; the report is still readable at `/reports/{id}` and the export can be retried (5b).
-          content:
-            application/problem+json:
+          headers:
+            Content-Disposition:
+              description: Attachment name generated from a report identifier, not sensitive patient details.
               schema:
-                $ref: '#/components/schemas/ProblemDetail'
+                type: string
+                example: attachment; filename="care-report-410.pdf"
+        '401':
+          $ref: '#/components/responses/FamilyUnauthorized'
+        '403':
+          $ref: '#/components/responses/FamilyForbidden'
+        '404':
+          $ref: '#/components/responses/FamilyNotFound'
+        '503':
+          $ref: '#/components/responses/FamilyServiceUnavailable'
+      x-contract-status: specified
+      x-family-use-cases:
+      - UC-FM04
+      x-family-owner: Member 4 (FM01-FM05 behaviour); source data remains with its assigned owner.
+      security:
+      - sessionCookie: []
+      operationId: exportReport
+      description: >-
+        Family access is limited to FAMILY reports of elders currently in scope, in PUBLISHED or ARCHIVED state.
+        DRAFT and non-FAMILY reports are forbidden. Apply the same current-authorisation and content rules on
+        list, online detail, weekly summary and PDF export. Generation-time permission is not permanent reading
+        permission. Family content uses caregiver names only, no staff-performance data, vital ranges rather than
+        raw measurements, no other elders, and a fixed medical disclaimer. Redact any unsafe legacy content at
+        read/export without mutating the archived original. All report generation and amendments remain with MG07.
+        Produce a PDF with exactly the same permitted content as the current family online view, including
+        disclaimer and visible corrections. Do not serve a cached file that bypasses the current access/content
+        rules. A rendering failure is 503; GET /reports/{id} remains available. Retrying export does not
+        regenerate care content. Other roles retain their existing export behaviour.
+
+
+        Family callers are identified from the authenticated session, never a caller-supplied familyMemberId. For
+        family callers, care resources require an ACTIVE binding to their actual elder, with no revocation and no
+        elapsed expiresAt, and the applicable access scope at request time. Revocation/expiry takes effect on
+        subsequent reads and writes, including historical content. Reading a family care resource records the
+        caller, resource and server access time in the internal audit trail. Read access alone does not imply
+        explicit acknowledgement. FULL/READ_ONLY do not imply different clinical field sets: both may use the
+        family read projections below; an authorised notification recipient may record read/view/acknowledgement
+        under either scope because those commands record the recipient response, not a change to the elder care
+        record.
   /reports/{id}:
     parameters:
     - name: id
@@ -2435,18 +2941,48 @@ paths:
       - Reports
       summary: Read a report online
       x-status: draft
-      description: 'The report''s sections, already filtered for its audience. Readable even when PDF export fails (5b). A
-        family member can only read `FAMILY` reports of elders they are bound to. There is deliberately no DELETE and no PUT
-        on a report: an archived report cannot be removed or edited in place (5a); corrections are appended as amendments.
+      description: >-
+        The report's sections, already filtered for its audience. Readable even when PDF export fails (5b). A
+        family member can only read `FAMILY` reports of elders they are bound to. There is deliberately no DELETE
+        and no PUT on a report: an archived report cannot be removed or edited in place (5a); corrections are
+        appended as amendments.
 
-        '
+
+
+        Family access is limited to FAMILY reports of elders currently in scope, in PUBLISHED or ARCHIVED state.
+        DRAFT and non-FAMILY reports are forbidden. Apply the same current-authorisation and content rules on
+        list, online detail, weekly summary and PDF export. Generation-time permission is not permanent reading
+        permission. Family content uses caregiver names only, no staff-performance data, vital ranges rather than
+        raw measurements, no other elders, and a fixed medical disclaimer. Redact any unsafe legacy content at
+        read/export without mutating the archived original. All report generation and amendments remain with MG07.
+        Return sections, family-visible corrections and the fixed non-null disclaimer. MODEL and TEMPLATE both
+        represent successful readable reports; a template is not a failed read. Unknown ID is 404, while a known
+        DRAFT, other audience or out-of-scope report is 403. The read does not invoke a model or modify the
+        report. Other roles retain the existing ReportDetail schema.
+
+
+        Family callers are identified from the authenticated session, never a caller-supplied familyMemberId. For
+        family callers, care resources require an ACTIVE binding to their actual elder, with no revocation and no
+        elapsed expiresAt, and the applicable access scope at request time. Revocation/expiry takes effect on
+        subsequent reads and writes, including historical content. Reading a family care resource records the
+        caller, resource and server access time in the internal audit trail. Read access alone does not imply
+        explicit acknowledgement. FULL/READ_ONLY do not imply different clinical field sets: both may use the
+        family read projections below; an authorised notification recipient may record read/view/acknowledgement
+        under either scope because those commands record the recipient response, not a change to the elder care
+        record.
       responses:
         '200':
-          description: Report with its sections and amendments.
+          description: >-
+            Family response uses the explicitly listed family schema. Other roles retain the original response
+            schema; the server chooses by authenticated role, never by a client projection flag.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ReportDetail'
+                anyOf:
+                - $ref: '#/components/schemas/FamilyReportDetail'
+                - $ref: '#/components/schemas/ReportDetail'
+        '401':
+          $ref: '#/components/responses/FamilyUnauthorized'
         '403':
           description: Not the reader's audience.
           content:
@@ -2455,6 +2991,15 @@ paths:
                 $ref: '#/components/schemas/ProblemDetail'
         '404':
           $ref: '#/components/responses/NotFound'
+      x-contract-status: specified
+      x-family-use-cases:
+      - UC-FM04
+      x-family-owner: Member 4 (FM01-FM05 behaviour); source data remains with its assigned owner.
+      security:
+      - sessionCookie: []
+      operationId: getReport
+      x-family-response-schema:
+        $ref: '#/components/schemas/FamilyReportDetail'
   /reports/{id}/amendments:
     parameters:
     - name: id
@@ -2498,17 +3043,63 @@ paths:
       - Reports
       summary: Plain-language weekly summary
       x-status: draft
-      description: 'UC-FM04. Language-model output over the week''s structured records, with a rule-based (template) fallback
-        when the model is unavailable. Never carries clinical judgement — `disclaimer` is fixed text on every response.
+      description: >-
+        Family access is limited to FAMILY reports of elders currently in scope, in PUBLISHED or ARCHIVED state.
+        DRAFT and non-FAMILY reports are forbidden. Apply the same current-authorisation and content rules on
+        list, online detail, weekly summary and PDF export. Generation-time permission is not permanent reading
+        permission. Family content uses caregiver names only, no staff-performance data, vital ranges rather than
+        raw measurements, no other elders, and a fixed medical disclaimer. Redact any unsafe legacy content at
+        read/export without mutating the archived original. All report generation and amendments remain with MG07.
+        FAMILY-only summary of an existing report. weekStart is required and must be a Monday in Asia/Singapore;
+        the report period is that date through Sunday inclusive. Select a readable FAMILY report with exactly that
+        period; if multiple exist, select the latest createdAt, then greatest id. Return its reportId and stored
+        summary/template result. No matching readable report for an accessible elder is 404. An invalid weekStart
+        is 400. This GET never generates or archives a report, invokes the model, or invents a successful summary
+        when no report exists. A stored template fallback returns 200 with generatedBy=TEMPLATE.
 
-        '
+
+        Family callers are identified from the authenticated session, never a caller-supplied familyMemberId. For
+        family callers, care resources require an ACTIVE binding to their actual elder, with no revocation and no
+        elapsed expiresAt, and the applicable access scope at request time. Revocation/expiry takes effect on
+        subsequent reads and writes, including historical content. Reading a family care resource records the
+        caller, resource and server access time in the internal audit trail. Read access alone does not imply
+        explicit acknowledgement. FULL/READ_ONLY do not imply different clinical field sets: both may use the
+        family read projections below; an authorised notification recipient may record read/view/acknowledgement
+        under either scope because those commands record the recipient response, not a change to the elder care
+        record.
       responses:
         '200':
-          description: Weekly summary.
+          description: Successful family operation.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/WeeklySummary'
+                $ref: '#/components/schemas/FamilyWeeklySummary'
+        '400':
+          $ref: '#/components/responses/FamilyValidationError'
+        '401':
+          $ref: '#/components/responses/FamilyUnauthorized'
+        '403':
+          $ref: '#/components/responses/FamilyForbidden'
+        '404':
+          $ref: '#/components/responses/FamilyNotFound'
+      x-contract-status: specified
+      x-use-cases:
+      - UC-FM04
+      x-family-owner: Member 4 (FM01-FM05 behaviour); source data remains with its assigned owner.
+      security:
+      - sessionCookie: []
+      operationId: familyGetEldersElderidWeeklySummary
+      x-family-response-schema:
+        $ref: '#/components/schemas/FamilyWeeklySummary'
+      parameters:
+      - name: weekStart
+        in: query
+        required: true
+        description: Monday starting the requested week in Asia/Singapore. The end is the following Sunday, inclusive.
+        schema:
+          type: string
+          format: date
+        example: '2026-09-07'
   /value-added-services:
     get:
       tags:
@@ -2671,7 +3262,31 @@ paths:
       - Notifications
       summary: My notification inbox
       x-status: draft
-      description: In-application and email only; there is no push infrastructure, so this is a pull inbox.
+      description: >-
+        In-application and email only; there is no push infrastructure, so this is a pull inbox.
+
+
+        Family inbox contains only the current user's displayable IN_APP notifications with status SENT or READ,
+        sorted by createdAt descending then id descending, with counts/pagination after ownership and current
+        authorisation filtering. Omit status for both, or choose SENT/READ; PENDING/FAILED is 400 for FAMILY. Do
+        not expose email/SMS delivery attempts as duplicate inbox items. Recheck each linked elder before
+        returning care content, including old notices; if its scope cannot be resolved, exclude it rather than
+        bypassing access. No notifications returns 200 with items=[]. The active page may poll about every 15
+        seconds, backing off on failure; this is not a delivery-latency guarantee. Backend urgent-incident events
+        create notifications for authorised recipients regardless of optional preferences. The project
+        notification scope remains in-app and email; no family send-email, subscription-settings or push API is
+        introduced here. Other account roles retain the original notification response/filter behaviour.
+
+
+        Family callers are identified from the authenticated session, never a caller-supplied familyMemberId. For
+        family callers, care resources require an ACTIVE binding to their actual elder, with no revocation and no
+        elapsed expiresAt, and the applicable access scope at request time. Revocation/expiry takes effect on
+        subsequent reads and writes, including historical content. Reading a family care resource records the
+        caller, resource and server access time in the internal audit trail. Read access alone does not imply
+        explicit acknowledgement. FULL/READ_ONLY do not imply different clinical field sets: both may use the
+        family read projections below; an authorised notification recipient may record read/view/acknowledgement
+        under either scope because those commands record the recipient response, not a change to the elder care
+        record.
       parameters:
       - $ref: '#/components/parameters/Page'
       - $ref: '#/components/parameters/Size'
@@ -2686,22 +3301,41 @@ paths:
           - FAILED
       responses:
         '200':
-          description: Page of notifications.
+          description: >-
+            Family response uses the explicitly listed family schema. Other roles retain the original response
+            schema; the server chooses by authenticated role, never by a client projection flag.
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  items:
-                    type: array
+                anyOf:
+                - $ref: '#/components/schemas/FamilyNotificationPage'
+                - type: object
+                  properties:
                     items:
-                      $ref: '#/components/schemas/Notification'
-                  page:
-                    type: integer
-                  size:
-                    type: integer
-                  totalElements:
-                    type: integer
+                      type: array
+                      items:
+                        $ref: '#/components/schemas/Notification'
+                    page:
+                      type: integer
+                    size:
+                      type: integer
+                    totalElements:
+                      type: integer
+        '400':
+          $ref: '#/components/responses/FamilyValidationError'
+        '401':
+          $ref: '#/components/responses/FamilyUnauthorized'
+        '403':
+          $ref: '#/components/responses/FamilyForbidden'
+      x-contract-status: specified
+      x-family-use-cases:
+      - UC-FM05
+      x-family-owner: Member 4 (FM01-FM05 behaviour); source data remains with its assigned owner.
+      security:
+      - sessionCookie: []
+      operationId: listMyNotifications
+      x-family-response-schema:
+        $ref: '#/components/schemas/FamilyNotificationPage'
   /notifications/{id}/read:
     parameters:
     - name: id
@@ -2717,11 +3351,61 @@ paths:
       x-status: draft
       responses:
         '200':
-          description: Marked read.
+          description: >-
+            Family response uses the explicitly listed family schema. Other roles retain the original response
+            schema; the server chooses by authenticated role, never by a client projection flag.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Notification'
+                anyOf:
+                - $ref: '#/components/schemas/FamilyNotification'
+                - $ref: '#/components/schemas/Notification'
+        '401':
+          $ref: '#/components/responses/FamilyUnauthorized'
+        '403':
+          $ref: '#/components/responses/FamilyForbidden'
+        '404':
+          $ref: '#/components/responses/FamilyNotFound'
+      x-contract-status: specified
+      x-family-use-cases:
+      - UC-FM05
+      x-family-owner: Member 4 (FM01-FM05 behaviour); source data remains with its assigned owner.
+      security:
+      - sessionCookie: []
+      operationId: markNotificationRead
+      description: >-
+        For FAMILY, mark only a displayable IN_APP notification addressed to the current user as READ. Require
+        current authorisation for any linked care content. Set readAt only on its first successful read;
+        repeated/concurrent reads return 200 and preserve that timestamp. Non-displayable notifications are not
+        readable through the family inbox operation. No business request body is accepted. Reading the
+        notification does not record viewedAt, acknowledge an incident, stop its recipient response window or
+        change incident status. Other account roles retain their existing notification read behaviour.
+
+
+        Family callers are identified from the authenticated session, never a caller-supplied familyMemberId. For
+        family callers, care resources require an ACTIVE binding to their actual elder, with no revocation and no
+        elapsed expiresAt, and the applicable access scope at request time. Revocation/expiry takes effect on
+        subsequent reads and writes, including historical content. Reading a family care resource records the
+        caller, resource and server access time in the internal audit trail. Read access alone does not imply
+        explicit acknowledgement. FULL/READ_ONLY do not imply different clinical field sets: both may use the
+        family read projections below; an authorised notification recipient may record read/view/acknowledgement
+        under either scope because those commands record the recipient response, not a change to the elder care
+        record.
+
+
+        State-changing calls require the existing session cookie and the current XSRF-TOKEN cookie value in the
+        X-XSRF-TOKEN header. Missing/invalid CSRF protection is 403. No caller-supplied user ID or timestamp is
+        accepted.
+      parameters:
+      - name: X-XSRF-TOKEN
+        in: header
+        required: true
+        description: Echo the current XSRF-TOKEN cookie; use the platform session/CSRF bootstrap flow.
+        schema:
+          type: string
+          minLength: 1
+      x-family-response-schema:
+        $ref: '#/components/schemas/FamilyNotification'
   /family-bindings/{bindingId}/decision:
     parameters:
     - name: bindingId
@@ -2754,6 +3438,88 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/FamilyBindingDecisionRequest'
+  /incidents/{id}/view:
+    parameters:
+    - name: id
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
+        minimum: 1
+    post:
+      tags:
+      - Incidents
+      responses:
+        '200':
+          description: Successful family operation.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FamilyIncidentAcknowledgement'
+        '401':
+          $ref: '#/components/responses/FamilyUnauthorized'
+        '403':
+          $ref: '#/components/responses/FamilyForbidden'
+        '404':
+          $ref: '#/components/responses/FamilyNotFound'
+      x-status: draft
+      x-contract-status: specified
+      x-use-cases:
+      - UC-FM05
+      x-family-owner: Member 4 (FM01-FM05 behaviour); source data remains with its assigned owner.
+      security:
+      - sessionCookie: []
+      operationId: familyPostIncidentsIdView
+      description: >-
+        For FAMILY, authorise access using the authenticated family identity, an ACTIVE and unexpired binding to
+        the actual incident elder, and the applicable access scope. Derive the current familyMemberId from the
+        session; the caller cannot choose another family member. The existence, delivery success or read state
+        of a notification is not an authorisation condition. An otherwise authorised family member may read the
+        incident and record their own view or acknowledgement even if no IN_APP notification exists or
+        notification creation/delivery failed. Urgent alerts cannot be disabled through optional subscription
+        preferences; that rule never overrides binding/access checks. The response window starts with the first
+        successful urgent IN_APP notification creation for this incident/recipient and uses the configured
+        interval (default two hours); further notices, polling and email retries do not reset it. GET
+        /incidents/{id} returns acknowledgeBy, which is null when no response window has been established. A
+        missing or failed notification does not block reading, viewing or acknowledging the incident. Later
+        notification creation must preserve any already-recorded acknowledgement and must not restart waiting
+        reminders for that family member. This recipient window is independent of manager incident status,
+        respondBy and escalation. FAMILY-only explicit display receipt, called after the page successfully
+        displays authorised incident detail. It accepts no business request body. Create or update only this
+        incident/family pair, setting viewedAt to the first server receipt time if absent. Repeated/concurrent
+        calls return 200 with the same first viewedAt. It does not mark a notification read, set acknowledgedAt,
+        stop a response window or change incident handling. Late views and views after incident resolution may
+        still be recorded while authorisation remains valid. The receipt records a display acknowledgement, not
+        proof that the human understood the content.
+
+
+        Family callers are identified from the authenticated session, never a caller-supplied familyMemberId.
+        For family callers, care resources require an ACTIVE binding to their actual elder, with no revocation
+        and no elapsed expiresAt, and the applicable access scope at request time. Revocation/expiry takes
+        effect on subsequent reads and writes, including historical content. Reading a family care resource
+        records the caller, resource and server access time in the internal audit trail. Read access alone does
+        not imply explicit acknowledgement. FULL/READ_ONLY do not imply different clinical field sets: both may
+        use the family read projections below; an authorised family member may record their own incident
+        view/acknowledgement under either scope because those commands record that family member's response, not
+        a change to the elder care record. Notification read commands separately require ownership of the
+        notification; no notification record is required for these incident operations.
+
+
+        State-changing calls require the existing session cookie and the current XSRF-TOKEN cookie value in the
+        X-XSRF-TOKEN header. Missing/invalid CSRF protection is 403. No caller-supplied user ID or timestamp is
+        accepted.
+      parameters:
+      - name: X-XSRF-TOKEN
+        in: header
+        required: true
+        description: Echo the current XSRF-TOKEN cookie; use the platform session/CSRF bootstrap flow.
+        schema:
+          type: string
+          minLength: 1
+      x-family-response-schema:
+        $ref: '#/components/schemas/FamilyIncidentAcknowledgement'
+      summary: Record the current family member viewing an incident
 components:
   securitySchemes:
     sessionCookie:
@@ -4965,6 +5731,844 @@ components:
           type: string
           format: date-time
           nullable: true
+    FamilyProblemDetail:
+      type: object
+      required:
+      - type
+      - title
+      - status
+      description: >-
+        Error contract for FM01-FM05. Optional code is a stable machine-readable reason; fields contains input
+        validation messages.
+      properties:
+        type:
+          type: string
+          format: uri
+          example: about:blank
+        title:
+          type: string
+        status:
+          type: integer
+          minimum: 400
+          maximum: 599
+        detail:
+          type: string
+        instance:
+          type: string
+          format: uri-reference
+        code:
+          type: string
+        fields:
+          type: object
+          additionalProperties:
+            type: string
+      additionalProperties: true
+      example:
+        type: about:blank
+        title: Insufficient permission
+        status: 403
+        detail: The current family member cannot access this resource.
+    FamilyIntakeApplicationCreateRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        targetElderName:
+          type: string
+          maxLength: 100
+          minLength: 1
+          description: Trim leading/trailing whitespace and reject a blank value.
+        targetElderAge:
+          type: integer
+          minimum: 0
+        targetAddress:
+          type: string
+          maxLength: 255
+          minLength: 1
+          description: Trim leading/trailing whitespace and reject a blank value.
+        postalCode:
+          type: string
+          maxLength: 10
+          minLength: 1
+          description: Trim leading/trailing whitespace and reject a blank value.
+        mobilityLevel:
+          $ref: '#/components/schemas/MobilityLevel'
+        preferredDialects:
+          type: string
+          maxLength: 100
+        careNeeds:
+          type: array
+          items:
+            type: string
+            minLength: 1
+          uniqueItems: true
+        medicalNotes:
+          type: string
+      description: >-
+        Family submission only. Applicant identity, approval fields, status and elderId are set by the server,
+        never by the caller.
+      example:
+        targetElderName: Tan Mei
+        targetAddress: 12 Example Road
+        postalCode: '123456'
+        mobilityLevel: INDEPENDENT
+        careNeeds:
+        - BATHING
+        - VITALS
+      required:
+      - targetElderName
+      - targetAddress
+      - postalCode
+    FamilyIntakeApplication:
+      type: object
+      additionalProperties: false
+      properties:
+        id:
+          type: integer
+          format: int64
+        applicantFamilyMemberId:
+          type: integer
+          format: int64
+        targetElderName:
+          type: string
+        targetElderAge:
+          type: integer
+          nullable: true
+        targetAddress:
+          type: string
+        postalCode:
+          type: string
+        mobilityLevel:
+          $ref: '#/components/schemas/MobilityLevel'
+        preferredDialects:
+          type: string
+          nullable: true
+        careNeeds:
+          type: array
+          items:
+            type: string
+          description: An empty array when no requested tasks were supplied.
+        medicalNotes:
+          type: string
+          nullable: true
+        status:
+          $ref: '#/components/schemas/IntakeStatus'
+        reviewRemarks:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        reviewedAt:
+          type: string
+          format: date-time
+          nullable: true
+        elderId:
+          type: integer
+          format: int64
+          minimum: 1
+          nullable: true
+          description: Null until approval creates the formal elder record; this ID does not grant a family binding.
+      required:
+      - id
+      - applicantFamilyMemberId
+      - targetElderName
+      - targetAddress
+      - postalCode
+      - status
+      - createdAt
+      - reviewedAt
+      - reviewRemarks
+      - elderId
+    FamilyIntakeApplicationPage:
+      type: object
+      additionalProperties: false
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/FamilyIntakeApplication'
+        page:
+          type: integer
+          minimum: 0
+        size:
+          type: integer
+          minimum: 1
+          maximum: 200
+        totalElements:
+          type: integer
+          format: int64
+          minimum: 0
+      required:
+      - items
+      - page
+      - size
+      - totalElements
+    FamilyCaregiverView:
+      type: object
+      additionalProperties: false
+      properties:
+        id:
+          type: integer
+          format: int64
+          minimum: 1
+        fullName:
+          type: string
+          minLength: 1
+        dialects:
+          type: array
+          items:
+            type: string
+      description: 'Public profile only: no phone, private contact details, staff performance or internal availability state.'
+      required:
+      - id
+      - fullName
+      - dialects
+    FamilyCredentialView:
+      type: object
+      additionalProperties: false
+      properties:
+        id:
+          type: integer
+          format: int64
+          minimum: 1
+        caregiverId:
+          type: integer
+          format: int64
+          minimum: 1
+        credentialTypeId:
+          type: integer
+          format: int64
+          minimum: 1
+        credentialTypeName:
+          type: string
+        issuingBody:
+          type: string
+          nullable: true
+        validFrom:
+          type: string
+          format: date
+          nullable: true
+        expiryDate:
+          type: string
+          format: date
+          description: 9999-12-31 denotes a permanent credential in the current data model; display as no expiry.
+        status:
+          type: string
+          enum:
+          - PUBLISHED
+          - EXPIRING
+          - EXPIRED
+          - REVOKED
+      description: >-
+        Only credentials approved for public display. SUBMITTED and REJECTED records, certificate numbers and
+        reviewer details are excluded. Expired/revoked public credentials remain visibly invalid.
+      required:
+      - id
+      - caregiverId
+      - credentialTypeId
+      - credentialTypeName
+      - issuingBody
+      - validFrom
+      - expiryDate
+      - status
+    FamilyVisitView:
+      type: object
+      additionalProperties: false
+      properties:
+        id:
+          type: integer
+          format: int64
+        elderId:
+          type: integer
+          format: int64
+        caregiverId:
+          type: integer
+          format: int64
+          nullable: true
+        serviceType:
+          type: string
+        scheduledStart:
+          type: string
+          format: date-time
+        scheduledEnd:
+          type: string
+          format: date-time
+          nullable: true
+        checkedInAt:
+          type: string
+          format: date-time
+          nullable: true
+        checkedOutAt:
+          type: string
+          format: date-time
+          nullable: true
+        status:
+          $ref: '#/components/schemas/VisitStatus'
+        asOf:
+          type: string
+          format: date-time
+          description: >-
+            Server snapshot time for this read, not the last modification time. A failed refresh must not advance
+            it.
+      description: >-
+        Family service view. No absence record, internal state deadline, or care-plan implementation IDs. Null
+        caregiverId means unassigned.
+      required:
+      - id
+      - elderId
+      - caregiverId
+      - serviceType
+      - scheduledStart
+      - scheduledEnd
+      - checkedInAt
+      - checkedOutAt
+      - status
+      - asOf
+    FamilyVisitPage:
+      type: object
+      additionalProperties: false
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/FamilyVisitView'
+        page:
+          type: integer
+          minimum: 0
+        size:
+          type: integer
+          minimum: 1
+          maximum: 200
+        totalElements:
+          type: integer
+          format: int64
+          minimum: 0
+      required:
+      - items
+      - page
+      - size
+      - totalElements
+    FamilyVisitTaskView:
+      type: object
+      additionalProperties: false
+      properties:
+        id:
+          type: integer
+          format: int64
+          minimum: 1
+        visitId:
+          type: integer
+          format: int64
+          minimum: 1
+        name:
+          type: string
+        status:
+          $ref: '#/components/schemas/VisitTaskStatus'
+        completedAt:
+          type: string
+          format: date-time
+          nullable: true
+      description: >-
+        Family-visible execution progress. SKIPPED and REFUSED are not DONE. Internal caregiver notes and
+        unclassified outcomes are excluded.
+      required:
+      - id
+      - visitId
+      - name
+      - status
+      - completedAt
+    FamilyVisitTimelineEntry:
+      type: object
+      additionalProperties: false
+      properties:
+        id:
+          type: integer
+          format: int64
+          minimum: 1
+        visitId:
+          type: integer
+          format: int64
+          minimum: 1
+        fromState:
+          $ref: '#/components/schemas/VisitStatus'
+        toState:
+          $ref: '#/components/schemas/VisitStatus'
+        result:
+          type: string
+          enum:
+          - APPLIED
+        occurredAt:
+          type: string
+          format: date-time
+      description: An applied service transition; rejected attempts and actor identifiers remain in the internal audit view.
+      required:
+      - id
+      - visitId
+      - fromState
+      - toState
+      - result
+      - occurredAt
+    FamilyReport:
+      type: object
+      additionalProperties: false
+      properties:
+        id:
+          type: integer
+          format: int64
+        elderId:
+          type: integer
+          format: int64
+        audience:
+          type: string
+          enum:
+          - FAMILY
+        periodStart:
+          type: string
+          format: date
+        periodEnd:
+          type: string
+          format: date
+        status:
+          type: string
+          enum:
+          - PUBLISHED
+          - ARCHIVED
+        dataComplete:
+          type: boolean
+          description: false when the period had unclosed visits (2a); the gaps are listed in `missingItems`.
+        missingItems:
+          type: array
+          items:
+            type: string
+          description: Family-safe descriptions of incomplete records; no other elders or staff-performance data.
+        generatedBy:
+          type: string
+          enum:
+          - MODEL
+          - TEMPLATE
+          description: FAMILY version only — TEMPLATE when the language model was unavailable (3a).
+        createdAt:
+          type: string
+          format: date-time
+        archivedAt:
+          type: string
+          format: date-time
+          nullable: true
+      description: Published or archived report metadata for a currently authorised family reader. Never DRAFT.
+      required:
+      - id
+      - elderId
+      - audience
+      - periodStart
+      - periodEnd
+      - status
+      - dataComplete
+      - missingItems
+      - generatedBy
+      - createdAt
+      - archivedAt
+    FamilyReportPage:
+      type: object
+      additionalProperties: false
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/FamilyReport'
+        page:
+          type: integer
+          minimum: 0
+        size:
+          type: integer
+          minimum: 1
+          maximum: 200
+        totalElements:
+          type: integer
+          format: int64
+          minimum: 0
+      required:
+      - items
+      - page
+      - size
+      - totalElements
+    FamilyReportSection:
+      type: object
+      additionalProperties: false
+      properties:
+        title:
+          type: string
+          minLength: 1
+        body:
+          type: string
+      description: >-
+        Family-filtered text. Caregiver identity is name only, no staff performance, vital signs are ranges rather
+        than raw readings, and other elders are excluded.
+      required:
+      - title
+      - body
+    FamilyReportAmendment:
+      type: object
+      additionalProperties: false
+      properties:
+        id:
+          type: integer
+          format: int64
+          minimum: 1
+        note:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+      description: A family-safe correction; internal author account identifiers are not exposed.
+      required:
+      - id
+      - note
+      - createdAt
+    FamilyReportDetail:
+      type: object
+      additionalProperties: false
+      properties:
+        id:
+          type: integer
+          format: int64
+        elderId:
+          type: integer
+          format: int64
+        audience:
+          type: string
+          enum:
+          - FAMILY
+        periodStart:
+          type: string
+          format: date
+        periodEnd:
+          type: string
+          format: date
+        status:
+          type: string
+          enum:
+          - PUBLISHED
+          - ARCHIVED
+        dataComplete:
+          type: boolean
+          description: false when the period had unclosed visits (2a); the gaps are listed in `missingItems`.
+        missingItems:
+          type: array
+          items:
+            type: string
+          description: Family-safe descriptions of incomplete records; no other elders or staff-performance data.
+        generatedBy:
+          type: string
+          enum:
+          - MODEL
+          - TEMPLATE
+          description: FAMILY version only — TEMPLATE when the language model was unavailable (3a).
+        createdAt:
+          type: string
+          format: date-time
+        archivedAt:
+          type: string
+          format: date-time
+          nullable: true
+        sections:
+          type: array
+          items:
+            $ref: '#/components/schemas/FamilyReportSection'
+        disclaimer:
+          type: string
+          enum:
+          - This summary records care observations and services; it is not a diagnosis or medical advice.
+        amendments:
+          type: array
+          items:
+            $ref: '#/components/schemas/FamilyReportAmendment'
+      description: >-
+        Immutable report content read under current authorisation. Empty amendments is [], and a non-null
+        disclaimer is always present.
+      required:
+      - id
+      - elderId
+      - audience
+      - periodStart
+      - periodEnd
+      - status
+      - dataComplete
+      - missingItems
+      - generatedBy
+      - createdAt
+      - archivedAt
+      - sections
+      - disclaimer
+      - amendments
+    FamilyWeeklySummary:
+      type: object
+      additionalProperties: false
+      properties:
+        reportId:
+          type: integer
+          format: int64
+          minimum: 1
+        elderId:
+          type: integer
+          format: int64
+          minimum: 1
+        periodStart:
+          type: string
+          format: date
+        periodEnd:
+          type: string
+          format: date
+        summaryText:
+          type: string
+          minLength: 1
+        generatedBy:
+          type: string
+          enum:
+          - MODEL
+          - TEMPLATE
+        disclaimer:
+          type: string
+          enum:
+          - This summary records care observations and services; it is not a diagnosis or medical advice.
+      description: >-
+        Summary of the selected existing FAMILY report, including its stored template fallback. Does not trigger
+        model generation.
+      example:
+        reportId: 410
+        elderId: 12
+        periodStart: '2026-09-07'
+        periodEnd: '2026-09-13'
+        summaryText: Three planned visits were completed this week.
+        generatedBy: TEMPLATE
+        disclaimer: This summary records care observations and services; it is not a diagnosis or medical advice.
+      required:
+      - reportId
+      - elderId
+      - periodStart
+      - periodEnd
+      - summaryText
+      - generatedBy
+      - disclaimer
+    FamilyIncidentAcknowledgement:
+      type: object
+      additionalProperties: false
+      properties:
+        id:
+          type: integer
+          format: int64
+          minimum: 1
+          nullable: true
+          description: >-
+            Null in a detail read before a view/acknowledgement record is created. Non-null after a successful
+            view or acknowledge command.
+        incidentId:
+          type: integer
+          format: int64
+          minimum: 1
+        familyMemberId:
+          type: integer
+          format: int64
+          minimum: 1
+        viewedAt:
+          type: string
+          format: date-time
+          nullable: true
+        acknowledgedAt:
+          type: string
+          format: date-time
+          nullable: true
+        responseNote:
+          type: string
+          maxLength: 255
+          nullable: true
+      description: >-
+        Current family member only. Viewed and acknowledged timestamps are independent and preserve their first
+        server-recorded values.
+      required:
+      - id
+      - incidentId
+      - familyMemberId
+      - viewedAt
+      - acknowledgedAt
+      - responseNote
+    FamilyIncidentDetail:
+      type: object
+      additionalProperties: false
+      properties:
+        id:
+          type: integer
+          format: int64
+        elderId:
+          type: integer
+          format: int64
+        visitId:
+          type: integer
+          format: int64
+          nullable: true
+        source:
+          $ref: '#/components/schemas/IncidentSource'
+        category:
+          $ref: '#/components/schemas/IncidentCategory'
+        severity:
+          $ref: '#/components/schemas/IncidentSeverity'
+        status:
+          $ref: '#/components/schemas/IncidentStatus'
+        description:
+          type: string
+          nullable: true
+        reportedAt:
+          type: string
+          format: date-time
+        resolvedAt:
+          type: string
+          format: date-time
+          nullable: true
+        acknowledgeBy:
+          type: string
+          format: date-time
+          nullable: true
+          description: >-
+            This family member response deadline: first successfully created urgent IN_APP notification for this
+            incident/family member plus the configured window (default two hours). Null when no response window
+            was established, including when notification creation has not succeeded; null does not prevent an
+            authorised read, view or acknowledgement. Stable across polling, email retries and further
+            notifications for the same incident. Never the manager respondBy deadline. Later notification creation
+            does not clear an existing acknowledgement or reopen waiting reminders.
+        acknowledgement:
+          $ref: '#/components/schemas/FamilyIncidentAcknowledgement'
+      description: >-
+        Safe incident facts and global handling status for the currently authorised family member. Notification
+        existence or delivery is not an access prerequisite. No raw location coordinates, playbook, internal log,
+        staff account IDs or other family acknowledgements.
+      required:
+      - id
+      - elderId
+      - visitId
+      - source
+      - category
+      - severity
+      - status
+      - description
+      - reportedAt
+      - resolvedAt
+      - acknowledgeBy
+      - acknowledgement
+    FamilyIncidentAcknowledgeRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        responseNote:
+          type: string
+          maxLength: 255
+      description: >-
+        Optional first-acknowledgement note. Caller identity and timestamps cannot be supplied. Repeated
+        acknowledgements preserve the first note.
+    FamilyNotification:
+      type: object
+      additionalProperties: false
+      properties:
+        id:
+          type: integer
+          format: int64
+          minimum: 1
+        elderId:
+          type: integer
+          format: int64
+          minimum: 1
+          nullable: true
+          description: >-
+            Derived from the linked care resource. Null only for a notification about the account itself, never a
+            bypass for unauthorised care content.
+        eventType:
+          type: string
+        channel:
+          type: string
+          enum:
+          - IN_APP
+        title:
+          type: string
+          maxLength: 150
+        body:
+          type: string
+          maxLength: 1000
+          nullable: true
+        resourceType:
+          type: string
+          nullable: true
+        resourceId:
+          type: integer
+          format: int64
+          minimum: 1
+          nullable: true
+        status:
+          type: string
+          enum:
+          - SENT
+          - READ
+        createdAt:
+          type: string
+          format: date-time
+        sentAt:
+          type: string
+          format: date-time
+        readAt:
+          type: string
+          format: date-time
+          nullable: true
+      description: >-
+        A displayable in-app notification for the current user. SENT means available in the inbox, not email
+        delivery. For an incident link, resourceType is incident and resourceId is the incident ID, not the
+        notification ID.
+      example:
+        id: 901
+        elderId: 12
+        eventType: INCIDENT_RAISED
+        channel: IN_APP
+        title: An urgent care incident was reported
+        body: Open the incident to view details and acknowledge.
+        resourceType: incident
+        resourceId: 77
+        status: SENT
+        createdAt: '2026-09-09T10:00:00+08:00'
+        sentAt: '2026-09-09T10:00:00+08:00'
+        readAt: null
+      required:
+      - id
+      - elderId
+      - eventType
+      - channel
+      - title
+      - body
+      - resourceType
+      - resourceId
+      - status
+      - createdAt
+      - sentAt
+      - readAt
+    FamilyNotificationPage:
+      type: object
+      additionalProperties: false
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/FamilyNotification'
+        page:
+          type: integer
+          minimum: 0
+        size:
+          type: integer
+          minimum: 1
+          maximum: 200
+        totalElements:
+          type: integer
+          format: int64
+          minimum: 0
+      required:
+      - items
+      - page
+      - size
+      - totalElements
   responses:
     Unauthorized:
       description: No active session.
@@ -5004,5 +6608,43 @@ components:
                   additionalProperties:
                     type: string
                   description: Field name to validation message.
+    FamilyUnauthorized:
+      description: No valid authenticated session.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/FamilyProblemDetail'
+    FamilyForbidden:
+      description: >-
+        The current caller lacks the family role, resource ownership, recipient identity, or a currently active,
+        unexpired binding/access scope. An authenticated caller does not gain access by changing an ID.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/FamilyProblemDetail'
+    FamilyNotFound:
+      description: >-
+        The requested resource does not exist, or no readable report exists for the requested week. Empty
+        collections use 200 with an empty array or page items array instead.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/FamilyProblemDetail'
+    FamilyValidationError:
+      description: >-
+        Invalid input, date range, week start, unexpected request field, or unsupported family filter. Optional
+        fields maps field names to validation messages.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/FamilyProblemDetail'
+    FamilyServiceUnavailable:
+      description: >-
+        Report rendering is temporarily unavailable. The authorised online report remains readable; retrying
+        export does not regenerate the report.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/FamilyProblemDetail'
 security:
 - sessionCookie: []
