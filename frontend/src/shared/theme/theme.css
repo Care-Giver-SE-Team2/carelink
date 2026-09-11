@@ -9,19 +9,36 @@
  */
 
 :root {
-  --font: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+  --font: "Instrument Sans", system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
 
-  --text: #1a1a1a;
-  --text-muted: #5b6470;
-  --bg: #ffffff;
-  --bg-sunken: #f5f6f8;
-  --border: #d8dce2;
-  --accent: #1f5fa8;
-  --danger: #b3261e;
+  /* Design handoff tokens (design_handoff_carelink) — manager console, caregiver
+     and family clients share this palette. Ink/rule/accent/alert names match the
+     handoff's token table; keep in sync with it rather than picking new values. */
+  --text: #111111;        /* Ink */
+  --text-secondary: #444444; /* Ink 70 — inactive nav */
+  --text-tertiary: #555555;  /* Ink 60 — secondary table cells */
+  --text-muted: #6b6b6b;     /* Muted — metadata, mono secondary text */
+  --text-faint: #9a9a9a;     /* Muted light — eyebrows, column headers */
+  --bg: #ffffff;             /* Surface */
+  --bg-hover: #f2f2f0;       /* Surface alt — button hover */
+  --border: #e0e0e0;        /* Rule — panel dividers */
+  --border-light: #ededed;  /* Rule light — row separators */
+  --accent: #5b5fa8;
+  --accent-hover: #4b4f96;
+  --accent-tint: #f4f4fa;
+  --danger: #c2503f;
+  --danger-tint: #fdf5f4;
+  --success: #3d7a63;
+  --warning: #b08a2e;      /* Amber border — draft badge */
+  --warning-text: #8c6c1f; /* Amber text — draft badge */
+  --surface-2: #f8f8f6;    /* Sub-plan rows, table zebra */
+  --surface-3: #faf9f7;    /* Row hover */
+  --filter-border: #cfcec9; /* Inert dropdown borders */
 
   --size-body: 15px;
   --size-heading: 22px;
-  --radius: 6px;
+  --radius: 0;           /* no rounded corners anywhere in the standard theme */
   --tap: 40px;          /* minimum interactive height */
   --gap: 12px;
 }
