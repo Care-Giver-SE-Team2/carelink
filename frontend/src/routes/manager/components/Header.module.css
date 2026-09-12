@@ -1,0 +1,66 @@
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 64px;
+  padding: 0 24px;
+  border-bottom: 1px solid var(--text);
+  background: var(--bg);
+  flex-shrink: 0;
+}
+
+.left {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.left.withContext {
+  gap: 16px;
+}
+
+.wordmark {
+  font: 700 18px/1 var(--font);
+  letter-spacing: -0.02em;
+}
+
+.context {
+  font: 400 13px/1 var(--font-mono);
+  color: var(--text-muted);
+}
+
+.consoleLabel {
+  font: 500 11px/1 var(--font-mono);
+  letter-spacing: 0.1em;
+  color: var(--text-muted);
+  text-transform: uppercase;
+}
+
+.right {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.date {
+  font: 400 13px/1 var(--font-mono);
+  color: var(--text-muted);
+}
+
+.divider {
+  width: 1px;
+  height: 20px;
+  background: var(--border);
+}
+
+.userName {
+  font: 500 14px/1 var(--font);
+}
+
+.roleBadge {
+  display: inline-block;
+  padding: 4px 7px;
+  border: 1px solid var(--text);
+  font: 500 10px/1 var(--font-mono);
+  letter-spacing: 0.08em;
+}

@@ -1,0 +1,48 @@
+.nav {
+  width: 200px;
+  flex-shrink: 0;
+  border-right: 1px solid var(--border);
+  padding: 20px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.navLink {
+  padding: 11px 24px;
+  font: 400 13.5px/1 var(--font);
+  text-decoration: none;
+  background: transparent;
+  color: var(--text-secondary);
+  display: flex;
+  justify-content: space-between;
+}
+
+.navLink.active {
+  font-weight: 600;
+  background: var(--text);
+  color: var(--bg);
+}
+
+.count {
+  font: 500 12px/1 var(--font-mono);
+}
+
+.policyHeading {
+  margin: 18px 24px 0;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+  font: 500 10px/1 var(--font-mono);
+  letter-spacing: 0.1em;
+  color: var(--text-faint);
+  text-transform: uppercase;
+}
+
+.policyLines {
+  padding: 10px 24px 0;
+}
+
+.policyLine {
+  font: 400 12px/1.6 var(--font-mono);
+  color: var(--text-muted);
+}
