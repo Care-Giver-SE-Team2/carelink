@@ -1,0 +1,27 @@
+.home { display: grid; gap: 24px; }
+.intro { margin: 0; color: var(--text-muted); }
+.menu { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+.card { min-height: 150px; display: flex; flex-direction: column; align-items: flex-start; justify-content: center; gap: 8px; padding: 24px; text-decoration: none; color: var(--text); border: 2px solid var(--border); border-radius: var(--radius); background: var(--bg); }
+.card:hover, .card:focus-visible { border-color: var(--accent); background: #f6f9fc; outline: 3px solid transparent; }
+.icon { font-size: 42px; line-height: 1; }
+.cardTitle { font-size: 26px; font-weight: 750; }
+.cardHint { font-size: 18px; color: var(--text-muted); }
+.sos { border-color: var(--danger); background: var(--danger-tint); }
+.page { display: grid; gap: 22px; }
+.back { color: var(--accent); font-weight: 700; font-size: 20px; }
+.panel { border: 2px solid var(--border); border-radius: var(--radius); padding: 22px; display: grid; gap: 16px; }
+.panel h2, .panel p { margin: 0; }
+.actions { display: grid; gap: 14px; }
+.primary { background: var(--accent); color: white; border-color: var(--accent); font-weight: 750; }
+.danger { background: var(--danger); color: white; border-color: var(--danger); font-weight: 800; min-height: 88px; font-size: 28px; }
+.secondary { font-weight: 700; }
+.option { display: flex; gap: 14px; align-items: center; min-height: var(--tap); border: 2px solid var(--border); border-radius: var(--radius); padding: 8px 16px; }
+.option input { width: 26px; height: 26px; }
+textarea, select { width: 100%; box-sizing: border-box; min-height: var(--tap); font: inherit; border: 2px solid var(--border); border-radius: var(--radius); padding: 12px; background: white; color: var(--text); }
+textarea { min-height: 120px; resize: vertical; }
+.success { border: 2px solid var(--success); border-radius: var(--radius); padding: 18px; font-weight: 700; }
+.warning { border: 2px solid var(--warning); border-radius: var(--radius); padding: 18px; }
+.meta { color: var(--text-muted); font-size: 18px; }
+.binding { border-top: 1px solid var(--border); padding-top: 14px; }
+.code { font-family: var(--font-mono); font-size: 36px; letter-spacing: 6px; font-weight: 800; text-align: center; padding: 16px; border: 2px dashed var(--accent); border-radius: var(--radius); }
+@media (max-width: 620px) { .menu { grid-template-columns: 1fr; } .card { min-height: 125px; } }
