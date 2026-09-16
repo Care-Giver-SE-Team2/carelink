@@ -2,6 +2,7 @@ package sg.nus.carelink.incident.domain.model;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 
 /**
  * Domain model for incident.
@@ -30,48 +31,50 @@ public record Incident(
 		LocalDateTime reportedAt,
 		LocalDateTime resolvedAt) {
 
-	 /**
-     * Creates an emergency incident raised by an elder through the one-tap SOS.
-     *
-     * <p>An elder SOS is always:
-     * source   = ELDER_SOS
-     * category = SOS
-     * severity = HIGH
-     * status   = OPEN
-     */
-    public static Incident createElderSos(
-            Long elderId,
-            Long reportedByUserId,
-            BigDecimal latitude,
-            BigDecimal longitude,
-            String locationText,
-            String description) {
+	private static final ZoneId CARELINK_ZONE = ZoneId.of("Asia/Singapore");
 
-        if (elderId == null) {
-            throw new IllegalArgumentException("elderId must not be null");
-        }
+	/**
+	 * Creates an emergency incident raised by an elder through the one-tap SOS.
+	 *
+	 * <p>An elder SOS is always:
+	 * source   = ELDER_SOS
+	 * category = SOS
+	 * severity = HIGH
+	 * status   = OPEN
+	 */
+	public static Incident createElderSos(
+			Long elderId,
+			Long reportedByUserId,
+			BigDecimal latitude,
+			BigDecimal longitude,
+			String locationText,
+			String description) {
 
-        LocalDateTime now = LocalDateTime.now();
+		if (elderId == null) {
+			throw new IllegalArgumentException("elderId must not be null");
+		}
 
-        return new Incident(
-                null,
-                elderId,
-                null,
-                reportedByUserId,
-                null,
-                Source.ELDER_SOS,
-                Category.SOS,
-                Severity.HIGH,
-                Status.OPEN,
-                latitude,
-                longitude,
-                locationText,
-                description,
-                null,
-                now,
-                null
-        );
-    }
+		LocalDateTime now = LocalDateTime.now(CARELINK_ZONE);
+
+		return new Incident(
+				null,
+				elderId,
+				null,
+				reportedByUserId,
+				null,
+				Source.ELDER_SOS,
+				Category.SOS,
+				Severity.HIGH,
+				Status.OPEN,
+				latitude,
+				longitude,
+				locationText,
+				description,
+				null,
+				now,
+				null
+		);
+	}
 
 	public enum Source {
 		CAREGIVER, ELDER_SOS, SYSTEM_MISSED_CHECKIN
