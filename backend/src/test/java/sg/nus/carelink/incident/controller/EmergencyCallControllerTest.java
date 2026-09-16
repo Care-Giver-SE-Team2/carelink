@@ -2,7 +2,6 @@ package sg.nus.carelink.incident.controller;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -87,12 +86,12 @@ class EmergencyCallControllerTest {
 				.thenReturn(elder);
 
 		when(incidentService.createElderEmergency(
-				eq(1L),
-				eq(7L),
-				eq(new BigDecimal("1.2966")),
-				eq(new BigDecimal("103.7764")),
-				eq("Test Elder Home"),
-				eq("EL03 emergency call test")
+				1L,
+				7L,
+				new BigDecimal("1.2966"),
+				new BigDecimal("103.7764"),
+				"Test Elder Home",
+				"EL03 emergency call test"
 		)).thenReturn(created);
 
 		ResponseEntity<Incident> response =
@@ -163,12 +162,12 @@ class EmergencyCallControllerTest {
 				.thenReturn(elder);
 
 		when(incidentService.createElderEmergency(
-				eq(1L),
-				eq(7L),
-				any(),
-				any(),
-				any(),
-				any()
+				1L,
+				7L,
+				null,
+				null,
+				null,
+				null
 		)).thenReturn(created);
 
 		ResponseEntity<Incident> response =
@@ -183,6 +182,9 @@ class EmergencyCallControllerTest {
 
 		assertThat(response.getBody())
 				.isEqualTo(created);
+
+		verify(identityService)
+				.require("elder_test");
 
 		verify(incidentService)
 				.createElderEmergency(

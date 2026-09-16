@@ -1,6 +1,7 @@
 package sg.nus.carelink.identity.controller;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -11,7 +12,6 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
-import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -166,6 +166,7 @@ class AuthControllerTest {
 
 	@Test
 	void badCredentialsHandlerDoesNotThrow() {
-		controller.onBadCredentials();
+		assertThatCode(controller::onBadCredentials)
+				.doesNotThrowAnyException();
 	}
 }
