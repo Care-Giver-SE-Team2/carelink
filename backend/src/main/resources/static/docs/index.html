@@ -3,26 +3,133 @@
 <head>
 	<meta charset="UTF-8">
 	<title>CareLink API Docs</title>
+
 	<!-- Version must match the org.webjars:swagger-ui dependency in pom.xml. -->
-	<link rel="stylesheet" href="/webjars/swagger-ui/5.27.0/swagger-ui.css">
+	<link
+		rel="stylesheet"
+		href="/webjars/swagger-ui/5.27.0/swagger-ui.css"
+	>
 </head>
+
 <body>
+
 	<div id="swagger-ui"></div>
+
 	<script src="/webjars/swagger-ui/5.27.0/swagger-ui-bundle.js"></script>
 	<script src="/webjars/swagger-ui/5.27.0/swagger-ui-standalone-preset.js"></script>
+
 	<script>
-		window.onload = () => {
+		/**
+		 * Reads one cookie value by name.
+		 */
+		function getCookie(name) {
+			const prefix = name + '=';
+
+			const cookie = document.cookie
+				.split(';')
+				.map(value => value.trim())
+				.find(value => value.startsWith(prefix));
+
+			if (!cookie) {
+				return null;
+			}
+
+			return decodeURIComponent(
+				cookie.substring(prefix.length)
+			);
+		}
+
+		/**
+		 * Initialises Spring Security's CSRF cookie.
+		 *
+		 * GET /api/auth/csrf is anonymous and causes the backend to issue
+		 * the XSRF-TOKEN cookie.
+		 */
+		async function bootstrapCsrf() {
+			const response = await fetch('/api/auth/csrf', {
+				method: 'GET',
+				credentials: 'include'
+			});
+
+			if (!response.ok) {
+				throw new Error(
+					'Unable to initialise CSRF token: HTTP '
+					+ response.status
+				);
+			}
+		}
+
+		window.onload = async () => {
+
+			try {
+				await bootstrapCsrf();
+			} catch (error) {
+				console.error(
+					'CareLink Swagger CSRF bootstrap failed:',
+					error
+				);
+			}
+
 			window.ui = SwaggerUIBundle({
+
 				urls: [
-					{ url: '/openapi.yaml', name: 'Final' },
-					{ url: '/openapi-draft.yaml', name: 'Draft' }
+					{
+						url: '/openapi.yaml',
+						name: 'Final'
+					},
+					{
+						url: '/openapi-draft.yaml',
+						name: 'Draft'
+					}
 				],
+
 				"urls.primaryName": 'Final',
+
 				dom_id: '#swagger-ui',
-				presets: [SwaggerUIBundle.presets.apis, SwaggerUIStandalonePreset],
-				layout: 'StandaloneLayout'
+
+				presets: [
+					SwaggerUIBundle.presets.apis,
+					SwaggerUIStandalonePreset
+				],
+
+				layout: 'StandaloneLayout',
+
+				/**
+				 * Send cookies such as JSESSIONID with Swagger requests.
+				 */
+				withCredentials: true,
+
+				/**
+				 * Spring Security expects the value of the XSRF-TOKEN cookie
+				 * to be echoed in the X-XSRF-TOKEN header for state-changing
+				 * requests.
+				 */
+				requestInterceptor: (request) => {
+
+					const method =
+						(request.method || 'GET').toUpperCase();
+
+					const stateChanging =
+						method !== 'GET'
+						&& method !== 'HEAD'
+						&& method !== 'OPTIONS';
+
+					if (stateChanging) {
+
+						const csrfToken =
+							getCookie('XSRF-TOKEN');
+
+						if (csrfToken) {
+							request.headers['X-XSRF-TOKEN'] =
+								csrfToken;
+						}
+					}
+
+					return request;
+				}
 			});
 		};
 	</script>
+
 </body>
 </html>
