@@ -1,20 +1,52 @@
+import { Link, Route, Routes } from 'react-router-dom'
 import { RoleShell } from '../../shared/components/RoleShell'
+import ConfirmVisit from './pages/ConfirmVisit'
+import ValueAddedServices from './pages/ValueAddedServices'
+import Emergency from './pages/Emergency'
+import FamilyBindings from './pages/FamilyBindings'
+import styles from './Elder.module.css'
 
-/**
- * Elder client (老人端) — placeholder.
- *
- * Replace this with the real screens. Everything in this folder belongs to the
- * owner of this role; nobody else edits files here.
- *
- * See README.md in this folder for the use cases to cover and the layout notes.
- */
-export default function ElderHome() {
+function ElderDashboard() {
   return (
-    <RoleShell title="Elder client" theme="elder">
-      <p>老人端</p>
-      <p style={{ color: 'var(--text-muted)' }}>
-        Placeholder. See README.md in this folder.
-      </p>
+    <RoleShell title="CareLink for Elder" theme="elder">
+      <div className={styles.home}>
+        <div>
+          <h1>What would you like to do?</h1>
+          <p className={styles.intro}>Choose one large button below.</p>
+        </div>
+        <nav className={styles.menu} aria-label="Elder services">
+          <Link className={styles.card} to="confirm-service">
+            <span className={styles.icon} aria-hidden="true">✓</span>
+            <span className={styles.cardTitle}>Confirm service</span>
+            <span className={styles.cardHint}>Confirm today's visit and give feedback</span>
+          </Link>
+          <Link className={styles.card} to="extra-services">
+            <span className={styles.icon} aria-hidden="true">＋</span>
+            <span className={styles.cardTitle}>Extra services</span>
+            <span className={styles.cardHint}>Ask for additional help</span>
+          </Link>
+          <Link className={`${styles.card} ${styles.sos}`} to="emergency">
+            <span className={styles.icon} aria-hidden="true">!</span>
+            <span className={styles.cardTitle}>Emergency help</span>
+            <span className={styles.cardHint}>Send an SOS immediately</span>
+          </Link>
+          <Link className={styles.card} to="family">
+            <span className={styles.icon} aria-hidden="true">♥</span>
+            <span className={styles.cardTitle}>My family</span>
+            <span className={styles.cardHint}>View or bind a family member</span>
+          </Link>
+        </nav>
+      </div>
     </RoleShell>
   )
+}
+
+export default function ElderHome() {
+  return <Routes>
+    <Route index element={<ElderDashboard />} />
+    <Route path="confirm-service" element={<ConfirmVisit />} />
+    <Route path="extra-services" element={<ValueAddedServices />} />
+    <Route path="emergency" element={<Emergency />} />
+    <Route path="family" element={<FamilyBindings />} />
+  </Routes>
 }
