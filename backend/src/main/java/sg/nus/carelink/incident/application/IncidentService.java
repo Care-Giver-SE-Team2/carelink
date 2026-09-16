@@ -1,5 +1,6 @@
 package sg.nus.carelink.incident.application;
 
+import java.math.BigDecimal;
 import java.util.Optional;
 
 import org.springframework.stereotype.Service;
@@ -29,4 +30,27 @@ public class IncidentService {
 	public Optional<Incident> findIncident(Long id) {
 		return incidents.findById(id);
 	}
+
+	/**
+     * UC-EL03: creates an emergency incident raised by an elder.
+     */
+    public Incident createElderEmergency(
+            Long elderId,
+            Long reportedByUserId,
+            BigDecimal latitude,
+            BigDecimal longitude,
+            String locationText,
+            String description) {
+
+        Incident incident = Incident.createElderSos(
+                elderId,
+                reportedByUserId,
+                latitude,
+                longitude,
+                locationText,
+                description
+        );
+
+        return incidents.save(incident);
+    }
 }
