@@ -15,6 +15,8 @@
   background: transparent;
   color: var(--text-secondary);
   display: flex;
+  align-items: center;
+  gap: 10px;
   justify-content: space-between;
 }
 
@@ -22,6 +24,17 @@
   font-weight: 600;
   background: var(--text);
   color: var(--bg);
+}
+
+.navIcon {
+  display: none;
+  flex: none;
+  width: 22px;
+  height: 22px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid currentColor;
+  font: 600 10px/1 var(--font-mono);
 }
 
 .count {
@@ -45,4 +58,28 @@
 .policyLine {
   font: 400 12px/1.6 var(--font-mono);
   color: var(--text-muted);
+}
+
+/* Below 1200px the console's three-column grid can no longer afford a
+   labeled nav, so it collapses to an icon rail (handoff: "collapses the
+   nav to icons below 1200px"). */
+@media (max-width: 1200px) {
+  .nav {
+    width: 56px;
+  }
+
+  .navLink {
+    padding: 11px 0;
+    justify-content: center;
+  }
+
+  .navIcon {
+    display: flex;
+  }
+
+  .navLabel,
+  .count,
+  .policySection {
+    display: none;
+  }
 }
