@@ -35,43 +35,67 @@ import sg.nus.carelink.identity.controller.dto.LoginRequest;
 class AuthController {
 
 	private final IdentityService identityService;
-	private final SecurityContextRepository contextRepository = new HttpSessionSecurityContextRepository();
+
+	private final SecurityContextRepository contextRepository =
+			new HttpSessionSecurityContextRepository();
 
 	AuthController(IdentityService identityService) {
 		this.identityService = identityService;
 	}
 
 	/**
-	 * Initialise the CSRF cookie that browser clients echo in the X-XSRF-TOKEN header.
+	 * Initialises the CSRF token for browser clients such as the SPA and
+	 * Swagger UI.
 	 *
-	 * @param csrfToken Token supplied by Spring Security
-	 *
-	 * @author Wang Zhili
+	 * <p>Accessing the token causes CookieCsrfTokenRepository to make the
+	 * XSRF-TOKEN cookie available to the client. The client then echoes the
+	 * cookie value in the X-XSRF-TOKEN header for state-changing requests.
 	 */
 	@GetMapping("/csrf")
 	void csrf(CsrfToken csrfToken) {
+		// Access the token so that it is resolved and written to the response
+		// through the configured CSRF token repository.
 		csrfToken.getToken();
 	}
 
 	@PostMapping("/login")
-	CurrentUserResponse login(@Valid @RequestBody LoginRequest request,
-			HttpServletRequest httpRequest, HttpServletResponse httpResponse) {
+	CurrentUserResponse login(
+			@Valid @RequestBody LoginRequest request,
+			HttpServletRequest httpRequest,
+			HttpServletResponse httpResponse
+	) {
 
-		Authentication authentication = identityService.authenticate(request.username(), request.password());
+		Authentication authentication =
+				identityService.authenticate(
+						request.username(),
+						request.password()
+				);
 
 		// Persist the security context in the session; subsequent requests are
 		// identified by the JSESSIONID cookie.
-		SecurityContext context = SecurityContextHolder.createEmptyContext();
-		context.setAuthentication(authentication);
-		SecurityContextHolder.setContext(context);
-		contextRepository.saveContext(context, httpRequest, httpResponse);
+		SecurityContext context =
+				SecurityContextHolder.createEmptyContext();
 
-		return CurrentUserResponse.from(identityService.require(authentication.getName()));
+		context.setAuthentication(authentication);
+
+		SecurityContextHolder.setContext(context);
+
+		contextRepository.saveContext(
+				context,
+				httpRequest,
+				httpResponse
+		);
+
+		return CurrentUserResponse.from(
+				identityService.require(authentication.getName())
+		);
 	}
 
 	@GetMapping("/me")
 	CurrentUserResponse me(Authentication authentication) {
-		return CurrentUserResponse.from(identityService.require(authentication.getName()));
+		return CurrentUserResponse.from(
+				identityService.require(authentication.getName())
+		);
 	}
 
 	@ExceptionHandler(BadCredentialsException.class)

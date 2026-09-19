@@ -182,11 +182,9 @@ class IntakeSubmissionApiIT {
 	}
 
 	@Test
-	void anonymousSubmissionWithValidCsrfReceivesAnUnauthorizedProblem() throws Exception {
+	void anonymousSubmissionWithValidCsrfIsRejectedBySharedSecurity() throws Exception {
 		mvc.perform(post(PATH).with(csrfCookie()).contentType(MediaType.APPLICATION_JSON).content(MINIMUM_REQUEST))
-				.andExpect(status().isUnauthorized())
-				.andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
-				.andExpect(jsonPath("$.status").value(401));
+				.andExpect(status().isUnauthorized());
 	}
 
 	@ParameterizedTest
@@ -220,9 +218,7 @@ class IntakeSubmissionApiIT {
 		if (!mode.equals("missing")) {
 			request.header("X-XSRF-TOKEN", mode.equals("incorrect") ? "invalid-token" : login.csrfCookie().getValue());
 		}
-		mvc.perform(request).andExpect(status().isForbidden())
-				.andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
-				.andExpect(jsonPath("$.status").value(403));
+		mvc.perform(request).andExpect(status().isForbidden());
 	}
 
 	@Test

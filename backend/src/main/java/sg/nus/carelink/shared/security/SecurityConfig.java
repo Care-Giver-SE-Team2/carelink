@@ -13,9 +13,10 @@ import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.crypto.factory.PasswordEncoderFactories;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
+import org.springframework.security.web.csrf.CsrfTokenRequestAttributeHandler;
 
 import jakarta.servlet.http.HttpServletResponse;
-import tools.jackson.databind.json.JsonMapper;
 
 /**
  * Application-wide security configuration.
@@ -35,43 +36,79 @@ import tools.jackson.databind.json.JsonMapper;
 class SecurityConfig {
 
 	@Bean
-	SecurityProblemHandler securityProblemHandler(JsonMapper json) {
-		return new SecurityProblemHandler(json);
-	}
+	SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
 
-	@Bean
-	SecurityFilterChain securityFilterChain(HttpSecurity http, SecurityProblemHandler problems) throws Exception {
+		CsrfTokenRequestAttributeHandler csrfTokenRequestHandler =
+				new CsrfTokenRequestAttributeHandler();
+
+		csrfTokenRequestHandler.setCsrfRequestAttributeName(null);
+
 		http
 				.authorizeHttpRequests(auth -> auth
-						// Health probes must be reachable anonymously, otherwise the container
-						// health check and the pipeline smoke test can never get a 200.
-						.requestMatchers("/actuator/health", "/actuator/health/**", "/actuator/info").permitAll()
-						// Logging in cannot itself require a login.
-						.requestMatchers("/api/auth/login", "/api/auth/csrf").permitAll()
+
+						// Health probes must be reachable anonymously.
+						.requestMatchers(
+								"/actuator/health",
+								"/actuator/health/**",
+								"/actuator/info"
+						).permitAll()
+
+						// Login and CSRF bootstrap must be reachable anonymously.
+						.requestMatchers(
+								"/api/auth/login",
+								"/api/auth/csrf"
+						).permitAll()
+
 						// Front-end static assets.
-						.requestMatchers("/", "/index.html", "/favicon.ico", "/assets/**", "/vite.svg").permitAll()
-						// Swagger UI and the hand-written OpenAPI contract it renders, plus the
-						// superseded draft kept alongside it for the transition period.
-						.requestMatchers("/docs/index.html", "/openapi.yaml", "/openapi-draft.yaml", "/webjars/**").permitAll()
-						.anyRequest().authenticated())
-				// The CSRF token cookie is deliberately NOT HttpOnly, and static analysis will
-				// flag it (sonar java:S3330). The front end has to read this cookie in order to
-				// echo the token back in a request header; making it HttpOnly would put it out of
-				// reach of JavaScript and defeat CSRF protection entirely. This cookie carries no
-				// authority on its own - the session lives in JSESSIONID, which IS HttpOnly - so
-				// exposing it to same-origin script costs nothing. This is the pattern Spring
-				// Security documents for a single-page front end.
-				.csrf(csrf -> csrf.spa())
-				// No login form and no basic auth: /api/auth/login handles sign-in, and an
-				// unauthenticated request gets a 401 rather than a redirect.
+						.requestMatchers(
+								"/",
+								"/index.html",
+								"/favicon.ico",
+								"/assets/**",
+								"/vite.svg"
+						).permitAll()
+
+						// Swagger UI and OpenAPI contracts.
+						.requestMatchers(
+								"/docs/index.html",
+								"/openapi.yaml",
+								"/openapi-draft.yaml",
+								"/webjars/**"
+						).permitAll()
+
+						.anyRequest().authenticated()
+				)
+
+				// XSRF-TOKEN is readable by the SPA and is echoed in the
+				// X-XSRF-TOKEN request header.
+				.csrf(csrf -> csrf
+						.csrfTokenRepository(
+								CookieCsrfTokenRepository.withHttpOnlyFalse()
+						)
+						.csrfTokenRequestHandler(csrfTokenRequestHandler)
+				)
+
 				.formLogin(AbstractHttpConfigurer::disable)
+
 				.httpBasic(AbstractHttpConfigurer::disable)
-				.exceptionHandling(ex -> ex.authenticationEntryPoint(problems).accessDeniedHandler(problems))
+
+				.exceptionHandling(ex -> ex.authenticationEntryPoint(
+						(request, response, authException) ->
+								response.sendError(
+										HttpServletResponse.SC_UNAUTHORIZED
+								)
+				))
+
 				.logout(logout -> logout
 						.logoutUrl("/api/auth/logout")
-						.logoutSuccessHandler((request, response, authentication) ->
-								response.setStatus(HttpServletResponse.SC_NO_CONTENT))
+						.logoutSuccessHandler(
+								(request, response, authentication) ->
+										response.setStatus(
+												HttpServletResponse.SC_NO_CONTENT
+										)
+						)
 						.deleteCookies("JSESSIONID"));
+
 		return http.build();
 	}
 
@@ -85,9 +122,15 @@ class SecurityConfig {
 	}
 
 	@Bean
-	AuthenticationManager authenticationManager(UserDetailsService userDetailsService, PasswordEncoder passwordEncoder) {
-		DaoAuthenticationProvider provider = new DaoAuthenticationProvider(userDetailsService);
+	AuthenticationManager authenticationManager(
+			UserDetailsService userDetailsService,
+			PasswordEncoder passwordEncoder
+	) {
+		DaoAuthenticationProvider provider =
+				new DaoAuthenticationProvider(userDetailsService);
+
 		provider.setPasswordEncoder(passwordEncoder);
+
 		return new ProviderManager(provider);
 	}
 }

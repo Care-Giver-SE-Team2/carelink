@@ -16,6 +16,8 @@ services:
       timeout: 3s
       retries: 24
       start_period: 20s
+    volumes:
+      - carelink-db-data:/var/lib/mysql
     networks: [carelink]
 
   backend:
@@ -45,3 +47,6 @@ services:
 networks:
   carelink:
     name: carelink-net
+
+volumes:
+  carelink-db-data:

@@ -591,9 +591,14 @@ paths:
         '400':
           $ref: '#/components/responses/FamilyValidationError'
         '401':
-          $ref: '#/components/responses/FamilyUnauthorized'
+          description: >-
+            No valid authenticated session. Shared security determines the response body;
+            clients must handle the HTTP status without requiring a JSON body.
         '403':
-          $ref: '#/components/responses/FamilyForbidden'
+          description: >-
+            Missing/invalid CSRF protection or insufficient family access. Shared security may
+            reject the request before MVC runs; a ProblemDetail body is not guaranteed.
+            Clients must handle the HTTP status even when no JSON body is returned.
       x-contract-status: specified
       x-use-cases:
       - UC-FM01

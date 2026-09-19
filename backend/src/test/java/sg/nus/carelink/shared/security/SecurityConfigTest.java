@@ -74,11 +74,9 @@ class SecurityConfigTest {
 	}
 
 	@Test
-	void rejectedCsrfReturnsAProblemResponse() throws Exception {
+	void sharedSecurityRejectsRequestsWithoutCsrfProtection() throws Exception {
 		mockMvc.perform(post("/api/intake-applications").with(user("family-a").roles("FAMILY")))
-				.andExpect(status().isForbidden())
-				.andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
-				.andExpect(jsonPath("$.status").value(403));
+				.andExpect(status().isForbidden());
 	}
 
 	@Test
