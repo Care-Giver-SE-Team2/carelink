@@ -8,7 +8,11 @@ import java.util.Optional;
 import sg.nus.carelink.profile.domain.model.IntakeApplication;
 import sg.nus.carelink.profile.domain.repository.IntakeApplicationRepository;
 
-/** In-memory storage boundary; identifier and creation time are assigned on insert. */
+/**
+ * Stores intake applications in memory and assigns test identifiers and creation times.
+ *
+ * @author Wang Zhili
+ */
 class InMemoryIntakeApplicationRepository implements IntakeApplicationRepository {
 
 	private final Map<Long, IntakeApplication> rows = new HashMap<>();

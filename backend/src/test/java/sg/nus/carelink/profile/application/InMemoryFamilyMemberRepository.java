@@ -7,7 +7,11 @@ import java.util.Optional;
 import sg.nus.carelink.profile.domain.model.FamilyMember;
 import sg.nus.carelink.profile.domain.repository.FamilyMemberRepository;
 
-/** Family records available to the use case without starting a database. */
+/**
+ * Stores family profiles in memory for application tests.
+ *
+ * @author Wang Zhili
+ */
 class InMemoryFamilyMemberRepository implements FamilyMemberRepository {
 
 	private final Map<Long, FamilyMember> rows = new HashMap<>();

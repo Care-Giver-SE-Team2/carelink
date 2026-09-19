@@ -2,7 +2,12 @@ package sg.nus.carelink.profile.domain.model;
 
 import java.util.List;
 
-/** Family-supplied application details. Ownership, review fields and timestamps are server-owned. */
+/**
+ * Holds family-supplied intake details with required text validation and default values.
+ * Applicant identity, review fields and timestamps are assigned by the server.
+ *
+ * @author Wang Zhili
+ */
 public record IntakeSubmission(
 		String targetElderName,
 		Integer targetElderAge,

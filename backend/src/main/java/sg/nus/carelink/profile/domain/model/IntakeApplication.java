@@ -4,9 +4,9 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 /**
- * An intake application is the family's submitted statement, separate from an approved elder profile.
- * Submission starts in SUBMITTED; approval and review transitions belong to the manager use case.
- * The canonical constructor also reconstitutes existing applications from storage.
+ * Represents a family's intake application and its review status.
+ *
+ * @author Wang Zhili
  */
 public record IntakeApplication(
 		Long id,
@@ -30,7 +30,16 @@ public record IntakeApplication(
 		careNeeds = careNeeds == null ? List.of() : List.copyOf(careNeeds);
 	}
 
-	/** Create the submission only. Storage assigns the identifier and creation time. */
+	/**
+	 * Create a SUBMITTED application with empty review fields and no linked elder.
+	 *
+	 * @param applicantFamilyMemberId Family profile identifier resolved from the authenticated account
+	 * @param details Validated application details supplied by the family
+	 * @return A new application whose identifier and creation time will be assigned by storage
+	 * @throws IllegalArgumentException If the family profile identifier is null or not positive
+	 *
+	 * @author Wang Zhili
+	 */
 	public static IntakeApplication submit(Long applicantFamilyMemberId, IntakeSubmission details) {
 		if (applicantFamilyMemberId == null || applicantFamilyMemberId <= 0) {
 			throw new IllegalArgumentException("applicantFamilyMemberId must be positive");

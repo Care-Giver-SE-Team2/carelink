@@ -18,6 +18,11 @@ import org.junit.jupiter.params.provider.ValueSource;
 import sg.nus.carelink.profile.domain.model.IntakeApplication;
 import sg.nus.carelink.profile.domain.model.IntakeSubmission;
 
+/**
+ * Verifies required intake details, default values and initial application state.
+ *
+ * @author Wang Zhili
+ */
 class IntakeApplicationTest {
 
 	@Test

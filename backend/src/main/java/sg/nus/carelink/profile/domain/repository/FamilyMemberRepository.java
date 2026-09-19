@@ -13,6 +13,14 @@ public interface FamilyMemberRepository {
 
 	Optional<FamilyMember> findById(Long id);
 
+	/**
+	 * Find the family profile linked to an account.
+	 *
+	 * @param userId Account identifier
+	 * @return The linked family profile, or empty if none exists
+	 *
+	 * @author Wang Zhili
+	 */
 	Optional<FamilyMember> findByUserId(Long userId);
 
 	FamilyMember save(FamilyMember familyMember);

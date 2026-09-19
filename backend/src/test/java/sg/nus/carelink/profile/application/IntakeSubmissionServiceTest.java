@@ -23,6 +23,11 @@ import sg.nus.carelink.profile.domain.model.IntakeSubmission;
 import sg.nus.carelink.profile.domain.repository.IntakeApplicationRepository;
 import sg.nus.carelink.shared.security.Role;
 
+/**
+ * Verifies applicant ownership, access checks and storage failure handling.
+ *
+ * @author Wang Zhili
+ */
 class IntakeSubmissionServiceTest {
 
 	private final Map<String, AppUser> accounts = Map.of(

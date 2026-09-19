@@ -21,7 +21,11 @@ import sg.nus.carelink.profile.domain.model.IntakeSubmission;
 import sg.nus.carelink.profile.domain.repository.FamilyMemberRepository;
 import sg.nus.carelink.profile.domain.repository.IntakeApplicationRepository;
 
-/** Tests the submission service against real persistence, without the HTTP layer. */
+/**
+ * Verifies family intake submission and persistence using an isolated MySQL database.
+ *
+ * @author Wang Zhili
+ */
 @SpringBootTest
 @Testcontainers
 class IntakeSubmissionIT {

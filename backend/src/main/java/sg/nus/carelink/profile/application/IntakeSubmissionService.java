@@ -11,7 +11,11 @@ import sg.nus.carelink.profile.domain.repository.FamilyMemberRepository;
 import sg.nus.carelink.profile.domain.repository.IntakeApplicationRepository;
 import sg.nus.carelink.shared.security.Role;
 
-/** FM01 submission only; managers own review, approval and elder provisioning. */
+/**
+ * Coordinates intake submission for the current family member.
+ *
+ * @author Wang Zhili
+ */
 @Service
 public class IntakeSubmissionService {
 
@@ -26,7 +30,16 @@ public class IntakeSubmissionService {
 		this.applications = applications;
 	}
 
-	/** The username must come from the authenticated principal, never the request body. */
+	/**
+	 * Save a new intake application for the family linked to the authenticated account.
+	 *
+	 * @param authenticatedUsername Username from the authenticated principal, never the request body
+	 * @param details Validated application details supplied by the family
+	 * @return The saved application, including its generated identifier and creation time
+	 * @throws AccessDeniedException If the account is unavailable, disabled, lacks FAMILY access or has no family profile
+	 *
+	 * @author Wang Zhili
+	 */
 	@Transactional
 	public IntakeApplication submit(String authenticatedUsername, IntakeSubmission details) {
 		if (authenticatedUsername == null || authenticatedUsername.isBlank()) {
