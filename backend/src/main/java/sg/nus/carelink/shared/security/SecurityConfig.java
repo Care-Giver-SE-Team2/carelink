@@ -13,9 +13,9 @@ import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.crypto.factory.PasswordEncoderFactories;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
-import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
 
 import jakarta.servlet.http.HttpServletResponse;
+import tools.jackson.databind.json.JsonMapper;
 
 /**
  * Application-wide security configuration.
@@ -35,14 +35,19 @@ import jakarta.servlet.http.HttpServletResponse;
 class SecurityConfig {
 
 	@Bean
-	SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+	SecurityProblemHandler securityProblemHandler(JsonMapper json) {
+		return new SecurityProblemHandler(json);
+	}
+
+	@Bean
+	SecurityFilterChain securityFilterChain(HttpSecurity http, SecurityProblemHandler problems) throws Exception {
 		http
 				.authorizeHttpRequests(auth -> auth
 						// Health probes must be reachable anonymously, otherwise the container
 						// health check and the pipeline smoke test can never get a 200.
 						.requestMatchers("/actuator/health", "/actuator/health/**", "/actuator/info").permitAll()
 						// Logging in cannot itself require a login.
-						.requestMatchers("/api/auth/login").permitAll()
+						.requestMatchers("/api/auth/login", "/api/auth/csrf").permitAll()
 						// Front-end static assets.
 						.requestMatchers("/", "/index.html", "/favicon.ico", "/assets/**", "/vite.svg").permitAll()
 						// Swagger UI and the hand-written OpenAPI contract it renders, plus the
@@ -56,14 +61,12 @@ class SecurityConfig {
 				// authority on its own - the session lives in JSESSIONID, which IS HttpOnly - so
 				// exposing it to same-origin script costs nothing. This is the pattern Spring
 				// Security documents for a single-page front end.
-				.csrf(csrf -> csrf.csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse()))
+				.csrf(csrf -> csrf.spa())
 				// No login form and no basic auth: /api/auth/login handles sign-in, and an
 				// unauthenticated request gets a 401 rather than a redirect.
 				.formLogin(AbstractHttpConfigurer::disable)
 				.httpBasic(AbstractHttpConfigurer::disable)
-				.exceptionHandling(ex -> ex.authenticationEntryPoint(
-						(request, response, authException) ->
-								response.sendError(HttpServletResponse.SC_UNAUTHORIZED)))
+				.exceptionHandling(ex -> ex.authenticationEntryPoint(problems).accessDeniedHandler(problems))
 				.logout(logout -> logout
 						.logoutUrl("/api/auth/logout")
 						.logoutSuccessHandler((request, response, authentication) ->

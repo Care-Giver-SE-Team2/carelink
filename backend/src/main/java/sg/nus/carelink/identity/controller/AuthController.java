@@ -11,6 +11,7 @@ import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
 import org.springframework.security.web.context.SecurityContextRepository;
+import org.springframework.security.web.csrf.CsrfToken;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -38,6 +39,18 @@ class AuthController {
 
 	AuthController(IdentityService identityService) {
 		this.identityService = identityService;
+	}
+
+	/**
+	 * Initialise the CSRF cookie that browser clients echo in the X-XSRF-TOKEN header.
+	 *
+	 * @param csrfToken Token supplied by Spring Security
+	 *
+	 * @author Wang Zhili
+	 */
+	@GetMapping("/csrf")
+	void csrf(CsrfToken csrfToken) {
+		csrfToken.getToken();
 	}
 
 	@PostMapping("/login")

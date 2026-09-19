@@ -4,6 +4,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -58,6 +59,21 @@ class GlobalExceptionHandler {
 	ProblemDetail onAccessDenied(AccessDeniedException ex) {
 		ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.FORBIDDEN, "Not permitted to access this resource");
 		problem.setTitle("Insufficient permission");
+		return problem;
+	}
+
+	/**
+	 * Report unreadable request bodies without exposing parser or Java type details.
+	 *
+	 * @return A standard 400 problem response
+	 *
+	 * @author Wang Zhili
+	 */
+	@ExceptionHandler(HttpMessageNotReadableException.class)
+	ProblemDetail onUnreadableRequest() {
+		ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST,
+				"Request body is missing or does not match the expected JSON format");
+		problem.setTitle("Invalid request");
 		return problem;
 	}
 

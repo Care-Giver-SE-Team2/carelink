@@ -102,7 +102,8 @@ public class IntakeApplicationJpaEntity {
 	@Column(name = "review_remarks", length = 255)
 	private String reviewRemarks;
 
-	@Generated
+	/** Store creation time in UTC regardless of the database session time zone. */
+	@Generated(sql = "UTC_TIMESTAMP()")
 	@Column(name = "created_at", nullable = false, insertable = false, updatable = false)
 	private LocalDateTime createdAt;
 

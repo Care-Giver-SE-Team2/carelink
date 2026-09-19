@@ -13,7 +13,14 @@ import org.springframework.test.web.servlet.MockMvc;
 import sg.nus.carelink.identity.application.IdentityService;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.cookie;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
+import org.springframework.http.MediaType;
 
 /**
  * Exercises the actual {@link SecurityFilterChain} rather than restating them, so a
@@ -57,5 +64,31 @@ class SecurityConfigTest {
 	@Test
 	void requiresAuthenticationForEverythingElse() throws Exception {
 		mockMvc.perform(get("/api/some-protected-resource")).andExpect(status().isUnauthorized());
+	}
+
+	@Test
+	void anonymousBrowserCanInitialiseItsCsrfCookie() throws Exception {
+		mockMvc.perform(get("/api/auth/csrf")).andExpect(status().isOk())
+				.andExpect(cookie().exists("XSRF-TOKEN"))
+				.andExpect(cookie().httpOnly("XSRF-TOKEN", false));
+	}
+
+	@Test
+	void rejectedCsrfReturnsAProblemResponse() throws Exception {
+		mockMvc.perform(post("/api/intake-applications").with(user("family-a").roles("FAMILY")))
+				.andExpect(status().isForbidden())
+				.andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
+				.andExpect(jsonPath("$.status").value(403));
+	}
+
+	@Test
+	void unreadableJsonUsesTheSameProblemFormatForExistingEndpoints() throws Exception {
+		var token = mockMvc.perform(get("/api/auth/csrf")).andExpect(status().isOk())
+				.andReturn().getResponse().getCookie("XSRF-TOKEN");
+		mockMvc.perform(post("/api/auth/login").cookie(token).header("X-XSRF-TOKEN", token.getValue())
+				.contentType(MediaType.APPLICATION_JSON).content("{"))
+				.andExpect(status().isBadRequest())
+				.andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
+				.andExpect(jsonPath("$.status").value(400));
 	}
 }

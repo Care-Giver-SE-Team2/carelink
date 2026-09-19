@@ -12,7 +12,7 @@ import sg.nus.carelink.profile.domain.repository.FamilyMemberRepository;
  *
  * @author Wang Zhili
  */
-class InMemoryFamilyMemberRepository implements FamilyMemberRepository {
+public class InMemoryFamilyMemberRepository implements FamilyMemberRepository {
 
 	private final Map<Long, FamilyMember> rows = new HashMap<>();
 

@@ -1,0 +1,86 @@
+package sg.nus.carelink.profile.controller;
+
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
+import java.util.Optional;
+import java.util.Set;
+
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.springframework.http.MediaType;
+import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.setup.MockMvcBuilders;
+
+import sg.nus.carelink.identity.application.UserDirectory;
+import sg.nus.carelink.identity.domain.model.AppUser;
+import sg.nus.carelink.profile.application.InMemoryFamilyMemberRepository;
+import sg.nus.carelink.profile.application.InMemoryIntakeApplicationRepository;
+import sg.nus.carelink.profile.application.IntakeSubmissionService;
+import sg.nus.carelink.profile.domain.model.FamilyMember;
+import sg.nus.carelink.shared.security.Role;
+
+/**
+ * Checks HTTP mapping and validation without a database; IntakeSubmissionApiIT verifies real security and storage.
+ *
+ * @author Wang Zhili
+ */
+class IntakeApplicationControllerTest {
+
+	private MockMvc mvc;
+
+	@BeforeEach
+	void prepareControllerWithInMemoryStorage() {
+		var account = new AppUser(7L, "family-a", "Family A", Set.of(Role.FAMILY), true);
+		var users = new UserDirectory() {
+			@Override
+			public Optional<AppUser> findByUsername(String username) {
+				return account.username().equals(username) ? Optional.of(account) : Optional.empty();
+			}
+
+			@Override
+			public Optional<AppUser> findById(Long id) {
+				return account.id().equals(id) ? Optional.of(account) : Optional.empty();
+			}
+		};
+		var families = new InMemoryFamilyMemberRepository();
+		families.save(new FamilyMember(42L, 7L, "Family A", null, null, null, null));
+		var service = new IntakeSubmissionService(users, families, new InMemoryIntakeApplicationRepository());
+		mvc = MockMvcBuilders.standaloneSetup(new IntakeApplicationController(service)).build();
+	}
+
+	@Test
+	void returnsTheFamilyProjectionFromTheSubmissionService() throws Exception {
+		mvc.perform(post("/api/intake-applications").principal(() -> "family-a")
+				.contentType(MediaType.APPLICATION_JSON).content("""
+						{"targetElderName":" Tan Mei ","targetAddress":"12 Example Road","postalCode":"123456"}
+						"""))
+				.andExpect(status().isCreated())
+				.andExpect(jsonPath("$.applicantFamilyMemberId").value(42))
+				.andExpect(jsonPath("$.targetElderName").value("Tan Mei"))
+				.andExpect(jsonPath("$.status").value("SUBMITTED"))
+				.andExpect(jsonPath("$.careNeeds").isEmpty())
+				.andExpect(jsonPath("$.createdAt").value("2026-09-15T10:00:00Z"))
+				.andExpect(jsonPath("$.reviewedByUserId").doesNotExist());
+	}
+
+	@Test
+	void validatesRequestFieldsBeforeCallingTheSubmissionService() throws Exception {
+		mvc.perform(post("/api/intake-applications").principal(() -> "family-a")
+				.contentType(MediaType.APPLICATION_JSON).content("""
+						{"targetElderName":" ","targetAddress":"12 Example Road","postalCode":"123456"}
+						"""))
+				.andExpect(status().isBadRequest());
+	}
+
+	@Test
+	void rejectsCallerSuppliedOwnershipDuringJsonParsing() throws Exception {
+		mvc.perform(post("/api/intake-applications").principal(() -> "family-a")
+				.contentType(MediaType.APPLICATION_JSON).content("""
+						{"targetElderName":"Tan Mei","targetAddress":"12 Example Road","postalCode":"123456",
+						 "applicantFamilyMemberId":7}
+						"""))
+				.andExpect(status().isBadRequest());
+	}
+}

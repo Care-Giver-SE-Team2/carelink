@@ -16,6 +16,7 @@ class WebMvcConfig implements WebMvcConfigurer {
 	static final String API_PATHS = "/api/**";
 	/** Logging in cannot itself require a login. Mirrors the permitAll in SecurityConfig. */
 	static final String LOGIN_PATH = "/api/auth/login";
+	static final String CSRF_PATH = "/api/auth/csrf";
 
 	private final RequestContextInterceptor requestContext;
 
@@ -27,6 +28,6 @@ class WebMvcConfig implements WebMvcConfigurer {
 	public void addInterceptors(InterceptorRegistry registry) {
 		registry.addInterceptor(requestContext)
 				.addPathPatterns(API_PATHS)
-				.excludePathPatterns(LOGIN_PATH);
+				.excludePathPatterns(LOGIN_PATH, CSRF_PATH);
 	}
 }

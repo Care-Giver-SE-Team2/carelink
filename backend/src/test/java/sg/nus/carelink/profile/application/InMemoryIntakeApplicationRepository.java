@@ -13,7 +13,7 @@ import sg.nus.carelink.profile.domain.repository.IntakeApplicationRepository;
  *
  * @author Wang Zhili
  */
-class InMemoryIntakeApplicationRepository implements IntakeApplicationRepository {
+public class InMemoryIntakeApplicationRepository implements IntakeApplicationRepository {
 
 	private final Map<Long, IntakeApplication> rows = new HashMap<>();
 	private long nextId = 1;

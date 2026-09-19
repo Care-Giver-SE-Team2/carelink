@@ -34,6 +34,25 @@ tags:
     description: The current user's notification inbox and notification read state.
 
 paths:
+  /auth/csrf:
+    get:
+      tags: [Auth]
+      summary: Initialise browser CSRF protection
+      x-status: implemented
+      description: >-
+        Call before login to obtain the XSRF-TOKEN cookie. Send that cookie and echo its value in
+        the X-XSRF-TOKEN header for login and subsequent state-changing requests. This endpoint
+        does not authenticate the caller.
+      security: []
+      responses:
+        '200':
+          description: CSRF token initialised; no response body.
+          headers:
+            Set-Cookie:
+              description: XSRF-TOKEN cookie readable by the browser application.
+              schema:
+                type: string
+
   /auth/login:
     post:
       tags: [Auth]
@@ -76,13 +95,13 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProblemDetail'
 
-  # Member 4: FM01-FM05 contract definitions, not implemented endpoints.
+  # Member 4: FM01-FM05 contracts; x-status records each operation's implementation status.
   /intake-applications:
     post:
       tags:
         - Intake
       summary: Submit an intake application
-      x-status: draft
+      x-status: implemented
       description: >-
         Submit an intake application as the current family member. Trim required text and reject
         blanks. Omitted mobilityLevel uses INDEPENDENT. Success creates only the application in
@@ -100,6 +119,7 @@ paths:
         State-changing calls require the existing session cookie and the current XSRF-TOKEN cookie
         value in the X-XSRF-TOKEN header. Missing/invalid CSRF protection is 403. No caller-supplied
         user ID or timestamp is accepted.
+        New application creation times are generated in UTC and returned with an explicit timezone.
       requestBody:
         required: true
         content:
