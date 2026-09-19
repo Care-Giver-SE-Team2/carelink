@@ -13,5 +13,7 @@ public interface FamilyMemberRepository {
 
 	Optional<FamilyMember> findById(Long id);
 
+	Optional<FamilyMember> findByUserId(Long userId);
+
 	FamilyMember save(FamilyMember familyMember);
 }
