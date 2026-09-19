@@ -31,11 +31,11 @@ public class IntakeApplicationController {
 	}
 
 	/**
-	 * Submit an application using the authenticated family's identity.
+	 * Create a SUBMITTED intake application for the logged-in family member.
 	 *
-	 * @param request Family-supplied application details
-	 * @param principal Identity established by the security filter chain
-	 * @return The saved application with fields permitted for family members
+	 * @param request Elder details and care needs supplied by the family
+	 * @param principal Logged-in account supplied by Spring Security
+	 * @return Saved application details with HTTP 201, including the identifier and creation time
 	 *
 	 * @author Wang Zhili
 	 */

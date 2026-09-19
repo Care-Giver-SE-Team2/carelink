@@ -18,6 +18,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -133,6 +134,32 @@ class IntakeSubmissionApiIT {
 				Arguments.of("targetElderAge", -1),
 				Arguments.of("careNeeds", List.of("BATHING", "BATHING")),
 				Arguments.of("careNeeds", List.of("")));
+	}
+
+	@ParameterizedTest
+	@CsvSource({ "targetElderName,100", "targetAddress,255", "postalCode,10", "preferredDialects,100" })
+	void acceptsUnicodeCharactersAtTheFieldLengthLimit(String field, int limit) throws Exception {
+		String value = "𠮷".repeat(limit);
+		ObjectNode request = (ObjectNode) json.readTree(MINIMUM_REQUEST);
+		request.put(field, value);
+		var response = mvc.perform(post(PATH).with(user("family-a").roles("FAMILY")).with(csrfCookie())
+				.contentType(MediaType.APPLICATION_JSON).content(request.toString()))
+				.andExpect(status().isCreated()).andReturn().getResponse();
+		var body = json.readTree(response.getContentAsString());
+		assertThat(body.path(field).stringValue()).isEqualTo(value);
+		var saved = applications.findById(body.path("id").longValue()).orElseThrow();
+		assertThat(json.valueToTree(saved).path(field).stringValue()).isEqualTo(value);
+	}
+
+	@ParameterizedTest
+	@CsvSource({ "targetElderName,100", "targetAddress,255", "postalCode,10", "preferredDialects,100" })
+	void rejectsUnicodeCharactersBeyondTheFieldLengthLimit(String field, int limit) throws Exception {
+		ObjectNode request = (ObjectNode) json.readTree(MINIMUM_REQUEST);
+		request.put(field, "𠮷".repeat(limit + 1));
+		mvc.perform(post(PATH).with(user("family-a").roles("FAMILY")).with(csrfCookie())
+				.contentType(MediaType.APPLICATION_JSON).content(request.toString()))
+				.andExpect(status().isBadRequest())
+				.andExpect(jsonPath("$.fields." + field).isNotEmpty());
 	}
 
 	@ParameterizedTest

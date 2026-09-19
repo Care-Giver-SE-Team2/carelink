@@ -12,7 +12,7 @@ import tools.jackson.databind.ValueDeserializer;
 import sg.nus.carelink.profile.domain.model.IntakeApplication.MobilityLevel;
 
 /**
- * Enforces the intake JSON field whitelist and types without changing other endpoints' parsing.
+ * Parses intake fields and rejects unknown fields, explicit nulls and invalid JSON types.
  *
  * @author Wang Zhili
  */
@@ -21,6 +21,15 @@ public class IntakeApplicationCreateRequestDeserializer extends ValueDeserialize
 	private static final Set<String> FIELDS = Set.of("targetElderName", "targetElderAge", "targetAddress",
 			"postalCode", "mobilityLevel", "preferredDialects", "careNeeds", "medicalNotes");
 
+	/**
+	 * Read family-supplied application details from a JSON object.
+	 *
+	 * @param parser Parser positioned at the request body
+	 * @param context JSON deserialization context for reading values and reporting invalid input
+	 * @return Application details ready for field validation
+	 *
+	 * @author Wang Zhili
+	 */
 	@Override
 	public IntakeApplicationCreateRequest deserialize(JsonParser parser, DeserializationContext context) {
 		JsonNode input = context.readTree(parser);

@@ -17,8 +17,8 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 
 /**
- * Global exception handling. Every error response is an RFC 9457 ProblemDetail,
- * so the front end only ever has to deal with one error shape.
+ * Converts exceptions handled by Spring MVC into RFC 9457 ProblemDetail responses.
+ * Security filters handle authentication and CSRF failures separately.
  *
  * <p>Controllers must not catch exceptions and assemble their own error bodies —
  * that is how an error format ends up differing from author to author. The domain

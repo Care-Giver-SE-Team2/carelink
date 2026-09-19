@@ -10,7 +10,7 @@ import sg.nus.carelink.profile.domain.model.IntakeApplication.MobilityLevel;
 import sg.nus.carelink.profile.domain.model.IntakeApplication.Status;
 
 /**
- * Returns the family-visible application fields without the internal reviewer identifier.
+ * Holds the application details visible to a family member.
  *
  * @author Wang Zhili
  */
@@ -20,6 +20,14 @@ public record FamilyIntakeApplicationResponse(
 		List<String> careNeeds, String medicalNotes, Status status, String reviewRemarks,
 		OffsetDateTime createdAt, OffsetDateTime reviewedAt, Long elderId) {
 
+	/**
+	 * Map an application to family-visible details with explicit UTC offsets.
+	 *
+	 * @param application Application whose stored timestamps use UTC
+	 * @return Family response containing the application details and review status
+	 *
+	 * @author Wang Zhili
+	 */
 	public static FamilyIntakeApplicationResponse from(IntakeApplication application) {
 		return new FamilyIntakeApplicationResponse(application.id(), application.applicantFamilyMemberId(),
 				application.targetElderName(), application.targetElderAge(), application.targetAddress(),

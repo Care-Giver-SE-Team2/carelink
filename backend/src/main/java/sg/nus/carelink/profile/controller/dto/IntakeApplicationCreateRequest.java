@@ -6,6 +6,7 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.PositiveOrZero;
 import jakarta.validation.constraints.Size;
+import org.hibernate.validator.constraints.CodePointLength;
 import org.hibernate.validator.constraints.UniqueElements;
 import tools.jackson.databind.annotation.JsonDeserialize;
 
@@ -19,12 +20,12 @@ import sg.nus.carelink.profile.domain.model.IntakeSubmission;
  */
 @JsonDeserialize(using = IntakeApplicationCreateRequestDeserializer.class)
 public record IntakeApplicationCreateRequest(
-		@NotBlank @Size(max = 100) String targetElderName,
+		@NotBlank @CodePointLength(max = 100) String targetElderName,
 		@PositiveOrZero Integer targetElderAge,
-		@NotBlank @Size(max = 255) String targetAddress,
-		@NotBlank @Size(max = 10) String postalCode,
+		@NotBlank @CodePointLength(max = 255) String targetAddress,
+		@NotBlank @CodePointLength(max = 10) String postalCode,
 		MobilityLevel mobilityLevel,
-		@Size(max = 100) String preferredDialects,
+		@CodePointLength(max = 100) String preferredDialects,
 		@UniqueElements List<@NotNull @Size(min = 1) String> careNeeds,
 		String medicalNotes) {
 
@@ -38,6 +39,13 @@ public record IntakeApplicationCreateRequest(
 		return value == null ? null : value.strip();
 	}
 
+	/**
+	 * Create intake details with required text validation and submission defaults.
+	 *
+	 * @return Family-supplied details ready for the submission service
+	 *
+	 * @author Wang Zhili
+	 */
 	public IntakeSubmission toSubmission() {
 		return new IntakeSubmission(targetElderName, targetElderAge, targetAddress, postalCode,
 				mobilityLevel, preferredDialects, careNeeds, medicalNotes);
