@@ -1,20 +1,29 @@
-import { RoleShell } from '../../shared/components/RoleShell'
+import { Link, Navigate, Route, Routes } from 'react-router-dom'
+import { IntakeLayout } from './intake/IntakeLayout'
+import { IntakeListPage } from './intake/IntakeListPage'
+import { IntakeDetailPage } from './intake/IntakeDetailPage'
 
 /**
- * Family portal (家属端) — placeholder.
- *
- * Replace this with the real screens. Everything in this folder belongs to the
- * owner of this role; nobody else edits files here.
- *
- * See README.md in this folder for the use cases to cover and the layout notes.
+ * Family routes; FM01 pages are isolated in the intake directory.
+ * @author Wang Zhili
  */
 export default function FamilyHome() {
   return (
-    <RoleShell title="Family portal" theme="standard">
-      <p>家属端</p>
-      <p style={{ color: 'var(--text-muted)' }}>
-        Placeholder. See README.md in this folder.
-      </p>
-    </RoleShell>
+    <Routes>
+      <Route element={<IntakeLayout />}>
+        <Route index element={<Navigate to="intake" replace />} />
+        <Route path="intake" element={<IntakeListPage />} />
+        <Route path="intake/:id" element={<IntakeDetailPage />} />
+        <Route
+          path="*"
+          element={
+            <>
+              <h1>Page not found</h1>
+              <Link to="/family/intake">Back to applications</Link>
+            </>
+          }
+        />
+      </Route>
+    </Routes>
   )
 }

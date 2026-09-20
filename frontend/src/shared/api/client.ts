@@ -14,6 +14,27 @@ function csrfToken(): string {
   return match ? decodeURIComponent(match[1]) : ''
 }
 
+/**
+ * HTTP failure with its response status and readable message.
+ * @author Wang Zhili
+ */
+export class ApiError extends Error {
+  readonly status: number
+
+  constructor(status: number, message: string) {
+    super(message)
+    this.name = 'ApiError'
+    this.status = status
+  }
+}
+
+/**
+ * Sends a session-authenticated JSON request and accepts empty success responses.
+ * @param path API path relative to /api
+ * @param init Request method, body, headers and cancellation signal
+ * @return Parsed response, or undefined when the response is empty
+ * @author Wang Zhili
+ */
 export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
   const method = (init.method ?? 'GET').toUpperCase()
   const headers = new Headers(init.headers)
@@ -24,9 +45,9 @@ export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
   const response = await fetch(`/api${path}`, { ...init, headers, credentials: 'include' })
 
   if (!response.ok) {
-    // The backend returns RFC 9457 ProblemDetail for every error, so one shape covers all.
     const problem = await response.json().catch(() => null)
-    throw new Error(problem?.detail ?? `Request failed with ${response.status}`)
+    throw new ApiError(response.status, problem?.detail ?? `Request failed with ${response.status}`)
   }
-  return response.status === 204 ? (undefined as T) : ((await response.json()) as T)
+  const body = await response.text()
+  return body.trim() ? (JSON.parse(body) as T) : (undefined as T)
 }
