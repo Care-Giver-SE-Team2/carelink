@@ -16,8 +16,6 @@ class WebMvcConfig implements WebMvcConfigurer {
 	static final String API_PATHS = "/api/**";
 	/** Logging in cannot itself require a login. Mirrors the permitAll in SecurityConfig. */
 	static final String LOGIN_PATH = "/api/auth/login";
-	// TODO: temporary — remove before merging. Mirrors the permitAll in SecurityConfig.
-	static final String ELDERS_LIST_PATH = "/api/elders";
 	/** CSRF token initialization is accessible before login. */
 	static final String CSRF_PATH = "/api/auth/csrf";
 

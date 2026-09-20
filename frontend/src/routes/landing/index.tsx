@@ -1,10 +1,19 @@
-import { useId, useState } from 'react'
+import { useId, useState, type FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 
 import caregiverImage from '../../assets/Caregiver.png'
+import { ApiError } from '../../shared/api/client'
 import { login } from '../../shared/api/identity'
 import { IconCalendar, IconClock, IconDocCheck, IconHeart, IconUsers } from './icons'
 import styles from './Landing.module.css'
+
+/** Where each role lands after signing in; mirrors shared.security.Role. */
+const ROLE_HOME: Record<string, string> = {
+  MANAGER: '/manager',
+  CAREGIVER: '/caregiver',
+  FAMILY: '/family',
+  ELDER: '/elder',
+}
 
 const DEV_ROLE_LINKS = [
   { path: '/caregiver', label: 'Caregiver' },
@@ -70,9 +79,28 @@ const FEATURES = [
 export default function LandingHome() {
   const emailId = useId()
   const passwordId = useId()
+  const navigate = useNavigate()
 
   const [showPassword, setShowPassword] = useState(false)
   const [keepSignedIn, setKeepSignedIn] = useState(false)
+  const [identifier, setIdentifier] = useState('')
+  const [password, setPassword] = useState('')
+  const [submitting, setSubmitting] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    setSubmitting(true)
+    setError(null)
+    try {
+      const user = await login(identifier, password)
+      const home = user.roles.map((role) => ROLE_HOME[role]).find(Boolean) ?? '/'
+      navigate(home)
+    } catch (err) {
+      setError(err instanceof ApiError && err.status === 401 ? 'Incorrect email or password.' : 'Sign in failed. Please try again.')
+      setSubmitting(false)
+    }
+  }
 
   return (
     <div className={styles.page}>
@@ -151,14 +179,14 @@ export default function LandingHome() {
           </div>
         </div>
 
-        <form
-          className={styles.formColumn}
-          onSubmit={(event) => {
-            event.preventDefault()
-            // Not wired to the backend yet — see README.md in this folder.
-          }}
-        >
+        <form className={styles.formColumn} onSubmit={handleSubmit}>
           <h2 className={styles.formTitle}>Sign in</h2>
+
+          {error && (
+            <p className={styles.formError} role="alert">
+              {error}
+            </p>
+          )}
 
           <div className={styles.fields}>
             <div>
@@ -172,6 +200,9 @@ export default function LandingHome() {
                 autoComplete="username"
                 placeholder="you@carelink.sg"
                 className={styles.textInput}
+                value={identifier}
+                onChange={(event) => setIdentifier(event.target.value)}
+                required
               />
             </div>
 
@@ -187,6 +218,9 @@ export default function LandingHome() {
                   autoComplete="current-password"
                   placeholder="••••••••"
                   className={styles.passwordInput}
+                  value={password}
+                  onChange={(event) => setPassword(event.target.value)}
+                  required
                 />
                 <button
                   type="button"
@@ -211,8 +245,8 @@ export default function LandingHome() {
             <span className={styles.checkboxLabel}>Keep me signed in on this device</span>
           </label>
 
-          <button type="submit" className={styles.submit}>
-            Sign in
+          <button type="submit" className={styles.submit} disabled={submitting}>
+            {submitting ? 'Signing in…' : 'Sign in'}
           </button>
 
           <div className={styles.belowSubmit}>

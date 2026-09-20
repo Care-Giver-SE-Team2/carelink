@@ -116,6 +116,47 @@ class CarePlanServiceTest {
 	}
 
 	@Test
+	void findsTheElderSLatestPlanByVersion() {
+		CarePlan draft = service.createDraft(42L, 7L);
+
+		assertThat(service.findLatestByElderId(42L)).contains(draft);
+	}
+
+	@Test
+	void isEmptyWhenTheElderHasNoPlanYet() {
+		assertThat(service.findLatestByElderId(999L)).isEmpty();
+	}
+
+	@Test
+	void publishingANewDraftSupersedesThePreviousPublishedPlan() {
+		List<PlanNodeInput> tasks = List.of(new PlanNodeInput(
+				"Personal care", "Bathing assistance",
+				List.of(new VisitInput("Mon", 30)), CarePlanNode.EvidenceType.CHECKLIST));
+		CarePlan firstDraft = service.createDraft(42L, 7L);
+		CarePlan firstPublished = service.publish(firstDraft.id(), tasks);
+
+		CarePlan secondDraft = service.createDraft(42L, 7L);
+		service.publish(secondDraft.id(), tasks);
+
+		assertThat(service.findCarePlan(firstPublished.id()).orElseThrow().status())
+				.isEqualTo(CarePlan.Status.SUPERSEDED);
+	}
+
+	@Test
+	void schedulesSevenVisitsAWeekAsDaily() {
+		CarePlan draft = service.createDraft(42L, 7L);
+		List<VisitInput> everyDay = List.of(
+				new VisitInput("Mon", 30), new VisitInput("Tue", 30), new VisitInput("Wed", 30),
+				new VisitInput("Thu", 30), new VisitInput("Fri", 30), new VisitInput("Sat", 30),
+				new VisitInput("Sun", 30));
+
+		service.publish(draft.id(), List.of(
+				new PlanNodeInput("Personal care", "Bathing assistance", everyDay, CarePlanNode.EvidenceType.CHECKLIST)));
+
+		assertThat(service.findNodes(draft.id()).getFirst().scheduleDays()).isEqualTo("DAILY");
+	}
+
+	@Test
 	void stoppingADraftIsRejected() {
 		CarePlan draft = service.createDraft(42L, 7L);
 
