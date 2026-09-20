@@ -218,7 +218,8 @@
 					</execution>
 					<execution>
 						<id>report</id>
-						<phase>test</phase>
+						<!-- Include integration coverage when the integration profile is active. -->
+						<phase>verify</phase>
 						<goals><goal>report</goal></goals>
 					</execution>
 					<!--

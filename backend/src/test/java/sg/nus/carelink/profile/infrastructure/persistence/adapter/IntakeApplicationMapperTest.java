@@ -3,6 +3,7 @@ package sg.nus.carelink.profile.infrastructure.persistence.adapter;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 import org.junit.jupiter.api.Test;
 
@@ -23,7 +24,7 @@ class IntakeApplicationMapperTest {
 		entity.setPostalCode("v6");
 		entity.setMobilityLevel(IntakeApplicationJpaEntity.MobilityLevel.INDEPENDENT);
 		entity.setPreferredDialects("v8");
-		entity.setCareNeeds("v9");
+		entity.setCareNeeds(List.of("BATHING", "VITALS"));
 		entity.setMedicalNotes("v10");
 		entity.setStatus(IntakeApplicationJpaEntity.Status.SUBMITTED);
 		entity.setReviewedByUserId(12L);

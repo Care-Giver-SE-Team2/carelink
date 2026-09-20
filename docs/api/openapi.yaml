@@ -34,6 +34,25 @@ tags:
     description: The current user's notification inbox and notification read state.
 
 paths:
+  /auth/csrf:
+    get:
+      tags: [Auth]
+      summary: Initialise browser CSRF protection
+      x-status: implemented
+      description: >-
+        Call before login to obtain the XSRF-TOKEN cookie. Send that cookie and echo its value in
+        the X-XSRF-TOKEN header for login and subsequent state-changing requests. This endpoint
+        does not authenticate the caller.
+      security: []
+      responses:
+        '200':
+          description: CSRF token initialised; no response body.
+          headers:
+            Set-Cookie:
+              description: XSRF-TOKEN cookie readable by the browser application.
+              schema:
+                type: string
+
   /auth/login:
     post:
       tags: [Auth]
@@ -76,13 +95,13 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProblemDetail'
 
-  # Member 4: FM01-FM05 contract definitions, not implemented endpoints.
+  # Member 4: FM01-FM05 contracts; x-status records each operation's implementation status.
   /intake-applications:
     post:
       tags:
         - Intake
       summary: Submit an intake application
-      x-status: draft
+      x-status: implemented
       description: >-
         Submit an intake application as the current family member. Trim required text and reject
         blanks. Omitted mobilityLevel uses INDEPENDENT. Success creates only the application in
@@ -100,6 +119,7 @@ paths:
         State-changing calls require the existing session cookie and the current XSRF-TOKEN cookie
         value in the X-XSRF-TOKEN header. Missing/invalid CSRF protection is 403. No caller-supplied
         user ID or timestamp is accepted.
+        New application creation times are generated in UTC and returned with an explicit timezone.
       requestBody:
         required: true
         content:
@@ -116,9 +136,14 @@ paths:
         '400':
           $ref: '#/components/responses/FamilyValidationError'
         '401':
-          $ref: '#/components/responses/FamilyUnauthorized'
+          description: >-
+            No valid authenticated session. Shared security determines the response body;
+            clients must handle the HTTP status without requiring a JSON body.
         '403':
-          $ref: '#/components/responses/FamilyForbidden'
+          description: >-
+            Missing/invalid CSRF protection or insufficient family access. Shared security may
+            reject the request before MVC runs; a ProblemDetail body is not guaranteed.
+            Clients must handle the HTTP status even when no JSON body is returned.
       x-contract-status: specified
       x-use-cases:
         - UC-FM01
@@ -141,6 +166,7 @@ paths:
         - Intake
       summary: List intake applications
       x-status: draft
+      x-family-status: implemented
       parameters:
         - $ref: '#/components/parameters/Page'
         - $ref: '#/components/parameters/Size'
@@ -151,9 +177,8 @@ paths:
       responses:
         '200':
           description: >-
-            Family response uses the explicitly listed family schema. Other roles retain the original
-            response schema; the server chooses by authenticated role, never by a client projection
-            flag.
+            The implemented family list uses FamilyIntakeApplicationPage. The original response
+            schema is retained for the manager review list, whose implementation is pending.
           content:
             application/json:
               schema:
@@ -174,7 +199,9 @@ paths:
         '400':
           $ref: '#/components/responses/FamilyValidationError'
         '401':
-          $ref: '#/components/responses/FamilyUnauthorized'
+          description: >-
+            No valid authenticated session. Shared security determines the response body;
+            clients must handle the HTTP status without requiring a JSON body.
         '403':
           $ref: '#/components/responses/FamilyForbidden'
       x-contract-status: specified
@@ -186,14 +213,17 @@ paths:
       operationId: listIntakeApplications
       description: >-
         Family callers see only applications they submitted, including review status and
-        family-visible remarks. Order by createdAt descending, then id descending. Empty results are
-        200 with items=[]. Managers retain the existing review-list behaviour. Pagination counts are
-        computed after the role filter.
+        family-visible remarks. Order by createdAt descending, then id descending. Empty results and
+        pages beyond the last page return 200 with items=[]. Filter by applicant and optional status
+        before pagination and totalElements counting. Page defaults to 0; size defaults to 20 and
+        accepts 1 through 200. Invalid pagination or status values return 400.
 
 
-        Family identity is resolved from the session. No existing elder or active binding is required
-        to submit or read the caller's own intake application. Family reads/writes are restricted to
-        that applicant.
+        Family identity is resolved from the session. The account must currently be enabled, hold
+        FAMILY and have a family profile. No existing elder or active binding is required. A family
+        account with additional roles still receives only its own applications. This read-only GET
+        requires a valid session but no CSRF header. The manager review-list contract is retained;
+        its implementation is pending and non-FAMILY callers currently receive 403.
       x-family-response-schema:
         $ref: '#/components/schemas/FamilyIntakeApplicationPage'
   /intake-applications/{id}:
@@ -209,20 +239,24 @@ paths:
         - Intake
       summary: Get an intake application
       x-status: draft
+      x-family-status: implemented
       responses:
         '200':
           description: >-
-            Family response uses the explicitly listed family schema. Other roles retain the original
-            response schema; the server chooses by authenticated role, never by a client projection
-            flag.
+            The implemented family detail view uses FamilyIntakeApplication. The original response
+            schema is retained for the manager detail view, whose implementation is pending.
           content:
             application/json:
               schema:
                 anyOf:
                   - $ref: '#/components/schemas/FamilyIntakeApplication'
                   - $ref: '#/components/schemas/IntakeApplication'
+        '400':
+          $ref: '#/components/responses/FamilyValidationError'
         '401':
-          $ref: '#/components/responses/FamilyUnauthorized'
+          description: >-
+            No valid authenticated session. Shared security determines the response body;
+            clients must handle the HTTP status without requiring a JSON body.
         '403':
           $ref: '#/components/responses/FamilyForbidden'
         '404':
@@ -235,14 +269,18 @@ paths:
         - sessionCookie: []
       operationId: getIntakeApplication
       description: >-
-        Read the current family member's application and its review progress; another applicant's ID
-        is 403. The response elderId is null until approval links a formal elder. An approved
-        application is not an active binding. Managers retain their existing application-detail view.
+        Read the current family member's application and its review progress in any of the four
+        application statuses. Another applicant's ID returns 403; a nonexistent application returns
+        404. The path ID must fit a signed 64-bit integer; malformed or overflowing values return 400.
+        The response elderId is null until approval links a formal elder. An approved application is
+        not an active binding. Reading the application does not change its status or review fields.
 
 
-        Family identity is resolved from the session. No existing elder or active binding is required
-        to submit or read the caller's own intake application. Family reads/writes are restricted to
-        that applicant.
+        Family identity is resolved from the session. The account must currently be enabled, hold
+        FAMILY and have a family profile. No existing elder or active binding is required. A family
+        account with additional roles still reads only its own applications. This read-only GET
+        requires a valid session but no CSRF header. The manager detail contract is retained;
+        its implementation is pending and non-FAMILY callers currently receive 403.
       x-family-response-schema:
         $ref: '#/components/schemas/FamilyIntakeApplication'
   /caregivers/{caregiverId}:

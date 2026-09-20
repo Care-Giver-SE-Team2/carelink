@@ -27,6 +27,11 @@ class FamilyMemberRepositoryAdapter implements FamilyMemberRepository {
 	}
 
 	@Override
+	public Optional<FamilyMember> findByUserId(Long userId) {
+		return jpa.findByUserId(userId).map(FamilyMemberMapper::toDomain);
+	}
+
+	@Override
 	public FamilyMember save(FamilyMember familyMember) {
 		return FamilyMemberMapper.toDomain(jpa.save(FamilyMemberMapper.toEntity(familyMember)));
 	}

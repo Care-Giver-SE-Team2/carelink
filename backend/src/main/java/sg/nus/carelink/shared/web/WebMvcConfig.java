@@ -16,10 +16,10 @@ class WebMvcConfig implements WebMvcConfigurer {
 	static final String API_PATHS = "/api/**";
 	/** Logging in cannot itself require a login. Mirrors the permitAll in SecurityConfig. */
 	static final String LOGIN_PATH = "/api/auth/login";
-	/** Bootstrapping the CSRF cookie cannot itself require a login. Mirrors the permitAll in SecurityConfig. */
-	static final String CSRF_PATH = "/api/auth/csrf";
 	// TODO: temporary — remove before merging. Mirrors the permitAll in SecurityConfig.
 	static final String ELDERS_LIST_PATH = "/api/elders";
+	/** CSRF token initialization is accessible before login. */
+	static final String CSRF_PATH = "/api/auth/csrf";
 
 	private final RequestContextInterceptor requestContext;
 
@@ -27,10 +27,17 @@ class WebMvcConfig implements WebMvcConfigurer {
 		this.requestContext = requestContext;
 	}
 
+	/**
+	 * Register API request context handling, excluding login and CSRF initialization.
+	 *
+	 * @param registry Spring MVC interceptor registry
+	 *
+	 * @author Wang Zhili
+	 */
 	@Override
 	public void addInterceptors(InterceptorRegistry registry) {
 		registry.addInterceptor(requestContext)
 				.addPathPatterns(API_PATHS)
-				.excludePathPatterns(LOGIN_PATH, CSRF_PATH, ELDERS_LIST_PATH);
+				.excludePathPatterns(LOGIN_PATH, CSRF_PATH);
 	}
 }
