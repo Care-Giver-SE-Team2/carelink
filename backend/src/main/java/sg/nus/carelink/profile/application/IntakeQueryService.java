@@ -9,6 +9,7 @@ import sg.nus.carelink.profile.domain.model.IntakeApplication;
 import sg.nus.carelink.profile.domain.model.IntakeApplicationPage;
 import sg.nus.carelink.profile.domain.repository.FamilyMemberRepository;
 import sg.nus.carelink.profile.domain.repository.IntakeApplicationRepository;
+import sg.nus.carelink.shared.error.ResourceNotFound;
 import sg.nus.carelink.shared.security.Role;
 
 /**
@@ -45,14 +46,40 @@ public class IntakeQueryService {
 	@Transactional(readOnly = true)
 	public IntakeApplicationPage listMine(String authenticatedUsername, IntakeApplication.Status status,
 			int page, int size) {
+		return applications.findForApplicant(requireFamilyMemberId(authenticatedUsername), status, page, size);
+	}
+
+	/**
+	 * Read an application and its review progress after checking current family access and ownership.
+	 *
+	 * @param authenticatedUsername Username supplied by the authenticated principal
+	 * @param applicationId Identifier of the requested intake application
+	 * @return The application's saved details and review result
+	 * @throws AccessDeniedException If family access is unavailable or the application belongs to another family
+	 * @throws ResourceNotFound If the application does not exist
+	 *
+	 * @author Wang Zhili
+	 */
+	@Transactional(readOnly = true)
+	public IntakeApplication getMine(String authenticatedUsername, Long applicationId) {
+		Long familyMemberId = requireFamilyMemberId(authenticatedUsername);
+		var application = applications.findById(applicationId)
+				.orElseThrow(() -> new ResourceNotFound("Intake application", applicationId));
+		if (!familyMemberId.equals(application.applicantFamilyMemberId())) {
+			throw new AccessDeniedException("The application belongs to another family member");
+		}
+		return application;
+	}
+
+	private Long requireFamilyMemberId(String authenticatedUsername) {
 		if (authenticatedUsername == null || authenticatedUsername.isBlank()) {
 			throw new AccessDeniedException("An authenticated family account is required");
 		}
 		var user = users.findByUsername(authenticatedUsername)
 				.filter(account -> account.enabled() && account.hasRole(Role.FAMILY))
-				.orElseThrow(() -> new AccessDeniedException("A family account is required to list applications"));
+				.orElseThrow(() -> new AccessDeniedException("A family account is required to access applications"));
 		var family = families.findByUserId(user.id())
-				.orElseThrow(() -> new AccessDeniedException("A family profile is required to list applications"));
-		return applications.findForApplicant(family.id(), status, page, size);
+				.orElseThrow(() -> new AccessDeniedException("A family profile is required to access applications"));
+		return family.id();
 	}
 }

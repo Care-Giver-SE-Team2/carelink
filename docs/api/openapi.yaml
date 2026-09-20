@@ -239,20 +239,24 @@ paths:
         - Intake
       summary: Get an intake application
       x-status: draft
+      x-family-status: implemented
       responses:
         '200':
           description: >-
-            Family response uses the explicitly listed family schema. Other roles retain the original
-            response schema; the server chooses by authenticated role, never by a client projection
-            flag.
+            The implemented family detail view uses FamilyIntakeApplication. The original response
+            schema is retained for the manager detail view, whose implementation is pending.
           content:
             application/json:
               schema:
                 anyOf:
                   - $ref: '#/components/schemas/FamilyIntakeApplication'
                   - $ref: '#/components/schemas/IntakeApplication'
+        '400':
+          $ref: '#/components/responses/FamilyValidationError'
         '401':
-          $ref: '#/components/responses/FamilyUnauthorized'
+          description: >-
+            No valid authenticated session. Shared security determines the response body;
+            clients must handle the HTTP status without requiring a JSON body.
         '403':
           $ref: '#/components/responses/FamilyForbidden'
         '404':
@@ -265,14 +269,18 @@ paths:
         - sessionCookie: []
       operationId: getIntakeApplication
       description: >-
-        Read the current family member's application and its review progress; another applicant's ID
-        is 403. The response elderId is null until approval links a formal elder. An approved
-        application is not an active binding. Managers retain their existing application-detail view.
+        Read the current family member's application and its review progress in any of the four
+        application statuses. Another applicant's ID returns 403; a nonexistent application returns
+        404. The path ID must fit a signed 64-bit integer; malformed or overflowing values return 400.
+        The response elderId is null until approval links a formal elder. An approved application is
+        not an active binding. Reading the application does not change its status or review fields.
 
 
-        Family identity is resolved from the session. No existing elder or active binding is required
-        to submit or read the caller's own intake application. Family reads/writes are restricted to
-        that applicant.
+        Family identity is resolved from the session. The account must currently be enabled, hold
+        FAMILY and have a family profile. No existing elder or active binding is required. A family
+        account with additional roles still reads only its own applications. This read-only GET
+        requires a valid session but no CSRF header. The manager detail contract is retained;
+        its implementation is pending and non-FAMILY callers currently receive 403.
       x-family-response-schema:
         $ref: '#/components/schemas/FamilyIntakeApplication'
   /caregivers/{caregiverId}:

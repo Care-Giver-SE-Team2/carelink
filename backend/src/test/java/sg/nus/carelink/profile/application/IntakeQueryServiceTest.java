@@ -19,6 +19,7 @@ import sg.nus.carelink.identity.domain.model.AppUser;
 import sg.nus.carelink.profile.domain.model.FamilyMember;
 import sg.nus.carelink.profile.domain.model.IntakeApplication;
 import sg.nus.carelink.profile.domain.model.IntakeSubmission;
+import sg.nus.carelink.shared.error.ResourceNotFound;
 import sg.nus.carelink.shared.security.Role;
 
 /**
@@ -69,10 +70,36 @@ class IntakeQueryServiceTest {
 	}
 
 	@ParameterizedTest
+	@ValueSource(longs = { 0L, -1L, 999L, Long.MAX_VALUE })
+	void reportsANonexistentApplicationAfterCheckingFamilyAccess(Long applicationId) {
+		assertThatThrownBy(() -> service.getMine("family-a", applicationId))
+				.isInstanceOf(ResourceNotFound.class);
+	}
+
+	@Test
+	void readsTheCurrentFamilysApplicationWithoutRequiringAnElderBinding() {
+		var details = new IntakeSubmission("Tan Mei", null, "12 Example Road", "123456", null, null, null, null);
+		var saved = applications.save(IntakeApplication.submit(42L, details));
+
+		assertThat(service.getMine("family-a", saved.id())).isEqualTo(saved);
+	}
+
+	@Test
+	void refusesAnApplicationOwnedByAnotherFamilyEvenWhenItsFamilyIdMatchesTheUserId() {
+		var details = new IntakeSubmission("Private elder", null, "Private address", "123456", null, null, null, null);
+		var other = applications.save(IntakeApplication.submit(7L, details));
+
+		assertThatThrownBy(() -> service.getMine("family-a", other.id()))
+				.isInstanceOf(AccessDeniedException.class);
+	}
+
+	@ParameterizedTest
 	@NullAndEmptySource
 	@ValueSource(strings = { " ", "unknown", "manager", "disabled", "no-profile" })
 	void refusesQueriesWithoutAnEnabledFamilyAccountAndProfile(String username) {
 		assertThatThrownBy(() -> service.listMine(username, null, 0, 20))
+				.isInstanceOf(AccessDeniedException.class);
+		assertThatThrownBy(() -> service.getMine(username, 999L))
 				.isInstanceOf(AccessDeniedException.class);
 	}
 }

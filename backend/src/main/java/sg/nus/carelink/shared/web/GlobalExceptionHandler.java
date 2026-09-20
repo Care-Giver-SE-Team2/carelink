@@ -7,8 +7,10 @@ import org.springframework.http.ProblemDetail;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.MissingPathVariableException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
 import sg.nus.carelink.shared.error.BusinessRuleViolation;
 import sg.nus.carelink.shared.error.ResourceNotFound;
@@ -59,6 +61,40 @@ class GlobalExceptionHandler {
 	ProblemDetail onAccessDenied(AccessDeniedException ex) {
 		ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.FORBIDDEN, "Not permitted to access this resource");
 		problem.setTitle("Insufficient permission");
+		return problem;
+	}
+
+	/**
+	 * Report path or query parameters that cannot be converted to the expected format.
+	 *
+	 * @param ex Parameter conversion failure
+	 * @return A standard 400 problem response identifying the invalid parameter
+	 *
+	 * @author Wang Zhili
+	 */
+	@ExceptionHandler(MethodArgumentTypeMismatchException.class)
+	ProblemDetail onParameterTypeMismatch(MethodArgumentTypeMismatchException ex) {
+		return invalidParameter(ex.getName());
+	}
+
+	/**
+	 * Report path values converted to null while retaining server errors for missing route declarations.
+	 *
+	 * @param ex Missing path variable or failed conversion
+	 * @return A 400 response for invalid input, or a 500 response for a route configuration error
+	 *
+	 * @author Wang Zhili
+	 */
+	@ExceptionHandler(MissingPathVariableException.class)
+	ProblemDetail onMissingPathVariable(MissingPathVariableException ex) {
+		return ex.isMissingAfterConversion() ? invalidParameter(ex.getVariableName()) : onUnexpected(ex);
+	}
+
+	private ProblemDetail invalidParameter(String name) {
+		ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST,
+				"Request parameter has an invalid format");
+		problem.setTitle("Invalid request");
+		problem.setProperty("fields", Map.of(name, "Invalid value"));
 		return problem;
 	}
 

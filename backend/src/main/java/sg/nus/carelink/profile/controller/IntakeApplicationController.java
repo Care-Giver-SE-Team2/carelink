@@ -7,6 +7,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.ModelAttribute;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -21,7 +22,7 @@ import sg.nus.carelink.profile.controller.dto.IntakeApplicationCreateRequest;
 import sg.nus.carelink.profile.controller.dto.IntakeApplicationListRequest;
 
 /**
- * Exposes submission and list endpoints for family intake applications.
+ * Exposes submission, list and detail endpoints for family intake applications.
  *
  * @author Wang Zhili
  */
@@ -52,6 +53,21 @@ public class IntakeApplicationController {
 			Principal principal) {
 		return FamilyIntakeApplicationPageResponse.from(queries.listMine(principal.getName(), request.toStatus(),
 				request.getPage(), request.getSize()));
+	}
+
+	/**
+	 * Read the logged-in family's application details and review progress.
+	 *
+	 * @param id Application identifier from the request path
+	 * @param principal Logged-in account supplied by Spring Security
+	 * @return Family-visible application details and review result
+	 *
+	 * @author Wang Zhili
+	 */
+	@GetMapping("/{id}")
+	@PreAuthorize("hasRole('FAMILY')")
+	public FamilyIntakeApplicationResponse get(@PathVariable Long id, Principal principal) {
+		return FamilyIntakeApplicationResponse.from(queries.getMine(principal.getName(), id));
 	}
 
 	/**

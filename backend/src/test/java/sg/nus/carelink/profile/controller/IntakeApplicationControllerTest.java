@@ -55,6 +55,24 @@ class IntakeApplicationControllerTest {
 	}
 
 	@Test
+	void readsTheDetailsOfAnApplicationSubmittedByTheCurrentFamily() throws Exception {
+		mvc.perform(post("/api/intake-applications").principal(() -> "family-a")
+				.contentType(MediaType.APPLICATION_JSON).content("""
+						{"targetElderName":"Tan Mei","targetAddress":"12 Example Road","postalCode":"123456"}
+						"""))
+				.andExpect(status().isCreated())
+				.andExpect(jsonPath("$.id").value(1));
+
+		mvc.perform(get("/api/intake-applications/1").principal(() -> "family-a"))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.id").value(1))
+				.andExpect(jsonPath("$.applicantFamilyMemberId").value(42))
+				.andExpect(jsonPath("$.targetElderName").value("Tan Mei"))
+				.andExpect(jsonPath("$.status").value("SUBMITTED"))
+				.andExpect(jsonPath("$.reviewedByUserId").doesNotExist());
+	}
+
+	@Test
 	void rejectsAnExplicitlyEmptyStatusInsteadOfRemovingTheFilter() throws Exception {
 		mvc.perform(get("/api/intake-applications").principal(() -> "family-a").param("status", ""))
 				.andExpect(status().isBadRequest());
