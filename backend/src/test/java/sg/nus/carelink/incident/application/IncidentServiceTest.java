@@ -98,7 +98,8 @@ class IncidentServiceTest {
 		service.claim(raised.id(), IncidentFixtures.ALICE.userId(), "Alice");
 
 		Long incidentId = raised.id();
-		assertThatThrownBy(() -> service.claim(incidentId, IncidentFixtures.BEN.userId(), "Ben"))
+		Long ben = IncidentFixtures.BEN.userId();
+		assertThatThrownBy(() -> service.claim(incidentId, ben, "Ben"))
 				.isInstanceOf(BusinessRuleViolation.class);
 
 		assertThat(timeline.actionsFor(raised.id())).endsWith("CLAIM_REJECTED");
@@ -206,8 +207,8 @@ class IncidentServiceTest {
 		service.claim(raised.id(), IncidentFixtures.ALICE.userId(), "Alice");
 
 		Long incidentId = raised.id();
-		assertThatThrownBy(() -> service.resolve(
-				incidentId, IncidentFixtures.BEN.userId(), "all fine", null, "Ben"))
+		Long ben = IncidentFixtures.BEN.userId();
+		assertThatThrownBy(() -> service.resolve(incidentId, ben, "all fine", null, "Ben"))
 				.isInstanceOf(AccessDeniedException.class);
 	}
 
@@ -217,8 +218,8 @@ class IncidentServiceTest {
 		service.claim(raised.id(), IncidentFixtures.ALICE.userId(), "Alice");
 
 		Long incidentId = raised.id();
-		assertThatThrownBy(() -> service.resolve(
-				incidentId, IncidentFixtures.ALICE.userId(), "  ", null, "Alice"))
+		Long alice = IncidentFixtures.ALICE.userId();
+		assertThatThrownBy(() -> service.resolve(incidentId, alice, "  ", null, "Alice"))
 				.isInstanceOf(BusinessRuleViolation.class)
 				.extracting(violation -> ((BusinessRuleViolation) violation).code())
 				.isEqualTo("RESOLUTION_NOTE_REQUIRED");
