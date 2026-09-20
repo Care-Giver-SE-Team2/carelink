@@ -381,7 +381,11 @@ describe('Family intake submission', () => {
     })
   })
 
-  it('opens the form from the list, submits required fields and shows the saved application', async () => {
+  it('opens the form from the list and waits for saved application details after submission', async () => {
+    let resolveDetail!: (response: Response) => void
+    const detailResponse = new Promise<Response>((resolve) => {
+      resolveDetail = resolve
+    })
     const fetchMock = vi.fn().mockImplementation((url: string, init: RequestInit) => {
       if (url === '/api/auth/csrf') {
         document.cookie = 'XSRF-TOKEN=submission-token; path=/'
@@ -399,7 +403,7 @@ describe('Family intake submission', () => {
         expect(init.credentials).toBe('include')
         return Promise.resolve(json(savedApplication, 201))
       }
-      if (url.endsWith('/23')) return Promise.resolve(json(savedApplication))
+      if (url.endsWith('/23')) return detailResponse
       return Promise.resolve(json({ items: [], page: 0, size: 20, totalElements: 0 }))
     })
     vi.stubGlobal('fetch', fetchMock)
@@ -411,8 +415,12 @@ describe('Family intake submission', () => {
     expect(
       await screen.findByRole('heading', { name: 'Application submitted' }),
     ).toBeInTheDocument()
-    expect(screen.getByText('APPLICATION #23')).toBeInTheDocument()
+    expect(screen.getByText('Loading your application information…')).toBeInTheDocument()
+    expect(screen.queryByText('APPLICATION #23')).not.toBeInTheDocument()
+    resolveDetail(json(savedApplication))
+    expect(await screen.findByText('APPLICATION #23')).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: 'Tan Mei' })).toBeInTheDocument()
+    expect(screen.queryByText('Loading your application information…')).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Submit application' })).not.toBeInTheDocument()
   })
 })
