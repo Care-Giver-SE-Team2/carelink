@@ -77,6 +77,7 @@ public record IncidentLog(
 	/** Every kind of entry the incident flow writes. Stored as text in incident_log.action. */
 	public enum Action {
 		REPORTED,
+		BROADCAST,
 		ASSIGNED,
 		CLAIMED,
 		CLAIM_REJECTED,

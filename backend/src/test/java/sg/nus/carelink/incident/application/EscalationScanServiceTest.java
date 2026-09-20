@@ -13,6 +13,7 @@ import sg.nus.carelink.incident.support.FakeManagerDirectory;
 import sg.nus.carelink.incident.support.IncidentFixtures;
 import sg.nus.carelink.incident.support.InMemoryIncidentLogRepository;
 import sg.nus.carelink.incident.support.InMemoryIncidentRepository;
+import sg.nus.carelink.incident.support.RecordingAlert;
 
 /**
  * UC-SYS02: the scan that turns an expired countdown into an escalation.
@@ -26,6 +27,7 @@ class EscalationScanServiceTest {
 
 	private final InMemoryIncidentRepository incidents = new InMemoryIncidentRepository();
 	private final InMemoryIncidentLogRepository timeline = new InMemoryIncidentLogRepository();
+	private final RecordingAlert alert = new RecordingAlert();
 	private final FakeManagerDirectory directory =
 			FakeManagerDirectory.with(IncidentFixtures.ALICE, IncidentFixtures.BEN);
 
@@ -128,7 +130,7 @@ class EscalationScanServiceTest {
 	private IncidentService serviceAt(LocalDateTime moment) {
 		Clock clock = IncidentFixtures.clockAt(moment);
 		EscalationService escalation =
-				new EscalationService(incidents, timeline, directory, EscalationPolicy.defaults(), clock);
+				new EscalationService(incidents, timeline, directory, alert, EscalationPolicy.defaults(), clock);
 		return new IncidentService(incidents, timeline, escalation, clock);
 	}
 
@@ -138,6 +140,6 @@ class EscalationScanServiceTest {
 
 	private EscalationService escalationAt(LocalDateTime moment) {
 		return new EscalationService(
-				incidents, timeline, directory, EscalationPolicy.defaults(), IncidentFixtures.clockAt(moment));
+				incidents, timeline, directory, alert, EscalationPolicy.defaults(), IncidentFixtures.clockAt(moment));
 	}
 }

@@ -18,6 +18,7 @@ import sg.nus.carelink.incident.support.FakeManagerDirectory;
 import sg.nus.carelink.incident.support.IncidentFixtures;
 import sg.nus.carelink.incident.support.InMemoryIncidentLogRepository;
 import sg.nus.carelink.incident.support.InMemoryIncidentRepository;
+import sg.nus.carelink.incident.support.RecordingAlert;
 import sg.nus.carelink.shared.error.BusinessRuleViolation;
 import sg.nus.carelink.shared.error.ResourceNotFound;
 
@@ -31,6 +32,7 @@ class IncidentServiceTest {
 
 	private final InMemoryIncidentRepository incidents = new InMemoryIncidentRepository();
 	private final InMemoryIncidentLogRepository timeline = new InMemoryIncidentLogRepository();
+	private final RecordingAlert alert = new RecordingAlert();
 	private final Clock clock = IncidentFixtures.clockAt(IncidentFixtures.RAISED_AT);
 
 	private IncidentService service;
@@ -48,11 +50,54 @@ class IncidentServiceTest {
 
 	private IncidentService buildService(FakeManagerDirectory directory) {
 		EscalationService escalation = new EscalationService(
-				incidents, timeline, directory, EscalationPolicy.defaults(), clock);
+				incidents, timeline, directory, alert, EscalationPolicy.defaults(), clock);
 		return new IncidentService(incidents, timeline, escalation, clock);
 	}
 
 	// -------------------------------------------------------------------- raising ---
+
+	// ------------------------------------------------------- telling people ---
+
+	@Test
+	void everybodyWhoCouldActIsToldBeforeTheChainDecidesAnything() {
+		Incident raised = raise();
+
+		assertThat(alert.broadcasts())
+				.as("one broadcast, at the moment the incident was raised")
+				.containsExactly(raised.id());
+		assertThat(timeline.actionsFor(raised.id()))
+				.as("the broadcast lands on the timeline before the first assignment")
+				.containsSubsequence("BROADCAST", "ASSIGNED");
+	}
+
+	@Test
+	void anEscalationTellsOnlyTheTwoPeopleWhoseResponsibilityChanged() {
+		Incident raised = raise();
+		int broadcastsAfterRaising = alert.broadcasts().size();
+
+		service.escalate(raised.id(), "no answer", "Manager");
+
+		assertThat(alert.broadcasts())
+				.as("the family already knows; an escalation does not tell everyone again")
+				.hasSize(broadcastsAfterRaising);
+		assertThat(alert.handOvers()).last()
+				.satisfies(handOver -> {
+					assertThat(handOver.from()).isEqualTo(IncidentFixtures.ALICE.userId());
+					assertThat(handOver.to()).isEqualTo(IncidentFixtures.BEN.userId());
+				});
+	}
+
+	@Test
+	void theFamilyIsToldWhenNobodyTakesTheIncidentAtAll() {
+		service = buildService(FakeManagerDirectory.empty());
+
+		Incident raised = raise();
+
+		assertThat(raised.status()).isEqualTo(Incident.Status.UNRESOLVED_ESCALATED);
+		assertThat(alert.exhausted()).containsExactly(raised.id());
+	}
+
+	// ------------------------------------------------------------- routing ---
 
 	@Test
 	void aCaregiverReportIsRoutedTheMomentItIsRaised() {
@@ -61,7 +106,7 @@ class IncidentServiceTest {
 
 		assertThat(raised.responderUserId()).isEqualTo(IncidentFixtures.ALICE.userId());
 		assertThat(raised.respondBy()).isEqualTo(IncidentFixtures.RAISED_AT.plusMinutes(15));
-		assertThat(timeline.actionsFor(raised.id())).containsExactly("REPORTED", "ASSIGNED");
+		assertThat(timeline.actionsFor(raised.id())).containsExactly("REPORTED", "BROADCAST", "ASSIGNED");
 	}
 
 	/**

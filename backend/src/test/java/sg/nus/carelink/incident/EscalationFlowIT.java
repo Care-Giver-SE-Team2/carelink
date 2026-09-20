@@ -145,6 +145,43 @@ class EscalationFlowIT {
 	}
 
 	@Test
+	void everyoneWhoCouldActGetsARowInTheInboxAtOnce() {
+		Incident raised = raiseFor(elder, "SOS pressed");
+
+		List<String> told = jdbc.queryForList("""
+				select u.username from notification n
+				join app_user u on u.id = n.recipient_user_id
+				where n.resource_type = 'INCIDENT' and n.resource_id = ?
+				  and n.event_type = 'INCIDENT_RAISED'
+				order by u.username
+				""", String.class, raised.id());
+
+		assertThat(told)
+				.as("all three managers, in the same second the incident was raised")
+				.contains("alice", "ben", "cara");
+
+		assertThat(incidents.timelineOf(raised.id()).stream().map(IncidentLog::action))
+				.containsSubsequence("BROADCAST", "ASSIGNED");
+	}
+
+	@Test
+	void anEscalationDoesNotTellEverybodyAgain() {
+		Incident raised = raiseFor(elder, "SOS pressed");
+		clock.advance(Duration.ofMinutes(6));
+		scan.sweep();
+
+		Integer broadcasts = jdbc.queryForObject(
+				"select count(*) from notification where resource_id = ? and event_type = 'INCIDENT_RAISED'",
+				Integer.class, raised.id());
+		Integer handOvers = jdbc.queryForObject(
+				"select count(*) from notification where resource_id = ? and event_type = 'INCIDENT_ASSIGNED'",
+				Integer.class, raised.id());
+
+		assertThat(broadcasts).as("the broadcast happened once, when it was raised").isEqualTo(3);
+		assertThat(handOvers).as("each new responder is told the incident is theirs").isEqualTo(2);
+	}
+
+	@Test
 	void theWholeHandlingFlowSurvivesARealDatabase() {
 		Incident raised = raiseFor(elder, "SOS pressed");
 		Long id = raised.id();
@@ -163,7 +200,8 @@ class EscalationFlowIT {
 
 		List<String> timeline = incidents.timelineOf(id).stream().map(IncidentLog::action).toList();
 		assertThat(timeline).containsExactly(
-				"REPORTED", "ASSIGNED", "CLAIMED", "CONTACT_ATTEMPTED", "PLAYBOOK_APPLIED", "RESOLVED");
+				"REPORTED", "BROADCAST", "ASSIGNED", "CLAIMED",
+				"CONTACT_ATTEMPTED", "PLAYBOOK_APPLIED", "RESOLVED");
 	}
 
 	@Test

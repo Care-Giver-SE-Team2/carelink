@@ -13,8 +13,9 @@ import org.springframework.transaction.annotation.Transactional;
 import sg.nus.carelink.incident.domain.model.EscalationChain;
 import sg.nus.carelink.incident.domain.model.Incident;
 import sg.nus.carelink.incident.domain.model.IncidentLog;
-import sg.nus.carelink.incident.domain.repository.ManagerDirectory;
+import sg.nus.carelink.incident.domain.repository.IncidentAlert;
 import sg.nus.carelink.incident.domain.repository.IncidentLogRepository;
+import sg.nus.carelink.incident.domain.repository.ManagerDirectory;
 import sg.nus.carelink.incident.domain.repository.IncidentRepository;
 import sg.nus.carelink.incident.domain.service.EscalationChainBuilder;
 import sg.nus.carelink.incident.domain.service.EscalationOutcome;
@@ -42,6 +43,7 @@ public class EscalationService {
 	private final IncidentRepository incidents;
 	private final IncidentLogRepository timeline;
 	private final ManagerDirectory directory;
+	private final IncidentAlert alert;
 	private final EscalationPolicy policy;
 	private final Clock clock;
 
@@ -49,12 +51,14 @@ public class EscalationService {
 			IncidentRepository incidents,
 			IncidentLogRepository timeline,
 			ManagerDirectory directory,
+			IncidentAlert alert,
 			EscalationPolicy policy,
 			Clock clock) {
 
 		this.incidents = incidents;
 		this.timeline = timeline;
 		this.directory = directory;
+		this.alert = alert;
 		this.policy = policy;
 		this.clock = clock;
 	}
@@ -69,6 +73,15 @@ public class EscalationService {
 	 */
 	public Incident routeNewIncident(Incident saved) {
 		LocalDateTime now = now();
+
+		// Everyone who could act hears about it first, in the same second, before the chain
+		// decides anything. Who finds out and who is answerable are different questions, and
+		// nobody should wait on the second to be told the first.
+		int told = alert.broadcastRaised(saved);
+		timeline.save(IncidentLog.systemEntry(saved.id(), IncidentLog.Action.BROADCAST,
+				"%d recipient(s): every manager, the family bound to this elder, and the caregiver "
+						.formatted(told) + "who last visited", now));
+
 		EscalationOutcome outcome = chainFor(saved, now).handle(EscalationRequest.routing(saved, now, policy));
 		return applyOutcome(saved, outcome, now, IncidentLog.SYSTEM_ACTOR, "first responder");
 	}
@@ -162,12 +175,15 @@ public class EscalationService {
 			timeline.save(IncidentLog.assignment(
 					assigned.id(), actor, outcome.responder().userId(),
 					"%s - %s".formatted(narrative, outcome.describeRoute()), now));
+			// Only the two people whose responsibility changed. The rest already know.
+			alert.handedOver(assigned, incident.responderUserId(), assigned.responderUserId());
 			return assigned;
 		}
 
 		Incident unresolved = incidents.save(incident.markUnresolvedEscalated());
 		timeline.save(IncidentLog.entry(unresolved.id(), actor, IncidentLog.Action.CHAIN_EXHAUSTED,
 				"%s - %s; pinned for the family".formatted(narrative, outcome.describeRoute()), now));
+		alert.chainExhausted(unresolved);
 		return unresolved;
 	}
 
