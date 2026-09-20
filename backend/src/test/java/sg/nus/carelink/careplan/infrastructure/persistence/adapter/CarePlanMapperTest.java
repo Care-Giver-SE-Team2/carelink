@@ -3,6 +3,7 @@ package sg.nus.carelink.careplan.infrastructure.persistence.adapter;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 import org.junit.jupiter.api.Test;
@@ -24,6 +25,10 @@ class CarePlanMapperTest {
 		entity.setStatus(CarePlanJpaEntity.Status.DRAFT);
 		entity.setTotalHours(new BigDecimal("7.5"));
 		entity.setPublishedAt(LocalDateTime.of(2026, 9, 6, 10, 8));
+		entity.setStopEffectiveDate(LocalDate.of(2026, 9, 22));
+		entity.setStopReason("Elder moved away");
+		entity.setStoppedByUserId(9L);
+		entity.setStoppedAt(LocalDateTime.of(2026, 9, 21, 14, 0));
 
 		CarePlan domain = CarePlanMapper.toDomain(entity);
 		assertThat(domain.id()).isEqualTo(entity.getId());
@@ -34,6 +39,10 @@ class CarePlanMapperTest {
 		assertThat(domain.status().name()).isEqualTo(entity.getStatus().name());
 		assertThat(domain.totalHours()).isEqualTo(entity.getTotalHours());
 		assertThat(domain.publishedAt()).isEqualTo(entity.getPublishedAt());
+		assertThat(domain.stopEffectiveDate()).isEqualTo(entity.getStopEffectiveDate());
+		assertThat(domain.stopReason()).isEqualTo(entity.getStopReason());
+		assertThat(domain.stoppedByUserId()).isEqualTo(entity.getStoppedByUserId());
+		assertThat(domain.stoppedAt()).isEqualTo(entity.getStoppedAt());
 
 		CarePlanJpaEntity back = CarePlanMapper.toEntity(domain);
 		assertThat(back.getId()).isEqualTo(entity.getId());
@@ -44,5 +53,9 @@ class CarePlanMapperTest {
 		assertThat(back.getStatus()).isEqualTo(entity.getStatus());
 		assertThat(back.getTotalHours()).isEqualTo(entity.getTotalHours());
 		assertThat(back.getPublishedAt()).isEqualTo(entity.getPublishedAt());
+		assertThat(back.getStopEffectiveDate()).isEqualTo(entity.getStopEffectiveDate());
+		assertThat(back.getStopReason()).isEqualTo(entity.getStopReason());
+		assertThat(back.getStoppedByUserId()).isEqualTo(entity.getStoppedByUserId());
+		assertThat(back.getStoppedAt()).isEqualTo(entity.getStoppedAt());
 	}
 }

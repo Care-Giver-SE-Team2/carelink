@@ -1,7 +1,10 @@
 import type { ReactNode } from 'react'
+import { useNavigate } from 'react-router-dom'
 import styles from './Header.module.css'
 
 export function Header({ context, right }: { context?: ReactNode; right?: ReactNode }) {
+  const navigate = useNavigate()
+
   return (
     <header className={styles.header}>
       <div className={`${styles.left} ${context ? styles.withContext : ''}`}>
@@ -22,6 +25,9 @@ export function Header({ context, right }: { context?: ReactNode; right?: ReactN
             <span className={styles.roleBadge}>CARE MGR</span>
           </>
         )}
+        <button className={styles.logoutBtn} onClick={() => navigate('/')}>
+          Log out
+        </button>
       </div>
     </header>
   )

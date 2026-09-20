@@ -79,6 +79,12 @@ export default function Elders() {
     else if (sort === 'next-visit') sorted.sort((a, b) => nextVisitRank(a.nextVisitAt) - nextVisitRank(b.nextVisitAt))
     else if (sort === 'plan-status')
       sorted.sort((a, b) => PLAN_STATUS_RANK[a.planStatus] - PLAN_STATUS_RANK[b.planStatus])
+    // Elders needing attention float to the top, regardless of the chosen sort — each stable
+    // sort only reorders across its own boundary, so the chosen order still holds within a group.
+    // No care plan outranks no caregiver (primaryCaregiver is always null today — rostering isn't
+    // wired up yet — so this pass is a no-op for now, but stays correct once it is).
+    sorted.sort((a, b) => (a.primaryCaregiver ? 1 : 0) - (b.primaryCaregiver ? 1 : 0))
+    sorted.sort((a, b) => (a.planStatus === 'none' ? 0 : 1) - (b.planStatus === 'none' ? 0 : 1))
     return sorted
   }, [elders, query, sector, planFilter, sort])
 
@@ -98,7 +104,6 @@ export default function Elders() {
     <div className={headerStyles.identityGroup}>
       <span className={headerStyles.userName}>Tan Mei Ling</span>
       <span className={headerStyles.roleBadge}>CARE MGR</span>
-      <button className={headerStyles.logoutBtn}>Log out</button>
     </div>
   )
 
@@ -214,12 +219,15 @@ export default function Elders() {
               filtered.map((e) => {
                 const isSelected = e.id === selectedId
                 const isHovered = e.id === hoveredId && !isSelected
-                const badgeClass =
-                  isSelected && e.planStatus === 'published' ? styles.publishedDark : styles[e.planStatus]
                 return (
                   <div
                     key={e.id}
-                    className={[styles.row, isSelected && styles.selected, isHovered && styles.hovered]
+                    className={[
+                      styles.row,
+                      e.planStatus === 'none' && styles.noPlan,
+                      isHovered && styles.hovered,
+                      isSelected && styles.selected,
+                    ]
                       .filter(Boolean)
                       .join(' ')}
                     onMouseEnter={() => setHoveredId(e.id)}
@@ -238,26 +246,18 @@ export default function Elders() {
                     <span className={[styles.rowSector, isSelected && styles.selected].filter(Boolean).join(' ')}>
                       {e.sector}
                     </span>
-                    <span className={[styles.badge, badgeClass].filter(Boolean).join(' ')}>
+                    <span className={[styles.badge, styles[e.planStatus]].filter(Boolean).join(' ')}>
                       {planBadgeLabel(e.planStatus, e.planVersion)}
                     </span>
                     <span
-                      className={[
-                        styles.rowCaregiver,
-                        !e.primaryCaregiver && styles.unassigned,
-                        isSelected && styles.selected,
-                      ]
+                      className={[styles.rowCaregiver, !e.primaryCaregiver && styles.unassigned]
                         .filter(Boolean)
                         .join(' ')}
                     >
                       {e.primaryCaregiver ?? 'unassigned'}
                     </span>
                     <span
-                      className={[
-                        styles.rowNextVisit,
-                        !e.nextVisitAt && styles.unassigned,
-                        isSelected && styles.selected,
-                      ]
+                      className={[styles.rowNextVisit, !e.nextVisitAt && styles.unassigned]
                         .filter(Boolean)
                         .join(' ')}
                     >
@@ -277,7 +277,7 @@ export default function Elders() {
         <div className={styles.rail}>
           <div className={styles.railEyebrow}>Selected</div>
 
-          {!selected || !selectedDetail ? (
+          {!selected ? (
             <p className={styles.railEmpty}>Select an elder to preview their care plan.</p>
           ) : (
             <>
@@ -292,9 +292,10 @@ export default function Elders() {
                 <div>
                   <div className={styles.selectedName}>{selected.name}</div>
                   <div className={styles.selectedMeta}>
-                    {selected.id} · {selected.age} · {selectedDetail.livingSituation}
+                    {selected.id} · {selected.age}
+                    {selectedDetail ? ` · ${selectedDetail.livingSituation}` : ''}
                     <br />
-                    {selectedDetail.addressFull}
+                    {selectedDetail?.addressFull ?? selected.street}
                   </div>
                 </div>
               </div>
@@ -341,18 +342,22 @@ export default function Elders() {
               <div className={styles.card}>
                 <span className={styles.cardTitle}>Family contacts</span>
                 <div className={styles.contactList}>
-                  {selectedDetail.contacts.map((c) => (
-                    <div key={c.name} className={styles.contactRow}>
-                      <span className={styles.contactName}>{c.name}</span>
-                      <span>
-                        {c.relation} · {c.access}
-                      </span>
-                    </div>
-                  ))}
+                  {!selectedDetail || selectedDetail.contacts.length === 0 ? (
+                    <p className={styles.cardMuted}>No family contacts on file yet.</p>
+                  ) : (
+                    selectedDetail.contacts.map((c) => (
+                      <div key={c.name} className={styles.contactRow}>
+                        <span className={styles.contactName}>{c.name}</span>
+                        <span>
+                          {c.relation} · {c.access}
+                        </span>
+                      </div>
+                    ))
+                  )}
                 </div>
               </div>
 
-              {selectedDetail.openExceptions.length > 0 && (
+              {selectedDetail && selectedDetail.openExceptions.length > 0 && (
                 <div className={styles.exceptionBanner}>
                   {selectedDetail.openExceptions.length === 1
                     ? `1 open exception on this elder — ${selectedDetail.openExceptions[0].kind}, ${selectedDetail.openExceptions[0].date}.`
@@ -376,9 +381,14 @@ export default function Elders() {
                 <button className={styles.secondaryBtn}>View visit history</button>
               </div>
 
-              <div className={styles.railFooter}>
-                Opening a record is written to the audit log with your name and the time.
-              </div>
+              {!isOutOfSector(selected) && selected.planStatus === 'published' && (
+                <button
+                  className={styles.dangerBtn}
+                  onClick={() => navigate(`/manager/elders/${selected.id}`)}
+                >
+                  Stop care plan
+                </button>
+              )}
             </>
           )}
         </div>

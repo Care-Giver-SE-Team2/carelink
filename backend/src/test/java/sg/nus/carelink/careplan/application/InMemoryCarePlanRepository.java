@@ -1,5 +1,6 @@
 package sg.nus.carelink.careplan.application;
 
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
@@ -16,6 +17,13 @@ class InMemoryCarePlanRepository implements CarePlanRepository {
 	@Override
 	public Optional<CarePlan> findById(Long id) {
 		return Optional.ofNullable(rows.get(id));
+	}
+
+	@Override
+	public Optional<CarePlan> findLatestByElderId(Long elderId) {
+		return rows.values().stream()
+				.filter(p -> p.elderId().equals(elderId))
+				.max(Comparator.comparing(CarePlan::version));
 	}
 
 	@Override

@@ -1,5 +1,6 @@
 package sg.nus.carelink.careplan.infrastructure.persistence.adapter;
 
+import java.util.List;
 import java.util.Optional;
 
 import org.springframework.stereotype.Repository;
@@ -27,7 +28,17 @@ class CarePlanNodeRepositoryAdapter implements CarePlanNodeRepository {
 	}
 
 	@Override
+	public List<CarePlanNode> findByCarePlanId(Long carePlanId) {
+		return jpa.findByCarePlanId(carePlanId).stream().map(CarePlanNodeMapper::toDomain).toList();
+	}
+
+	@Override
 	public CarePlanNode save(CarePlanNode carePlanNode) {
 		return CarePlanNodeMapper.toDomain(jpa.save(CarePlanNodeMapper.toEntity(carePlanNode)));
+	}
+
+	@Override
+	public void deleteByCarePlanId(Long carePlanId) {
+		jpa.deleteByCarePlanId(carePlanId);
 	}
 }

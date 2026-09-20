@@ -27,6 +27,11 @@ class CarePlanRepositoryAdapter implements CarePlanRepository {
 	}
 
 	@Override
+	public Optional<CarePlan> findLatestByElderId(Long elderId) {
+		return jpa.findFirstByElderIdOrderByVersionDesc(elderId).map(CarePlanMapper::toDomain);
+	}
+
+	@Override
 	public CarePlan save(CarePlan carePlan) {
 		return CarePlanMapper.toDomain(jpa.save(CarePlanMapper.toEntity(carePlan)));
 	}

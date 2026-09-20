@@ -15,10 +15,8 @@ import java.time.LocalDateTime;
 public record CarePlanNode(
 		Long id,
 		Long carePlanId,
-		Long parentId,
-		CarePlanNode.NodeType nodeType,
+		String groupName,
 		String name,
-		String serviceType,
 		String scheduleDays,
 		BigDecimal durationPerVisit,
 		BigDecimal weeklyHours,
@@ -26,10 +24,6 @@ public record CarePlanNode(
 		Integer displayOrder,
 		LocalDateTime createdAt,
 		LocalDateTime updatedAt) {
-
-	public enum NodeType {
-		SUB_PLAN, TASK
-	}
 
 	public enum EvidenceType {
 		NONE, CHECKLIST, PHOTO, READING

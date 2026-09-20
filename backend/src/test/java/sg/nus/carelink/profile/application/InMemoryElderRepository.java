@@ -1,6 +1,7 @@
 package sg.nus.carelink.profile.application;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
@@ -16,6 +17,11 @@ class InMemoryElderRepository implements ElderRepository {
 	@Override
 	public Optional<Elder> findById(Long id) {
 		return Optional.ofNullable(rows.get(id));
+	}
+
+	@Override
+	public List<Elder> findAll() {
+		return List.copyOf(rows.values());
 	}
 
 	@Override

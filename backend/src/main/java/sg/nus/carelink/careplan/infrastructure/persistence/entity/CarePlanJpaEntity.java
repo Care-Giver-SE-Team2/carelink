@@ -10,6 +10,7 @@ import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 /**
@@ -34,7 +35,7 @@ import java.time.LocalDateTime;
 public class CarePlanJpaEntity {
 
 	public enum Status {
-		DRAFT, PUBLISHED, SUPERSEDED
+		DRAFT, PUBLISHED, SUPERSEDED, STOPPED
 	}
 
 	@Id
@@ -71,6 +72,20 @@ public class CarePlanJpaEntity {
 
 	@Column(name = "updated_at", nullable = false, insertable = false, updatable = false)
 	private LocalDateTime updatedAt;
+
+	/** from this date the plan is no longer active */
+	@Column(name = "stop_effective_date")
+	private LocalDate stopEffectiveDate;
+
+	@Column(name = "stop_reason", length = 500)
+	private String stopReason;
+
+	/** soft FK to app_user.id */
+	@Column(name = "stopped_by_user_id")
+	private Long stoppedByUserId;
+
+	@Column(name = "stopped_at")
+	private LocalDateTime stoppedAt;
 
 	public CarePlanJpaEntity() {
 	}
@@ -145,5 +160,37 @@ public class CarePlanJpaEntity {
 
 	public LocalDateTime getUpdatedAt() {
 		return updatedAt;
+	}
+
+	public LocalDate getStopEffectiveDate() {
+		return stopEffectiveDate;
+	}
+
+	public void setStopEffectiveDate(LocalDate stopEffectiveDate) {
+		this.stopEffectiveDate = stopEffectiveDate;
+	}
+
+	public String getStopReason() {
+		return stopReason;
+	}
+
+	public void setStopReason(String stopReason) {
+		this.stopReason = stopReason;
+	}
+
+	public Long getStoppedByUserId() {
+		return stoppedByUserId;
+	}
+
+	public void setStoppedByUserId(Long stoppedByUserId) {
+		this.stoppedByUserId = stoppedByUserId;
+	}
+
+	public LocalDateTime getStoppedAt() {
+		return stoppedAt;
+	}
+
+	public void setStoppedAt(LocalDateTime stoppedAt) {
+		this.stoppedAt = stoppedAt;
 	}
 }

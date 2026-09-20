@@ -15,19 +15,6 @@ import java.time.LocalDateTime;
 /**
  * JPA entity for table care_plan_node.
  *
- * This IS in a submission after all: the supervisor's screen-2a ERD has PLAN_NODE,
- * "a self-referencing tree (sub-plans nest to any depth)". It was dropped when the
- * twelve-table SQL was consolidated, and it is the table the Composite design
- * problem is built on. The columns below are his, renamed to the conventions above.
- *
- * DECISION 8  The plan is a tree, not one flat row. Story A3 requires hours to
- *             roll up "from a task item to the overall plan" across an
- *             indeterminate number of levels, which is the whole reason
- *             Composite was chosen. parent_id null means the node sits directly
- *             under the plan. Screen 2a: "a sub-plan can hold tasks or further
- *             sub-plans to any depth; effort at every level is the sum of its
- *             children".
- *
  * <p>Generated from V2__care_domain.sql as a starting point; edit freely, it will not
  * be regenerated. Same shape as identity's AppUserJpaEntity: no domain logic here,
  * references to other aggregates are plain ids (DECISION 5 in the schema), so no
@@ -42,10 +29,6 @@ import java.time.LocalDateTime;
 @Table(name = "care_plan_node")
 public class CarePlanNodeJpaEntity {
 
-	public enum NodeType {
-		SUB_PLAN, TASK
-	}
-
 	public enum EvidenceType {
 		NONE, CHECKLIST, PHOTO, READING
 	}
@@ -57,20 +40,12 @@ public class CarePlanNodeJpaEntity {
 	@Column(name = "care_plan_id", nullable = false)
 	private Long carePlanId;
 
-	/** self reference; null at the top level */
-	@Column(name = "parent_id")
-	private Long parentId;
-
-	@Enumerated(EnumType.STRING)
-	@Column(name = "node_type", nullable = false)
-	private NodeType nodeType;
+	/** display-only grouping label; no business meaning */
+	@Column(name = "group_name", length = 150)
+	private String groupName;
 
 	@Column(name = "name", nullable = false, length = 150)
 	private String name;
-
-	/** bathing, medication reminder, rehabilitation … */
-	@Column(name = "service_type", length = 50)
-	private String serviceType;
 
 	/** e.g. MON,WED,FRI or DAILY */
 	@Column(name = "schedule_days", length = 30)
@@ -117,20 +92,12 @@ public class CarePlanNodeJpaEntity {
 		this.carePlanId = carePlanId;
 	}
 
-	public Long getParentId() {
-		return parentId;
+	public String getGroupName() {
+		return groupName;
 	}
 
-	public void setParentId(Long parentId) {
-		this.parentId = parentId;
-	}
-
-	public NodeType getNodeType() {
-		return nodeType;
-	}
-
-	public void setNodeType(NodeType nodeType) {
-		this.nodeType = nodeType;
+	public void setGroupName(String groupName) {
+		this.groupName = groupName;
 	}
 
 	public String getName() {
@@ -139,14 +106,6 @@ public class CarePlanNodeJpaEntity {
 
 	public void setName(String name) {
 		this.name = name;
-	}
-
-	public String getServiceType() {
-		return serviceType;
-	}
-
-	public void setServiceType(String serviceType) {
-		this.serviceType = serviceType;
 	}
 
 	public String getScheduleDays() {

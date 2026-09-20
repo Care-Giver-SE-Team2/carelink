@@ -1,9 +1,5 @@
-/**
- * Fixture data for the Elders index (5d) and Care plan (2a) screens —
- * UC-MG01 "set up a care plan". Hardcoded per README.md ("现阶段" — no
- * backend yet); shapes follow the state-management notes in the design
- * handoff so swapping in a real API later only touches this file.
- */
+import { fetchElderList } from '../../../shared/api/profile'
+import { ageFromDateOfBirth } from '../lib/age'
 
 export type PlanStatus = 'published' | 'draft' | 'none'
 
@@ -40,75 +36,6 @@ export const MANAGER_HOME_SECTORS = ['S31']
 export function isOutOfSector(elder: Pick<ElderRow, 'sector'>): boolean {
   return !MANAGER_HOME_SECTORS.includes(elder.sector)
 }
-
-export const ELDERS: ElderRow[] = [
-  {
-    id: 'ELD-0311',
-    name: 'Chan Bee Choo',
-    age: 83,
-    street: 'Bishan St 23',
-    sector: 'S31',
-    planStatus: 'published',
-    planVersion: 4,
-    primaryCaregiver: 'Aisyah N.',
-    nextVisitAt: 'today 14:00',
-  },
-  {
-    id: 'ELD-0288',
-    name: 'Beatrice Lim Swee Hong',
-    age: 79,
-    street: 'Ang Mo Kio Ave 3',
-    sector: 'S31',
-    planStatus: 'published',
-    planVersion: 2,
-    primaryCaregiver: 'Fadhil R.',
-    nextVisitAt: 'tomorrow 09:30',
-  },
-  {
-    id: 'ELD-0354',
-    name: 'Goh Bee Lian',
-    age: 88,
-    street: 'Bishan St 11',
-    sector: 'S31',
-    planStatus: 'none',
-    planVersion: null,
-    primaryCaregiver: null,
-    nextVisitAt: null,
-  },
-  {
-    id: 'ELD-0402',
-    name: 'Kamala Devi Rajan',
-    age: 76,
-    street: 'Toa Payoh Lor 4',
-    sector: 'S34',
-    planStatus: 'draft',
-    planVersion: 5,
-    primaryCaregiver: 'Siti H.',
-    nextVisitAt: 'Thu 11:00',
-  },
-  {
-    id: 'ELD-0193',
-    name: 'Ong Kim Bee',
-    age: 91,
-    street: 'Bishan St 22',
-    sector: 'S31',
-    planStatus: 'published',
-    planVersion: 9,
-    primaryCaregiver: 'Aisyah N.',
-    nextVisitAt: 'today 17:30',
-  },
-  {
-    id: 'ELD-0367',
-    name: 'Tan Ah Bee',
-    age: 84,
-    street: 'Ang Mo Kio Ave 10',
-    sector: 'S34',
-    planStatus: 'published',
-    planVersion: 1,
-    primaryCaregiver: 'Fadhil R.',
-    nextVisitAt: 'Fri 08:00',
-  },
-]
 
 export const ELDER_DETAILS: Record<string, ElderDetail> = {
   'ELD-0311': {
@@ -161,16 +88,22 @@ export const ELDER_DETAILS: Record<string, ElderDetail> = {
   },
 }
 
-export function findElder(id: string): ElderRow | undefined {
-  return ELDERS.find((e) => e.id === id)
-}
-
 /**
- * Stands in for `GET /api/elders` until that endpoint exists and joins in
- * planStatus/primaryCaregiver/nextVisitAt from careplan and visit. Kept async
- * so callers (React Query) don't need to change when this is swapped for a
- * real fetch.
+ * GET /api/elders, mapped down to ElderRow. primaryCaregiver and nextVisitAt
+ * aren't sourced yet (rostering/visit modules), so they're always null until
+ * those are wired up too.
  */
-export function fetchElders(): Promise<ElderRow[]> {
-  return Promise.resolve(ELDERS)
+export async function fetchElders(): Promise<ElderRow[]> {
+  const rows = await fetchElderList()
+  return rows.map((r) => ({
+    id: String(r.id),
+    name: r.fullName,
+    age: ageFromDateOfBirth(r.dateOfBirth),
+    street: r.address ?? '',
+    sector: r.sector ?? '',
+    planStatus: r.planStatus,
+    planVersion: r.planVersion,
+    primaryCaregiver: null,
+    nextVisitAt: null,
+  }))
 }

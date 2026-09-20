@@ -321,6 +321,24 @@
   min-height: auto;
 }
 
+.stopReasonInput {
+  width: 100%;
+  min-height: 64px;
+  padding: 8px 10px;
+  border: 1px solid var(--text);
+  font: 400 12.5px/1.5 var(--font);
+  background: var(--bg);
+  resize: vertical;
+}
+
+.activitySelect {
+  appearance: none;
+  padding-right: 30px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%239a9a9a' stroke-width='1.4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+}
+
 .dayGrid {
   display: flex;
   flex-direction: column;
@@ -528,6 +546,19 @@
   padding: 12px;
   font: 400 11.5px/1.6 var(--font-mono);
   color: var(--accent);
+}
+
+.dangerBtn {
+  width: 100%;
+  margin-top: 22px;
+  border: 1px solid var(--danger);
+  background: var(--bg);
+  color: var(--danger);
+  padding: 12px 0;
+  text-align: center;
+  font: 600 12.5px/1 var(--font);
+  min-height: auto;
+  cursor: pointer;
 }
 
 /* ---- publish modal ---- */

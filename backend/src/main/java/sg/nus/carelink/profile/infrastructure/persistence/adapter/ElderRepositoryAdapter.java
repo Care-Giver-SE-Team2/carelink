@@ -1,5 +1,6 @@
 package sg.nus.carelink.profile.infrastructure.persistence.adapter;
 
+import java.util.List;
 import java.util.Optional;
 
 import org.springframework.stereotype.Repository;
@@ -24,6 +25,11 @@ class ElderRepositoryAdapter implements ElderRepository {
 	@Override
 	public Optional<Elder> findById(Long id) {
 		return jpa.findById(id).map(ElderMapper::toDomain);
+	}
+
+	@Override
+	public List<Elder> findAll() {
+		return jpa.findAll().stream().map(ElderMapper::toDomain).toList();
 	}
 
 	@Override

@@ -5,6 +5,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import java.util.List;
 import java.util.Optional;
 
 import org.junit.jupiter.api.Test;
@@ -36,6 +37,18 @@ class ElderRepositoryAdapterTest {
 		when(jpa.findById(any())).thenReturn(Optional.empty());
 
 		assertThat(adapter.findById(7L)).isEmpty();
+	}
+
+	@Test
+	void findAllMapsEveryEntityToTheDomainModel() {
+		ElderJpaEntity entity = new ElderJpaEntity();
+		entity.setId(7L);
+		when(jpa.findAll()).thenReturn(List.of(entity));
+
+		List<Elder> found = adapter.findAll();
+
+		assertThat(found).hasSize(1);
+		assertThat(found.get(0).id()).isEqualTo(7L);
 	}
 
 	@Test

@@ -39,6 +39,19 @@ class CarePlanRepositoryAdapterTest {
 	}
 
 	@Test
+	void findLatestByElderIdMapsTheEntityToTheDomainModel() {
+		CarePlanJpaEntity entity = new CarePlanJpaEntity();
+		entity.setId(7L);
+		entity.setElderId(42L);
+		when(jpa.findFirstByElderIdOrderByVersionDesc(42L)).thenReturn(Optional.of(entity));
+
+		Optional<CarePlan> found = adapter.findLatestByElderId(42L);
+
+		assertThat(found).isPresent();
+		assertThat(found.get().elderId()).isEqualTo(42L);
+	}
+
+	@Test
 	void saveGoesThroughSpringDataAndComesBackAsDomain() {
 		CarePlanJpaEntity entity = new CarePlanJpaEntity();
 		entity.setId(7L);

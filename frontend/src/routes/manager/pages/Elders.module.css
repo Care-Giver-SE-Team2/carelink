@@ -22,11 +22,6 @@
   color: var(--success);
 }
 
-.badge.publishedDark {
-  border: 1px solid #6f9f8b;
-  color: #a8dbc6;
-}
-
 /* ---- filter dropdown ---- */
 
 .dropdown {
@@ -194,9 +189,14 @@
   background: var(--surface-3);
 }
 
+/* No plan published yet — the row that most needs the manager's attention. */
+.row.noPlan {
+  background: #fdf6f5;
+}
+
 .row.selected {
-  background: var(--text);
-  color: var(--bg);
+  background: #dbe2ec;
+  border-left: 3px solid #3d5a80;
 }
 
 .rowAvatarWrap {
@@ -214,8 +214,8 @@
 }
 
 .rowAvatar.selected {
-  background: repeating-linear-gradient(45deg, #3a3a3a 0 6px, #2c2c2c 6px 12px);
-  border-color: #4a4a4a;
+  background: repeating-linear-gradient(45deg, #b3c0d1 0 6px, #a3b2c6 6px 12px);
+  border-color: #8fa0b8;
 }
 
 .rowName {
@@ -229,7 +229,7 @@
 }
 
 .rowMeta.selected {
-  color: #b5b5b5;
+  color: #3d5a80;
 }
 
 .rowSector {
@@ -238,7 +238,7 @@
 }
 
 .rowSector.selected {
-  color: #d5d5d5;
+  color: #2d4a70;
 }
 
 .rowCaregiver {
@@ -250,10 +250,6 @@
   color: var(--text-faint);
 }
 
-.rowCaregiver.selected {
-  color: #e5e5e5;
-}
-
 .rowNextVisit {
   font: 400 11.5px/1 var(--font-mono);
   text-align: right;
@@ -262,10 +258,6 @@
 
 .rowNextVisit.unassigned {
   color: var(--text-faint);
-}
-
-.rowNextVisit.selected {
-  color: #e5e5e5;
 }
 
 .tableFooter {
@@ -443,9 +435,13 @@
   min-height: auto;
 }
 
-.railFooter {
+.dangerBtn {
   margin-top: auto;
-  padding-top: 24px;
-  font: 400 10.5px/1.6 var(--font-mono);
-  color: var(--text-faint);
+  border: 1px solid var(--danger);
+  background: var(--bg);
+  color: var(--danger);
+  padding: 12px 0;
+  text-align: center;
+  font: 600 12.5px/1 var(--font);
+  min-height: auto;
 }

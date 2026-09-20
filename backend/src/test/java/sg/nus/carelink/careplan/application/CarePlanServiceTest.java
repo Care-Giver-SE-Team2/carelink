@@ -1,18 +1,24 @@
 package sg.nus.carelink.careplan.application;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.List;
 
 import org.junit.jupiter.api.Test;
 
 import sg.nus.carelink.careplan.domain.model.CarePlan;
+import sg.nus.carelink.careplan.domain.model.CarePlanNode;
+import sg.nus.carelink.shared.error.BusinessRuleViolation;
 
 class CarePlanServiceTest {
 
 	private final InMemoryCarePlanRepository repository = new InMemoryCarePlanRepository();
-	private final CarePlanService service = new CarePlanService(repository);
+	private final InMemoryCarePlanNodeRepository nodeRepository = new InMemoryCarePlanNodeRepository();
+	private final CarePlanService service = new CarePlanService(repository, nodeRepository);
 
 	@Test
 	void findsWhatWasSaved() {
@@ -34,5 +40,88 @@ class CarePlanServiceTest {
 	@Test
 	void isEmptyForAnUnknownId() {
 		assertThat(service.findCarePlan(999L)).isEmpty();
+	}
+
+	@Test
+	void createsAnEmptyDraftForAnElderWithNoPriorPlan() {
+		CarePlan created = service.createDraft(42L, 7L);
+
+		assertThat(created.id()).isNotNull();
+		assertThat(created.elderId()).isEqualTo(42L);
+		assertThat(created.createdByUserId()).isEqualTo(7L);
+		assertThat(created.version()).isEqualTo(1);
+		assertThat(created.status()).isEqualTo(CarePlan.Status.DRAFT);
+	}
+
+	@Test
+	void publishesADraftAndRollsUpTotalHoursFromItsTasks() {
+		CarePlan draft = service.createDraft(42L, 7L);
+
+		CarePlan published = service.publish(draft.id(), List.of(
+				new PlanNodeInput(
+						"Personal care",
+						"Bathing assistance",
+						List.of(new VisitInput("Mon", 30), new VisitInput("Wed", 30), new VisitInput("Fri", 30)),
+						CarePlanNode.EvidenceType.CHECKLIST)));
+
+		assertThat(published.status()).isEqualTo(CarePlan.Status.PUBLISHED);
+		assertThat(published.publishedAt()).isNotNull();
+		assertThat(published.totalHours()).isEqualByComparingTo("1.50");
+
+		List<CarePlanNode> nodes = service.findNodes(draft.id());
+		assertThat(nodes).hasSize(1);
+	}
+
+	@Test
+	void publishingAnAlreadyPublishedPlanIsRejected() {
+		CarePlan draft = service.createDraft(42L, 7L);
+		List<PlanNodeInput> tasks = List.of(new PlanNodeInput(
+				"Personal care", "Bathing assistance",
+				List.of(new VisitInput("Mon", 30)), CarePlanNode.EvidenceType.CHECKLIST));
+		CarePlan published = service.publish(draft.id(), tasks);
+
+		assertThatThrownBy(() -> service.publish(published.id(), tasks))
+				.isInstanceOf(BusinessRuleViolation.class)
+				.extracting(ex -> ((BusinessRuleViolation) ex).code())
+				.isEqualTo("CARE_PLAN_NOT_DRAFT");
+	}
+
+	@Test
+	void publishingATaskWithNoVisitsIsRejected() {
+		CarePlan draft = service.createDraft(42L, 7L);
+		List<PlanNodeInput> tasks = List.of(
+				new PlanNodeInput("Personal care", "Bathing assistance", List.of(), CarePlanNode.EvidenceType.CHECKLIST));
+
+		assertThatThrownBy(() -> service.publish(draft.id(), tasks))
+				.isInstanceOf(BusinessRuleViolation.class)
+				.extracting(ex -> ((BusinessRuleViolation) ex).code())
+				.isEqualTo("CARE_PLAN_TASK_NO_VISITS");
+	}
+
+	@Test
+	void stopsAPublishedPlanAndKeepsItsNodes() {
+		CarePlan draft = service.createDraft(42L, 7L);
+		List<PlanNodeInput> tasks = List.of(new PlanNodeInput(
+				"Personal care", "Bathing assistance",
+				List.of(new VisitInput("Mon", 30)), CarePlanNode.EvidenceType.CHECKLIST));
+		CarePlan published = service.publish(draft.id(), tasks);
+
+		CarePlan stopped = service.stop(published.id(), LocalDate.of(2026, 9, 22), "Elder moved away", 9L);
+
+		assertThat(stopped.status()).isEqualTo(CarePlan.Status.STOPPED);
+		assertThat(stopped.stopEffectiveDate()).isEqualTo(LocalDate.of(2026, 9, 22));
+		assertThat(stopped.stopReason()).isEqualTo("Elder moved away");
+		assertThat(stopped.stoppedByUserId()).isEqualTo(9L);
+		assertThat(service.findNodes(published.id())).hasSize(1);
+	}
+
+	@Test
+	void stoppingADraftIsRejected() {
+		CarePlan draft = service.createDraft(42L, 7L);
+
+		assertThatThrownBy(() -> service.stop(draft.id(), LocalDate.of(2026, 9, 22), "reason", 9L))
+				.isInstanceOf(BusinessRuleViolation.class)
+				.extracting(ex -> ((BusinessRuleViolation) ex).code())
+				.isEqualTo("CARE_PLAN_NOT_PUBLISHED");
 	}
 }

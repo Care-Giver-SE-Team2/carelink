@@ -1,17 +1,50 @@
 import { useId, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 
 import caregiverImage from '../../assets/Caregiver.png'
+import { login } from '../../shared/api/identity'
 import { IconCalendar, IconClock, IconDocCheck, IconHeart, IconUsers } from './icons'
 import styles from './Landing.module.css'
 
 const DEV_ROLE_LINKS = [
-  { path: '/manager', label: 'Manager' },
   { path: '/caregiver', label: 'Caregiver' },
   { path: '/family', label: 'Family' },
   { path: '/elder', label: 'Elder' },
   { path: '/admin', label: 'Admin' },
 ]
+
+/** Seeded by DevUserSeeder (backend, "dev" profile only). */
+const DEV_MANAGER_CREDENTIALS = { username: 'manager@carelink.sg', password: 'password' }
+
+/**
+ * Temporary dev shortcut — logs in as the seeded manager account instead of just
+ * routing to /manager unauthenticated, so the manager screens see a real session
+ * and pass the backend's auth checks. Remove before shipping, alongside the
+ * DEV_ROLE_LINKS array above.
+ */
+function DevManagerLoginLink() {
+  const navigate = useNavigate()
+  const [loggingIn, setLoggingIn] = useState(false)
+  const [error, setError] = useState(false)
+
+  async function handleClick() {
+    setLoggingIn(true)
+    setError(false)
+    try {
+      await login(DEV_MANAGER_CREDENTIALS.username, DEV_MANAGER_CREDENTIALS.password)
+      navigate('/manager')
+    } catch {
+      setError(true)
+      setLoggingIn(false)
+    }
+  }
+
+  return (
+    <button type="button" className={styles.devRoleLink} onClick={handleClick} disabled={loggingIn}>
+      {error ? 'Manager (login failed)' : loggingIn ? 'Manager…' : 'Manager'}
+    </button>
+  )
+}
 
 const FEATURES = [
   {
@@ -205,6 +238,7 @@ export default function LandingHome() {
 
       {/* Temporary dev shortcuts — remove before shipping. */}
       <div className={styles.devRoleLinks}>
+        <DevManagerLoginLink />
         {DEV_ROLE_LINKS.map((role) => (
           <Link key={role.path} to={role.path} className={styles.devRoleLink}>
             {role.label}

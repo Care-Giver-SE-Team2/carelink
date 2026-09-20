@@ -14,6 +14,16 @@ function csrfToken(): string {
   return match ? decodeURIComponent(match[1]) : ''
 }
 
+/** Thrown for any non-2xx response; `status` lets a caller handle e.g. a 404 as "not found" rather than an error. */
+export class ApiError extends Error {
+  readonly status: number
+
+  constructor(message: string, status: number) {
+    super(message)
+    this.status = status
+  }
+}
+
 export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
   const method = (init.method ?? 'GET').toUpperCase()
   const headers = new Headers(init.headers)
@@ -26,7 +36,8 @@ export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
   if (!response.ok) {
     // The backend returns RFC 9457 ProblemDetail for every error, so one shape covers all.
     const problem = await response.json().catch(() => null)
-    throw new Error(problem?.detail ?? `Request failed with ${response.status}`)
+    throw new ApiError(problem?.detail ?? `Request failed with ${response.status}`, response.status)
   }
-  return response.status === 204 ? (undefined as T) : ((await response.json()) as T)
+  const text = await response.text()
+  return text ? (JSON.parse(text) as T) : (undefined as T)
 }

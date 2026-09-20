@@ -3,9 +3,10 @@ import { createPortal } from 'react-dom'
 import { Link, useParams } from 'react-router-dom'
 import { ManagerShell } from '../components/ManagerShell'
 import headerStyles from '../components/Header.module.css'
-import { ELDER_DETAILS, findElder, isOutOfSector } from '../data/elders'
+import { ELDER_DETAILS, isOutOfSector } from '../data/elders'
 import { ACTIVITY_CATALOG, CARE_PLANS, ELDER_PROFILES } from '../data/carePlans'
-import type { PlanNode, SubPlanNode, TaskNode } from '../data/carePlans'
+import type { EvidenceType, PlanNode, SubPlanNode, TaskNode } from '../data/carePlans'
+import { useElder } from '../lib/useElder'
 import {
   countTree,
   formatHoursFixed,
@@ -16,6 +17,14 @@ import {
   weeklyHours,
   weeklyHoursOfTree,
 } from '../lib/planTree'
+import {
+  createCarePlanDraft,
+  fetchCarePlanNodes,
+  fetchLatestCarePlan,
+  publishCarePlan,
+  stopCarePlan,
+} from '../../../shared/api/careplan'
+import type { CarePlanNodeResponse, PlanNodePayload } from '../../../shared/api/careplan'
 import styles from './CarePlan.module.css'
 
 /** Placeholder until real roster data exists — see the publish modal copy. */
@@ -61,6 +70,11 @@ function initialDayState(): Record<string, DayState> {
   return Object.fromEntries(DAYS.map((d) => [d.key, { active: false, minutes: '15' }]))
 }
 
+/** Local-date "yyyy-MM-dd", matching what a <input type="date"> and java.time.LocalDate both expect. */
+function todayIso(): string {
+  return new Date().toISOString().slice(0, 10)
+}
+
 /** Pre-populates the day/minutes editor from an existing task's visits, for the edit panel. */
 function dayStateFromVisits(visits: TaskNode['visits']): Record<string, DayState> {
   const byFull = new Map(visits.map((v) => [v.day, v.minutes]))
@@ -80,6 +94,57 @@ function collectDefaultCollapsed(nodes: PlanNode[]): Set<string> {
   return collapsed
 }
 
+/** Frontend tree -> the wire shape POST /api/care-plans/{id}/publish expects: every node is
+ * published as a task; a sub-plan's name becomes its children's groupName, a purely display-only
+ * label with no hierarchy behind it. */
+function toPlanNodePayloads(nodes: PlanNode[]): PlanNodePayload[] {
+  return nodes.flatMap((node) =>
+    node.type === 'task' ? [taskToPayload(node, null)] : node.children.map((child) => taskToPayload(child, node.name)),
+  )
+}
+
+function taskToPayload(node: TaskNode, groupName: string | null): PlanNodePayload {
+  return {
+    groupName,
+    name: node.name,
+    visits: node.visits.map((v) => ({ day: v.day, minutes: v.minutes })),
+    evidenceType: node.evidence,
+  }
+}
+
+/** GET /api/care-plans/{id}/nodes's wire shape -> the frontend tree. The backend list is flat;
+ * tasks sharing the same groupName are regrouped here into a sub-plan for display, in the order
+ * each group first appears. A task with no groupName renders standalone. */
+function fromCarePlanNodeResponses(nodes: CarePlanNodeResponse[]): PlanNode[] {
+  const result: PlanNode[] = []
+  const groups = new Map<string, SubPlanNode>()
+  for (const node of nodes) {
+    const task = toTaskNode(node)
+    if (!node.groupName) {
+      result.push(task)
+      continue
+    }
+    let group = groups.get(node.groupName)
+    if (!group) {
+      group = { id: `subplan-${node.groupName}`, type: 'subplan', name: node.groupName, children: [] }
+      groups.set(node.groupName, group)
+      result.push(group)
+    }
+    group.children.push(task)
+  }
+  return result
+}
+
+function toTaskNode(node: CarePlanNodeResponse): TaskNode {
+  return {
+    id: `task-${node.id}`,
+    type: 'task',
+    name: node.name,
+    visits: node.visits,
+    evidence: (node.evidenceType === 'NONE' ? 'CHECKLIST' : node.evidenceType) as EvidenceType,
+  }
+}
+
 /**
  * Care plan (1d) — UC-MG01. Editable, flat sub-plan/task list with a live
  * weekly-effort rollup (lib/planTree.ts) and a publish flow that snapshots
@@ -90,13 +155,13 @@ function collectDefaultCollapsed(nodes: PlanNode[]): Set<string> {
 export default function CarePlan() {
   const { elderId } = useParams()
 
-  const elder = elderId ? findElder(elderId) : undefined
+  const { data: elder, isLoading: elderLoading, isError: elderError } = useElder(elderId)
   const elderDetail = elderId ? ELDER_DETAILS[elderId] : undefined
   const initialPlan = elderId ? CARE_PLANS[elderId] : undefined
   const profile = elderId ? ELDER_PROFILES[elderId] : undefined
 
   const [tree, setTree] = useState<PlanNode[]>(initialPlan?.tree ?? [])
-  const [status, setStatus] = useState(initialPlan?.status ?? 'draft')
+  const [status, setStatus] = useState<'draft' | 'published' | 'stopped'>(initialPlan?.status ?? 'draft')
   const [version, setVersion] = useState(initialPlan?.version ?? 0)
   const [versions, setVersions] = useState(initialPlan?.versions ?? [])
   const [priorPublishedHours, setPriorPublishedHours] = useState(initialPlan?.priorPublishedHours)
@@ -105,6 +170,16 @@ export default function CarePlan() {
   )
   const [showPublishModal, setShowPublishModal] = useState(false)
   const [deleteTarget, setDeleteTarget] = useState<SubPlanNode | null>(null)
+  const [publishing, setPublishing] = useState(false)
+  const [publishError, setPublishError] = useState<string | null>(null)
+
+  const [carePlanId, setCarePlanId] = useState<number | null>(null)
+  const [stopInfo, setStopInfo] = useState<{ effectiveDate: string; reason: string } | null>(null)
+  const [showStopModal, setShowStopModal] = useState(false)
+  const [stopEffectiveDate, setStopEffectiveDate] = useState('')
+  const [stopReason, setStopReason] = useState('')
+  const [stopping, setStopping] = useState(false)
+  const [stopError, setStopError] = useState<string | null>(null)
 
   const [addPanelOpen, setAddPanelOpen] = useState(false)
   const [newSubPlanName, setNewSubPlanName] = useState('')
@@ -140,7 +215,46 @@ export default function CarePlan() {
     }
   }, [elder])
 
-  if (!elder) {
+  // Loads whatever is actually in the database for this elder, overriding the mock fixture
+  // above (which never matches a real, numeric elder id). An elder with no plan yet keeps the
+  // empty-draft defaults the mock fallback already set up.
+  useEffect(() => {
+    if (!elder) return
+    let cancelled = false
+    ;(async () => {
+      const latest = await fetchLatestCarePlan(elder.id)
+      if (cancelled || !latest) return
+      const nodes = await fetchCarePlanNodes(latest.id)
+      if (cancelled) return
+      setTree(fromCarePlanNodeResponses(nodes))
+      setCarePlanId(latest.id)
+      setVersion(latest.version)
+      if (latest.status === 'PUBLISHED') {
+        setStatus('published')
+      } else if (latest.status === 'STOPPED') {
+        setStatus('stopped')
+        setStopInfo({
+          effectiveDate: latest.stopEffectiveDate ?? '',
+          reason: latest.stopReason ?? '',
+        })
+      } else {
+        setStatus('draft')
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [elder])
+
+  if (elderLoading) {
+    return (
+      <ManagerShell>
+        <p style={{ padding: 24, color: 'var(--text-muted)' }}>Loading elder…</p>
+      </ManagerShell>
+    )
+  }
+
+  if (elderError || !elder) {
     return (
       <ManagerShell>
         <p style={{ padding: 24, color: 'var(--text-muted)' }}>Elder not found.</p>
@@ -149,6 +263,12 @@ export default function CarePlan() {
   }
 
   const readOnly = isOutOfSector(elder)
+  // A stopped plan is history, same as one outside the manager's sectors: no more sub-plans,
+  // tasks or edits — just what it looked like when it was stopped.
+  const locked = readOnly || status === 'stopped'
+  // Editing (add/edit/delete sub-plans and tasks) is only available once the manager has
+  // entered draft mode via "Edit plan" — opening a published plan starts read-only.
+  const editable = !locked && status === 'draft'
 
   function toggleCollapsed(id: string) {
     setCollapsed((prev) => {
@@ -249,16 +369,64 @@ export default function CarePlan() {
     setAddPanelOpen(false)
   }
 
-  function publish() {
-    const nextVersion = version + 1
-    setVersions((prev) => [
-      { version: nextVersion, date: 'today', summary: 'published from console' },
-      ...prev,
-    ])
-    setVersion(nextVersion)
-    setStatus('published')
-    setPriorPublishedHours(undefined)
-    setShowPublishModal(false)
+  /** The draft this publish writes to: reuses one already open on the backend, or opens one.
+   * Only called from the publish modal, which only renders once the elder guard below has
+   * passed, but that narrowing doesn't reach this nested function declaration. */
+  async function getOrCreateDraftPlanId(): Promise<number> {
+    const currentElderId = elder!.id
+    const latest = await fetchLatestCarePlan(currentElderId)
+    if (latest && latest.status === 'DRAFT') return latest.id
+    const created = await createCarePlanDraft(currentElderId)
+    return created.id
+  }
+
+  async function publish() {
+    setPublishing(true)
+    setPublishError(null)
+    try {
+      const planId = await getOrCreateDraftPlanId()
+      const published = await publishCarePlan(planId, toPlanNodePayloads(tree))
+      setVersions((prev) => [
+        { version: published.version, date: 'today', summary: 'published from console' },
+        ...prev,
+      ])
+      setCarePlanId(published.id)
+      setVersion(published.version)
+      setStatus('published')
+      setPriorPublishedHours(undefined)
+      setStopInfo(null)
+      setShowPublishModal(false)
+    } catch (err) {
+      setPublishError(err instanceof Error ? err.message : 'Could not publish this plan.')
+    } finally {
+      setPublishing(false)
+    }
+  }
+
+  function openStopModal() {
+    setStopEffectiveDate(todayIso())
+    setStopReason('')
+    setStopError(null)
+    setShowStopModal(true)
+  }
+
+  async function stopPlan() {
+    if (!stopReason.trim() || !stopEffectiveDate || carePlanId === null) return
+    setStopping(true)
+    setStopError(null)
+    try {
+      const stopped = await stopCarePlan(carePlanId, stopEffectiveDate, stopReason.trim())
+      setStatus('stopped')
+      setStopInfo({
+        effectiveDate: stopped.stopEffectiveDate ?? stopEffectiveDate,
+        reason: stopped.stopReason ?? stopReason.trim(),
+      })
+      setShowStopModal(false)
+    } catch (err) {
+      setStopError(err instanceof Error ? err.message : 'Could not stop this plan.')
+    } finally {
+      setStopping(false)
+    }
   }
 
   function renderSubPlan(node: SubPlanNode) {
@@ -271,7 +439,7 @@ export default function CarePlan() {
           </div>
           <div className={styles.subplanPerVisit}>—</div>
           <div className={styles.subplanWeekly}>{formatHoursFixed(weeklyHours(node))}</div>
-          {readOnly ? (
+          {!editable ? (
             <div />
           ) : (
             <div
@@ -314,7 +482,7 @@ export default function CarePlan() {
           )}
         </div>
         <div className={styles.taskWeekly}>{formatHoursFixed(weeklyHours(node))}</div>
-        {readOnly ? (
+        {!editable ? (
           <div />
         ) : (
           <div className={styles.taskIcons}>
@@ -397,11 +565,11 @@ export default function CarePlan() {
       <Link to="/manager/elders" className={styles.breadcrumbLink}>
         {elder.name}
       </Link>
-      {' / care plan'}
+      {' / Care Plan'}
     </span>
   )
 
-  const statusTone = status === 'published' ? 'success' : 'warning'
+  const statusTone = status === 'published' ? 'success' : status === 'stopped' ? 'danger' : 'warning'
   const headerRight = (
     <>
       <span className={`${styles.statusBadge} ${styles[statusTone]}`}>
@@ -410,7 +578,6 @@ export default function CarePlan() {
       <div className={headerStyles.identityGroup}>
         <span className={headerStyles.userName}>Tan Mei Ling</span>
         <span className={headerStyles.roleBadge}>CARE MGR</span>
-        <button className={headerStyles.logoutBtn}>Log out</button>
       </div>
     </>
   )
@@ -429,19 +596,28 @@ export default function CarePlan() {
             </div>
           )}
 
+          {status === 'stopped' && stopInfo && (
+            <div className={styles.readOnlyBanner}>
+              Stopped effective {stopInfo.effectiveDate || '—'} — {stopInfo.reason || 'no reason on file'}. This
+              plan and its history are kept; create a new plan to resume care.
+            </div>
+          )}
+
           <div className={styles.planHeader}>
             <div>
               <Link to="/manager/elders" className={styles.backLink} title="Back to Elders">
                 <BackChevronIcon />
                 Back to Elders
               </Link>
-              <h2 className={styles.planTitle}>Care plan</h2>
+              <h2 className={styles.planTitle}>Care Plan</h2>
             </div>
-            {!readOnly && (
+            {!locked && (
               <div className={styles.planActions}>
-                <button className={styles.addSubPlanBtn} onClick={openAddPanel}>
-                  Add sub-plan
-                </button>
+                {status === 'draft' && (
+                  <button className={styles.addSubPlanBtn} onClick={openAddPanel}>
+                    Add sub-plan
+                  </button>
+                )}
                 <button
                   className={styles.publishBtn}
                   disabled={primaryDisabled}
@@ -472,7 +648,7 @@ export default function CarePlan() {
 
               <div className={styles.stepLabel}>Step 1 · select sub-plan</div>
               <select
-                className={styles.nameInput}
+                className={`${styles.nameInput} ${styles.activitySelect}`}
                 value={newSubPlanName}
                 onChange={(e) => setNewSubPlanName(e.target.value)}
                 autoFocus
@@ -540,6 +716,7 @@ export default function CarePlan() {
             <div className={styles.totalValue}>{formatHoursFixed(totalHours)}</div>
             <div />
           </div>
+
         </div>
 
         <div className={styles.detailPanel}>
@@ -617,6 +794,12 @@ export default function CarePlan() {
               {formatHoursFixed(totalHours)}. Publishing re-runs the roster for affected weeks.
             </div>
           )}
+
+          {status === 'published' && !locked && (
+            <button className={styles.dangerBtn} onClick={openStopModal}>
+              Stop care plan
+            </button>
+          )}
         </div>
       </div>
 
@@ -629,12 +812,61 @@ export default function CarePlan() {
               {priorPublishedHours !== undefined ? ` (from ${formatHoursFixed(priorPublishedHours)})` : ''}.
               Publishing re-runs the roster for the next {MOCK_AFFECTED_WEEKS} weeks.
             </p>
+            {publishError && <p className={styles.modalBodyProse}>{publishError}</p>}
             <div className={styles.modalActions}>
-              <button className={`${styles.modalBtn} ${styles.secondary}`} onClick={() => setShowPublishModal(false)}>
+              <button
+                className={`${styles.modalBtn} ${styles.secondary}`}
+                disabled={publishing}
+                onClick={() => setShowPublishModal(false)}
+              >
                 Cancel
               </button>
-              <button className={`${styles.modalBtn} ${styles.primary}`} onClick={publish}>
-                Publish
+              <button className={`${styles.modalBtn} ${styles.primary}`} disabled={publishing} onClick={publish}>
+                {publishing ? 'Publishing…' : 'Publish'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showStopModal && (
+        <div className={styles.modalOverlay} onClick={() => setShowStopModal(false)}>
+          <div className={styles.modalBox} onClick={(e) => e.stopPropagation()}>
+            <div className={styles.modalEyebrow}>Stop care plan</div>
+            <div className={styles.modalTitle}>Stop the care plan for {elder.name}?</div>
+            <p className={styles.modalBodyProse}>
+              The plan itself and its history are kept — this doesn't delete anything, and you can
+              create a new plan later.
+            </p>
+            <div className={styles.stepLabel}>Effective from</div>
+            <input
+              className={styles.nameInput}
+              type="date"
+              value={stopEffectiveDate}
+              onChange={(e) => setStopEffectiveDate(e.target.value)}
+            />
+            <div className={styles.stepLabel}>Reason (required)</div>
+            <textarea
+              className={styles.stopReasonInput}
+              value={stopReason}
+              onChange={(e) => setStopReason(e.target.value)}
+              placeholder="Why is this plan stopping?"
+            />
+            {stopError && <p className={styles.modalBodyProse}>{stopError}</p>}
+            <div className={styles.modalActions}>
+              <button
+                className={`${styles.modalBtn} ${styles.secondary}`}
+                disabled={stopping}
+                onClick={() => setShowStopModal(false)}
+              >
+                Cancel
+              </button>
+              <button
+                className={`${styles.modalBtn} ${styles.danger}`}
+                disabled={stopping || !stopReason.trim() || !stopEffectiveDate}
+                onClick={stopPlan}
+              >
+                {stopping ? 'Stopping…' : 'Stop care plan'}
               </button>
             </div>
           </div>
