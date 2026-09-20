@@ -16,6 +16,10 @@ class WebMvcConfig implements WebMvcConfigurer {
 	static final String API_PATHS = "/api/**";
 	/** Logging in cannot itself require a login. Mirrors the permitAll in SecurityConfig. */
 	static final String LOGIN_PATH = "/api/auth/login";
+	/** Bootstrapping the CSRF cookie cannot itself require a login. Mirrors the permitAll in SecurityConfig. */
+	static final String CSRF_PATH = "/api/auth/csrf";
+	// TODO: temporary — remove before merging. Mirrors the permitAll in SecurityConfig.
+	static final String ELDERS_LIST_PATH = "/api/elders";
 
 	private final RequestContextInterceptor requestContext;
 
@@ -27,6 +31,6 @@ class WebMvcConfig implements WebMvcConfigurer {
 	public void addInterceptors(InterceptorRegistry registry) {
 		registry.addInterceptor(requestContext)
 				.addPathPatterns(API_PATHS)
-				.excludePathPatterns(LOGIN_PATH);
+				.excludePathPatterns(LOGIN_PATH, CSRF_PATH, ELDERS_LIST_PATH);
 	}
 }

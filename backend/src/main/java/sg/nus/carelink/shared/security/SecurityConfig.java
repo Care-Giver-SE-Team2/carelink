@@ -2,6 +2,7 @@ package sg.nus.carelink.shared.security;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.ProviderManager;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
@@ -58,6 +59,11 @@ class SecurityConfig {
 								"/api/auth/login",
 								"/api/auth/csrf"
 						).permitAll()
+
+						// TODO: temporary — remove before merging. Lets GET /api/elders through
+						// without a session while the login flow isn't wired up on the front end yet.
+						.requestMatchers(HttpMethod.GET, "/api/elders")
+						.permitAll()
 
 						// Front-end static assets.
 						.requestMatchers(

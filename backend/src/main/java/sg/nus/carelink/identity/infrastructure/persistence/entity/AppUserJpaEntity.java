@@ -54,7 +54,7 @@ public class AppUserJpaEntity {
 	@Column(name = "role", nullable = false, length = 32)
 	private Set<String> roles = new LinkedHashSet<>();
 
-	protected AppUserJpaEntity() {
+	public AppUserJpaEntity() {
 	}
 
 	public Long getId() {
@@ -65,16 +65,32 @@ public class AppUserJpaEntity {
 		return username;
 	}
 
+	public void setUsername(String username) {
+		this.username = username;
+	}
+
 	public String getPasswordHash() {
 		return passwordHash;
+	}
+
+	public void setPasswordHash(String passwordHash) {
+		this.passwordHash = passwordHash;
 	}
 
 	public String getDisplayName() {
 		return displayName;
 	}
 
+	public void setDisplayName(String displayName) {
+		this.displayName = displayName;
+	}
+
 	public boolean isEnabled() {
 		return enabled;
+	}
+
+	public void setEnabled(boolean enabled) {
+		this.enabled = enabled;
 	}
 
 	public Set<String> getRoles() {
