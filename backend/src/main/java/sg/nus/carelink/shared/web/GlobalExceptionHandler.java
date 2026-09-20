@@ -4,10 +4,13 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.MissingPathVariableException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
 import sg.nus.carelink.shared.error.BusinessRuleViolation;
 import sg.nus.carelink.shared.error.ResourceNotFound;
@@ -16,8 +19,8 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 
 /**
- * Global exception handling. Every error response is an RFC 9457 ProblemDetail,
- * so the front end only ever has to deal with one error shape.
+ * Converts exceptions handled by Spring MVC into RFC 9457 ProblemDetail responses.
+ * Security filters handle authentication and CSRF failures separately.
  *
  * <p>Controllers must not catch exceptions and assemble their own error bodies —
  * that is how an error format ends up differing from author to author. The domain
@@ -58,6 +61,55 @@ class GlobalExceptionHandler {
 	ProblemDetail onAccessDenied(AccessDeniedException ex) {
 		ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.FORBIDDEN, "Not permitted to access this resource");
 		problem.setTitle("Insufficient permission");
+		return problem;
+	}
+
+	/**
+	 * Report path or query parameters that cannot be converted to the expected format.
+	 *
+	 * @param ex Parameter conversion failure
+	 * @return A standard 400 problem response identifying the invalid parameter
+	 *
+	 * @author Wang Zhili
+	 */
+	@ExceptionHandler(MethodArgumentTypeMismatchException.class)
+	ProblemDetail onParameterTypeMismatch(MethodArgumentTypeMismatchException ex) {
+		return invalidParameter(ex.getName());
+	}
+
+	/**
+	 * Report path values converted to null while retaining server errors for missing route declarations.
+	 *
+	 * @param ex Missing path variable or failed conversion
+	 * @return A 400 response for invalid input, or a 500 response for a route configuration error
+	 *
+	 * @author Wang Zhili
+	 */
+	@ExceptionHandler(MissingPathVariableException.class)
+	ProblemDetail onMissingPathVariable(MissingPathVariableException ex) {
+		return ex.isMissingAfterConversion() ? invalidParameter(ex.getVariableName()) : onUnexpected(ex);
+	}
+
+	private ProblemDetail invalidParameter(String name) {
+		ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST,
+				"Request parameter has an invalid format");
+		problem.setTitle("Invalid request");
+		problem.setProperty("fields", Map.of(name, "Invalid value"));
+		return problem;
+	}
+
+	/**
+	 * Report unreadable request bodies without exposing parser or Java type details.
+	 *
+	 * @return A standard 400 problem response
+	 *
+	 * @author Wang Zhili
+	 */
+	@ExceptionHandler(HttpMessageNotReadableException.class)
+	ProblemDetail onUnreadableRequest() {
+		ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST,
+				"Request body is missing or does not match the expected JSON format");
+		problem.setTitle("Invalid request");
 		return problem;
 	}
 

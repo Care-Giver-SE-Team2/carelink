@@ -9,10 +9,12 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 
+import org.hibernate.annotations.Generated;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 /**
  * JPA entity for table intake_application.
@@ -83,7 +85,7 @@ public class IntakeApplicationJpaEntity {
 	/** requested tasks, e.g. ["BATHING","VITALS"] */
 	@JdbcTypeCode(SqlTypes.JSON)
 	@Column(name = "care_needs")
-	private String careNeeds;
+	private List<String> careNeeds;
 
 	@JdbcTypeCode(SqlTypes.LONGVARCHAR)
 	@Column(name = "medical_notes")
@@ -100,6 +102,8 @@ public class IntakeApplicationJpaEntity {
 	@Column(name = "review_remarks", length = 255)
 	private String reviewRemarks;
 
+	/** Store creation time in UTC regardless of the database session time zone. */
+	@Generated(sql = "UTC_TIMESTAMP()")
 	@Column(name = "created_at", nullable = false, insertable = false, updatable = false)
 	private LocalDateTime createdAt;
 
@@ -177,11 +181,11 @@ public class IntakeApplicationJpaEntity {
 		this.preferredDialects = preferredDialects;
 	}
 
-	public String getCareNeeds() {
+	public List<String> getCareNeeds() {
 		return careNeeds;
 	}
 
-	public void setCareNeeds(String careNeeds) {
+	public void setCareNeeds(List<String> careNeeds) {
 		this.careNeeds = careNeeds;
 	}
 
