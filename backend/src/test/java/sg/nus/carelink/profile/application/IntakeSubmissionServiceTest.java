@@ -19,6 +19,7 @@ import sg.nus.carelink.identity.application.UserDirectory;
 import sg.nus.carelink.identity.domain.model.AppUser;
 import sg.nus.carelink.profile.domain.model.FamilyMember;
 import sg.nus.carelink.profile.domain.model.IntakeApplication;
+import sg.nus.carelink.profile.domain.model.IntakeApplicationPage;
 import sg.nus.carelink.profile.domain.model.IntakeSubmission;
 import sg.nus.carelink.profile.domain.repository.IntakeApplicationRepository;
 import sg.nus.carelink.shared.security.Role;
@@ -82,6 +83,12 @@ class IntakeSubmissionServiceTest {
 	void propagatesStorageFailureInsteadOfReturningASuccessfulSubmission() {
 		var failure = new DataAccessResourceFailureException("Test database unavailable");
 		var unavailableStorage = new IntakeApplicationRepository() {
+			@Override
+			public IntakeApplicationPage findForApplicant(Long familyMemberId, IntakeApplication.Status status,
+					int page, int size) {
+				throw failure;
+			}
+
 			@Override
 			public Optional<IntakeApplication> findById(Long id) {
 				throw failure;

@@ -5,6 +5,8 @@ import java.security.Principal;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -12,11 +14,14 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 import sg.nus.carelink.profile.application.IntakeSubmissionService;
+import sg.nus.carelink.profile.application.IntakeQueryService;
+import sg.nus.carelink.profile.controller.dto.FamilyIntakeApplicationPageResponse;
 import sg.nus.carelink.profile.controller.dto.FamilyIntakeApplicationResponse;
 import sg.nus.carelink.profile.controller.dto.IntakeApplicationCreateRequest;
+import sg.nus.carelink.profile.controller.dto.IntakeApplicationListRequest;
 
 /**
- * Exposes the family intake submission endpoint.
+ * Exposes submission and list endpoints for family intake applications.
  *
  * @author Wang Zhili
  */
@@ -25,9 +30,28 @@ import sg.nus.carelink.profile.controller.dto.IntakeApplicationCreateRequest;
 public class IntakeApplicationController {
 
 	private final IntakeSubmissionService submissions;
+	private final IntakeQueryService queries;
 
-	public IntakeApplicationController(IntakeSubmissionService submissions) {
+	public IntakeApplicationController(IntakeSubmissionService submissions, IntakeQueryService queries) {
 		this.submissions = submissions;
+		this.queries = queries;
+	}
+
+	/**
+	 * List the logged-in family's applications with optional status filtering and pagination.
+	 *
+	 * @param request Status filter, zero-based page and page size
+	 * @param principal Logged-in account supplied by Spring Security
+	 * @return Family-visible applications ordered newest first, with the matching total count
+	 *
+	 * @author Wang Zhili
+	 */
+	@GetMapping
+	@PreAuthorize("hasRole('FAMILY')")
+	public FamilyIntakeApplicationPageResponse list(@Valid @ModelAttribute IntakeApplicationListRequest request,
+			Principal principal) {
+		return FamilyIntakeApplicationPageResponse.from(queries.listMine(principal.getName(), request.toStatus(),
+				request.getPage(), request.getSize()));
 	}
 
 	/**

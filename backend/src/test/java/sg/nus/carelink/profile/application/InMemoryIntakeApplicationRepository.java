@@ -1,11 +1,13 @@
 package sg.nus.carelink.profile.application;
 
 import java.time.LocalDateTime;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 
 import sg.nus.carelink.profile.domain.model.IntakeApplication;
+import sg.nus.carelink.profile.domain.model.IntakeApplicationPage;
 import sg.nus.carelink.profile.domain.repository.IntakeApplicationRepository;
 
 /**
@@ -21,6 +23,18 @@ public class InMemoryIntakeApplicationRepository implements IntakeApplicationRep
 	@Override
 	public Optional<IntakeApplication> findById(Long id) {
 		return Optional.ofNullable(rows.get(id));
+	}
+
+	@Override
+	public IntakeApplicationPage findForApplicant(Long familyMemberId, IntakeApplication.Status status,
+			int page, int size) {
+		var matching = rows.values().stream()
+				.filter(row -> row.applicantFamilyMemberId().equals(familyMemberId))
+				.filter(row -> status == null || row.status() == status)
+				.sorted(Comparator.comparing(IntakeApplication::createdAt).thenComparing(IntakeApplication::id).reversed())
+				.toList();
+		return new IntakeApplicationPage(matching.stream().skip((long) page * size).limit(size).toList(),
+				page, size, matching.size());
 	}
 
 	@Override
