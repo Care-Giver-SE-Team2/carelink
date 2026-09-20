@@ -121,7 +121,8 @@ class EscalationScanServiceTest {
 	// -------------------------------------------------------------------- helpers ---
 
 	private Incident raiseAt(LocalDateTime moment) {
-		return serviceAt(moment).createElderEmergency(7L, 99L, null, null, null, null);
+		return serviceAt(moment).reportByCaregiver(
+				7L, null, 20L, Incident.Category.SOS, Incident.Severity.HIGH, "SOS");
 	}
 
 	private IncidentService serviceAt(LocalDateTime moment) {

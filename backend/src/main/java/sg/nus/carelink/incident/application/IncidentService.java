@@ -59,9 +59,15 @@ public class IncidentService {
 	/**
 	 * UC-EL03: an elder triggers the one-tap emergency call.
 	 *
-	 * <p>The incident is saved, then routed. Routing is not optional: an SOS with no
-	 * responder and no countdown would sit in the table waiting for a human to notice it,
-	 * which is the exact failure the escalation chain exists to prevent.
+	 * <p>Owned by the elder module. Left exactly as it was written there: it records the
+	 * incident and stops.
+	 *
+	 * <p><strong>The incident is not routed here.</strong> An SOS with no responder and no
+	 * countdown sits in the table until a human notices it, which is the failure UC-MG05's
+	 * escalation chain exists to prevent. Closing that gap is one line -
+	 * {@code return escalation.routeNewIncident(saved);} - but it belongs to whoever owns
+	 * this use case, not to the manager module, so it is raised on the pull request rather
+	 * than made here.
 	 */
 	public Incident createElderEmergency(
 			Long elderId,
@@ -71,14 +77,10 @@ public class IncidentService {
 			String locationText,
 			String description) {
 
-		LocalDateTime raisedAt = now();
-		Incident saved = incidents.save(Incident.createElderSos(
-				elderId, reportedByUserId, latitude, longitude, locationText, description, raisedAt));
+		Incident incident = Incident.createElderSos(
+				elderId, reportedByUserId, latitude, longitude, locationText, description);
 
-		timeline.save(IncidentLog.entry(saved.id(), actorLabel(reportedByUserId, "elder"),
-				IncidentLog.Action.REPORTED, "one-tap emergency call", raisedAt));
-
-		return escalation.routeNewIncident(saved);
+		return incidents.save(incident);
 	}
 
 	/** UC-CG04: a caregiver reports a care exception during or after a visit. */

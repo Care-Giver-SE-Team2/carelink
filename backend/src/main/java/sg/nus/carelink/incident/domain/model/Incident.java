@@ -65,11 +65,25 @@ public record Incident(
 	 * escalation chain immediately afterwards, through {@link #assignTo}; no incident is
 	 * allowed to stay unassigned, and routing is not this factory's job.
 	 *
-	 * <p>The moment is passed in rather than read from the system clock. An incident's
-	 * timestamps and its response deadline have to come from the same clock, or the two
-	 * disagree - which is exactly what the integration test caught when this method still
-	 * called {@code LocalDateTime.now()} itself.
+	 * <p>This is the original signature, kept so the elder module's call site does not have
+	 * to change. It reads the system clock. The overload below takes the moment instead,
+	 * which is what the manager flow uses: an incident's timestamps and its response
+	 * deadline have to come from the same clock, or the two disagree - as the integration
+	 * test showed when both paths read {@code now()} independently.
 	 */
+	public static Incident createElderSos(
+			Long elderId,
+			Long reportedByUserId,
+			BigDecimal latitude,
+			BigDecimal longitude,
+			String locationText,
+			String description) {
+
+		return createElderSos(elderId, reportedByUserId, latitude, longitude, locationText,
+				description, LocalDateTime.now(CARELINK_ZONE));
+	}
+
+	/** As above, but measured against a clock the caller controls. */
 	public static Incident createElderSos(
 			Long elderId,
 			Long reportedByUserId,

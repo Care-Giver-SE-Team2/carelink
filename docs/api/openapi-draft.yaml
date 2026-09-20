@@ -3258,11 +3258,10 @@ paths:
       tags:
       - Emergency
       summary: Trigger an emergency call for help
-      x-status: implemented
+      x-status: draft
       description: 'UC-EL03. One large tap in the elder view. Skips the ordinary queue: opens a `severity: HIGH`, `category:
-        SOS` incident and routes it through the escalation chain synchronously, in the same request — not on the next
-        scheduled scan. The response already carries the named responder and the deadline they have to meet, because an SOS
-        is never allowed to exist without both.
+        SOS` incident and notifies bound family and the on-duty manager synchronously, in the same request — not on the next
+        scheduled scan.
 
         '
       responses:

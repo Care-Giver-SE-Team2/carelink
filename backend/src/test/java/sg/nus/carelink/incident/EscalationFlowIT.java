@@ -95,6 +95,17 @@ class EscalationFlowIT {
 		elder = jdbc.queryForObject("select last_insert_id()", Long.class);
 	}
 
+	/**
+	 * Raises an incident through the manager module's own entry point.
+	 *
+	 * <p>Not the elder SOS one: that belongs to the elder module and does not route through
+	 * the chain yet, which is raised on the pull request rather than changed here.
+	 */
+	private Incident raiseFor(Long elderId, String what) {
+		return incidents.reportByCaregiver(
+				elderId, null, 4L, Incident.Category.SOS, Incident.Severity.HIGH, what);
+	}
+
 	/** Gives this test's elder a closed incident that a named manager handled. */
 	private void givenTheElderWasHandledBefore(Long responderUserId) {
 		jdbc.update("""
@@ -109,8 +120,7 @@ class EscalationFlowIT {
 	void anElderWithAHistoryGetsTheManagerWhoAlreadyKnowsThem() {
 		givenTheElderWasHandledBefore(BEN);
 
-		Incident raised = incidents.createElderEmergency(
-				elder, 6L, null, null, "Blk 123 #04-56", "fell in the bathroom");
+		Incident raised = raiseFor(elder, "fell in the bathroom");
 
 		assertThat(raised.id()).isNotNull();
 		assertThat(raised.responderUserId())
@@ -123,7 +133,7 @@ class EscalationFlowIT {
 
 	@Test
 	void anElderWithNoHistoryStillGetsSomebody() {
-		Incident raised = incidents.createElderEmergency(elder, null, null, null, null, "no answer at door");
+		Incident raised = raiseFor(elder, "no answer at door");
 
 		assertThat(raised.responderUserId()).isNotNull();
 		assertThat(raised.status()).isEqualTo(Incident.Status.OPEN);
@@ -136,7 +146,7 @@ class EscalationFlowIT {
 
 	@Test
 	void theWholeHandlingFlowSurvivesARealDatabase() {
-		Incident raised = incidents.createElderEmergency(elder, 6L, null, null, null, "SOS pressed");
+		Incident raised = raiseFor(elder, "SOS pressed");
 		Long id = raised.id();
 
 		incidents.claim(id, BEN, "Ben Lim (ben)");
@@ -159,7 +169,7 @@ class EscalationFlowIT {
 	@Test
 	void anExpiredCountdownIsEscalatedByTheSweepAndEveryStepIsOnTheTimeline() {
 		givenTheElderWasHandledBefore(BEN);
-		Incident raised = incidents.createElderEmergency(elder, 6L, null, null, null, "SOS pressed");
+		Incident raised = raiseFor(elder, "SOS pressed");
 		Long id = raised.id();
 		assertThat(raised.responderUserId()).isEqualTo(BEN);
 
@@ -179,7 +189,7 @@ class EscalationFlowIT {
 
 	@Test
 	void anIncidentNobodyTakesEndsUpPinnedForTheFamilyRatherThanClosed() {
-		Incident raised = incidents.createElderEmergency(elder, 6L, null, null, null, "SOS pressed");
+		Incident raised = raiseFor(elder, "SOS pressed");
 		Long id = raised.id();
 
 		// Every manager in turn lets their countdown expire.
@@ -199,7 +209,7 @@ class EscalationFlowIT {
 
 	@Test
 	void takingOverBeforeTheSweepKeepsTheIncidentWhereItIs() {
-		Incident raised = incidents.createElderEmergency(elder, 6L, null, null, null, "SOS pressed");
+		Incident raised = raiseFor(elder, "SOS pressed");
 		Long id = raised.id();
 
 		clock.advance(Duration.ofMinutes(6));
@@ -214,7 +224,7 @@ class EscalationFlowIT {
 
 	@Test
 	void raisingTheSeverityRebuildsTheChainWithoutOpeningASecondIncident() {
-		Incident raised = incidents.createElderEmergency(elder, 6L, null, null, null, "SOS pressed");
+		Incident raised = raiseFor(elder, "SOS pressed");
 		Long id = raised.id();
 
 		Incident changed = incidents.changeSeverity(id, Incident.Severity.LOW, "elder is calm now", "Ben Lim (ben)");

@@ -3,39 +3,54 @@ package sg.nus.carelink.incident.infrastructure.directory;
 import java.util.List;
 import java.util.Optional;
 
+import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Component;
 
-import sg.nus.carelink.identity.application.IdentityService;
-import sg.nus.carelink.identity.domain.model.AppUser;
 import sg.nus.carelink.incident.domain.model.Responder;
 import sg.nus.carelink.incident.domain.repository.ManagerDirectory;
 import sg.nus.carelink.shared.security.Role;
 
 /**
- * Answers "who can take an incident" from the accounts that exist.
+ * Answers "who can take an incident" by reading the account tables directly.
  *
- * <p>Goes through {@link IdentityService} rather than reading {@code user_role} itself, so
- * the mapping from a row to an account lives in one module. The incident module asks a
- * question and does not learn how accounts are stored.
+ * <p><strong>Why two plain queries rather than a call into the identity module.</strong>
+ * The chain needs one thing identity does not expose: the enabled accounts holding a role.
+ * Adding it there would mean editing a module two other people build on - a port, its
+ * adapter, the Spring Data interface, the service and the shared test fake - for the sake
+ * of one caller. Reading is not owning: these two statements take nothing but an id and a
+ * name, write nothing, and can be deleted the day identity offers the lookup itself.
  *
- * <p>There is no notion of a shift here on purpose. CareLink does not roster its managers,
- * so every enabled manager is reachable and the chain distinguishes them by who knows the
- * elder rather than by who is nominally on call.
+ * <p>Kept deliberately small for that reason. It is a projection, not a second mapping of
+ * {@code app_user}: no entity, no repository, nothing that could drift from the identity
+ * module's own view of the same rows.
  */
 @Component
 class AccountManagerDirectory implements ManagerDirectory {
 
-	private final IdentityService identity;
+	private static final String MANAGERS = """
+			select u.id, u.display_name
+			from app_user u
+			join user_role r on r.user_id = u.id
+			where u.enabled = true and r.role = :role
+			order by u.display_name, u.id
+			""";
 
-	AccountManagerDirectory(IdentityService identity) {
-		this.identity = identity;
+	private static final String BY_ID = """
+			select id, display_name from app_user where id = :id
+			""";
+
+	private final JdbcClient jdbc;
+
+	AccountManagerDirectory(JdbcClient jdbc) {
+		this.jdbc = jdbc;
 	}
 
 	@Override
 	public List<Responder> allManagers() {
-		return identity.enabledWithRole(Role.MANAGER).stream()
-				.map(AccountManagerDirectory::toResponder)
-				.toList();
+		return jdbc.sql(MANAGERS)
+				.param("role", Role.MANAGER.name())
+				.query((rs, rowNum) -> new Responder(rs.getLong("id"), rs.getString("display_name")))
+				.list();
 	}
 
 	@Override
@@ -43,10 +58,9 @@ class AccountManagerDirectory implements ManagerDirectory {
 		if (userId == null) {
 			return Optional.empty();
 		}
-		return identity.findById(userId).map(AccountManagerDirectory::toResponder);
-	}
-
-	private static Responder toResponder(AppUser user) {
-		return new Responder(user.id(), user.displayName());
+		return jdbc.sql(BY_ID)
+				.param("id", userId)
+				.query((rs, rowNum) -> new Responder(rs.getLong("id"), rs.getString("display_name")))
+				.optional();
 	}
 }

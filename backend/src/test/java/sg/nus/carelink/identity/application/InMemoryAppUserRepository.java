@@ -2,10 +2,8 @@ package sg.nus.carelink.identity.application;
 
 import sg.nus.carelink.identity.domain.model.AppUser;
 import sg.nus.carelink.identity.domain.repository.AppUserRepository;
-import sg.nus.carelink.shared.security.Role;
 
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
 
@@ -34,14 +32,5 @@ public class InMemoryAppUserRepository implements AppUserRepository {
 	@Override
 	public Optional<AppUser> findById(Long id) {
 		return users.stream().filter(u -> id.equals(u.id())).findFirst();
-	}
-
-	@Override
-	public List<AppUser> findEnabledByRole(Role role) {
-		return users.stream()
-				.filter(AppUser::enabled)
-				.filter(user -> user.hasRole(role))
-				.sorted(Comparator.comparing(AppUser::displayName))
-				.toList();
 	}
 }
