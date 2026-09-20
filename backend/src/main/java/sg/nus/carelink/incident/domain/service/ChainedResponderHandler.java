@@ -20,6 +20,9 @@ import sg.nus.carelink.incident.domain.model.Responder;
  */
 abstract class ChainedResponderHandler implements ResponderHandler {
 
+	/** Why a tier steps aside when the person who fills it has already had this incident. */
+	private static final String ALREADY_HELD = "already held this incident";
+
 	private final ResponderHandler next;
 
 	protected ChainedResponderHandler(ResponderHandler next) {
@@ -40,7 +43,7 @@ abstract class ChainedResponderHandler implements ResponderHandler {
 			return next.handle(request.skipping(tier(), unavailableReason()));
 		}
 		if (request.hasAlreadyHeld(found.get())) {
-			return next.handle(request.skipping(tier(), "already held this incident"));
+			return next.handle(request.skipping(tier(), ALREADY_HELD));
 		}
 
 		Duration countdown = request.policy().countdownFor(request.severity(), tier(), request.depth());
@@ -59,9 +62,14 @@ abstract class ChainedResponderHandler implements ResponderHandler {
 				? EscalationLevel.pending(position, tier(), found.get(), countdown)
 				: EscalationLevel.skipped(position, tier(), countdown));
 
-		EscalationRequest onwards = usable
-				? request.listing(tier(), found.get())
-				: request.skipping(tier(), found.isEmpty() ? unavailableReason() : "already held this incident");
+		EscalationRequest onwards;
+		if (usable) {
+			onwards = request.listing(tier(), found.get());
+		}
+		else {
+			String reason = found.isEmpty() ? unavailableReason() : ALREADY_HELD;
+			onwards = request.skipping(tier(), reason);
+		}
 		levels.addAll(next.survey(onwards));
 		return List.copyOf(levels);
 	}

@@ -97,7 +97,8 @@ class IncidentServiceTest {
 		Incident raised = service.createElderEmergency(7L, 99L, null, null, null, null);
 		service.claim(raised.id(), IncidentFixtures.ALICE.userId(), "Alice");
 
-		assertThatThrownBy(() -> service.claim(raised.id(), IncidentFixtures.BEN.userId(), "Ben"))
+		Long incidentId = raised.id();
+		assertThatThrownBy(() -> service.claim(incidentId, IncidentFixtures.BEN.userId(), "Ben"))
 				.isInstanceOf(BusinessRuleViolation.class);
 
 		assertThat(timeline.actionsFor(raised.id())).endsWith("CLAIM_REJECTED");
@@ -108,7 +109,8 @@ class IncidentServiceTest {
 		Incident raised = service.createElderEmergency(7L, 99L, null, null, null, null);
 		service.claim(raised.id(), IncidentFixtures.ALICE.userId(), "Alice");
 
-		assertThatThrownBy(() -> service.escalate(raised.id(), "too slow", "Manager"))
+		Long incidentId = raised.id();
+		assertThatThrownBy(() -> service.escalate(incidentId, "too slow", "Manager"))
 				.isInstanceOf(BusinessRuleViolation.class)
 				.extracting(violation -> ((BusinessRuleViolation) violation).code())
 				.isEqualTo("INCIDENT_NOT_AWAITING_TAKE_OVER");
@@ -156,7 +158,8 @@ class IncidentServiceTest {
 	void applyingAPlaybookMeantForAnotherCategoryIsRefused() {
 		Incident raised = service.createElderEmergency(7L, 99L, null, null, null, null);
 
-		assertThatThrownBy(() -> service.applyPlaybook(raised.id(), "PB-MED", "Alice"))
+		Long incidentId = raised.id();
+		assertThatThrownBy(() -> service.applyPlaybook(incidentId, "PB-MED", "Alice"))
 				.isInstanceOf(BusinessRuleViolation.class)
 				.extracting(violation -> ((BusinessRuleViolation) violation).code())
 				.isEqualTo("PLAYBOOK_CATEGORY_MISMATCH");
@@ -175,7 +178,8 @@ class IncidentServiceTest {
 	void anUnknownPlaybookIsNotFound() {
 		Incident raised = service.createElderEmergency(7L, 99L, null, null, null, null);
 
-		assertThatThrownBy(() -> service.applyPlaybook(raised.id(), "PB-NOPE", "Alice"))
+		Long incidentId = raised.id();
+		assertThatThrownBy(() -> service.applyPlaybook(incidentId, "PB-NOPE", "Alice"))
 				.isInstanceOf(ResourceNotFound.class);
 	}
 
@@ -201,8 +205,9 @@ class IncidentServiceTest {
 		Incident raised = service.createElderEmergency(7L, 99L, null, null, null, null);
 		service.claim(raised.id(), IncidentFixtures.ALICE.userId(), "Alice");
 
+		Long incidentId = raised.id();
 		assertThatThrownBy(() -> service.resolve(
-				raised.id(), IncidentFixtures.BEN.userId(), "all fine", null, "Ben"))
+				incidentId, IncidentFixtures.BEN.userId(), "all fine", null, "Ben"))
 				.isInstanceOf(AccessDeniedException.class);
 	}
 
@@ -211,8 +216,9 @@ class IncidentServiceTest {
 		Incident raised = service.createElderEmergency(7L, 99L, null, null, null, null);
 		service.claim(raised.id(), IncidentFixtures.ALICE.userId(), "Alice");
 
+		Long incidentId = raised.id();
 		assertThatThrownBy(() -> service.resolve(
-				raised.id(), IncidentFixtures.ALICE.userId(), "  ", null, "Alice"))
+				incidentId, IncidentFixtures.ALICE.userId(), "  ", null, "Alice"))
 				.isInstanceOf(BusinessRuleViolation.class)
 				.extracting(violation -> ((BusinessRuleViolation) violation).code())
 				.isEqualTo("RESOLUTION_NOTE_REQUIRED");

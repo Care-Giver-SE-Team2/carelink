@@ -7,6 +7,7 @@ import java.util.List;
 import java.util.Set;
 
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import sg.nus.carelink.incident.domain.model.EscalationChain;
@@ -107,6 +108,41 @@ public class EscalationService {
 		EscalationOutcome outcome = chainFor(incident, now)
 				.handle(EscalationRequest.routing(incident, now, policy));
 		return applyOutcome(incident, outcome, now, IncidentLog.SYSTEM_ACTOR, "chain rebuilt for new severity");
+	}
+
+	/**
+	 * Re-reads one incident and escalates it only if its countdown really has expired.
+	 *
+	 * <p>The per-incident half of the UC-SYS02 sweep, and the reason it lives here rather
+	 * than on the scan: {@code REQUIRES_NEW} is applied by the proxy around this bean, so the
+	 * caller has to be a different bean for each incident to get its own transaction. A
+	 * rollback then affects the one incident that failed and no other.
+	 *
+	 * <p>The second read is what implements alternative 2a. A responder can take the incident
+	 * over in the window between the sweep selecting it and the sweep reaching it; when that
+	 * happens the escalation is abandoned and the near miss is written to the timeline,
+	 * because an escalation that almost happened is part of what went on.
+	 *
+	 * @return true when the incident actually moved to another level
+	 */
+	@Transactional(propagation = Propagation.REQUIRES_NEW)
+	public boolean escalateIfStillOverdue(Long incidentId, LocalDateTime scanStartedAt) {
+		Incident current = incidents.findById(incidentId).orElse(null);
+		if (current == null) {
+			return false;
+		}
+
+		LocalDateTime now = now();
+		if (!current.isOverdue(now)) {
+			timeline.save(IncidentLog.systemEntry(incidentId, IncidentLog.Action.ESCALATION_CANCELLED,
+					"countdown had expired when the sweep started at %s, but the incident is now %s"
+							.formatted(scanStartedAt, current.status()),
+					now));
+			return false;
+		}
+
+		escalate(current, "response countdown expired", IncidentLog.SYSTEM_ACTOR);
+		return true;
 	}
 
 	/** The chain as a plan, for the manager's screen. Changes nothing. */

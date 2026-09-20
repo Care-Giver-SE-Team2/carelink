@@ -85,10 +85,10 @@ class EscalationScanServiceTest {
 	@Test
 	void anIncidentTakenOverDuringTheSweepCancelsItsOwnEscalationAndSaysSo() {
 		Incident raised = raiseAt(RAISED_AT);
-		EscalationScanService scan = scanAt(RAISED_AT.plusMinutes(6));
+		EscalationService escalation = escalationAt(RAISED_AT.plusMinutes(6));
 		incidents.save(incidents.findById(raised.id()).orElseThrow().claimBy(IncidentFixtures.ALICE.userId()));
 
-		boolean escalated = scan.escalateIfStillOverdue(raised.id(), RAISED_AT.plusMinutes(6));
+		boolean escalated = escalation.escalateIfStillOverdue(raised.id(), RAISED_AT.plusMinutes(6));
 
 		assertThat(escalated).isFalse();
 		assertThat(incidents.findById(raised.id()).orElseThrow().status())
@@ -116,7 +116,7 @@ class EscalationScanServiceTest {
 
 	@Test
 	void anIncidentThatDisappearedBetweenSelectionAndEscalationIsSkipped() {
-		assertThat(scanAt(RAISED_AT).escalateIfStillOverdue(404L, RAISED_AT)).isFalse();
+		assertThat(escalationAt(RAISED_AT).escalateIfStillOverdue(404L, RAISED_AT)).isFalse();
 	}
 
 	// -------------------------------------------------------------------- helpers ---
@@ -133,9 +133,11 @@ class EscalationScanServiceTest {
 	}
 
 	private EscalationScanService scanAt(LocalDateTime moment) {
-		Clock clock = IncidentFixtures.clockAt(moment);
-		EscalationService escalation =
-				new EscalationService(incidents, timeline, roster, EscalationPolicy.defaults(), clock);
-		return new EscalationScanService(incidents, timeline, escalation, clock);
+		return new EscalationScanService(incidents, escalationAt(moment), IncidentFixtures.clockAt(moment));
+	}
+
+	private EscalationService escalationAt(LocalDateTime moment) {
+		return new EscalationService(
+				incidents, timeline, roster, EscalationPolicy.defaults(), IncidentFixtures.clockAt(moment));
 	}
 }
