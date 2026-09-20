@@ -22,7 +22,7 @@ import sg.nus.carelink.shared.error.BusinessRuleViolation;
  */
 class IncidentTest {
 
-	private static final LocalDateTime NOW = IncidentFixtures.DURING_SHIFT;
+	private static final LocalDateTime NOW = IncidentFixtures.RAISED_AT;
 
 	@Test
 	void createsElderSosWithRequiredDefaults() {

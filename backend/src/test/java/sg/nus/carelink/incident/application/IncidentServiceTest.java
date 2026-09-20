@@ -14,7 +14,7 @@ import sg.nus.carelink.incident.domain.model.Incident;
 import sg.nus.carelink.incident.domain.model.IncidentLog;
 import sg.nus.carelink.incident.domain.model.Playbook;
 import sg.nus.carelink.incident.domain.service.EscalationPolicy;
-import sg.nus.carelink.incident.support.FakeDutyRoster;
+import sg.nus.carelink.incident.support.FakeManagerDirectory;
 import sg.nus.carelink.incident.support.IncidentFixtures;
 import sg.nus.carelink.incident.support.InMemoryIncidentLogRepository;
 import sg.nus.carelink.incident.support.InMemoryIncidentRepository;
@@ -31,20 +31,18 @@ class IncidentServiceTest {
 
 	private final InMemoryIncidentRepository incidents = new InMemoryIncidentRepository();
 	private final InMemoryIncidentLogRepository timeline = new InMemoryIncidentLogRepository();
-	private final Clock clock = IncidentFixtures.clockAt(IncidentFixtures.DURING_SHIFT);
+	private final Clock clock = IncidentFixtures.clockAt(IncidentFixtures.RAISED_AT);
 
 	private IncidentService service;
 
 	@BeforeEach
 	void setUp() {
-		service = buildService(FakeDutyRoster
-				.withManagers(IncidentFixtures.ALICE, IncidentFixtures.BEN)
-				.onDuty(IncidentFixtures.ALICE));
+		service = buildService(FakeManagerDirectory.with(IncidentFixtures.ALICE, IncidentFixtures.BEN));
 	}
 
-	private IncidentService buildService(FakeDutyRoster roster) {
+	private IncidentService buildService(FakeManagerDirectory directory) {
 		EscalationService escalation = new EscalationService(
-				incidents, timeline, roster, EscalationPolicy.defaults(), clock);
+				incidents, timeline, directory, EscalationPolicy.defaults(), clock);
 		return new IncidentService(incidents, timeline, escalation, clock);
 	}
 
@@ -55,7 +53,7 @@ class IncidentServiceTest {
 		Incident raised = service.createElderEmergency(7L, 99L, null, null, "Blk 123", "fell");
 
 		assertThat(raised.responderUserId()).isEqualTo(IncidentFixtures.ALICE.userId());
-		assertThat(raised.respondBy()).isEqualTo(IncidentFixtures.DURING_SHIFT.plusMinutes(5));
+		assertThat(raised.respondBy()).isEqualTo(IncidentFixtures.RAISED_AT.plusMinutes(5));
 		assertThat(timeline.actionsFor(raised.id())).containsExactly("REPORTED", "ASSIGNED");
 	}
 
@@ -65,12 +63,12 @@ class IncidentServiceTest {
 				7L, 4L, 20L, Incident.Category.FALL, Incident.Severity.MEDIUM, "slipped");
 
 		assertThat(raised.responderUserId()).isEqualTo(IncidentFixtures.ALICE.userId());
-		assertThat(raised.respondBy()).isEqualTo(IncidentFixtures.DURING_SHIFT.plusMinutes(15));
+		assertThat(raised.respondBy()).isEqualTo(IncidentFixtures.RAISED_AT.plusMinutes(15));
 	}
 
 	@Test
 	void withNoManagersAtAllTheIncidentIsPinnedForTheFamilyInsteadOfVanishing() {
-		service = buildService(FakeDutyRoster.empty());
+		service = buildService(FakeManagerDirectory.empty());
 
 		Incident raised = service.createElderEmergency(7L, 99L, null, null, null, null);
 
@@ -194,7 +192,7 @@ class IncidentServiceTest {
 
 		assertThat(changed.severity()).isEqualTo(Incident.Severity.LOW);
 		assertThat(changed.responderUserId()).isEqualTo(IncidentFixtures.ALICE.userId());
-		assertThat(changed.respondBy()).isEqualTo(IncidentFixtures.DURING_SHIFT.plusMinutes(60));
+		assertThat(changed.respondBy()).isEqualTo(IncidentFixtures.RAISED_AT.plusMinutes(60));
 		assertThat(timeline.actionsFor(raised.id())).contains("SEVERITY_CHANGED");
 		assertThat(timeline.findTimeline(raised.id()).get(0).action()).isEqualTo("REPORTED");
 	}

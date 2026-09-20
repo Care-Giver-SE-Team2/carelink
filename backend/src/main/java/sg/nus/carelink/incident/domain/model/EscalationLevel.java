@@ -37,7 +37,7 @@ public record EscalationLevel(
 
 	/** A tier nobody was available for. It stays in the chain so the reason is visible. */
 	public static EscalationLevel skipped(int position, EscalationTier tier, Duration countdown) {
-		return new EscalationLevel(position, tier, null, countdown, State.SKIPPED_OFF_DUTY, null);
+		return new EscalationLevel(position, tier, null, countdown, State.SKIPPED_UNAVAILABLE, null);
 	}
 
 	/** The terminal level: no responder, no countdown, reached only when everything above timed out. */
@@ -69,6 +69,6 @@ public record EscalationLevel(
 	}
 
 	public enum State {
-		PENDING, CURRENT, TIMED_OUT, SKIPPED_OFF_DUTY, CLAIMED
+		PENDING, CURRENT, TIMED_OUT, SKIPPED_UNAVAILABLE, CLAIMED
 	}
 }

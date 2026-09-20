@@ -44,6 +44,16 @@ public final class InMemoryIncidentRepository implements IncidentRepository {
 	}
 
 	@Override
+	public Optional<Long> lastResponderForElder(Long elderId, Long excludingIncidentId) {
+		return rows.values().stream()
+				.filter(incident -> incident.elderId().equals(elderId))
+				.filter(incident -> !incident.id().equals(excludingIncidentId))
+				.filter(incident -> incident.responderUserId() != null)
+				.max(Comparator.comparing(Incident::reportedAt))
+				.map(Incident::responderUserId);
+	}
+
+	@Override
 	public List<Incident> findByElder(Long elderId) {
 		return rows.values().stream()
 				.filter(incident -> incident.elderId().equals(elderId))

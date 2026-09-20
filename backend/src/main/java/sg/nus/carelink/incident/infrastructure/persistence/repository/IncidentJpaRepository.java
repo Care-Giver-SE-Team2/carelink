@@ -4,6 +4,7 @@ import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.List;
 
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import sg.nus.carelink.incident.infrastructure.persistence.entity.IncidentJpaEntity;
@@ -23,4 +24,13 @@ public interface IncidentJpaRepository extends JpaRepository<IncidentJpaEntity, 
 			Collection<IncidentJpaEntity.Status> statuses, LocalDateTime deadline);
 
 	List<IncidentJpaEntity> findByElderIdOrderByReportedAtDesc(Long elderId);
+
+	/**
+	 * Recent incidents for one elder that had a responder and are not the one being routed.
+	 *
+	 * <p>The adapter takes the first row as the manager who knows this elder. Limiting the
+	 * page keeps it to one index read; the caller only ever wants the newest.
+	 */
+	List<IncidentJpaEntity> findByElderIdAndIdNotAndResponderUserIdNotNullOrderByReportedAtDesc(
+			Long elderId, Long excludedId, Pageable pageable);
 }

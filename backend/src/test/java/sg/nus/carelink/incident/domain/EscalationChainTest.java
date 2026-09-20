@@ -18,8 +18,9 @@ import sg.nus.carelink.incident.domain.service.EscalationOutcome;
 import sg.nus.carelink.incident.domain.service.EscalationPolicy;
 import sg.nus.carelink.incident.domain.service.EscalationRequest;
 import sg.nus.carelink.incident.domain.service.ResponderHandler;
-import sg.nus.carelink.incident.support.FakeDutyRoster;
+import sg.nus.carelink.incident.support.FakeManagerDirectory;
 import sg.nus.carelink.incident.support.IncidentFixtures;
+import sg.nus.carelink.incident.support.InMemoryIncidentRepository;
 
 /**
  * The design problem itself: who an incident is offered to, in what order, and what happens
@@ -33,40 +34,46 @@ class EscalationChainTest {
 
 	private static final EscalationPolicy POLICY = EscalationPolicy.defaults();
 
+	private final InMemoryIncidentRepository history = new InMemoryIncidentRepository();
+
 	// ------------------------------------------------------------------ assembly ---
 
 	@Test
-	void aHighSeverityChainOffersTheDutyManagerFirstAndKeepsAFallback() {
-		FakeDutyRoster roster = FakeDutyRoster
-				.withManagers(IncidentFixtures.ALICE, IncidentFixtures.BEN)
-				.onDuty(IncidentFixtures.ALICE);
-
-		EscalationChain chain = describe(IncidentFixtures.savedSos(1L), roster);
+	void aHighSeverityChainTriesContinuityBeforeItTriesAnybody() {
+		EscalationChain chain = describe(savedSos(1L), directoryOf(2));
 
 		assertThat(chain.levels()).extracting(EscalationLevel::tier).containsExactly(
 				EscalationTier.ASSIGNED_RESPONDER,
-				EscalationTier.DUTY_MANAGER,
+				EscalationTier.FAMILIAR_MANAGER,
 				EscalationTier.ANY_MANAGER,
 				EscalationTier.FAMILY_ESCALATION);
 	}
 
 	@Test
-	void aLowSeverityIncidentDoesNotWakeEveryManager() {
-		FakeDutyRoster roster = FakeDutyRoster
-				.withManagers(IncidentFixtures.ALICE, IncidentFixtures.BEN)
-				.onDuty(IncidentFixtures.ALICE);
+	void aLowSeverityIncidentIsNotWorthWaitingForAParticularManager() {
+		EscalationChain chain = describe(savedWith(1L, Incident.Severity.LOW), directoryOf(2));
 
-		EscalationChain chain = describe(
-				IncidentFixtures.savedWithSeverity(1L, Incident.Severity.LOW), roster);
+		assertThat(chain.levels()).extracting(EscalationLevel::tier).containsExactly(
+				EscalationTier.ASSIGNED_RESPONDER,
+				EscalationTier.ANY_MANAGER,
+				EscalationTier.FAMILY_ESCALATION);
+	}
 
-		assertThat(chain.levels()).extracting(EscalationLevel::tier)
-				.doesNotContain(EscalationTier.ANY_MANAGER)
-				.endsWith(EscalationTier.FAMILY_ESCALATION);
+	@Test
+	void everyChainKeepsTheAnyManagerTierSoNobodyIsEverLeftHolding() {
+		for (Incident.Severity severity : Incident.Severity.values()) {
+			EscalationChain chain = describe(savedWith(1L, severity), directoryOf(1));
+
+			assertThat(chain.levels())
+					.as("severity %s", severity)
+					.extracting(EscalationLevel::tier)
+					.contains(EscalationTier.ANY_MANAGER);
+		}
 	}
 
 	@Test
 	void theChainAlwaysEndsWithTheTerminalTier() {
-		EscalationChain chain = describe(IncidentFixtures.savedSos(1L), FakeDutyRoster.empty());
+		EscalationChain chain = describe(savedSos(1L), FakeManagerDirectory.empty());
 
 		assertThat(chain.terminalLevel().tier()).isEqualTo(EscalationTier.FAMILY_ESCALATION);
 		assertThat(chain.terminalLevel().isFillable()).isFalse();
@@ -74,19 +81,21 @@ class EscalationChainTest {
 
 	@Test
 	void theChainRecordsWhatItWasAssembledFrom() {
-		FakeDutyRoster roster = FakeDutyRoster.withManagers(IncidentFixtures.ALICE);
+		EscalationChain chain = describe(savedSos(1L), directoryOf(2));
 
-		EscalationChain chain = describe(IncidentFixtures.savedSos(1L), roster);
-
-		assertThat(chain.assembledFrom()).contains("HIGH").contains("duty manager on shift");
-		assertThat(chain.assembledAt()).isEqualTo(IncidentFixtures.DURING_SHIFT);
+		assertThat(chain.assembledFrom())
+				.contains("HIGH")
+				.contains("continuity tier included")
+				.contains("2 manager(s)");
+		assertThat(chain.assembledAt()).isEqualTo(IncidentFixtures.RAISED_AT);
 	}
 
 	@Test
 	void oneManagerWhoQualifiesForTwoTiersIsListedOnlyOnce() {
-		FakeDutyRoster roster = FakeDutyRoster.withManagers(IncidentFixtures.ALICE);
+		Incident incident = savedSos(1L);
+		givenTheElderWasHandledBefore(incident, IncidentFixtures.ALICE.userId());
 
-		EscalationChain chain = describe(IncidentFixtures.savedSos(1L), roster);
+		EscalationChain chain = describe(incident, directoryOf(1));
 
 		assertThat(chain.levels())
 				.filteredOn(EscalationLevel::isFillable)
@@ -94,70 +103,50 @@ class EscalationChainTest {
 				.containsExactly(IncidentFixtures.ALICE.userId());
 	}
 
+	@Test
+	void theBuilderRefusesToProduceAChainItCannotFillIn() {
+		Incident incident = savedSos(1L);
+
+		assertThatThrownBy(() -> EscalationChainBuilder.forIncident(incident).build())
+				.isInstanceOf(NullPointerException.class)
+				.hasMessageContaining("at:");
+	}
+
 	// ------------------------------------------------------------------- routing ---
 
 	@Test
-	void aNewIncidentGoesToTheManagerOnShift() {
-		FakeDutyRoster roster = FakeDutyRoster
-				.withManagers(IncidentFixtures.ALICE, IncidentFixtures.BEN)
-				.onDuty(IncidentFixtures.BEN);
-
-		EscalationOutcome outcome = route(IncidentFixtures.savedSos(1L), roster);
+	void aFirstEverIncidentForAnElderGoesToTheFirstAvailableManager() {
+		EscalationOutcome outcome = route(savedSos(1L), directoryOf(2));
 
 		assertThat(outcome.assigned()).isTrue();
-		assertThat(outcome.tier()).isEqualTo(EscalationTier.DUTY_MANAGER);
+		assertThat(outcome.tier()).isEqualTo(EscalationTier.ANY_MANAGER);
+		assertThat(outcome.responder()).isEqualTo(IncidentFixtures.ALICE);
+		assertThat(outcome.describeRoute()).contains("no manager has handled this elder before");
+	}
+
+	@Test
+	void anElderWhoHasBeenHandledBeforeGoesBackToTheSameManager() {
+		Incident incident = savedSos(1L);
+		givenTheElderWasHandledBefore(incident, IncidentFixtures.BEN.userId());
+
+		EscalationOutcome outcome = route(incident, directoryOf(2));
+
+		assertThat(outcome.tier()).isEqualTo(EscalationTier.FAMILIAR_MANAGER);
 		assertThat(outcome.responder()).isEqualTo(IncidentFixtures.BEN);
 	}
 
 	@Test
-	void outOfHoursTheDutyTierStepsAsideAndSaysWhy() {
-		FakeDutyRoster roster = FakeDutyRoster
-				.withManagers(IncidentFixtures.ALICE)
-				.outOfHours();
-
-		EscalationOutcome outcome = route(IncidentFixtures.savedSos(1L), roster);
-
-		assertThat(outcome.assigned()).isTrue();
-		assertThat(outcome.tier()).isEqualTo(EscalationTier.ANY_MANAGER);
-		assertThat(outcome.skipped())
-				.extracting(EscalationRequest.SkippedTier::tier)
-				.contains(EscalationTier.DUTY_MANAGER);
-		assertThat(outcome.describeRoute()).contains("no manager on shift");
-	}
-
-	@Test
 	void theFirstLevelsCountdownComesFromTheSeverity() {
-		FakeDutyRoster roster = FakeDutyRoster.withManagers(IncidentFixtures.ALICE);
-
-		EscalationOutcome high = route(IncidentFixtures.savedSos(1L), roster);
-		EscalationOutcome low = route(
-				IncidentFixtures.savedWithSeverity(2L, Incident.Severity.LOW), roster);
+		EscalationOutcome high = route(savedSos(1L), directoryOf(1));
+		EscalationOutcome low = route(savedWith(2L, Incident.Severity.LOW), directoryOf(1));
 
 		assertThat(high.countdown()).isEqualTo(Duration.ofMinutes(5));
 		assertThat(low.countdown()).isEqualTo(Duration.ofMinutes(60));
 	}
 
 	@Test
-	void aResponderReachedAfterSomebodyTimedOutGetsLongerThanTheFirstDid() {
-		FakeDutyRoster roster = FakeDutyRoster
-				.withManagers(IncidentFixtures.ALICE, IncidentFixtures.BEN)
-				.onDuty(IncidentFixtures.ALICE);
-		Incident incident = IncidentFixtures.savedSos(1L);
-
-		EscalationOutcome outcome = chain(incident, roster).handle(EscalationRequest.afterTimeout(
-				incident, IncidentFixtures.DURING_SHIFT, POLICY, Set.of(IncidentFixtures.ALICE.userId())));
-
-		assertThat(outcome.responder()).isEqualTo(IncidentFixtures.BEN);
-		assertThat(outcome.countdown()).isEqualTo(Duration.ofMinutes(10));
-	}
-
-	@Test
 	void steppingOverATierNobodyFillsDoesNotExtendTheNextDeadline() {
-		FakeDutyRoster roster = FakeDutyRoster
-				.withManagers(IncidentFixtures.ALICE)
-				.outOfHours();
-
-		EscalationOutcome outcome = route(IncidentFixtures.savedSos(1L), roster);
+		EscalationOutcome outcome = route(savedSos(1L), directoryOf(1));
 
 		assertThat(outcome.tier()).isEqualTo(EscalationTier.ANY_MANAGER);
 		assertThat(outcome.countdown()).isEqualTo(Duration.ofMinutes(5));
@@ -167,14 +156,11 @@ class EscalationChainTest {
 
 	@Test
 	void anEscalationDoesNotHandTheIncidentBackToWhoeverJustTimedOut() {
-		FakeDutyRoster roster = FakeDutyRoster
-				.withManagers(IncidentFixtures.ALICE, IncidentFixtures.BEN)
-				.onDuty(IncidentFixtures.ALICE);
-		Incident timedOut = IncidentFixtures.savedSos(1L)
-				.assignTo(IncidentFixtures.ALICE.userId(), IncidentFixtures.DURING_SHIFT.plusMinutes(5));
+		Incident timedOut = savedSos(1L)
+				.assignTo(IncidentFixtures.ALICE.userId(), IncidentFixtures.RAISED_AT.plusMinutes(5));
 
-		EscalationOutcome outcome = chain(timedOut, roster).handle(EscalationRequest.afterTimeout(
-				timedOut, IncidentFixtures.DURING_SHIFT.plusMinutes(6), POLICY,
+		EscalationOutcome outcome = chain(timedOut, directoryOf(2)).handle(EscalationRequest.afterTimeout(
+				timedOut, IncidentFixtures.RAISED_AT.plusMinutes(6), POLICY,
 				Set.of(IncidentFixtures.ALICE.userId())));
 
 		assertThat(outcome.assigned()).isTrue();
@@ -182,14 +168,22 @@ class EscalationChainTest {
 	}
 
 	@Test
-	void theResponderAlreadyNamedKeepsTheIncidentWhenTheChainIsMerelyRebuilt() {
-		FakeDutyRoster roster = FakeDutyRoster
-				.withManagers(IncidentFixtures.ALICE, IncidentFixtures.BEN)
-				.onDuty(IncidentFixtures.BEN);
-		Incident held = IncidentFixtures.savedSos(1L)
-				.assignTo(IncidentFixtures.ALICE.userId(), IncidentFixtures.DURING_SHIFT.plusMinutes(5));
+	void aResponderReachedAfterSomebodyTimedOutGetsLongerThanTheFirstDid() {
+		Incident incident = savedSos(1L);
 
-		EscalationOutcome outcome = route(held, roster);
+		EscalationOutcome outcome = chain(incident, directoryOf(2)).handle(EscalationRequest.afterTimeout(
+				incident, IncidentFixtures.RAISED_AT, POLICY, Set.of(IncidentFixtures.ALICE.userId())));
+
+		assertThat(outcome.responder()).isEqualTo(IncidentFixtures.BEN);
+		assertThat(outcome.countdown()).isEqualTo(Duration.ofMinutes(10));
+	}
+
+	@Test
+	void theResponderAlreadyNamedKeepsTheIncidentWhenTheChainIsMerelyRebuilt() {
+		Incident held = savedSos(1L)
+				.assignTo(IncidentFixtures.ALICE.userId(), IncidentFixtures.RAISED_AT.plusMinutes(5));
+
+		EscalationOutcome outcome = route(held, directoryOf(2));
 
 		assertThat(outcome.tier()).isEqualTo(EscalationTier.ASSIGNED_RESPONDER);
 		assertThat(outcome.responder()).isEqualTo(IncidentFixtures.ALICE);
@@ -197,13 +191,10 @@ class EscalationChainTest {
 
 	@Test
 	void whenEveryManagerHasAlreadyHeldItTheChainIsExhausted() {
-		FakeDutyRoster roster = FakeDutyRoster
-				.withManagers(IncidentFixtures.ALICE, IncidentFixtures.BEN)
-				.onDuty(IncidentFixtures.ALICE);
-		Incident incident = IncidentFixtures.savedSos(1L);
+		Incident incident = savedSos(1L);
 
-		EscalationOutcome outcome = chain(incident, roster).handle(EscalationRequest.afterTimeout(
-				incident, IncidentFixtures.DURING_SHIFT, POLICY,
+		EscalationOutcome outcome = chain(incident, directoryOf(2)).handle(EscalationRequest.afterTimeout(
+				incident, IncidentFixtures.RAISED_AT, POLICY,
 				Set.of(IncidentFixtures.ALICE.userId(), IncidentFixtures.BEN.userId())));
 
 		assertThat(outcome.assigned()).isFalse();
@@ -213,7 +204,7 @@ class EscalationChainTest {
 
 	@Test
 	void anInstitutionWithNoManagersAtAllExhaustsImmediately() {
-		EscalationOutcome outcome = route(IncidentFixtures.savedSos(1L), FakeDutyRoster.empty());
+		EscalationOutcome outcome = route(savedSos(1L), FakeManagerDirectory.empty());
 
 		assertThat(outcome.assigned()).isFalse();
 		assertThat(outcome.skipped()).hasSize(3);
@@ -224,14 +215,14 @@ class EscalationChainTest {
 	@Test
 	void aChainWithoutLevelsIsNotAChain() {
 		assertThatThrownBy(() -> new EscalationChain(
-				1L, IncidentFixtures.DURING_SHIFT, Incident.Severity.HIGH, "none", List.of()))
+				1L, IncidentFixtures.RAISED_AT, Incident.Severity.HIGH, "none", List.of()))
 				.isInstanceOf(IllegalArgumentException.class);
 	}
 
 	@Test
 	void aLevelKnowsWhetherAnybodyFillsIt() {
 		EscalationLevel filled = EscalationLevel.pending(
-				1, EscalationTier.DUTY_MANAGER, IncidentFixtures.ALICE, Duration.ofMinutes(5));
+				1, EscalationTier.FAMILIAR_MANAGER, IncidentFixtures.ALICE, Duration.ofMinutes(5));
 		EscalationLevel empty = EscalationLevel.skipped(
 				2, EscalationTier.ANY_MANAGER, Duration.ofMinutes(10));
 
@@ -239,17 +230,17 @@ class EscalationChainTest {
 		assertThat(filled.responderUserId()).isEqualTo(IncidentFixtures.ALICE.userId());
 		assertThat(empty.isFillable()).isFalse();
 		assertThat(empty.responderUserId()).isNull();
-		assertThat(empty.state()).isEqualTo(EscalationLevel.State.SKIPPED_OFF_DUTY);
+		assertThat(empty.state()).isEqualTo(EscalationLevel.State.SKIPPED_UNAVAILABLE);
 	}
 
 	@Test
 	void takingALevelCurrentFixesItsDeadline() {
 		EscalationLevel current = EscalationLevel
-				.pending(1, EscalationTier.DUTY_MANAGER, IncidentFixtures.ALICE, Duration.ofMinutes(5))
-				.takeCurrentFrom(IncidentFixtures.DURING_SHIFT);
+				.pending(1, EscalationTier.FAMILIAR_MANAGER, IncidentFixtures.ALICE, Duration.ofMinutes(5))
+				.takeCurrentFrom(IncidentFixtures.RAISED_AT);
 
 		assertThat(current.state()).isEqualTo(EscalationLevel.State.CURRENT);
-		assertThat(current.respondBy()).isEqualTo(IncidentFixtures.DURING_SHIFT.plusMinutes(5));
+		assertThat(current.respondBy()).isEqualTo(IncidentFixtures.RAISED_AT.plusMinutes(5));
 		assertThat(current.timedOut().state()).isEqualTo(EscalationLevel.State.TIMED_OUT);
 		assertThat(current.claimed().state()).isEqualTo(EscalationLevel.State.CLAIMED);
 	}
@@ -257,14 +248,13 @@ class EscalationChainTest {
 	@Test
 	void aLevelPositionStartsAtOne() {
 		assertThatThrownBy(() -> EscalationLevel.pending(
-				0, EscalationTier.DUTY_MANAGER, IncidentFixtures.ALICE, Duration.ZERO))
+				0, EscalationTier.ANY_MANAGER, IncidentFixtures.ALICE, Duration.ZERO))
 				.isInstanceOf(IllegalArgumentException.class);
 	}
 
 	@Test
 	void theChainCanReportWhatComesAfterALevelAndWhenItIsSpent() {
-		FakeDutyRoster roster = FakeDutyRoster.withManagers(IncidentFixtures.ALICE);
-		EscalationChain chain = describe(IncidentFixtures.savedSos(1L), roster);
+		EscalationChain chain = describe(savedSos(1L), directoryOf(2));
 		EscalationLevel first = chain.levels().get(0);
 
 		assertThat(chain.size()).isEqualTo(4);
@@ -278,30 +268,57 @@ class EscalationChainTest {
 	@Test
 	void aTierKnowsWhetherItIsTheLastOne() {
 		assertThat(EscalationTier.FAMILY_ESCALATION.isTerminal()).isTrue();
-		assertThat(EscalationTier.DUTY_MANAGER.isTerminal()).isFalse();
-		assertThat(EscalationTier.DUTY_MANAGER.label()).isEqualTo("Duty manager");
+		assertThat(EscalationTier.FAMILIAR_MANAGER.isTerminal()).isFalse();
+		assertThat(EscalationTier.FAMILIAR_MANAGER.label()).isEqualTo("Manager who knows this elder");
 	}
 
 	// -------------------------------------------------------------------- helpers ---
 
-	private static ResponderHandler chain(Incident incident, FakeDutyRoster roster) {
-		return EscalationChainBuilder.forIncident(incident)
-				.at(IncidentFixtures.DURING_SHIFT)
-				.withPolicy(POLICY)
-				.from(roster)
-				.build();
+	private static FakeManagerDirectory directoryOf(int howMany) {
+		return switch (howMany) {
+			case 0 -> FakeManagerDirectory.empty();
+			case 1 -> FakeManagerDirectory.with(IncidentFixtures.ALICE);
+			case 2 -> FakeManagerDirectory.with(IncidentFixtures.ALICE, IncidentFixtures.BEN);
+			default -> FakeManagerDirectory.with(
+					IncidentFixtures.ALICE, IncidentFixtures.BEN, IncidentFixtures.CARA);
+		};
 	}
 
-	private static EscalationOutcome route(Incident incident, FakeDutyRoster roster) {
-		return chain(incident, roster)
-				.handle(EscalationRequest.routing(incident, IncidentFixtures.DURING_SHIFT, POLICY));
+	private Incident savedSos(Long id) {
+		Incident incident = IncidentFixtures.savedSos(id);
+		history.save(incident);
+		return incident;
 	}
 
-	private static EscalationChain describe(Incident incident, FakeDutyRoster roster) {
+	private Incident savedWith(Long id, Incident.Severity severity) {
+		Incident incident = IncidentFixtures.savedWithSeverity(id, severity);
+		history.save(incident);
+		return incident;
+	}
+
+	/** An earlier incident for the same elder that this manager handled. */
+	private void givenTheElderWasHandledBefore(Incident incident, Long responderUserId) {
+		history.save(IncidentFixtures.handledEarlier(99L, incident.elderId(), responderUserId));
+	}
+
+	private ResponderHandler chain(Incident incident, FakeManagerDirectory directory) {
+		return builder(incident, directory).build();
+	}
+
+	private EscalationOutcome route(Incident incident, FakeManagerDirectory directory) {
+		return chain(incident, directory)
+				.handle(EscalationRequest.routing(incident, IncidentFixtures.RAISED_AT, POLICY));
+	}
+
+	private EscalationChain describe(Incident incident, FakeManagerDirectory directory) {
+		return builder(incident, directory).describe();
+	}
+
+	private EscalationChainBuilder builder(Incident incident, FakeManagerDirectory directory) {
 		return EscalationChainBuilder.forIncident(incident)
-				.at(IncidentFixtures.DURING_SHIFT)
+				.at(IncidentFixtures.RAISED_AT)
 				.withPolicy(POLICY)
-				.from(roster)
-				.describe();
+				.from(directory)
+				.withHistory(history);
 	}
 }

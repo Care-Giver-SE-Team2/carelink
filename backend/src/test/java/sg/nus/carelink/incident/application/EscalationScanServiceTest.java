@@ -9,7 +9,7 @@ import org.junit.jupiter.api.Test;
 
 import sg.nus.carelink.incident.domain.model.Incident;
 import sg.nus.carelink.incident.domain.service.EscalationPolicy;
-import sg.nus.carelink.incident.support.FakeDutyRoster;
+import sg.nus.carelink.incident.support.FakeManagerDirectory;
 import sg.nus.carelink.incident.support.IncidentFixtures;
 import sg.nus.carelink.incident.support.InMemoryIncidentLogRepository;
 import sg.nus.carelink.incident.support.InMemoryIncidentRepository;
@@ -22,13 +22,12 @@ import sg.nus.carelink.incident.support.InMemoryIncidentRepository;
  */
 class EscalationScanServiceTest {
 
-	private static final LocalDateTime RAISED_AT = IncidentFixtures.DURING_SHIFT;
+	private static final LocalDateTime RAISED_AT = IncidentFixtures.RAISED_AT;
 
 	private final InMemoryIncidentRepository incidents = new InMemoryIncidentRepository();
 	private final InMemoryIncidentLogRepository timeline = new InMemoryIncidentLogRepository();
-	private final FakeDutyRoster roster = FakeDutyRoster
-			.withManagers(IncidentFixtures.ALICE, IncidentFixtures.BEN)
-			.onDuty(IncidentFixtures.ALICE);
+	private final FakeManagerDirectory directory =
+			FakeManagerDirectory.with(IncidentFixtures.ALICE, IncidentFixtures.BEN);
 
 	@Test
 	void anIncidentWhoseCountdownHasNotExpiredIsLeftAlone() {
@@ -128,7 +127,7 @@ class EscalationScanServiceTest {
 	private IncidentService serviceAt(LocalDateTime moment) {
 		Clock clock = IncidentFixtures.clockAt(moment);
 		EscalationService escalation =
-				new EscalationService(incidents, timeline, roster, EscalationPolicy.defaults(), clock);
+				new EscalationService(incidents, timeline, directory, EscalationPolicy.defaults(), clock);
 		return new IncidentService(incidents, timeline, escalation, clock);
 	}
 
@@ -138,6 +137,6 @@ class EscalationScanServiceTest {
 
 	private EscalationService escalationAt(LocalDateTime moment) {
 		return new EscalationService(
-				incidents, timeline, roster, EscalationPolicy.defaults(), IncidentFixtures.clockAt(moment));
+				incidents, timeline, directory, EscalationPolicy.defaults(), IncidentFixtures.clockAt(moment));
 	}
 }

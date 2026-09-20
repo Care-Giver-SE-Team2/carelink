@@ -12,11 +12,8 @@ public final class IncidentFixtures {
 
 	public static final ZoneId ZONE = Incident.CARELINK_ZONE;
 
-	/** A Wednesday afternoon: inside every shift window the tests use. */
-	public static final LocalDateTime DURING_SHIFT = LocalDateTime.of(2026, 9, 16, 14, 30);
-
-	/** The small hours: outside every shift window the tests use. */
-	public static final LocalDateTime AT_NIGHT = LocalDateTime.of(2026, 9, 16, 3, 15);
+	/** A fixed moment every escalation test is anchored to. */
+	public static final LocalDateTime RAISED_AT = LocalDateTime.of(2026, 9, 16, 14, 30);
 
 	public static final Responder ALICE = new Responder(11L, "Alice Tan");
 	public static final Responder BEN = new Responder(12L, "Ben Lim");
@@ -58,6 +55,18 @@ public final class IncidentFixtures {
 				incident.respondBy(),
 				incident.reportedAt(),
 				incident.resolvedAt());
+	}
+
+	/**
+	 * An earlier incident for the same elder that a manager already handled. What the
+	 * continuity tier of the chain looks for.
+	 */
+	public static Incident handledEarlier(Long id, Long elderId, Long responderUserId) {
+		return new Incident(
+				id, elderId, null, null, responderUserId,
+				Incident.Source.CAREGIVER, Incident.Category.SOS, Incident.Severity.MEDIUM,
+				Incident.Status.RESOLVED, null, null, null, "an earlier call-out",
+				null, RAISED_AT.minusDays(7), RAISED_AT.minusDays(7).plusHours(1));
 	}
 
 	/** An incident of a chosen severity, already saved and still unrouted. */

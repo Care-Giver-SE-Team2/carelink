@@ -1,7 +1,6 @@
 package sg.nus.carelink.incident.infrastructure.config;
 
 import java.time.Duration;
-import java.time.LocalTime;
 import java.util.EnumMap;
 import java.util.Map;
 
@@ -20,6 +19,9 @@ import sg.nus.carelink.incident.domain.model.Incident;
  * <p>Defaults match {@code EscalationPolicy.defaults()} so that a deployment with no
  * configuration still behaves sensibly, and so that a unit test and a running application
  * agree without the test having to read a file.
+ *
+ * <p>There is nothing here about shifts: CareLink does not roster its managers, so the
+ * chain never asks who is on call.
  */
 @ConfigurationProperties(prefix = "carelink.escalation")
 public class EscalationProperties {
@@ -30,11 +32,6 @@ public class EscalationProperties {
 	/** Each level below the first gets this many times the previous level's countdown. */
 	private double laterLevelMultiplier = 2.0;
 
-	/** Start of the manager shift. Outside it the duty-manager tier steps aside. */
-	private LocalTime dutyStart = LocalTime.of(8, 0);
-
-	/** End of the manager shift, exclusive. */
-	private LocalTime dutyEnd = LocalTime.of(20, 0);
 
 	/** How often the UC-SYS02 scan looks for expired countdowns. */
 	private Duration scanInterval = Duration.ofSeconds(60);
@@ -67,21 +64,6 @@ public class EscalationProperties {
 		this.laterLevelMultiplier = laterLevelMultiplier;
 	}
 
-	public LocalTime getDutyStart() {
-		return dutyStart;
-	}
-
-	public void setDutyStart(LocalTime dutyStart) {
-		this.dutyStart = dutyStart;
-	}
-
-	public LocalTime getDutyEnd() {
-		return dutyEnd;
-	}
-
-	public void setDutyEnd(LocalTime dutyEnd) {
-		this.dutyEnd = dutyEnd;
-	}
 
 	public Duration getScanInterval() {
 		return scanInterval;

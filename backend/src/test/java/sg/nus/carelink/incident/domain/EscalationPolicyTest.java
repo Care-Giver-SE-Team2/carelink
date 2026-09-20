@@ -30,7 +30,7 @@ class EscalationPolicyTest {
 
 	@Test
 	void aLevelFurtherDownGetsProportionallyLonger() {
-		Duration first = policy.countdownFor(Incident.Severity.HIGH, EscalationTier.DUTY_MANAGER, 1);
+		Duration first = policy.countdownFor(Incident.Severity.HIGH, EscalationTier.FAMILIAR_MANAGER, 1);
 		Duration second = policy.countdownFor(Incident.Severity.HIGH, EscalationTier.ANY_MANAGER, 2);
 
 		assertThat(first).isEqualTo(Duration.ofMinutes(5));
@@ -45,7 +45,7 @@ class EscalationPolicyTest {
 
 	@Test
 	void aPositionBelowOneIsTreatedAsTheFirstLevel() {
-		assertThat(policy.countdownFor(Incident.Severity.LOW, EscalationTier.DUTY_MANAGER, 0))
+		assertThat(policy.countdownFor(Incident.Severity.LOW, EscalationTier.FAMILIAR_MANAGER, 0))
 				.isEqualTo(Duration.ofMinutes(60));
 	}
 

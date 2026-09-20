@@ -8,7 +8,8 @@ import java.util.Objects;
 import sg.nus.carelink.incident.domain.model.EscalationChain;
 import sg.nus.carelink.incident.domain.model.EscalationLevel;
 import sg.nus.carelink.incident.domain.model.Incident;
-import sg.nus.carelink.incident.domain.repository.DutyRoster;
+import sg.nus.carelink.incident.domain.repository.IncidentRepository;
+import sg.nus.carelink.incident.domain.repository.ManagerDirectory;
 
 /**
  * Assembles the escalation chain for one incident at one moment.
@@ -16,24 +17,27 @@ import sg.nus.carelink.incident.domain.repository.DutyRoster;
  * <p>This is the Builder half of the design problem, and it exists because assembling the
  * chain and walking it change for different reasons. The walk is stable — offer it, take it
  * or pass it on — while the assembly rules are the part the institution rewrites: which
- * tiers a severity deserves, how long each level gets, whether the out-of-hours fallback
- * applies. Putting the rules in the handlers would mean every policy change edited the
- * handling logic; putting them here means the handlers never change.
+ * tiers a severity deserves and how long each level gets. Putting those rules inside the
+ * handlers would mean every policy change edited the handling logic; putting them here means
+ * the handlers never change.
  *
- * <p>The rule that varies the shape today: a LOW severity incident is not allowed to wake
- * every manager in the institution, so its chain stops after the duty manager. HIGH and
- * MEDIUM get the full fallback. Countdown lengths come from {@link EscalationPolicy}, which
- * is configuration rather than code.
+ * <p>The rule that varies the shape today: continuity costs time, because waiting for one
+ * particular manager is slower than taking the first one free. A LOW severity incident is
+ * not worth that wait, so its chain skips straight to any available manager. MEDIUM and HIGH
+ * are, so they are offered first to whoever already knows the elder. Every chain keeps the
+ * any-manager tier, which is what guarantees an incident can never be left with nobody.
  *
  * <p>Nothing here is persisted. Two calls a minute apart can legitimately produce different
- * chains if the roster changed, which is why the result carries the moment it was built.
+ * chains — somebody closed another incident for this elder in between, or turned this one
+ * down — which is why the result carries the moment it was built.
  */
 public final class EscalationChainBuilder {
 
 	private final Incident incident;
 	private LocalDateTime at;
 	private EscalationPolicy policy = EscalationPolicy.defaults();
-	private DutyRoster roster;
+	private ManagerDirectory directory;
+	private IncidentRepository incidents;
 
 	private EscalationChainBuilder(Incident incident) {
 		this.incident = Objects.requireNonNull(incident, "incident");
@@ -53,8 +57,14 @@ public final class EscalationChainBuilder {
 		return this;
 	}
 
-	public EscalationChainBuilder from(DutyRoster dutyRoster) {
-		this.roster = Objects.requireNonNull(dutyRoster, "roster");
+	public EscalationChainBuilder from(ManagerDirectory managerDirectory) {
+		this.directory = Objects.requireNonNull(managerDirectory, "directory");
+		return this;
+	}
+
+	/** Supplies the elder's incident history, which is what the continuity tier is built from. */
+	public EscalationChainBuilder withHistory(IncidentRepository incidentRepository) {
+		this.incidents = Objects.requireNonNull(incidentRepository, "incidents");
 		return this;
 	}
 
@@ -62,10 +72,11 @@ public final class EscalationChainBuilder {
 	public ResponderHandler build() {
 		requireComplete();
 		ResponderHandler chain = new FamilyEscalationHandler();
-		for (TierFactory factory : tiersInReverseOrder()) {
-			chain = factory.create(roster, chain);
+		chain = new AnyManagerHandler(directory, chain);
+		if (wantsContinuity()) {
+			chain = new FamiliarManagerHandler(incidents, directory, chain);
 		}
-		return chain;
+		return new AssignedResponderHandler(directory, chain);
 	}
 
 	/**
@@ -79,34 +90,22 @@ public final class EscalationChainBuilder {
 	}
 
 	private void requireComplete() {
-		Objects.requireNonNull(at, "at: the chain depends on the hour, so the moment is required");
-		Objects.requireNonNull(roster, "roster: the chain depends on who is on shift");
+		Objects.requireNonNull(at, "at: the chain is assembled for a moment, so the moment is required");
+		Objects.requireNonNull(directory, "directory: the chain needs to know who can take an incident");
+		Objects.requireNonNull(incidents, "incidents: the chain needs the elder's history for continuity");
 	}
 
-	/**
-	 * Built back to front because each handler is constructed with its successor, which is
-	 * what makes a link immutable and a chain safe to share between threads.
-	 */
-	private List<TierFactory> tiersInReverseOrder() {
-		List<TierFactory> tiers = new ArrayList<>();
-		if (incident.severity() != Incident.Severity.LOW) {
-			tiers.add(AnyManagerHandler::new);
-		}
-		tiers.add(DutyManagerHandler::new);
-		tiers.add(AssignedResponderHandler::new);
-		return tiers;
+	private boolean wantsContinuity() {
+		return incident.severity() != Incident.Severity.LOW;
 	}
 
 	private String assemblyReason() {
-		return "severity %s, %s, %d manager(s) enabled".formatted(
-				incident.severity(),
-				roster.dutyManagerAt(at).isPresent() ? "duty manager on shift" : "out of hours",
-				roster.allManagers().size());
-	}
-
-	/** Lets the tier list stay a list of constructors rather than a switch. */
-	@FunctionalInterface
-	private interface TierFactory {
-		ResponderHandler create(DutyRoster roster, ResponderHandler next);
+		List<String> parts = new ArrayList<>();
+		parts.add("severity " + incident.severity());
+		parts.add(wantsContinuity()
+				? "continuity tier included"
+				: "continuity skipped for low severity");
+		parts.add("%d manager(s) enabled".formatted(directory.allManagers().size()));
+		return String.join(", ", parts);
 	}
 }

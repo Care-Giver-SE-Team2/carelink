@@ -60,7 +60,7 @@ tags:
     '
 - name: Incidents
   description: 'Care exceptions (UC-CG04, UC-MG05, UC-FM05). The escalation chain is assembled at the moment it''s needed
-    from severity, time of day and who is on duty — there is no fixed chain to configure.
+    from the severity and from who already knows the elder — there is no fixed chain to configure.
 
     '
 - name: Spot checks
@@ -2219,7 +2219,7 @@ paths:
       description: 'UC-SYS02. The chain was assembled when the incident was opened (see `/incidents/{id}/escalation-chain`);
         this moves the incident to its next level: the new responder is set, both the previous and the new responder are notified,
         the trigger (`TIMEOUT` from the scheduled scan or `MANUAL` from a manager) and the reason are written to the timeline,
-        and the next level''s countdown starts. A level whose responder is off duty is skipped and the skip is logged. The
+        and the next level''s countdown starts. A level nobody fills is skipped and the skip is logged. The
         previous responder''s entry is never removed: responsibility accumulates, it does not transfer. When the chain is
         exhausted the incident becomes `UNRESOLVED_ESCALATED`, is pinned to the top-level view and the family is notified.
 
@@ -2262,7 +2262,7 @@ paths:
       x-status: implemented
       description: 'UC-MG05 / UC-SYS02. Shows the chain exactly as it was assembled at runtime for this incident — each level''s
         responder, that level''s countdown, and which level is current. Two incidents of the same category can have different
-        chains (night vs day, who is on duty), which is why the chain is read per incident rather than configured.
+        chains for two elders, and for the same elder before and after somebody handles an incident, which is why the chain is read per incident rather than configured.
 
         '
       responses:
@@ -3258,10 +3258,11 @@ paths:
       tags:
       - Emergency
       summary: Trigger an emergency call for help
-      x-status: draft
+      x-status: implemented
       description: 'UC-EL03. One large tap in the elder view. Skips the ordinary queue: opens a `severity: HIGH`, `category:
-        SOS` incident and notifies bound family and the on-duty manager synchronously, in the same request — not on the next
-        scheduled scan.
+        SOS` incident and routes it through the escalation chain synchronously, in the same request — not on the next
+        scheduled scan. The response already carries the named responder and the deadline they have to meet, because an SOS
+        is never allowed to exist without both.
 
         '
       responses:
@@ -5245,7 +5246,7 @@ components:
         tier:
           type: string
           description: Which kind of responder this rung represents.
-          example: Duty manager
+          example: Manager who knows this elder
         responderUserId:
           type: integer
           format: int64
@@ -5262,15 +5263,20 @@ components:
             '
         state:
           type: string
-          enum: [PENDING, CURRENT, TIMED_OUT, SKIPPED_OFF_DUTY, CLAIMED]
+          enum: [PENDING, CURRENT, TIMED_OUT, SKIPPED_UNAVAILABLE, CLAIMED]
     EscalationChain:
       type: object
       description: 'The escalation chain as it would be walked right now.
 
-        It is assembled per request from severity, the hour of the day and the duty roster,
-        and is deliberately not stored: asking twice can legitimately give different answers
-        if the roster changed in between, which is why `assembledAt` is part of the answer.
-        What happened, as opposed to what would happen, is in the incident timeline.
+        It is assembled per request from the severity, from who has handled this elder
+        before, and from who has already turned this incident down. It is deliberately not
+        stored: asking twice can legitimately give different answers, which is why
+        `assembledAt` is part of the answer. What happened, as opposed to what would happen,
+        is in the incident timeline.
+
+        CareLink does not roster its managers, so the chain never asks who is on call. The
+        tiers are: the responder already named, the manager who handled this elder''s last
+        incident, any enabled manager, and the terminal family escalation.
 
         '
       properties:
@@ -5285,7 +5291,7 @@ components:
         assembledFrom:
           type: string
           description: The inputs the chain was built from, in words, for the manager's screen.
-          example: severity HIGH, duty manager on shift, 3 manager(s) enabled
+          example: severity HIGH, continuity tier included, 3 manager(s) enabled
         levels:
           type: array
           items:

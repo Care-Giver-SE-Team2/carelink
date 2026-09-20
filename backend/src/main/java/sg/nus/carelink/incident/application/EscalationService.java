@@ -13,7 +13,7 @@ import org.springframework.transaction.annotation.Transactional;
 import sg.nus.carelink.incident.domain.model.EscalationChain;
 import sg.nus.carelink.incident.domain.model.Incident;
 import sg.nus.carelink.incident.domain.model.IncidentLog;
-import sg.nus.carelink.incident.domain.repository.DutyRoster;
+import sg.nus.carelink.incident.domain.repository.ManagerDirectory;
 import sg.nus.carelink.incident.domain.repository.IncidentLogRepository;
 import sg.nus.carelink.incident.domain.repository.IncidentRepository;
 import sg.nus.carelink.incident.domain.service.EscalationChainBuilder;
@@ -41,20 +41,20 @@ public class EscalationService {
 
 	private final IncidentRepository incidents;
 	private final IncidentLogRepository timeline;
-	private final DutyRoster roster;
+	private final ManagerDirectory directory;
 	private final EscalationPolicy policy;
 	private final Clock clock;
 
 	EscalationService(
 			IncidentRepository incidents,
 			IncidentLogRepository timeline,
-			DutyRoster roster,
+			ManagerDirectory directory,
 			EscalationPolicy policy,
 			Clock clock) {
 
 		this.incidents = incidents;
 		this.timeline = timeline;
-		this.roster = roster;
+		this.directory = directory;
 		this.policy = policy;
 		this.clock = clock;
 	}
@@ -176,7 +176,11 @@ public class EscalationService {
 	}
 
 	private EscalationChainBuilder builder(Incident incident, LocalDateTime at) {
-		return EscalationChainBuilder.forIncident(incident).at(at).withPolicy(policy).from(roster);
+		return EscalationChainBuilder.forIncident(incident)
+				.at(at)
+				.withPolicy(policy)
+				.from(directory)
+				.withHistory(incidents);
 	}
 
 	/** Everyone this incident has already been handed to, read back from the timeline. */

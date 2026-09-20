@@ -27,4 +27,13 @@ public interface IncidentRepository {
 
 	/** Open incidents for one elder, newest first. Used by the manager dashboard. */
 	List<Incident> findByElder(Long elderId);
+
+	/**
+	 * The manager who handled this elder's most recent other incident.
+	 *
+	 * <p>Continuity: the escalation chain offers a new incident to somebody who already knows
+	 * the elder before it offers it to a stranger. The incident being routed is excluded, or
+	 * it would nominate its own current responder.
+	 */
+	Optional<Long> lastResponderForElder(Long elderId, Long excludingIncidentId);
 }

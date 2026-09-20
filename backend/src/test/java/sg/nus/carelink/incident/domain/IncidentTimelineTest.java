@@ -19,7 +19,7 @@ class IncidentTimelineTest {
 	@Test
 	void anAssignmentEntryCarriesTheResponderInAReadableWay() {
 		IncidentLog entry = IncidentLog.assignment(
-				1L, "system", 42L, "first responder", IncidentFixtures.DURING_SHIFT);
+				1L, "system", 42L, "first responder", IncidentFixtures.RAISED_AT);
 
 		assertThat(entry.action()).isEqualTo("ASSIGNED");
 		assertThat(entry.assignedResponderId()).contains(42L);
@@ -29,7 +29,7 @@ class IncidentTimelineTest {
 	@Test
 	void anEntryThatIsNotAnAssignmentNamesNobody() {
 		IncidentLog claimed = IncidentLog.entry(
-				1L, "Alice", IncidentLog.Action.CLAIMED, "taken over", IncidentFixtures.DURING_SHIFT);
+				1L, "Alice", IncidentLog.Action.CLAIMED, "taken over", IncidentFixtures.RAISED_AT);
 
 		assertThat(claimed.assignedResponderId()).isEmpty();
 	}
@@ -37,9 +37,9 @@ class IncidentTimelineTest {
 	@Test
 	void anAssignmentEntryWithADamagedDetailDoesNotBlowUpTheTimeline() {
 		IncidentLog damaged = new IncidentLog(
-				1L, 1L, "system", "ASSIGNED", "responder=not-a-number", IncidentFixtures.DURING_SHIFT);
+				1L, 1L, "system", "ASSIGNED", "responder=not-a-number", IncidentFixtures.RAISED_AT);
 		IncidentLog empty = new IncidentLog(
-				2L, 1L, "system", "ASSIGNED", null, IncidentFixtures.DURING_SHIFT);
+				2L, 1L, "system", "ASSIGNED", null, IncidentFixtures.RAISED_AT);
 
 		assertThat(damaged.assignedResponderId()).isEmpty();
 		assertThat(empty.assignedResponderId()).isEmpty();
@@ -50,7 +50,7 @@ class IncidentTimelineTest {
 		String tooLong = "x".repeat(900);
 
 		IncidentLog entry = IncidentLog.systemEntry(
-				1L, IncidentLog.Action.ESCALATED, tooLong, IncidentFixtures.DURING_SHIFT);
+				1L, IncidentLog.Action.ESCALATED, tooLong, IncidentFixtures.RAISED_AT);
 
 		assertThat(entry.detail()).hasSize(500).endsWith("...");
 		assertThat(entry.actor()).isEqualTo(IncidentLog.SYSTEM_ACTOR);
@@ -59,7 +59,7 @@ class IncidentTimelineTest {
 	@Test
 	void aShortReasonIsLeftExactlyAsItWasWritten() {
 		IncidentLog entry = IncidentLog.systemEntry(
-				1L, IncidentLog.Action.ESCALATED, "countdown expired", IncidentFixtures.DURING_SHIFT);
+				1L, IncidentLog.Action.ESCALATED, "countdown expired", IncidentFixtures.RAISED_AT);
 
 		assertThat(entry.detail()).isEqualTo("countdown expired");
 	}

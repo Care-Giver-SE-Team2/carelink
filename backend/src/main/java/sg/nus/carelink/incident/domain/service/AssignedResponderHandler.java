@@ -5,7 +5,7 @@ import java.util.Optional;
 
 import sg.nus.carelink.incident.domain.model.EscalationTier;
 import sg.nus.carelink.incident.domain.model.Responder;
-import sg.nus.carelink.incident.domain.repository.DutyRoster;
+import sg.nus.carelink.incident.domain.repository.ManagerDirectory;
 
 /**
  * First link: whoever is already named on the incident keeps it.
@@ -21,11 +21,11 @@ import sg.nus.carelink.incident.domain.repository.DutyRoster;
  */
 public final class AssignedResponderHandler extends ChainedResponderHandler {
 
-	private final DutyRoster roster;
+	private final ManagerDirectory directory;
 
-	public AssignedResponderHandler(DutyRoster roster, ResponderHandler next) {
+	public AssignedResponderHandler(ManagerDirectory directory, ResponderHandler next) {
 		super(next);
-		this.roster = Objects.requireNonNull(roster, "roster");
+		this.directory = Objects.requireNonNull(directory, "directory");
 	}
 
 	@Override
@@ -36,7 +36,7 @@ public final class AssignedResponderHandler extends ChainedResponderHandler {
 	@Override
 	protected Optional<Responder> candidate(EscalationRequest request) {
 		Long current = request.incident().responderUserId();
-		return current == null ? Optional.empty() : roster.responderById(current);
+		return current == null ? Optional.empty() : directory.responderById(current);
 	}
 
 	@Override

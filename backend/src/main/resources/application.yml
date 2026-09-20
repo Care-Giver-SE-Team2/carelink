@@ -16,9 +16,9 @@ spring:
 
 # UC-MG05 / UC-SYS02. The response countdown is institution policy, not a code constant,
 # so it is set here; the defaults below match EscalationPolicy.defaults(). Countdowns are
-# ISO-8601 durations. A level reached after somebody let their countdown expire gets
-# later-level-multiplier times as long, because a second responder is a safety net rather
-# than a competitor.
+# ISO-8601 durations. A responder reached after somebody else let their countdown expire
+# gets later-level-multiplier times as long, because a second responder is a safety net
+# rather than a competitor.
 carelink:
   escalation:
     countdown:
@@ -26,10 +26,6 @@ carelink:
       MEDIUM: PT15M
       LOW: PT60M
     later-level-multiplier: 2.0
-    # Outside this window the duty-manager tier of the chain steps aside and the incident
-    # falls through to any enabled manager. Replace with a real roster table in Sprint 3.
-    duty-start: "08:00"
-    duty-end: "20:00"
     # How often the scan looks for expired countdowns, and how long it waits after start-up.
     scan-interval: PT60S
     scan-initial-delay: PT30S

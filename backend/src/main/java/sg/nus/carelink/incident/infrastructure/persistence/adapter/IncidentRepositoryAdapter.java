@@ -5,6 +5,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Repository;
 
 import sg.nus.carelink.incident.domain.model.Incident;
@@ -51,6 +52,22 @@ class IncidentRepositoryAdapter implements IncidentRepository {
 				.stream()
 				.map(IncidentMapper::toDomain)
 				.toList();
+	}
+
+	@Override
+	public Optional<Long> lastResponderForElder(Long elderId, Long excludingIncidentId) {
+		if (elderId == null) {
+			return Optional.empty();
+		}
+		// -1 rather than null: the derived query needs a value to compare against, and no
+		// row can carry that id, so an incident that has not been saved yet excludes nothing.
+		Long excluded = excludingIncidentId == null ? -1L : excludingIncidentId;
+		return jpa
+				.findByElderIdAndIdNotAndResponderUserIdNotNullOrderByReportedAtDesc(
+						elderId, excluded, PageRequest.of(0, 1))
+				.stream()
+				.findFirst()
+				.map(IncidentJpaEntity::getResponderUserId);
 	}
 
 	@Override
