@@ -64,6 +64,11 @@ public record Incident(
 	 * <p>It is created without a responder and without a countdown. Both are set by the
 	 * escalation chain immediately afterwards, through {@link #assignTo}; no incident is
 	 * allowed to stay unassigned, and routing is not this factory's job.
+	 *
+	 * <p>The moment is passed in rather than read from the system clock. An incident's
+	 * timestamps and its response deadline have to come from the same clock, or the two
+	 * disagree - which is exactly what the integration test caught when this method still
+	 * called {@code LocalDateTime.now()} itself.
 	 */
 	public static Incident createElderSos(
 			Long elderId,
@@ -71,7 +76,8 @@ public record Incident(
 			BigDecimal latitude,
 			BigDecimal longitude,
 			String locationText,
-			String description) {
+			String description,
+			LocalDateTime now) {
 
 		if (elderId == null) {
 			throw new IllegalArgumentException("elderId must not be null");
@@ -92,7 +98,7 @@ public record Incident(
 				locationText,
 				description,
 				null,
-				LocalDateTime.now(CARELINK_ZONE),
+				Objects.requireNonNull(now, "now"),
 				null);
 	}
 

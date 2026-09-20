@@ -16,6 +16,7 @@ import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.TestPropertySource;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
@@ -60,14 +61,17 @@ class EscalationFlowIT {
 	@ServiceConnection
 	static final MySQLContainer MYSQL = new MySQLContainer("mysql:8.4");
 
-	/** Grace Wee, seeded by V3, with one earlier incident that Ben handled. */
-	private static final Long GRACE = 1L;
-
-	/** Chua Ah Moi, seeded by V3, who has no incident history at all. */
-	private static final Long MDM_CHUA = 2L;
-
 	private static final Long ALICE = 1L;
 	private static final Long BEN = 2L;
+
+	/**
+	 * Every test gets its own elder.
+	 *
+	 * <p>Not fussiness: the continuity tier of the chain reads the elder's incident history,
+	 * so two tests sharing an elder would have the second one routed by what the first one
+	 * left behind. Sharing a database is fine; sharing a subject is not.
+	 */
+	private Long elder;
 
 	@Autowired
 	private IncidentService incidents;
@@ -81,29 +85,45 @@ class EscalationFlowIT {
 	@Autowired
 	private MovableClock clock;
 
+	@Autowired
+	private JdbcTemplate jdbc;
+
 	@BeforeEach
-	void resetTheClock() {
+	void givenAFreshElderAndAFixedClock() {
 		clock.set(Instant.parse("2026-09-16T06:30:00Z"));
+		jdbc.update("insert into elder (full_name, lives_alone) values (?, ?)", "Test Elder", true);
+		elder = jdbc.queryForObject("select last_insert_id()", Long.class);
+	}
+
+	/** Gives this test's elder a closed incident that a named manager handled. */
+	private void givenTheElderWasHandledBefore(Long responderUserId) {
+		jdbc.update("""
+				insert into incident (elder_id, reported_by_user_id, responder_user_id, source,
+				                      category, severity, status, description, reported_at, resolved_at)
+				values (?, 4, ?, 'CAREGIVER', 'FALL', 'MEDIUM', 'RESOLVED', 'an earlier call-out',
+				        '2026-09-09 10:15:00', '2026-09-09 11:02:00')
+				""", elder, responderUserId);
 	}
 
 	@Test
 	void anElderWithAHistoryGetsTheManagerWhoAlreadyKnowsThem() {
+		givenTheElderWasHandledBefore(BEN);
+
 		Incident raised = incidents.createElderEmergency(
-				GRACE, 6L, null, null, "Blk 123 #04-56", "fell in the bathroom");
+				elder, 6L, null, null, "Blk 123 #04-56", "fell in the bathroom");
 
 		assertThat(raised.id()).isNotNull();
 		assertThat(raised.responderUserId())
-				.as("Ben handled Grace's fall last week, so the continuity tier picks him")
+				.as("Ben handled this elder's fall last week, so the continuity tier picks him")
 				.isEqualTo(BEN);
 		assertThat(raised.respondBy())
-				.as("a HIGH severity SOS gives the first responder five minutes")
-				.isEqualTo(raised.reportedAt().truncatedTo(java.time.temporal.ChronoUnit.SECONDS)
-						.plusMinutes(5).truncatedTo(java.time.temporal.ChronoUnit.SECONDS));
+				.as("a HIGH severity SOS gives the first responder five minutes, on the same clock")
+				.isEqualTo(raised.reportedAt().plusMinutes(5));
 	}
 
 	@Test
 	void anElderWithNoHistoryStillGetsSomebody() {
-		Incident raised = incidents.createElderEmergency(MDM_CHUA, null, null, null, null, "no answer at door");
+		Incident raised = incidents.createElderEmergency(elder, null, null, null, null, "no answer at door");
 
 		assertThat(raised.responderUserId()).isNotNull();
 		assertThat(raised.status()).isEqualTo(Incident.Status.OPEN);
@@ -116,7 +136,7 @@ class EscalationFlowIT {
 
 	@Test
 	void theWholeHandlingFlowSurvivesARealDatabase() {
-		Incident raised = incidents.createElderEmergency(GRACE, 6L, null, null, null, "SOS pressed");
+		Incident raised = incidents.createElderEmergency(elder, 6L, null, null, null, "SOS pressed");
 		Long id = raised.id();
 
 		incidents.claim(id, BEN, "Ben Lim (ben)");
@@ -138,7 +158,8 @@ class EscalationFlowIT {
 
 	@Test
 	void anExpiredCountdownIsEscalatedByTheSweepAndEveryStepIsOnTheTimeline() {
-		Incident raised = incidents.createElderEmergency(GRACE, 6L, null, null, null, "SOS pressed");
+		givenTheElderWasHandledBefore(BEN);
+		Incident raised = incidents.createElderEmergency(elder, 6L, null, null, null, "SOS pressed");
 		Long id = raised.id();
 		assertThat(raised.responderUserId()).isEqualTo(BEN);
 
@@ -158,7 +179,7 @@ class EscalationFlowIT {
 
 	@Test
 	void anIncidentNobodyTakesEndsUpPinnedForTheFamilyRatherThanClosed() {
-		Incident raised = incidents.createElderEmergency(GRACE, 6L, null, null, null, "SOS pressed");
+		Incident raised = incidents.createElderEmergency(elder, 6L, null, null, null, "SOS pressed");
 		Long id = raised.id();
 
 		// Every manager in turn lets their countdown expire.
@@ -178,7 +199,7 @@ class EscalationFlowIT {
 
 	@Test
 	void takingOverBeforeTheSweepKeepsTheIncidentWhereItIs() {
-		Incident raised = incidents.createElderEmergency(GRACE, 6L, null, null, null, "SOS pressed");
+		Incident raised = incidents.createElderEmergency(elder, 6L, null, null, null, "SOS pressed");
 		Long id = raised.id();
 
 		clock.advance(Duration.ofMinutes(6));
@@ -193,16 +214,16 @@ class EscalationFlowIT {
 
 	@Test
 	void raisingTheSeverityRebuildsTheChainWithoutOpeningASecondIncident() {
-		Incident raised = incidents.createElderEmergency(GRACE, 6L, null, null, null, "SOS pressed");
+		Incident raised = incidents.createElderEmergency(elder, 6L, null, null, null, "SOS pressed");
 		Long id = raised.id();
 
 		Incident changed = incidents.changeSeverity(id, Incident.Severity.LOW, "elder is calm now", "Ben Lim (ben)");
 
 		assertThat(changed.id()).isEqualTo(id);
 		assertThat(changed.severity()).isEqualTo(Incident.Severity.LOW);
-		assertThat(incidents.forElder(GRACE))
+		assertThat(incidents.forElder(elder))
 				.as("no second incident was opened for the same event")
-				.hasSize(2);
+				.hasSize(1);
 		assertThat(incidents.timelineOf(id).stream().map(IncidentLog::action))
 				.contains("SEVERITY_CHANGED");
 	}

@@ -71,11 +71,12 @@ public class IncidentService {
 			String locationText,
 			String description) {
 
+		LocalDateTime raisedAt = now();
 		Incident saved = incidents.save(Incident.createElderSos(
-				elderId, reportedByUserId, latitude, longitude, locationText, description));
+				elderId, reportedByUserId, latitude, longitude, locationText, description, raisedAt));
 
 		timeline.save(IncidentLog.entry(saved.id(), actorLabel(reportedByUserId, "elder"),
-				IncidentLog.Action.REPORTED, "one-tap emergency call", now()));
+				IncidentLog.Action.REPORTED, "one-tap emergency call", raisedAt));
 
 		return escalation.routeNewIncident(saved);
 	}

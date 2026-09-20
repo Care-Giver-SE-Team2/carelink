@@ -29,7 +29,8 @@ public final class IncidentFixtures {
 
 	/** An unrouted incident, exactly as it comes out of the factory. */
 	public static Incident newSos() {
-		return Incident.createElderSos(7L, 99L, null, null, "Blk 123 #04-56", "fell in the bathroom");
+		return Incident.createElderSos(
+				7L, 99L, null, null, "Blk 123 #04-56", "fell in the bathroom", RAISED_AT);
 	}
 
 	/** A saved, unrouted incident: it has an id but no responder and no deadline yet. */

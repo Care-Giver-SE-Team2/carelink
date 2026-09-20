@@ -27,19 +27,19 @@ class IncidentTest {
 	@Test
 	void createsElderSosWithRequiredDefaults() {
 		Incident incident = Incident.createElderSos(
-				7L, 99L, new BigDecimal("1.3521000"), new BigDecimal("103.8198000"), "Blk 123", "fell");
+				7L, 99L, new BigDecimal("1.3521000"), new BigDecimal("103.8198000"), "Blk 123", "fell", NOW);
 
 		assertThat(incident.source()).isEqualTo(Incident.Source.ELDER_SOS);
 		assertThat(incident.category()).isEqualTo(Incident.Category.SOS);
 		assertThat(incident.severity()).isEqualTo(Incident.Severity.HIGH);
 		assertThat(incident.status()).isEqualTo(Incident.Status.OPEN);
 		assertThat(incident.elderId()).isEqualTo(7L);
-		assertThat(incident.reportedAt()).isNotNull();
+		assertThat(incident.reportedAt()).isEqualTo(NOW);
 	}
 
 	@Test
 	void createsElderSosWithoutOptionalDetails() {
-		Incident incident = Incident.createElderSos(7L, null, null, null, null, null);
+		Incident incident = Incident.createElderSos(7L, null, null, null, null, null, NOW);
 
 		assertThat(incident.reportedByUserId()).isNull();
 		assertThat(incident.latitude()).isNull();
@@ -48,7 +48,7 @@ class IncidentTest {
 
 	@Test
 	void rejectsElderSosWithoutElderId() {
-		assertThatThrownBy(() -> Incident.createElderSos(null, 1L, null, null, null, null))
+		assertThatThrownBy(() -> Incident.createElderSos(null, 1L, null, null, null, null, NOW))
 				.isInstanceOf(IllegalArgumentException.class)
 				.hasMessageContaining("elderId");
 	}
