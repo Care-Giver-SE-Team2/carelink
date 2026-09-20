@@ -1,5 +1,6 @@
 package sg.nus.carelink.incident.infrastructure.persistence.adapter;
 
+import java.util.List;
 import java.util.Optional;
 
 import org.springframework.stereotype.Repository;
@@ -29,5 +30,12 @@ class IncidentLogRepositoryAdapter implements IncidentLogRepository {
 	@Override
 	public IncidentLog save(IncidentLog incidentLog) {
 		return IncidentLogMapper.toDomain(jpa.save(IncidentLogMapper.toEntity(incidentLog)));
+	}
+
+	@Override
+	public List<IncidentLog> findTimeline(Long incidentId) {
+		return jpa.findByIncidentIdOrderByOccurredAtAscIdAsc(incidentId).stream()
+				.map(IncidentLogMapper::toDomain)
+				.toList();
 	}
 }

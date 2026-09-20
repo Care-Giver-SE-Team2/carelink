@@ -5,7 +5,9 @@ import org.springframework.stereotype.Repository;
 import sg.nus.carelink.identity.domain.model.AppUser;
 import sg.nus.carelink.identity.domain.repository.AppUserRepository;
 import sg.nus.carelink.identity.infrastructure.persistence.repository.AppUserJpaRepository;
+import sg.nus.carelink.shared.security.Role;
 
+import java.util.List;
 import java.util.Optional;
 
 /**
@@ -30,5 +32,12 @@ class AppUserRepositoryAdapter implements AppUserRepository {
 	@Override
 	public Optional<AppUser> findById(Long id) {
 		return jpa.findById(id).map(AppUserMapper::toDomain);
+	}
+
+	@Override
+	public List<AppUser> findEnabledByRole(Role role) {
+		return jpa.findByEnabledTrueAndRolesContainsOrderByDisplayNameAsc(role.name()).stream()
+				.map(AppUserMapper::toDomain)
+				.toList();
 	}
 }
