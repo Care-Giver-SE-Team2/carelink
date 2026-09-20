@@ -533,6 +533,24 @@
   min-width: 44px;
   justify-content: center;
 }
+.createLink {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-height: 48px;
+  border-radius: 12px;
+  background: #176a59;
+  color: white !important;
+  text-decoration: none;
+  font-weight: 600;
+  font-size: 14px;
+  margin: -6px 0 26px;
+  padding: 12px 16px;
+}
+.createLink:hover {
+  background: #115443;
+}
 @keyframes spin {
   to {
     transform: rotate(360deg);

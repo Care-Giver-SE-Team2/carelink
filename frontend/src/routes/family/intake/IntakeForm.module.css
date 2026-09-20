@@ -1,0 +1,210 @@
+.intro {
+  font-size: 13px;
+  color: #60776f;
+  margin-bottom: 24px !important;
+}
+.form .controls {
+  display: grid;
+  gap: 18px;
+  border: 0;
+  padding: 0;
+  margin: 0;
+  min-width: 0;
+}
+.section {
+  border: 1px solid #dfe9e4;
+  border-radius: 18px;
+  background: white;
+  padding: 22px;
+}
+.sectionHeading {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding-bottom: 18px;
+  margin-bottom: 22px;
+  border-bottom: 1px solid #edf1ee;
+}
+.sectionHeading h2 {
+  font-size: 17px;
+}
+.sectionHeading > span {
+  display: grid;
+  place-items: center;
+  background: #edf5ef;
+  color: #427560;
+  width: 27px;
+  height: 27px;
+  border-radius: 8px;
+  font-size: 11px;
+  flex-shrink: 0;
+}
+.field {
+  display: grid;
+  gap: 8px;
+  margin-top: 20px;
+  min-width: 0;
+}
+.labelRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.labelRow label,
+.choices legend {
+  font-size: 13px;
+  font-weight: 600;
+}
+.labelRow span,
+.choices legend span {
+  font-size: 11px;
+  font-weight: 400;
+  color: #647a6e;
+}
+.form input:not([type='checkbox']),
+.form textarea,
+.form select {
+  min-height: 48px;
+  min-width: 0;
+  border: 1px solid #c8dbcf;
+  border-radius: 10px;
+  padding: 10px 13px;
+  font: inherit;
+  font-size: 16px;
+  color: #203a36;
+  background: #fcfdfc;
+  width: 100%;
+}
+.form textarea {
+  resize: vertical;
+}
+.form input::placeholder,
+.form textarea::placeholder {
+  color: #798b80;
+  font-size: 14px;
+}
+.form textarea:focus-visible,
+.form select:focus-visible {
+  outline: 3px solid #14947f;
+  outline-offset: 3px;
+}
+.row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 16px;
+}
+.choices {
+  border: 0;
+  padding: 0;
+  margin: 24px 0 0;
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+}
+.choices legend {
+  margin-bottom: 12px;
+}
+.choices legend span {
+  margin-left: 8px;
+}
+.choices label {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  border: 1px solid #dce8e0;
+  border-radius: 10px;
+  padding: 12px;
+  font-size: 14px;
+  min-height: 48px;
+  cursor: pointer;
+}
+.choices label:has(input:checked) {
+  background: #edf6ef;
+  border-color: #649c82;
+}
+.choices input {
+  width: 18px;
+  height: 18px;
+  accent-color: #176a59;
+  flex-shrink: 0;
+}
+.hint {
+  font-size: 12px;
+  color: #63796e;
+}
+.errorSummary {
+  border: 1px solid #e5b9ac;
+  border-radius: 12px;
+  padding: 16px;
+  background: #fff3ec;
+  color: #8d392f;
+  font-size: 14px;
+  margin-bottom: 20px;
+}
+.fieldError {
+  color: #a3453c;
+  font-size: 12px;
+}
+.feedback {
+  margin-bottom: 22px;
+}
+.errorSummary h2 {
+  font-size: 17px;
+  margin-bottom: 8px;
+}
+.errorSummary p {
+  margin-top: 8px;
+}
+.errorSummary a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  margin-top: 8px;
+  font-weight: 600;
+}
+.errorSummary button {
+  margin-top: 12px;
+}
+.form [aria-invalid='true'] {
+  border-color: #b64e41 !important;
+}
+.submitArea {
+  text-align: center;
+  display: grid;
+  gap: 12px;
+  margin-top: 4px;
+}
+.submitArea p {
+  color: #5b7567;
+  font-size: 12px;
+}
+.submitArea button {
+  width: 100%;
+  margin-top: 0 !important;
+}
+.submitArea a {
+  display: grid;
+  place-items: center;
+  min-height: 44px;
+  font-size: 13px;
+  text-decoration: none;
+  color: #526f60;
+}
+.srOnly {
+  position: absolute;
+  height: 1px;
+  width: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+@media (max-width: 400px) {
+  .section {
+    padding: 18px;
+  }
+  .row {
+    grid-template-columns: 1fr;
+    gap: 0;
+  }
+}

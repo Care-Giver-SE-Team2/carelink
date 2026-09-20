@@ -22,7 +22,7 @@ const careLabels: Record<string, string> = {
  */
 export function IntakeDetailPage() {
   const { id = '' } = useParams()
-  const { search } = useLocation()
+  const { search, state } = useLocation()
   const { resource, refresh } = useIntakeApplication(id)
   return (
     <>
@@ -40,6 +40,13 @@ export function IntakeDetailPage() {
           <IntakeIcon name="refresh" />
         </button>
       </div>
+      {Number.isSafeInteger(state?.submittedApplicationId) &&
+        String(state.submittedApplicationId) === id && (
+          <section className={styles.progress} role="status">
+            <h2>Application submitted</h2>
+            <p>Your application #{state.submittedApplicationId} has been received.</p>
+          </section>
+        )}
       {resource.status === 'loading' && <IntakeLoading />}
       {resource.status === 'error' && <IntakeFeedback error={resource.error} onRetry={refresh} />}
       {resource.status === 'success' && <ApplicationDetails application={resource.data} />}

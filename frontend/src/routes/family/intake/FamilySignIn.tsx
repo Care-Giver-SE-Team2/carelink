@@ -7,7 +7,7 @@ import styles from './FamilyIntake.module.css'
 
 /**
  * Signs a family member in using the existing session and CSRF endpoints.
- * @param onSignedIn Reloads the requested application view after successful login
+ * @param onSignedIn Continues the application flow after successful login
  * @author Wang Zhili
  */
 export function FamilySignIn({ onSignedIn }: { onSignedIn: () => void }) {
@@ -51,9 +51,7 @@ export function FamilySignIn({ onSignedIn }: { onSignedIn: () => void }) {
         <IntakeIcon name="heart" />
       </span>
       <h2 id="family-sign-in-title">Sign in to continue</h2>
-      <p>
-        Your session may have ended. Sign in with your family account to view your applications.
-      </p>
+      <p>Sign in with your family account to continue with your care application.</p>
       <form onSubmit={signIn} aria-busy={busy}>
         <label htmlFor="family-username">Username</label>
         <input

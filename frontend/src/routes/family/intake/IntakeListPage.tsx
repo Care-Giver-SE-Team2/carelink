@@ -50,6 +50,10 @@ export function IntakeListPage() {
           <IntakeIcon name="file" />
         </span>
       </section>
+      <Link className={styles.createLink} to="/family/intake/new">
+        New application
+        <IntakeIcon name="arrow" />
+      </Link>
       <div className={styles.filters} role="group" aria-label="Filter applications by status">
         <button
           ref={!status ? activeFilter : undefined}
