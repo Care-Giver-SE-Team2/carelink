@@ -43,7 +43,14 @@ FM01 第 5 批已接入实际后端：
 视觉参考 `docs/family/family.html`，采用 React 和局部 CSS Modules，支持手机窄屏；未复制原型中的固定手机外框。
 本批只提供列表和详情，提交申请表单属于后续批次。其他家属用例尚未由这些页面实现。
 
-代码位置：`routes/family/intake/` 放页面与样式，`features/intake/` 放响应类型、展示转换和请求状态逻辑。
+代码位置：
+
+- `routes/family/intake/`：页面、表单交互与样式；浏览器 URL 的分页和筛选状态留在页面中管理。
+- `features/intake/api.ts`：申请列表、详情接口的路径、参数编码和返回类型。
+- `features/intake/useIntakeQueries.ts`：`useIntakeApplications` 与 `useIntakeApplication` 管理查询、刷新、错误和取消；页面只传业务参数。
+- `features/intake/types.ts`、`presentation.ts`：请求/响应类型和展示转换。
+- `features/auth/api.ts`、`types.ts`：`signInWithSession` 封装 CSRF 初始化与 Session 登录，并声明登录参数和返回用户类型。表单输入、忙碌状态和错误文案由登录组件负责。
+
 共用 `shared/api/client.ts` 增加 `ApiError.status` 并支持空成功响应；原有调用方式、错误 message、Session 和 CSRF 行为保留。合并时请同步这一公共改动。
 
 ## 本地运行

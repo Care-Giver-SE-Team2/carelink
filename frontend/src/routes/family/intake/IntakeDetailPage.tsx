@@ -1,7 +1,7 @@
 import { Link, useLocation, useParams } from 'react-router-dom'
 import { intakeDate, statusDescriptions } from '../../../features/intake/presentation'
 import type { IntakeApplication } from '../../../features/intake/types'
-import { useIntakeResource } from '../../../features/intake/useIntakeResource'
+import { useIntakeApplication } from '../../../features/intake/useIntakeQueries'
 import { IntakeIcon, IntakeLoading, StatusBadge } from './IntakeLayout'
 import { IntakeFeedback } from './IntakeFeedback'
 import styles from './FamilyIntake.module.css'
@@ -23,9 +23,7 @@ const careLabels: Record<string, string> = {
 export function IntakeDetailPage() {
   const { id = '' } = useParams()
   const { search } = useLocation()
-  const { resource, refresh } = useIntakeResource<IntakeApplication>(
-    '/intake-applications/' + encodeURIComponent(id),
-  )
+  const { resource, refresh } = useIntakeApplication(id)
   return (
     <>
       <div className={styles.detailNav}>

@@ -1,5 +1,11 @@
 export type IntakeStatus = 'SUBMITTED' | 'UNDER_REVIEW' | 'APPROVED' | 'REJECTED'
 
+export interface IntakeListQuery {
+  page: number
+  size: number
+  status?: IntakeStatus
+}
+
 /**
  * Family projection returned by the intake API.
  * @author Wang Zhili

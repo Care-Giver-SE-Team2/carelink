@@ -1,8 +1,8 @@
 import { useEffect, useRef } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { intakeDate, intakeStatus, statusLabels } from '../../../features/intake/presentation'
-import type { IntakeApplicationPage, IntakeStatus } from '../../../features/intake/types'
-import { useIntakeResource } from '../../../features/intake/useIntakeResource'
+import type { IntakeStatus } from '../../../features/intake/types'
+import { useIntakeApplications } from '../../../features/intake/useIntakeQueries'
 import { IntakeIcon, IntakeLoading, StatusBadge } from './IntakeLayout'
 import { IntakeFeedback } from './IntakeFeedback'
 import styles from './FamilyIntake.module.css'
@@ -25,11 +25,7 @@ export function IntakeListPage() {
       behavior: 'instant',
     })
   }, [status])
-  const query = new URLSearchParams({ page: String(page), size: '20' })
-  if (status) query.set('status', status)
-  const { resource, refresh } = useIntakeResource<IntakeApplicationPage>(
-    '/intake-applications?' + query,
-  )
+  const { resource, refresh } = useIntakeApplications({ page, size: 20, status })
   const changeQuery = (nextPage: number, nextStatus = status) => {
     const next = new URLSearchParams()
     if (nextStatus) next.set('status', nextStatus)

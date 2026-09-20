@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
-import { api, ApiError } from '../../../shared/api/client'
+import { signInWithSession } from '../../../features/auth/api'
+import { ApiError } from '../../../shared/api/client'
 import { IntakeIcon } from './IntakeLayout'
 import styles from './FamilyIntake.module.css'
 
@@ -25,12 +26,7 @@ export function FamilySignIn({ onSignedIn }: { onSignedIn: () => void }) {
     setBusy(true)
     setError('')
     try {
-      await api<void>('/auth/csrf', { signal: controller.signal })
-      await api('/auth/login', {
-        method: 'POST',
-        body: JSON.stringify({ username: username.trim(), password }),
-        signal: controller.signal,
-      })
+      await signInWithSession({ username: username.trim(), password }, controller.signal)
       if (!controller.signal.aborted) onSignedIn()
     } catch (failure) {
       if (controller.signal.aborted) return

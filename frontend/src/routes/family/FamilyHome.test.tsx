@@ -65,7 +65,14 @@ describe('Family intake pages', () => {
         })
         expect(new Headers(init.headers).get('X-XSRF-TOKEN')).toBe('login-token')
         signedIn = true
-        return Promise.resolve(json({ id: 1, roles: ['FAMILY'] }))
+        return Promise.resolve(
+          json({
+            id: 1,
+            username: 'family_test',
+            displayName: 'Family Test',
+            roles: ['FAMILY'],
+          }),
+        )
       }
       return Promise.resolve(signedIn ? json(application) : new Response(null, { status: 401 }))
     })
@@ -106,6 +113,74 @@ describe('Family intake pages', () => {
     await user.click(back)
     expect(await screen.findByRole('link', { name: /Tan Mei/ })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Submitted', pressed: true })).toBeInTheDocument()
+  })
+
+  it('does not send login credentials when CSRF initialisation fails', async () => {
+    const user = userEvent.setup()
+    let finishBootstrap!: (response: Response) => void
+    const fetchMock = vi.fn().mockImplementation((url: string) => {
+      if (url === '/api/auth/csrf') {
+        return new Promise<Response>((resolve) => {
+          finishBootstrap = resolve
+        })
+      }
+      return Promise.resolve(new Response(null, { status: 401 }))
+    })
+    vi.stubGlobal('fetch', fetchMock)
+    openFamily()
+    await user.type(await screen.findByLabelText('Username'), 'family_test')
+    await user.type(screen.getByLabelText('Password'), 'example-password')
+    await user.click(screen.getByRole('button', { name: 'Sign in' }))
+    expect(screen.getByRole('button', { name: 'Signing in…' })).toBeDisabled()
+    expect(fetchMock.mock.calls.map(([url]) => url)).not.toContain('/api/auth/login')
+    await act(async () => finishBootstrap(new Response(null, { status: 500 })))
+    expect(await screen.findByRole('alert')).toHaveTextContent('Unable to sign in')
+    expect(fetchMock.mock.calls.map(([url]) => url)).not.toContain('/api/auth/login')
+    expect(screen.getByRole('button', { name: 'Sign in' })).toBeEnabled()
+  })
+
+  it.each(['/api/auth/csrf', '/api/auth/login'])(
+    'cancels a pending %s request when the user leaves the page',
+    async (pendingPath) => {
+      let pendingSignal: AbortSignal | undefined
+      const fetchMock = vi.fn().mockImplementation((url: string, init: RequestInit) => {
+        if (url === pendingPath) {
+          pendingSignal = init.signal ?? undefined
+          return new Promise<Response>((_resolve, reject) => {
+            pendingSignal?.addEventListener(
+              'abort',
+              () => {
+                reject(new DOMException('Request cancelled', 'AbortError'))
+              },
+              { once: true },
+            )
+          })
+        }
+        return Promise.resolve(new Response(null, { status: url.endsWith('/csrf') ? 200 : 401 }))
+      })
+      vi.stubGlobal('fetch', fetchMock)
+      const view = openFamily()
+      const user = userEvent.setup()
+      await user.type(await screen.findByLabelText('Username'), 'family_test')
+      await user.type(screen.getByLabelText('Password'), 'example-password')
+      await user.click(screen.getByRole('button', { name: 'Sign in' }))
+      await waitFor(() => expect(pendingSignal).toBeDefined())
+      await act(async () => view.unmount())
+      expect(pendingSignal?.aborted).toBe(true)
+      if (pendingPath.endsWith('/csrf')) {
+        expect(fetchMock.mock.calls.map(([url]) => url)).not.toContain('/api/auth/login')
+      }
+    },
+  )
+
+  it('preserves the full application identifier when requesting a detail page', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(null, { status: 404 }))
+    vi.stubGlobal('fetch', fetchMock)
+    openFamily('/family/intake/9223372036854775807')
+    expect(
+      await screen.findByRole('heading', { name: 'Application not found' }),
+    ).toBeInTheDocument()
+    expect(fetchMock.mock.calls[0][0]).toBe('/api/intake-applications/9223372036854775807')
   })
 
   it('loads the current family’s applications through the session-authenticated API', async () => {
