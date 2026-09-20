@@ -72,7 +72,7 @@ class IntakeDetailApiIT {
 	}
 
 	@Test
-	void submittedApplicationCanBeReadUsingTheSameSessionWithoutCsrfOrAnElderBinding() throws Exception {
+	void submittedApplicationRemainsInTheOwnersListAndDetailsAcrossLoginSessions() throws Exception {
 		var login = loginAs("family-b");
 		var submitted = mvc.perform(post(PATH).session(login.session()).cookie(login.csrfCookie())
 				.header("X-XSRF-TOKEN", login.csrfCookie().getValue())
@@ -87,6 +87,33 @@ class IntakeDetailApiIT {
 				.andExpect(jsonPath("$.applicantFamilyMemberId").value(7))
 				.andReturn().getResponse();
 		assertThat(json.readTree(response.getContentAsString())).isEqualTo(application);
+		mvc.perform(get(PATH).session(login.session()).param("status", "SUBMITTED"))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.totalElements").value(1))
+				.andExpect(jsonPath("$.items[0].id").value(application.path("id").longValue()))
+				.andExpect(jsonPath("$.items[0].applicantFamilyMemberId").value(7));
+
+		mvc.perform(post("/api/auth/logout").session(login.session()).cookie(login.csrfCookie())
+				.header("X-XSRF-TOKEN", login.csrfCookie().getValue()))
+				.andExpect(status().isNoContent());
+		assertThat(login.session().isInvalid()).isTrue();
+		mvc.perform(get(PATH)).andExpect(status().isUnauthorized());
+		mvc.perform(get(PATH + "/" + application.path("id").longValue()))
+				.andExpect(status().isUnauthorized());
+
+		var otherFamily = loginAs("family-a");
+		mvc.perform(get(PATH).session(otherFamily.session()))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.items").isEmpty())
+				.andExpect(jsonPath("$.totalElements").value(0));
+		mvc.perform(get(PATH + "/" + application.path("id").longValue()).session(otherFamily.session()))
+				.andExpect(status().isForbidden())
+				.andExpect(jsonPath("$.targetElderName").doesNotExist());
+
+		var owner = loginAs("family-b");
+		var reloaded = mvc.perform(get(PATH + "/" + application.path("id").longValue()).session(owner.session()))
+				.andExpect(status().isOk()).andReturn().getResponse();
+		assertThat(json.readTree(reloaded.getContentAsString())).isEqualTo(application);
 	}
 
 	@ParameterizedTest

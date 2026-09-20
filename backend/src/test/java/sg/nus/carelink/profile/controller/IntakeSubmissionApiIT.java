@@ -278,7 +278,7 @@ class IntakeSubmissionApiIT {
 	}
 
 	@Test
-	void returnsAnInternalErrorWhenStorageRejectsTheInsert() throws Exception {
+	void failedInsertLeavesTheListEmptyAndAFollowingSubmissionCanSucceed() throws Exception {
 		jdbc.execute("ALTER TABLE intake_application ADD CONSTRAINT fm01_test_failure "
 				+ "CHECK (target_elder_name <> 'Tan Mei')");
 		try {
@@ -289,9 +289,21 @@ class IntakeSubmissionApiIT {
 					.andExpect(jsonPath("$.status").value(500))
 					.andExpect(jsonPath("$.id").doesNotExist()).andReturn().getResponse();
 			assertThat(response.getContentAsString()).doesNotContain("fm01_test_failure", "INSERT", "Tan Mei");
+			mvc.perform(get(PATH).with(user("family-a").roles("FAMILY")))
+					.andExpect(status().isOk())
+					.andExpect(jsonPath("$.items").isEmpty())
+					.andExpect(jsonPath("$.totalElements").value(0));
 		} finally {
 			jdbc.execute("ALTER TABLE intake_application DROP CHECK fm01_test_failure");
 		}
+		mvc.perform(post(PATH).with(user("family-a").roles("FAMILY")).with(csrfCookie())
+				.contentType(MediaType.APPLICATION_JSON).content(MINIMUM_REQUEST))
+				.andExpect(status().isCreated());
+		mvc.perform(get(PATH).with(user("family-a").roles("FAMILY")))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.totalElements").value(1))
+				.andExpect(jsonPath("$.items[0].targetElderName").value("Tan Mei"))
+				.andExpect(jsonPath("$.items[0].status").value("SUBMITTED"));
 	}
 
 	private BrowserLogin loginAs(String username) throws Exception {

@@ -54,6 +54,57 @@ afterEach(() => {
 })
 
 describe('Family intake submission', () => {
+  it('signs in, submits an application and finds the same saved record in the list and detail', async () => {
+    let signedIn = false
+    let submitted = false
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockImplementation((url: string, init: RequestInit) => {
+        if (url.endsWith('/csrf')) {
+          document.cookie = 'XSRF-TOKEN=workflow-token; path=/'
+          return Promise.resolve(new Response(null))
+        }
+        if (url.endsWith('/login')) {
+          signedIn = true
+          return Promise.resolve(
+            json({ id: 1, username: 'family_test', displayName: 'Family', roles: ['FAMILY'] }),
+          )
+        }
+        if (!signedIn) return Promise.resolve(new Response(null, { status: 401 }))
+        if (url === '/api/intake-applications' && init.method === 'POST') {
+          submitted = true
+          return Promise.resolve(json(savedApplication, 201))
+        }
+        if (url.endsWith('/23')) return Promise.resolve(json(savedApplication))
+        return Promise.resolve(
+          json({
+            items: submitted ? [savedApplication] : [],
+            page: 0,
+            size: 20,
+            totalElements: submitted ? 1 : 0,
+          }),
+        )
+      }),
+    )
+    openForm('/family/intake')
+    const user = userEvent.setup()
+    await user.type(await screen.findByLabelText('Username'), 'family_test')
+    await user.type(screen.getByLabelText('Password'), 'test-password')
+    await user.click(screen.getByRole('button', { name: 'Sign in' }))
+    await waitFor(() => expect(screen.queryByLabelText('Password')).not.toBeInTheDocument())
+    await user.click(screen.getByRole('link', { name: 'New application' }))
+    await fillRequired()
+    await user.click(screen.getByRole('button', { name: 'Submit application' }))
+    await screen.findByRole('heading', { name: 'Application submitted' })
+    await user.click(screen.getByRole('link', { name: 'Back to applications' }))
+    const applicationLink = await screen.findByRole('link', { name: /APPLICATION #23.*Tan Mei/ })
+    expect(screen.getByText('1 application')).toBeInTheDocument()
+    await user.click(applicationLink)
+    expect(await screen.findByRole('heading', { name: 'Tan Mei' })).toBeInTheDocument()
+    expect(screen.getByText('Awaiting review')).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'Application submitted' })).not.toBeInTheDocument()
+  })
+
   it('blocks overlong fields and invalid ages, then accepts corrected values at contract boundaries', async () => {
     const fetchMock = vi.fn().mockImplementation((url: string, init: RequestInit) => {
       if (url.endsWith('/csrf')) return Promise.resolve(new Response(null))
