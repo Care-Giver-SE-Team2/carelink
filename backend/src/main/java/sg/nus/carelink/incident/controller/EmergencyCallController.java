@@ -19,6 +19,8 @@ import sg.nus.carelink.identity.domain.model.AppUser;
 import sg.nus.carelink.incident.application.IncidentService;
 import sg.nus.carelink.incident.controller.dto.EmergencyCallCreateRequest;
 import sg.nus.carelink.incident.domain.model.Incident;
+import sg.nus.carelink.profile.application.ProfileService;
+import sg.nus.carelink.profile.domain.model.Elder;
 
 /**
  * HTTP endpoints for UC-EL03: elder one-tap emergency call.
@@ -33,30 +35,40 @@ public class EmergencyCallController {
 
     private final IncidentService incidentService;
     private final IdentityService identityService;
+    private final ProfileService profileService;
 
     public EmergencyCallController(
             IncidentService incidentService,
-            IdentityService identityService) {
+            IdentityService identityService,
+            ProfileService profileService) {
 
         this.incidentService = incidentService;
         this.identityService = identityService;
+        this.profileService = profileService;
     }
 
     /**
-     * Elder triggers an emergency SOS.
+     * Elder triggers an emergency SOS for their own elder profile.
      *
-     * POST /api/elders/{elderId}/emergency-calls
+     * POST /api/elders/me/emergency-calls
+     *
+     * <p>The elder id is intentionally not supplied by the client.
+     * The server resolves the authenticated app_user to the linked
+     * elder profile, preventing one elder from raising an SOS on
+     * behalf of another elder by changing an id in the URL.
      */
-    @PostMapping("/elders/{elderId}/emergency-calls")
+    @PostMapping("/elders/me/emergency-calls")
     @PreAuthorize("hasRole('ELDER')")
-    public ResponseEntity<Incident> createEmergencyCall(
-            @PathVariable Long elderId,
+    public ResponseEntity<Incident> createMyEmergencyCall(
             @Valid @RequestBody(required = false)
             EmergencyCallCreateRequest request,
             Principal principal) {
 
         AppUser currentUser =
                 identityService.require(principal.getName());
+
+        Elder elder =
+                profileService.requireElderByUserId(currentUser.id());
 
         if (request == null) {
             request = new EmergencyCallCreateRequest(
@@ -69,7 +81,7 @@ public class EmergencyCallController {
 
         Incident incident =
                 incidentService.createElderEmergency(
-                        elderId,
+                        elder.id(),
                         currentUser.id(),
                         request.latitude(),
                         request.longitude(),

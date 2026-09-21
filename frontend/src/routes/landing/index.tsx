@@ -1,7 +1,10 @@
 import { useId, useState } from 'react'
-import { Link } from 'react-router-dom'
+import type { FormEvent } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
 
 import caregiverImage from '../../assets/Caregiver.png'
+import { signInWithSession } from '../../features/auth/api'
+import { ApiError } from '../../shared/api/client'
 import { IconCalendar, IconClock, IconDocCheck, IconHeart, IconUsers } from './icons'
 import styles from './Landing.module.css'
 
@@ -35,11 +38,67 @@ const FEATURES = [
 ]
 
 export default function LandingHome() {
-  const emailId = useId()
+  const identifierId = useId()
   const passwordId = useId()
+  const navigate = useNavigate()
 
+  const [username, setUsername] = useState('')
+  const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [keepSignedIn, setKeepSignedIn] = useState(false)
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
+
+  async function handleSignIn(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+
+    if (busy) {
+      return
+    }
+
+    setBusy(true)
+    setError('')
+
+    try {
+      const user = await signInWithSession({
+        username: username.trim(),
+        password,
+      })
+
+      if (user.roles.includes('ELDER')) {
+        navigate('/elder')
+        return
+      }
+
+      if (user.roles.includes('FAMILY')) {
+        navigate('/family')
+        return
+      }
+
+      if (user.roles.includes('CAREGIVER')) {
+        navigate('/caregiver')
+        return
+      }
+
+      if (user.roles.includes('MANAGER')) {
+        navigate('/manager')
+        return
+      }
+
+      setError('Your account does not have access to a CareLink portal.')
+    } catch (failure) {
+      if (failure instanceof ApiError && failure.status === 401) {
+        setError('The username or password is incorrect.')
+      } else if (failure instanceof ApiError && failure.status === 403) {
+        setError('Your sign-in request expired. Please try again.')
+      } else {
+        setError('Unable to sign in. Check your connection and try again.')
+      }
+    } finally {
+      setBusy(false)
+      setPassword('')
+    }
+  }
 
   return (
     <div className={styles.page}>
@@ -54,64 +113,108 @@ export default function LandingHome() {
             <div className={styles.pitchMain}>
               <div className={styles.pitchText}>
                 <h1 className={styles.headline}>
-                  Better care starts with <span className={styles.headlineAccent}>coordination.</span>
+                  Better care starts with{' '}
+                  <span className={styles.headlineAccent}>
+                    coordination.
+                  </span>
                 </h1>
+
                 <p className={styles.dek}>
-                  CareLink schedules home visits, tracks them as they happen, and escalates the
-                  ones that go wrong — so a missed visit reaches a care manager in minutes, not at
-                  the end of the day.
+                  CareLink schedules home visits, tracks them as they happen,
+                  and escalates the ones that go wrong — so a missed visit
+                  reaches a care manager in minutes, not at the end of the day.
                 </p>
 
                 <ul className={styles.features}>
-                  {FEATURES.map(({ icon: Icon, tint, title, description }) => (
-                    <li key={title} className={styles.feature}>
-                      <span className={`${styles.featureIcon} ${styles[`tint-${tint}`]}`}>
-                        <Icon />
-                      </span>
-                      <div>
-                        <div className={styles.featureTitle}>{title}</div>
-                        <div className={styles.featureDescription}>{description}</div>
-                      </div>
-                    </li>
-                  ))}
+                  {FEATURES.map(
+                    ({
+                      icon: Icon,
+                      tint,
+                      title,
+                      description,
+                    }) => (
+                      <li key={title} className={styles.feature}>
+                        <span
+                          className={`${styles.featureIcon} ${
+                            styles[`tint-${tint}`]
+                          }`}
+                        >
+                          <Icon />
+                        </span>
+
+                        <div>
+                          <div className={styles.featureTitle}>
+                            {title}
+                          </div>
+
+                          <div className={styles.featureDescription}>
+                            {description}
+                          </div>
+                        </div>
+                      </li>
+                    ),
+                  )}
                 </ul>
               </div>
 
               <div className={styles.illustration}>
-                <img src={caregiverImage} alt="A caregiver smiling with an elderly client at home" />
+                <img
+                  src={caregiverImage}
+                  alt="A caregiver smiling with an elderly client at home"
+                />
               </div>
             </div>
 
             <div className={styles.proof}>
               <div className={styles.proofCell}>
-                <span className={`${styles.proofIcon} ${styles['tint-green']}`}>
+                <span
+                  className={`${styles.proofIcon} ${styles['tint-green']}`}
+                >
                   <IconUsers />
                 </span>
+
                 <div className={styles.proofText}>
                   <div className={styles.proofValue}>86</div>
-                  <div className={styles.proofCaption}>visits coordinated today across two sectors</div>
+
+                  <div className={styles.proofCaption}>
+                    visits coordinated today across two sectors
+                  </div>
                 </div>
               </div>
+
               <div className={styles.proofCell}>
-                <span className={`${styles.proofIcon} ${styles['tint-green']}`}>
+                <span
+                  className={`${styles.proofIcon} ${styles['tint-green']}`}
+                >
                   <IconClock />
                 </span>
+
                 <div className={styles.proofText}>
                   <div className={styles.proofValue}>
                     10<span className={styles.proofUnit}>m</span>
                   </div>
-                  <div className={styles.proofCaption}>from a missed check-in to a care manager seeing it</div>
+
+                  <div className={styles.proofCaption}>
+                    from a missed check-in to a care manager seeing it
+                  </div>
                 </div>
               </div>
+
               <div className={styles.proofCell}>
-                <span className={`${styles.proofIcon} ${styles['tint-green']}`}>
+                <span
+                  className={`${styles.proofIcon} ${styles['tint-green']}`}
+                >
                   <IconDocCheck />
                 </span>
+
                 <div className={styles.proofText}>
                   <div className={styles.proofValue}>
                     100<span className={styles.proofUnit}>%</span>
                   </div>
-                  <div className={styles.proofCaption}>of visit records signed by the caregiver who made them</div>
+
+                  <div className={styles.proofCaption}>
+                    of visit records signed by the caregiver who made them
+                  </div>
                 </div>
               </div>
             </div>
@@ -120,32 +223,46 @@ export default function LandingHome() {
 
         <form
           className={styles.formColumn}
-          onSubmit={(event) => {
-            event.preventDefault()
-            // Not wired to the backend yet — see README.md in this folder.
-          }}
+          onSubmit={handleSignIn}
+          aria-busy={busy}
         >
           <h2 className={styles.formTitle}>Sign in</h2>
 
           <div className={styles.fields}>
             <div>
-              <label className={styles.fieldLabel} htmlFor={emailId}>
-                Email Address
+              <label
+                className={styles.fieldLabel}
+                htmlFor={identifierId}
+              >
+                Username
               </label>
+
               <input
-                id={emailId}
-                name="identifier"
+                id={identifierId}
+                name="username"
                 type="text"
                 autoComplete="username"
-                placeholder="you@carelink.sg"
+                autoCapitalize="none"
+                spellCheck={false}
+                placeholder="Enter your username"
                 className={styles.textInput}
+                value={username}
+                onChange={(event) =>
+                  setUsername(event.target.value)
+                }
+                disabled={busy}
+                required
               />
             </div>
 
             <div>
-              <label className={styles.fieldLabel} htmlFor={passwordId}>
+              <label
+                className={styles.fieldLabel}
+                htmlFor={passwordId}
+              >
                 Password
               </label>
+
               <div className={styles.passwordBox}>
                 <input
                   id={passwordId}
@@ -154,12 +271,22 @@ export default function LandingHome() {
                   autoComplete="current-password"
                   placeholder="••••••••"
                   className={styles.passwordInput}
+                  value={password}
+                  onChange={(event) =>
+                    setPassword(event.target.value)
+                  }
+                  disabled={busy}
+                  required
                 />
+
                 <button
                   type="button"
                   className={styles.showToggle}
-                  onClick={() => setShowPassword((value) => !value)}
+                  onClick={() =>
+                    setShowPassword((value) => !value)
+                  }
                   aria-pressed={showPassword}
+                  disabled={busy}
                 >
                   {showPassword ? 'hide' : 'show'}
                 </button>
@@ -172,31 +299,70 @@ export default function LandingHome() {
               type="checkbox"
               className={styles.checkboxInput}
               checked={keepSignedIn}
-              onChange={(event) => setKeepSignedIn(event.target.checked)}
+              onChange={(event) =>
+                setKeepSignedIn(event.target.checked)
+              }
+              disabled={busy}
             />
-            <span className={styles.checkboxBox} aria-hidden="true" />
-            <span className={styles.checkboxLabel}>Keep me signed in on this device</span>
+
+            <span
+              className={styles.checkboxBox}
+              aria-hidden="true"
+            />
+
+            <span className={styles.checkboxLabel}>
+              Keep me signed in on this device
+            </span>
           </label>
 
-          <button type="submit" className={styles.submit}>
-            Sign in
+          {error && (
+            <div
+              className={styles.signInError}
+              role="alert"
+            >
+              {error}
+            </div>
+          )}
+
+          <button
+            type="submit"
+            className={styles.submit}
+            disabled={busy}
+          >
+            {busy ? 'Signing in…' : 'Sign in'}
           </button>
 
           <div className={styles.belowSubmit}>
-            <button type="button" className={styles.forgotLink}>
+            <button
+              type="button"
+              className={styles.forgotLink}
+            >
               Forgotten your password?
             </button>
           </div>
 
           <div className={styles.noAccount}>
-            <div className={styles.noAccountEyebrow}>No account yet?</div>
-            <Link to="/family" className={styles.applyCard}>
+            <div className={styles.noAccountEyebrow}>
+              No account yet?
+            </div>
+
+            <Link
+              to="/family"
+              className={styles.applyCard}
+            >
               <div className={styles.applyCardRow}>
-                <span className={styles.applyCardLabel}>Apply for care for a family member</span>
-                <span className={styles.applyCardArrow}>→</span>
+                <span className={styles.applyCardLabel}>
+                  Apply for care for a family member
+                </span>
+
+                <span className={styles.applyCardArrow}>
+                  →
+                </span>
               </div>
+
               <div className={styles.applyCardCaption}>
-                Takes about ten minutes. A care manager replies within two working days.
+                Takes about ten minutes. A care manager replies
+                within two working days.
               </div>
             </Link>
           </div>
@@ -206,7 +372,11 @@ export default function LandingHome() {
       {/* Temporary dev shortcuts — remove before shipping. */}
       <div className={styles.devRoleLinks}>
         {DEV_ROLE_LINKS.map((role) => (
-          <Link key={role.path} to={role.path} className={styles.devRoleLink}>
+          <Link
+            key={role.path}
+            to={role.path}
+            className={styles.devRoleLink}
+          >
             {role.label}
           </Link>
         ))}
