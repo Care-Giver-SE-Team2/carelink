@@ -197,4 +197,17 @@ class IncidentControllerTest {
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$[0].id").value(1));
 	}
+
+	/**
+	 * An incomplete request is the caller's mistake, not the server's. Leaving elderId out
+	 * used to reach the catch-all and come back as 500 with a stack trace in the log, which
+	 * sends whoever is debugging the front end looking for a fault that is not there.
+	 */
+	@Test
+	void namesTheQueryParameterTheCallerLeftOutInsteadOfFailing() throws Exception {
+		mvc.perform(get("/api/incidents").with(asManager()))
+				.andExpect(status().isBadRequest())
+				.andExpect(jsonPath("$.title").value("Invalid request"))
+				.andExpect(jsonPath("$.fields.elderId").value("Required"));
+	}
 }
