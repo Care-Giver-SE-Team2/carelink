@@ -2,12 +2,6 @@ import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ManagerShell } from '../components/ManagerShell'
 import headerStyles from '../components/Header.module.css'
-import {
-  ELDER_DETAILS,
-  TOTAL_ELDERS_IN_SECTORS,
-  ELDERS_WITHOUT_PUBLISHED_PLAN,
-  isOutOfSector,
-} from '../data/elders'
 import type { ElderRow, PlanStatus } from '../data/elders'
 import { CARE_PLANS } from '../data/carePlans'
 import { countTree, formatHoursMinutes, weeklyHoursOfTree } from '../lib/planTree'
@@ -48,8 +42,8 @@ function planBadgeLabel(status: PlanStatus, version: number | null): string {
 }
 
 /**
- * Elders index (1c) — UC-MG01 step one. A manager searches their sectors for
- * an elder, previews that elder's plan in the rail, then opens it (routes to
+ * Elders index (1c) — UC-MG01 step one. A manager searches for an elder,
+ * previews that elder's plan in the rail, then opens it (routes to
  * CarePlan, 1d). See design_handoff_care_plan_authoring/README.md.
  */
 export default function Elders() {
@@ -88,10 +82,14 @@ export default function Elders() {
     return sorted
   }, [elders, query, sector, planFilter, sort])
 
+  const eldersWithoutPublishedPlan = useMemo(
+    () => elders.filter((e) => e.planStatus !== 'published').length,
+    [elders],
+  )
+
   const selected: ElderRow | undefined = selectedId
     ? elders.find((e) => e.id === selectedId)
     : undefined
-  const selectedDetail = selected ? ELDER_DETAILS[selected.id] : undefined
   const selectedPlan = selected ? CARE_PLANS[selected.id] : undefined
 
   function clearFilters() {
@@ -116,8 +114,7 @@ export default function Elders() {
               <div>
                 <h1 className={styles.title}>Elders</h1>
                 <p className={styles.subtitle}>
-                  {TOTAL_ELDERS_IN_SECTORS} in your sectors · {ELDERS_WITHOUT_PUBLISHED_PLAN} without a
-                  published plan
+                  {elders.length} elders · {eldersWithoutPublishedPlan} without a published plan
                 </p>
               </div>
               <button className={styles.addElderBtn}>Add elder</button>
@@ -281,21 +278,14 @@ export default function Elders() {
             <p className={styles.railEmpty}>Select an elder to preview their care plan.</p>
           ) : (
             <>
-              {isOutOfSector(selected) && (
-                <div className={styles.readOnlyBanner}>
-                  Outside your sectors — you can view this plan but not edit it.
-                </div>
-              )}
-
               <div className={styles.selectedHeader}>
                 <div className={styles.avatarLg} />
                 <div>
                   <div className={styles.selectedName}>{selected.name}</div>
                   <div className={styles.selectedMeta}>
                     {selected.id} · {selected.age}
-                    {selectedDetail ? ` · ${selectedDetail.livingSituation}` : ''}
                     <br />
-                    {selectedDetail?.addressFull ?? selected.street}
+                    {selected.street || 'no address on file'}
                   </div>
                 </div>
               </div>
@@ -342,46 +332,21 @@ export default function Elders() {
               <div className={styles.card}>
                 <span className={styles.cardTitle}>Family contacts</span>
                 <div className={styles.contactList}>
-                  {!selectedDetail || selectedDetail.contacts.length === 0 ? (
-                    <p className={styles.cardMuted}>No family contacts on file yet.</p>
-                  ) : (
-                    selectedDetail.contacts.map((c) => (
-                      <div key={c.name} className={styles.contactRow}>
-                        <span className={styles.contactName}>{c.name}</span>
-                        <span>
-                          {c.relation} · {c.access}
-                        </span>
-                      </div>
-                    ))
-                  )}
+                  <p className={styles.cardMuted}>No family contacts on file yet.</p>
                 </div>
               </div>
-
-              {selectedDetail && selectedDetail.openExceptions.length > 0 && (
-                <div className={styles.exceptionBanner}>
-                  {selectedDetail.openExceptions.length === 1
-                    ? `1 open exception on this elder — ${selectedDetail.openExceptions[0].kind}, ${selectedDetail.openExceptions[0].date}.`
-                    : `${selectedDetail.openExceptions.length} open exceptions on this elder — ${selectedDetail.openExceptions
-                        .map((ex) => `${ex.kind} (${ex.date})`)
-                        .join(', ')}.`}
-                </div>
-              )}
 
               <div className={styles.actions}>
                 <button
                   className={styles.primaryBtn}
                   onClick={() => navigate(`/manager/elders/${selected.id}`)}
                 >
-                  {isOutOfSector(selected)
-                    ? 'View care plan'
-                    : selected.planStatus === 'none'
-                      ? 'Create care plan'
-                      : 'Open care plan'}
+                  {selected.planStatus === 'none' ? 'Create care plan' : 'Open care plan'}
                 </button>
                 <button className={styles.secondaryBtn}>View visit history</button>
               </div>
 
-              {!isOutOfSector(selected) && selected.planStatus === 'published' && (
+              {selected.planStatus === 'published' && (
                 <button
                   className={styles.dangerBtn}
                   onClick={() => navigate(`/manager/elders/${selected.id}`)}
