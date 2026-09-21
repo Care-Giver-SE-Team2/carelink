@@ -31,6 +31,7 @@ import sg.nus.carelink.incident.domain.model.EscalationLevel;
 import sg.nus.carelink.incident.domain.model.EscalationTier;
 import sg.nus.carelink.incident.domain.model.Incident;
 import sg.nus.carelink.incident.domain.model.IncidentLog;
+import sg.nus.carelink.incident.domain.model.PageSlice;
 import sg.nus.carelink.incident.domain.model.Playbook;
 import sg.nus.carelink.incident.domain.repository.IncidentRepository;
 
@@ -402,6 +403,55 @@ class EscalationFlowIT {
 				.hasSize(1);
 		assertThat(incidents.timelineOf(id).stream().map(IncidentLog::action))
 				.contains("SEVERITY_CHANGED");
+	}
+
+	// ---------------------------------------------------------------- the queue ---
+
+	/**
+	 * The manager's queue, against the database that actually has to produce it.
+	 *
+	 * <p>Two halves of this query only exist as SQL and cannot be proved anywhere else. The
+	 * finder is derived by Spring Data when the context starts, so a name that does not
+	 * parse fails here and nowhere earlier; and "nulls last" is not something MySQL writes -
+	 * ascending order puts nulls first, and Hibernate has to emulate the precedence the
+	 * adapter asks for. A fake repository sorting in Java would agree with the adapter no
+	 * matter what the database did, which is why the ordering is asserted here.
+	 */
+	@Test
+	void theQueueOrdersByDeadlineAndLeavesClosedIncidentsOut() {
+		givenTheElderWasHandledBefore(ben);
+		Incident routed = raiseFor(elder, "fell in the bathroom");
+		// Through the elder module's own entry point: nothing routes an SOS yet, so this
+		// one has no responder and no deadline. It is the row that has to sort last.
+		Incident unrouted = incidents.createElderEmergency(
+				elder, alice, null, null, null, "SOS pressed");
+
+		PageSlice<Incident> queue = incidents.queue(null, null, null, 0, 20);
+
+		List<Long> thisElders = queue.items().stream()
+				.filter(incident -> elder.equals(incident.elderId()))
+				.map(Incident::id)
+				.toList();
+
+		// Other tests leave their own incidents behind, so only this elder's rows are read
+		// out of the queue. Their order within it is the institution-wide order.
+		assertThat(thisElders)
+				.as("the incident with a deadline first, the one with none after it, and the "
+						+ "call-out closed last week not at all")
+				.containsExactly(routed.id(), unrouted.id());
+		assertThat(queue.items())
+				.extracting(Incident::status)
+				.doesNotContain(Incident.Status.RESOLVED);
+		assertThat(queue.totalElements())
+				.as("everything still open in this class fits on one page, so the count is the page")
+				.isEqualTo(queue.items().size());
+
+		closeSoTheSweepDoesNotFindIt(routed);
+		// The SOS has nobody named on it, so the helper - which takes the incident over as
+		// its own responder - has no one to use. It is closed by name instead.
+		incidents.claim(unrouted.id(), alice, "test");
+		incidents.resolve(unrouted.id(), alice, "raised only to check the queue's ordering",
+				"HANDLED_ON_SITE", "test");
 	}
 
 	// ----------------------------------------------------------------- the clock ---
