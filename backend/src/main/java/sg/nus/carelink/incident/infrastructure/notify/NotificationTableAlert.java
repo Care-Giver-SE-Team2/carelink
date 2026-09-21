@@ -19,10 +19,10 @@ import sg.nus.carelink.shared.security.Role;
  *
  * <p>Nothing sends these anywhere. Push, SMS and e-mail would need a component that polls
  * this table, calls whatever carries the message, and moves the row to SENT or FAILED with
- * a retry; no use case in the backlog covers it and nobody has taken it on. Until somebody
- * does, a row with {@code status = PENDING} is the honest state: the alert exists and is
- * addressed, and whoever builds the sender will find it waiting rather than having to work
- * out the audience again.
+ * a retry; that is SUP-02 notification dispatch (use case specification v3.0 §2.2), and
+ * nobody has taken it on. Until somebody does, a row with {@code status = PENDING} is the
+ * honest state: the alert exists and is addressed, and whoever builds the sender will find
+ * it waiting rather than having to work out the audience again.
  *
  * <p>Reads three tables it does not own - {@code user_role}, {@code elder_family_binding},
  * {@code visit} - with plain statements that take an id and nothing else. Reading is not
