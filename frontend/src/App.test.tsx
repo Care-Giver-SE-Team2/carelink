@@ -8,8 +8,7 @@ describe('App', () => {
 
     expect(screen.getByText('CareLink')).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: /Sign in/i })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Manager' })).toBeInTheDocument()
-    for (const label of ['Caregiver', 'Family', 'Elder', 'Admin']) {
+    for (const label of ['Manager', 'Caregiver', 'Family', 'Elder', 'Admin']) {
       expect(screen.getByRole('link', { name: label })).toBeInTheDocument()
     }
   })
