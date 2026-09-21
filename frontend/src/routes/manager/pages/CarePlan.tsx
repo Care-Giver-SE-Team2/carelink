@@ -3,7 +3,6 @@ import { createPortal } from 'react-dom'
 import { Link, useParams } from 'react-router-dom'
 import { ManagerShell } from '../components/ManagerShell'
 import headerStyles from '../components/Header.module.css'
-import { ELDER_DETAILS, isOutOfSector } from '../data/elders'
 import { ACTIVITY_CATALOG, CARE_PLANS, ELDER_PROFILES } from '../data/carePlans'
 import type { EvidenceType, PlanNode, SubPlanNode, TaskNode } from '../data/carePlans'
 import { useElder } from '../lib/useElder'
@@ -156,7 +155,6 @@ export default function CarePlan() {
   const { elderId } = useParams()
 
   const { data: elder, isLoading: elderLoading, isError: elderError } = useElder(elderId)
-  const elderDetail = elderId ? ELDER_DETAILS[elderId] : undefined
   const initialPlan = elderId ? CARE_PLANS[elderId] : undefined
   const profile = elderId ? ELDER_PROFILES[elderId] : undefined
 
@@ -262,10 +260,9 @@ export default function CarePlan() {
     )
   }
 
-  const readOnly = isOutOfSector(elder)
-  // A stopped plan is history, same as one outside the manager's sectors: no more sub-plans,
-  // tasks or edits — just what it looked like when it was stopped.
-  const locked = readOnly || status === 'stopped'
+  // A stopped plan is history: no more sub-plans, tasks or edits — just what it looked like
+  // when it was stopped.
+  const locked = status === 'stopped'
   // Editing (add/edit/delete sub-plans and tasks) is only available once the manager has
   // entered draft mode via "Edit plan" — opening a published plan starts read-only.
   const editable = !locked && status === 'draft'
@@ -589,13 +586,6 @@ export default function CarePlan() {
     <ManagerShell headerContext={headerContext} headerRight={headerRight}>
       <div className={styles.layout}>
         <div className={styles.planColumn}>
-          {readOnly && (
-            <div className={styles.readOnlyBanner}>
-              Outside your sectors — this plan is read-only. Ask the manager for sector {elder.sector} to
-              make changes.
-            </div>
-          )}
-
           {status === 'stopped' && stopInfo && (
             <div className={styles.readOnlyBanner}>
               Stopped effective {stopInfo.effectiveDate || '—'} — {stopInfo.reason || 'no reason on file'}. This
@@ -731,7 +721,7 @@ export default function CarePlan() {
             </div>
           </div>
 
-          {profile && elderDetail && (
+          {profile && (
             <>
               <div className={styles.profileFields}>
                 <div className={styles.profileField}>
@@ -740,7 +730,7 @@ export default function CarePlan() {
                 </div>
                 <div className={styles.profileField}>
                   <span className={styles.profileFieldLabel}>Lives</span>
-                  <span>{elderDetail.livingSituation.replace(/^lives\s*/i, '')}</span>
+                  <span>{elder.livesAlone === null ? 'not on file' : elder.livesAlone ? 'alone' : 'with family'}</span>
                 </div>
                 <div className={styles.profileField}>
                   <span className={styles.profileFieldLabel}>Family</span>

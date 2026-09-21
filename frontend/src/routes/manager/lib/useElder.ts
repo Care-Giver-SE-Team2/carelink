@@ -5,7 +5,10 @@ import type { ElderRow } from '../data/elders'
 import { ageFromDateOfBirth } from './age'
 
 /** The subset of ElderRow that GET /api/elders/{id} can fill in today; plan/roster fields stay mocked. */
-export type ElderSummary = Pick<ElderRow, 'id' | 'name' | 'age' | 'sector'>
+export type ElderSummary = Pick<ElderRow, 'id' | 'name' | 'age' | 'sector'> & {
+  address: string | null
+  livesAlone: boolean | null
+}
 
 function toElderSummary(elder: ElderResponse): ElderSummary {
   return {
@@ -13,6 +16,8 @@ function toElderSummary(elder: ElderResponse): ElderSummary {
     name: elder.fullName,
     age: ageFromDateOfBirth(elder.dateOfBirth),
     sector: elder.sector ?? '',
+    address: elder.address,
+    livesAlone: elder.livesAlone,
   }
 }
 
