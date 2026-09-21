@@ -173,6 +173,19 @@ class EscalationFlowIT {
 		return userId;
 	}
 
+	/**
+	 * Closes an incident this test raised only to see who was told about it.
+	 *
+	 * <p>The sweep is institution-wide, not elder-wide, so an incident left open on a fixed
+	 * clock is picked up by whichever test advances that clock next and counts what it
+	 * escalated. Giving each test its own elder is not enough to keep them apart; a test
+	 * that opens an incident has to close it.
+	 */
+	private void closeSoTheSweepDoesNotFindIt(Incident raised) {
+		incidents.resolve(raised.id(), raised.responderUserId(),
+				"raised only to check who was notified", "HANDLED_ON_SITE", "test");
+	}
+
 	private long alertsAddressedTo(Long userId, Long incidentId) {
 		Long rows = jdbc.queryForObject(
 				"select count(*) from notification where recipient_user_id = ?"
@@ -202,6 +215,8 @@ class EscalationFlowIT {
 		assertThat(alertsAddressedTo(family, raised.id()))
 				.as("the binding runs for another two days on the application's clock")
 				.isPositive();
+
+		closeSoTheSweepDoesNotFindIt(raised);
 	}
 
 	/** An expired delegation stops reaching the family; that is what the expiry is for. */
@@ -213,6 +228,8 @@ class EscalationFlowIT {
 		Incident raised = raiseFor(elder, "no answer at door");
 
 		assertThat(alertsAddressedTo(family, raised.id())).isZero();
+
+		closeSoTheSweepDoesNotFindIt(raised);
 	}
 
 	// ----------------------------------------------------------------- routing ---
