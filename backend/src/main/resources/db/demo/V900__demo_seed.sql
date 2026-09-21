@@ -1,14 +1,23 @@
 -- =====================================================================
--- V3  Demonstration seed data
+-- V900  Demonstration seed data
 -- =====================================================================
 --
 -- V1 and V2 create the schema and leave it empty, which means nobody can
--- log in and no screen has anything to show. This migration adds the
--- smallest set of rows that makes the system demonstrable end to end.
+-- log in and no screen has anything to show. This adds the smallest set of
+-- rows that makes the system demonstrable end to end.
 --
--- It is demonstration data, not test fixtures. Unit and integration tests
--- create their own rows; nothing in src/test depends on what is here, so
--- editing this file cannot break the build.
+-- NOT IN db/migration, and that is the point. Anything under db/migration
+-- loads into every database Flyway touches, including the throwaway one a
+-- Testcontainers integration test starts - where a test reasonably expects
+-- an empty table and clears it itself. Seed rows there turn somebody else's
+-- DELETE into a foreign key violation, which is exactly what happened.
+--
+-- So this file lives in db/demo and only the staging deployment asks for it,
+-- through SPRING_FLYWAY_LOCATIONS in deploy/staging/docker-compose.yml.
+-- Local development can opt in the same way.
+--
+-- It is demonstration data, not test fixtures. Every test creates its own
+-- rows, so editing this file cannot break the build.
 --
 -- SECURITY NOTE. These are demonstration accounts for a proof of concept
 -- that holds no real personal data. They all share one password,

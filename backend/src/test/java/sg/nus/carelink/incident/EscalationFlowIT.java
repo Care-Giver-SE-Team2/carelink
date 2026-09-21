@@ -26,6 +26,7 @@ import sg.nus.carelink.incident.application.EscalationScanService;
 import sg.nus.carelink.incident.application.IncidentService;
 import sg.nus.carelink.incident.domain.model.ContactAttempt;
 import sg.nus.carelink.incident.domain.model.EscalationChain;
+import sg.nus.carelink.incident.domain.model.EscalationLevel;
 import sg.nus.carelink.incident.domain.model.EscalationTier;
 import sg.nus.carelink.incident.domain.model.Incident;
 import sg.nus.carelink.incident.domain.model.IncidentLog;
@@ -40,6 +41,11 @@ import sg.nus.carelink.incident.domain.repository.IncidentRepository;
  * things a fake cannot catch show up: a column that will not take the value the domain
  * produces, a query that does not match the index it was written for, a {@code REQUIRES_NEW}
  * that never reaches the proxy.
+ *
+ * <p>Every row it needs, it creates. The database it starts from is the bare schema -
+ * demonstration data lives in {@code db/demo} and only the staging deployment loads it - so
+ * nothing here depends on rows somebody else might edit, and nothing here is in the way of
+ * another test clearing a table.
  *
  * <p>Time is the one thing that stays fake. The clock bean is replaced with one the test
  * moves by hand, so a five-minute countdown can be stepped over without the test taking five
@@ -61,15 +67,23 @@ class EscalationFlowIT {
 	@ServiceConnection
 	static final MySQLContainer MYSQL = new MySQLContainer("mysql:8.4");
 
-	private static final Long ALICE = 1L;
-	private static final Long BEN = 2L;
+	/**
+	 * The institution's managers, created once for the class.
+	 *
+	 * <p>The chain is assembled from everyone available, so the number of managers is an
+	 * input to the rules. Creating them per test would make every assertion about chain
+	 * length a moving target. The elder is per test; the institution is not.
+	 */
+	private static Long alice;
+	private static Long ben;
+	private static boolean institutionReady;
 
 	/**
-	 * Every test gets its own elder.
+	 * A fresh elder for every test.
 	 *
-	 * <p>Not fussiness: the continuity tier of the chain reads the elder's incident history,
-	 * so two tests sharing an elder would have the second one routed by what the first one
-	 * left behind. Sharing a database is fine; sharing a subject is not.
+	 * <p>The continuity tier reads the elder's incident history, so two tests sharing an
+	 * elder would have the second one routed by what the first one left behind. Sharing a
+	 * database is fine; sharing a subject is not.
 	 */
 	private Long elder;
 
@@ -89,10 +103,38 @@ class EscalationFlowIT {
 	private JdbcTemplate jdbc;
 
 	@BeforeEach
-	void givenAFreshElderAndAFixedClock() {
+	void givenAnInstitutionAFreshElderAndAFixedClock() {
 		clock.set(Instant.parse("2026-09-16T06:30:00Z"));
+
+		if (!institutionReady) {
+			alice = createManager("it-alice", "Alice Tan");
+			ben = createManager("it-ben", "Ben Lim");
+			createManager("it-cara", "Cara Ong");
+			institutionReady = true;
+		}
+
 		jdbc.update("insert into elder (full_name, lives_alone) values (?, ?)", "Test Elder", true);
 		elder = jdbc.queryForObject("select last_insert_id()", Long.class);
+	}
+
+	private Long createManager(String username, String displayName) {
+		jdbc.update(
+				"insert into app_user (username, password_hash, display_name, enabled)"
+						+ " values (?, '{noop}unused-here', ?, true)",
+				username, displayName);
+		Long id = jdbc.queryForObject("select last_insert_id()", Long.class);
+		jdbc.update("insert into user_role (user_id, role) values (?, 'MANAGER')", id);
+		return id;
+	}
+
+	/** Gives this test's elder a closed incident that a named manager handled. */
+	private void givenTheElderWasHandledBefore(Long responderUserId) {
+		jdbc.update(
+				"insert into incident (elder_id, responder_user_id, source, category, severity,"
+						+ " status, description, reported_at, resolved_at)"
+						+ " values (?, ?, 'CAREGIVER', 'FALL', 'MEDIUM', 'RESOLVED',"
+						+ " 'an earlier call-out', '2026-09-09 10:15:00', '2026-09-09 11:02:00')",
+				elder, responderUserId);
 	}
 
 	/**
@@ -103,31 +145,23 @@ class EscalationFlowIT {
 	 */
 	private Incident raiseFor(Long elderId, String what) {
 		return incidents.reportByCaregiver(
-				elderId, null, 4L, Incident.Category.SOS, Incident.Severity.HIGH, what);
+				elderId, null, null, Incident.Category.SOS, Incident.Severity.HIGH, what);
 	}
 
-	/** Gives this test's elder a closed incident that a named manager handled. */
-	private void givenTheElderWasHandledBefore(Long responderUserId) {
-		jdbc.update("""
-				insert into incident (elder_id, reported_by_user_id, responder_user_id, source,
-				                      category, severity, status, description, reported_at, resolved_at)
-				values (?, 4, ?, 'CAREGIVER', 'FALL', 'MEDIUM', 'RESOLVED', 'an earlier call-out',
-				        '2026-09-09 10:15:00', '2026-09-09 11:02:00')
-				""", elder, responderUserId);
-	}
+	// ----------------------------------------------------------------- routing ---
 
 	@Test
 	void anElderWithAHistoryGetsTheManagerWhoAlreadyKnowsThem() {
-		givenTheElderWasHandledBefore(BEN);
+		givenTheElderWasHandledBefore(ben);
 
 		Incident raised = raiseFor(elder, "fell in the bathroom");
 
 		assertThat(raised.id()).isNotNull();
 		assertThat(raised.responderUserId())
 				.as("Ben handled this elder's fall last week, so the continuity tier picks him")
-				.isEqualTo(BEN);
+				.isEqualTo(ben);
 		assertThat(raised.respondBy())
-				.as("a HIGH severity SOS gives the first responder five minutes, on the same clock")
+				.as("a HIGH severity incident gives the first responder five minutes, on the same clock")
 				.isEqualTo(raised.reportedAt().plusMinutes(5));
 	}
 
@@ -140,25 +174,27 @@ class EscalationFlowIT {
 
 		EscalationChain chain = incidents.escalationChainOf(raised.id());
 		assertThat(chain.assembledFrom()).contains("3 manager(s) enabled");
-		assertThat(chain.levels()).extracting(level -> level.tier())
+		assertThat(chain.levels()).extracting(EscalationLevel::tier)
 				.contains(EscalationTier.ANY_MANAGER, EscalationTier.FAMILY_ESCALATION);
 	}
+
+	// --------------------------------------------------------- telling people ---
 
 	@Test
 	void everyoneWhoCouldActGetsARowInTheInboxAtOnce() {
 		Incident raised = raiseFor(elder, "SOS pressed");
 
-		List<String> told = jdbc.queryForList("""
-				select u.username from notification n
-				join app_user u on u.id = n.recipient_user_id
-				where n.resource_type = 'INCIDENT' and n.resource_id = ?
-				  and n.event_type = 'INCIDENT_RAISED'
-				order by u.username
-				""", String.class, raised.id());
+		List<String> told = jdbc.queryForList(
+				"select u.username from notification n"
+						+ " join app_user u on u.id = n.recipient_user_id"
+						+ " where n.resource_type = 'INCIDENT' and n.resource_id = ?"
+						+ "   and n.event_type = 'INCIDENT_RAISED'"
+						+ " order by u.username",
+				String.class, raised.id());
 
 		assertThat(told)
 				.as("all three managers, in the same second the incident was raised")
-				.contains("alice", "ben", "cara");
+				.contains("it-alice", "it-ben", "it-cara");
 
 		assertThat(incidents.timelineOf(raised.id()).stream().map(IncidentLog::action))
 				.containsSubsequence("BROADCAST", "ASSIGNED");
@@ -181,19 +217,21 @@ class EscalationFlowIT {
 		assertThat(handOvers).as("each new responder is told the incident is theirs").isEqualTo(2);
 	}
 
+	// -------------------------------------------------------------- handling ---
+
 	@Test
 	void theWholeHandlingFlowSurvivesARealDatabase() {
 		Incident raised = raiseFor(elder, "SOS pressed");
 		Long id = raised.id();
 
-		incidents.claim(id, BEN, "Ben Lim (ben)");
+		incidents.claim(id, ben, "Ben Lim (it-ben)");
 		incidents.recordContactAttempt(
 				id,
 				new ContactAttempt(ContactAttempt.Channel.PHONE, ContactAttempt.Outcome.NOT_REACHED, "no answer"),
-				"Ben Lim (ben)");
-		incidents.applyPlaybook(id, Playbook.SOS_IMMEDIATE.code(), "Ben Lim (ben)");
+				"Ben Lim (it-ben)");
+		incidents.applyPlaybook(id, Playbook.SOS_IMMEDIATE.code(), "Ben Lim (it-ben)");
 		Incident resolved = incidents.resolve(
-				id, BEN, "Ambulance called, daughter informed.", "REFERRED_TO_MEDICAL_CARE", "Ben Lim (ben)");
+				id, ben, "Ambulance called, daughter informed.", "REFERRED_TO_MEDICAL_CARE", "Ben Lim (it-ben)");
 
 		assertThat(resolved.status()).isEqualTo(Incident.Status.RESOLVED);
 		assertThat(resolved.resolvedAt()).isNotNull();
@@ -204,12 +242,14 @@ class EscalationFlowIT {
 				"CONTACT_ATTEMPTED", "PLAYBOOK_APPLIED", "RESOLVED");
 	}
 
+	// ------------------------------------------------------------ escalating ---
+
 	@Test
 	void anExpiredCountdownIsEscalatedByTheSweepAndEveryStepIsOnTheTimeline() {
-		givenTheElderWasHandledBefore(BEN);
+		givenTheElderWasHandledBefore(ben);
 		Incident raised = raiseFor(elder, "SOS pressed");
 		Long id = raised.id();
-		assertThat(raised.responderUserId()).isEqualTo(BEN);
+		assertThat(raised.responderUserId()).isEqualTo(ben);
 
 		clock.advance(Duration.ofMinutes(6));
 		int escalated = scan.sweep();
@@ -218,7 +258,7 @@ class EscalationFlowIT {
 		Incident after = repository.findById(id).orElseThrow();
 		assertThat(after.responderUserId())
 				.as("the responder who let the countdown expire does not get it back")
-				.isNotEqualTo(BEN);
+				.isNotEqualTo(ben);
 		assertThat(after.respondBy()).isAfter(raised.respondBy());
 
 		assertThat(incidents.timelineOf(id).stream().map(IncidentLog::action))
@@ -251,13 +291,13 @@ class EscalationFlowIT {
 		Long id = raised.id();
 
 		clock.advance(Duration.ofMinutes(6));
-		incidents.claim(id, ALICE, "Alice Tan (alice)");
+		incidents.claim(id, alice, "Alice Tan (it-alice)");
 		int escalated = scan.sweep();
 
 		assertThat(escalated).isZero();
 		Incident after = repository.findById(id).orElseThrow();
 		assertThat(after.status()).isEqualTo(Incident.Status.IN_PROGRESS);
-		assertThat(after.responderUserId()).isEqualTo(ALICE);
+		assertThat(after.responderUserId()).isEqualTo(alice);
 	}
 
 	@Test
@@ -265,7 +305,8 @@ class EscalationFlowIT {
 		Incident raised = raiseFor(elder, "SOS pressed");
 		Long id = raised.id();
 
-		Incident changed = incidents.changeSeverity(id, Incident.Severity.LOW, "elder is calm now", "Ben Lim (ben)");
+		Incident changed = incidents.changeSeverity(
+				id, Incident.Severity.LOW, "elder is calm now", "Ben Lim (it-ben)");
 
 		assertThat(changed.id()).isEqualTo(id);
 		assertThat(changed.severity()).isEqualTo(Incident.Severity.LOW);
