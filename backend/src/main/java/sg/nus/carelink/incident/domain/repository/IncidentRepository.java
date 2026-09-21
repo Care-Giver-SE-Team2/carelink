@@ -1,5 +1,7 @@
 package sg.nus.carelink.incident.domain.repository;
 
+import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
 
 import sg.nus.carelink.incident.domain.model.Incident;
@@ -14,4 +16,24 @@ public interface IncidentRepository {
 	Optional<Incident> findById(Long id);
 
 	Incident save(Incident incident);
+
+	/**
+	 * Incidents still waiting for somebody to take them over whose countdown has run out.
+	 *
+	 * <p>Drives the scheduled scan of UC-SYS02. The index idx_incident_deadline
+	 * (status, respond_by) exists for exactly this query.
+	 */
+	List<Incident> findAwaitingTakeOverPastDeadline(LocalDateTime deadline);
+
+	/** Open incidents for one elder, newest first. Used by the manager dashboard. */
+	List<Incident> findByElder(Long elderId);
+
+	/**
+	 * The manager who handled this elder's most recent other incident.
+	 *
+	 * <p>Continuity: the escalation chain offers a new incident to somebody who already knows
+	 * the elder before it offers it to a stranger. The incident being routed is excluded, or
+	 * it would nominate its own current responder.
+	 */
+	Optional<Long> lastResponderForElder(Long elderId, Long excludingIncidentId);
 }

@@ -60,7 +60,7 @@ tags:
     '
 - name: Incidents
   description: 'Care exceptions (UC-CG04, UC-MG05, UC-FM05). The escalation chain is assembled at the moment it''s needed
-    from severity, time of day and who is on duty — there is no fixed chain to configure.
+    from the severity and from who already knows the elder — there is no fixed chain to configure.
 
     '
 - name: Spot checks
@@ -2048,7 +2048,7 @@ paths:
       tags:
       - Incidents
       summary: List incidents
-      x-status: draft
+      x-status: implemented
       description: Manager's queue.
       parameters:
       - $ref: '#/components/parameters/Page'
@@ -2117,7 +2117,7 @@ paths:
       tags:
       - Incidents
       summary: Get an incident and its full timeline
-      x-status: draft
+      x-status: implemented
       description: >-
         Who reported it, who responded, every notification attempt, and when the bound family member acknowledged
         it — this is the query that replaces the three-day chat-log reconstruction.
@@ -2192,7 +2192,7 @@ paths:
       tags:
       - Incidents
       summary: Take over the incident
-      x-status: draft
+      x-status: implemented
       description: UC-MG05. Manager becomes `responderUserId`; starts the response countdown (`respondBy`).
       responses:
         '200':
@@ -2215,11 +2215,11 @@ paths:
       tags:
       - Incidents
       summary: Escalate to the next responder
-      x-status: draft
+      x-status: implemented
       description: 'UC-SYS02. The chain was assembled when the incident was opened (see `/incidents/{id}/escalation-chain`);
         this moves the incident to its next level: the new responder is set, both the previous and the new responder are notified,
         the trigger (`TIMEOUT` from the scheduled scan or `MANUAL` from a manager) and the reason are written to the timeline,
-        and the next level''s countdown starts. A level whose responder is off duty is skipped and the skip is logged. The
+        and the next level''s countdown starts. A level nobody fills is skipped and the skip is logged. The
         previous responder''s entry is never removed: responsibility accumulates, it does not transfer. When the chain is
         exhausted the incident becomes `UNRESOLVED_ESCALATED`, is pinned to the top-level view and the family is notified.
 
@@ -2259,10 +2259,10 @@ paths:
       tags:
       - Incidents
       summary: The escalation chain assembled for this incident
-      x-status: draft
+      x-status: implemented
       description: 'UC-MG05 / UC-SYS02. Shows the chain exactly as it was assembled at runtime for this incident — each level''s
         responder, that level''s countdown, and which level is current. Two incidents of the same category can have different
-        chains (night vs day, who is on duty), which is why the chain is read per incident rather than configured.
+        chains for two elders, and for the same elder before and after somebody handles an incident, which is why the chain is read per incident rather than configured.
 
         '
       responses:
@@ -2286,7 +2286,7 @@ paths:
       tags:
       - Incidents
       summary: Record an attempt to contact the family
-      x-status: draft
+      x-status: implemented
       description: 'UC-MG05 step 4. Every attempt is recorded whether or not the family was reached, with the channel and
         the reason when not. A `NOT_REACHED` outcome is what lets the manager apply the standard playbook without waiting
         (4a); when every channel fails the timeline shows "family not reached" and the dashboard asks for manual contact (4b).
@@ -2319,7 +2319,7 @@ paths:
       tags:
       - Incidents
       summary: Apply a standard response playbook
-      x-status: draft
+      x-status: implemented
       description: 'UC-MG05 step 5 / 4a. When the family cannot be reached, or agrees to it, the manager confirms the standard
         playbook for the incident''s category and severity; the steps it prescribes are appended to the timeline as the manager
         carries them out. The playbook is chosen from `/incident-playbooks`.
@@ -2358,7 +2358,7 @@ paths:
       tags:
       - Incidents
       summary: Raise or lower the severity
-      x-status: draft
+      x-status: implemented
       description: 'UC-MG05 5a. When the situation worsens the manager raises the severity; the escalation chain is re-assembled
         for the new severity and the countdown restarted, but the same incident and the same timeline continue — no new incident
         is opened.
@@ -2389,7 +2389,7 @@ paths:
       tags:
       - Incidents
       summary: Standard response playbooks
-      x-status: draft
+      x-status: implemented
       description: The organisation's standard responses per category and severity, as configured (not code constants).
       parameters:
       - name: category
@@ -2421,7 +2421,7 @@ paths:
       tags:
       - Incidents
       summary: Resolve the incident
-      x-status: draft
+      x-status: implemented
       description: 'UC-MG05 step 6. Only the current responder may resolve. An incident is never closed automatically: without
         this call it stays open and keeps escalating.
 
@@ -5237,41 +5237,47 @@ components:
               $ref: '#/components/schemas/IncidentLogEntry'
     EscalationLevel:
       type: object
-      required:
-      - level
-      - responderUserId
-      - countdownMinutes
+      description: One rung of the chain. A rung nobody fills is still listed, so the gap is visible.
       properties:
-        level:
+        position:
           type: integer
-          example: 1
+          description: 1 for the first tier considered, increasing downwards.
+        tier:
+          type: string
+          description: Which kind of responder this rung represents.
+          example: Manager who knows this elder
         responderUserId:
           type: integer
           format: int64
-        responderRole:
+          nullable: true
+        responderName:
           type: string
-          example: MANAGER
+          nullable: true
         countdownMinutes:
           type: integer
-          description: This level's response window; configured per severity and level, not a constant.
-        status:
+          description: 'How long this level has once it takes the incident. Scaled by how many
+            responders already let their countdown expire, not by how many empty tiers were
+            stepped over.
+
+            '
+        state:
           type: string
-          enum:
-          - PENDING
-          - CURRENT
-          - TIMED_OUT
-          - SKIPPED_OFF_DUTY
-          - CLAIMED
-        respondBy:
-          type: string
-          format: date-time
-          nullable: true
+          enum: [PENDING, CURRENT, TIMED_OUT, SKIPPED_UNAVAILABLE, CLAIMED]
     EscalationChain:
       type: object
-      required:
-      - incidentId
-      - assembledAt
-      - levels
+      description: 'The escalation chain as it would be walked right now.
+
+        It is assembled per request from the severity, from who has handled this elder
+        before, and from who has already turned this incident down. It is deliberately not
+        stored: asking twice can legitimately give different answers, which is why
+        `assembledAt` is part of the answer. What happened, as opposed to what would happen,
+        is in the incident timeline.
+
+        CareLink does not roster its managers, so the chain never asks who is on call. The
+        tiers are: the responder already named, the manager who handled this elder''s last
+        incident, any enabled manager, and the terminal family escalation.
+
+        '
       properties:
         incidentId:
           type: integer
@@ -5279,24 +5285,12 @@ components:
         assembledAt:
           type: string
           format: date-time
+        severity:
+          $ref: '#/components/schemas/IncidentSeverity'
         assembledFrom:
-          type: object
-          description: The inputs the chain was built from, so the choice is explainable afterwards.
-          properties:
-            severity:
-              $ref: '#/components/schemas/IncidentSeverity'
-            timeOfDay:
-              type: string
-              enum:
-              - DAY
-              - NIGHT
-            onDutyUserIds:
-              type: array
-              items:
-                type: integer
-                format: int64
-        currentLevel:
-          type: integer
+          type: string
+          description: The inputs the chain was built from, in words, for the manager's screen.
+          example: severity HIGH, continuity tier included, 3 manager(s) enabled
         levels:
           type: array
           items:
@@ -5323,19 +5317,17 @@ components:
           description: What was agreed, or why the family could not be reached.
     IncidentPlaybook:
       type: object
-      required:
-      - code
-      - category
-      - severity
-      - steps
+      description: 'The standard response a manager falls back on when the family cannot be
+        reached. One per incident category; the manager does not wait for the family before
+        acting.
+
+        '
       properties:
         code:
           type: string
-          example: FALL_MEDIUM
+          example: PB-SOS
         category:
           $ref: '#/components/schemas/IncidentCategory'
-        severity:
-          $ref: '#/components/schemas/IncidentSeverity'
         title:
           type: string
         steps:
