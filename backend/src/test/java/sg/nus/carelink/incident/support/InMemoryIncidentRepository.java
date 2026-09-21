@@ -7,8 +7,10 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 import sg.nus.carelink.incident.domain.model.Incident;
+import sg.nus.carelink.incident.domain.model.PageSlice;
 import sg.nus.carelink.incident.domain.repository.IncidentRepository;
 
 /** Test double for the port: the services are exercised without Spring or a database. */
@@ -59,6 +61,30 @@ public final class InMemoryIncidentRepository implements IncidentRepository {
 				.filter(incident -> incident.elderId().equals(elderId))
 				.sorted(Comparator.comparing(Incident::reportedAt).reversed())
 				.toList();
+	}
+
+	/**
+	 * The same ordering the adapter asks the database for: nearest deadline first, the
+	 * incidents without one after them, newest of those first. Written out rather than
+	 * left to insertion order, because a test that passes on insertion order would say
+	 * nothing about the queue the manager actually sees.
+	 */
+	@Override
+	public PageSlice<Incident> findQueue(
+			Set<Incident.Status> statuses, Incident.Severity severity, Long elderId, int page, int size) {
+
+		List<Incident> matching = rows.values().stream()
+				.filter(incident -> statuses.contains(incident.status()))
+				.filter(incident -> severity == null || incident.severity() == severity)
+				.filter(incident -> elderId == null || elderId.equals(incident.elderId()))
+				.sorted(Comparator
+						.comparing(Incident::respondBy, Comparator.nullsLast(Comparator.naturalOrder()))
+						.thenComparing(Incident::reportedAt, Comparator.reverseOrder()))
+				.toList();
+
+		int from = Math.min(page * size, matching.size());
+		int to = Math.min(from + size, matching.size());
+		return new PageSlice<>(matching.subList(from, to), page, size, matching.size());
 	}
 
 	public int size() {

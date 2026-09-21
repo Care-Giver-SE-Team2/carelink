@@ -62,11 +62,25 @@ public class IncidentController {
 		return IncidentResponses.Detail.of(incident, service.timelineOf(id));
 	}
 
-	/** Open incidents for one elder, newest first. */
+	/**
+	 * Step 2: the queue the manager's console opens on — everything still needing attention,
+	 * nearest response deadline first.
+	 *
+	 * <p>Every parameter is optional, including {@code elderId}. It used to be required, and
+	 * that was the wrong way round: a manager arriving at work knows nothing about elder
+	 * ids, so the endpoint could not answer the one question the screen is for. Narrowing to
+	 * one elder is still possible and is now what it always should have been, a filter.
+	 */
 	@GetMapping("/incidents")
 	@PreAuthorize("hasRole('MANAGER')")
-	public List<Incident> list(@RequestParam Long elderId) {
-		return service.forElder(elderId);
+	public IncidentResponses.Queue list(
+			@RequestParam(defaultValue = "0") int page,
+			@RequestParam(defaultValue = "20") int size,
+			@RequestParam(required = false) Incident.Status status,
+			@RequestParam(required = false) Incident.Severity severity,
+			@RequestParam(required = false) Long elderId) {
+
+		return IncidentResponses.Queue.of(service.queue(status, severity, elderId, page, size));
 	}
 
 	/**

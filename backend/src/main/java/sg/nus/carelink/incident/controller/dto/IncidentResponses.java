@@ -8,6 +8,7 @@ import sg.nus.carelink.incident.domain.model.EscalationChain;
 import sg.nus.carelink.incident.domain.model.EscalationLevel;
 import sg.nus.carelink.incident.domain.model.Incident;
 import sg.nus.carelink.incident.domain.model.IncidentLog;
+import sg.nus.carelink.incident.domain.model.PageSlice;
 import sg.nus.carelink.incident.domain.model.Playbook;
 
 /**
@@ -22,6 +23,21 @@ import sg.nus.carelink.incident.domain.model.Playbook;
 public final class IncidentResponses {
 
 	private IncidentResponses() {
+	}
+
+	/**
+	 * {@code GET /api/incidents}: one page of the manager's queue.
+	 *
+	 * <p>A page and not a bare array, which is the shape the published contract has carried
+	 * since before the endpoint existed. The four fields are the domain's {@link PageSlice}
+	 * renamed to nothing at all - the translation happens once, in the adapter, and the web
+	 * layer only chooses to publish it.
+	 */
+	public record Queue(List<Incident> items, int page, int size, long totalElements) {
+
+		public static Queue of(PageSlice<Incident> slice) {
+			return new Queue(slice.items(), slice.page(), slice.size(), slice.totalElements());
+		}
 	}
 
 	/** {@code GET /api/incidents/{id}}: the incident and its full timeline. */

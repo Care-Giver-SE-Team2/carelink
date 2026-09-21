@@ -29,6 +29,7 @@ import sg.nus.carelink.identity.domain.model.AppUser;
 import sg.nus.carelink.incident.application.IncidentService;
 import sg.nus.carelink.incident.domain.model.ContactAttempt;
 import sg.nus.carelink.incident.domain.model.Incident;
+import sg.nus.carelink.incident.domain.model.PageSlice;
 import sg.nus.carelink.incident.domain.model.Playbook;
 import sg.nus.carelink.incident.support.IncidentFixtures;
 import sg.nus.carelink.shared.error.BusinessRuleViolation;
@@ -185,29 +186,59 @@ class IncidentControllerTest {
 	}
 
 	@Test
-	void listsThePlaybooksAndTheIncidentsOfOneElder() throws Exception {
+	void listsThePlaybooks() throws Exception {
 		when(service.playbooks()).thenReturn(List.of(Playbook.values()));
-		when(service.forElder(7L)).thenReturn(List.of(IncidentFixtures.savedSos(1L)));
 
 		mvc.perform(get("/api/incident-playbooks").with(asManager()))
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$[0].code").value("PB-SOS"));
-
-		mvc.perform(get("/api/incidents").param("elderId", "7").with(asManager()))
-				.andExpect(status().isOk())
-				.andExpect(jsonPath("$[0].id").value(1));
 	}
 
 	/**
-	 * An incomplete request is the caller's mistake, not the server's. Leaving elderId out
-	 * used to reach the catch-all and come back as 500 with a stack trace in the log, which
-	 * sends whoever is debugging the front end looking for a fault that is not there.
+	 * The screen this endpoint exists for is opened by a manager who has not chosen
+	 * anything yet. It used to answer that request with 400 because elderId was required,
+	 * which left the queue impossible to build from the published contract.
 	 */
 	@Test
-	void namesTheQueryParameterTheCallerLeftOutInsteadOfFailing() throws Exception {
+	void theQueueAnswersARequestWithNoParametersAtAll() throws Exception {
+		when(service.queue(null, null, null, 0, 20))
+				.thenReturn(new PageSlice<>(List.of(IncidentFixtures.savedSos(1L)), 0, 20, 1));
+
 		mvc.perform(get("/api/incidents").with(asManager()))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.items[0].id").value(1))
+				.andExpect(jsonPath("$.page").value(0))
+				.andExpect(jsonPath("$.size").value(20))
+				.andExpect(jsonPath("$.totalElements").value(1));
+	}
+
+	@Test
+	void theQueuePassesEveryFilterItWasGivenThrough() throws Exception {
+		when(service.queue(Incident.Status.OPEN, Incident.Severity.HIGH, 7L, 2, 5))
+				.thenReturn(PageSlice.empty(2, 5));
+
+		mvc.perform(get("/api/incidents")
+						.param("page", "2")
+						.param("size", "5")
+						.param("status", "OPEN")
+						.param("severity", "HIGH")
+						.param("elderId", "7")
+						.with(asManager()))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.items").isEmpty());
+
+		verify(service).queue(Incident.Status.OPEN, Incident.Severity.HIGH, 7L, 2, 5);
+	}
+
+	/**
+	 * A status that is not one of the five is the caller's mistake, not the server's:
+	 * naming the parameter is what tells whoever is debugging the front end where to look.
+	 */
+	@Test
+	void namesTheQueryParameterTheCallerSpeltWrongInsteadOfFailing() throws Exception {
+		mvc.perform(get("/api/incidents").param("status", "NOT_A_STATUS").with(asManager()))
 				.andExpect(status().isBadRequest())
 				.andExpect(jsonPath("$.title").value("Invalid request"))
-				.andExpect(jsonPath("$.fields.elderId").value("Required"));
+				.andExpect(jsonPath("$.fields.status").value("Invalid value"));
 	}
 }

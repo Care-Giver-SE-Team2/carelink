@@ -12,11 +12,17 @@ import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 
 import sg.nus.carelink.incident.domain.model.Incident;
+import sg.nus.carelink.incident.domain.model.PageSlice;
 import sg.nus.carelink.incident.infrastructure.persistence.entity.IncidentJpaEntity;
 import sg.nus.carelink.incident.infrastructure.persistence.repository.IncidentJpaRepository;
 
@@ -97,5 +103,80 @@ class IncidentRepositoryAdapterTest {
 		when(jpa.findByElderIdOrderByReportedAtDesc(7L)).thenReturn(List.of(row(7L), row(8L)));
 
 		assertThat(adapter.findByElder(7L)).hasSize(2);
+	}
+
+	/**
+	 * The states arrive as domain values and have to leave as the persistence enum, and the
+	 * page has to come back as the domain's own record - the port may not mention Spring
+	 * Data at all.
+	 */
+	@Test
+	void theQueueTranslatesTheDomainStatesAndComesBackAsADomainPage() {
+		when(jpa.findByStatusInAndSeverityIn(anyCollection(), anyCollection(), any(Pageable.class)))
+				.thenReturn(new PageImpl<>(List.of(row(7L)), PageRequest.of(0, 1), 3));
+
+		PageSlice<Incident> queue = adapter.findQueue(
+				Set.of(Incident.Status.OPEN, Incident.Status.ACKNOWLEDGED), null, null, 0, 1);
+
+		assertThat(queue.items()).hasSize(1);
+		assertThat(queue.page()).isZero();
+		assertThat(queue.size()).isEqualTo(1);
+		assertThat(queue.totalElements())
+				.as("the count is the whole queue, not the rows on this page")
+				.isEqualTo(3);
+
+		@SuppressWarnings("unchecked")
+		ArgumentCaptor<Collection<IncidentJpaEntity.Status>> statuses =
+				ArgumentCaptor.forClass(Collection.class);
+		@SuppressWarnings("unchecked")
+		ArgumentCaptor<Collection<IncidentJpaEntity.Severity>> severities =
+				ArgumentCaptor.forClass(Collection.class);
+		verify(jpa).findByStatusInAndSeverityIn(
+				statuses.capture(), severities.capture(), any(Pageable.class));
+
+		assertThat(statuses.getValue()).containsExactlyInAnyOrder(
+				IncidentJpaEntity.Status.OPEN, IncidentJpaEntity.Status.ACKNOWLEDGED);
+		assertThat(severities.getValue())
+				.as("no severity filter asks for all three, never for null")
+				.containsExactlyInAnyOrder(IncidentJpaEntity.Severity.values());
+	}
+
+	/**
+	 * An unrouted SOS has no respond_by. Ascending order puts nulls first in MySQL, which
+	 * would file the incidents with no promise attached above the ones about to break one.
+	 */
+	@Test
+	void theQueueAsksForTheNearestDeadlineFirstAndTheMissingOnesLast() {
+		when(jpa.findByStatusInAndSeverityIn(anyCollection(), anyCollection(), any(Pageable.class)))
+				.thenReturn(new PageImpl<>(List.of()));
+
+		adapter.findQueue(Set.of(Incident.Status.OPEN), null, null, 1, 5);
+
+		ArgumentCaptor<Pageable> request = ArgumentCaptor.forClass(Pageable.class);
+		verify(jpa).findByStatusInAndSeverityIn(anyCollection(), anyCollection(), request.capture());
+
+		assertThat(request.getValue().getPageNumber()).isEqualTo(1);
+		assertThat(request.getValue().getPageSize()).isEqualTo(5);
+		assertThat(request.getValue().getSort()).containsExactly(
+				Sort.Order.asc("respondBy").nullsLast(), Sort.Order.desc("reportedAt"));
+	}
+
+	@Test
+	void askingTheQueueForOneElderUsesTheNarrowedQuery() {
+		when(jpa.findByStatusInAndSeverityInAndElderId(
+				anyCollection(), anyCollection(), eq(7L), any(Pageable.class)))
+				.thenReturn(new PageImpl<>(List.of(row(7L))));
+
+		PageSlice<Incident> queue = adapter.findQueue(
+				Set.of(Incident.Status.OPEN), Incident.Severity.HIGH, 7L, 0, 20);
+
+		assertThat(queue.items()).hasSize(1);
+
+		@SuppressWarnings("unchecked")
+		ArgumentCaptor<Collection<IncidentJpaEntity.Severity>> severities =
+				ArgumentCaptor.forClass(Collection.class);
+		verify(jpa).findByStatusInAndSeverityInAndElderId(
+				anyCollection(), severities.capture(), eq(7L), any(Pageable.class));
+		assertThat(severities.getValue()).containsExactly(IncidentJpaEntity.Severity.HIGH);
 	}
 }

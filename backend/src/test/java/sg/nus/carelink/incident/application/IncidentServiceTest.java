@@ -12,6 +12,7 @@ import org.springframework.security.access.AccessDeniedException;
 import sg.nus.carelink.incident.domain.model.ContactAttempt;
 import sg.nus.carelink.incident.domain.model.Incident;
 import sg.nus.carelink.incident.domain.model.IncidentLog;
+import sg.nus.carelink.incident.domain.model.PageSlice;
 import sg.nus.carelink.incident.domain.model.Playbook;
 import sg.nus.carelink.incident.domain.service.EscalationPolicy;
 import sg.nus.carelink.incident.support.FakeManagerDirectory;
@@ -322,5 +323,60 @@ class IncidentServiceTest {
 		assertThat(service.forElder(8L)).isEmpty();
 		assertThat(service.playbooks()).containsExactly(Playbook.values());
 		assertThat(service.findIncident(404L)).isEmpty();
+	}
+
+	/**
+	 * The queue with no status asked for is the screen a manager opens on, so what it leaves
+	 * out is the interesting part: a closed incident is gone from it, and one the chain ran
+	 * out on is not.
+	 */
+	@Test
+	void theQueueShowsEverythingStillNeedingAttentionAndNothingFinishedWith() {
+		Incident open = raise();
+		Incident closed = raise();
+		service.claim(closed.id(), IncidentFixtures.ALICE.userId(), "Alice");
+		service.resolve(closed.id(), IncidentFixtures.ALICE.userId(), "all fine", null, "Alice");
+
+		PageSlice<Incident> queue = service.queue(null, null, null, 0, 20);
+
+		assertThat(queue.items()).extracting(Incident::id).containsExactly(open.id());
+		assertThat(queue.totalElements()).isEqualTo(1);
+		assertThat(queue.page()).isZero();
+		assertThat(queue.size()).isEqualTo(20);
+	}
+
+	@Test
+	void askingTheQueueForOneStatusShowsThatStatusEvenWhenItIsClosed() {
+		Incident raised = raise();
+		service.claim(raised.id(), IncidentFixtures.ALICE.userId(), "Alice");
+		service.resolve(raised.id(), IncidentFixtures.ALICE.userId(), "all fine", null, "Alice");
+
+		assertThat(service.queue(Incident.Status.RESOLVED, null, null, 0, 20).items())
+				.extracting(Incident::id)
+				.containsExactly(raised.id());
+		assertThat(service.queue(Incident.Status.OPEN, null, null, 0, 20).items()).isEmpty();
+	}
+
+	/**
+	 * A page number out of a URL is a slip, not an attack. Answering with the first page is
+	 * more use than a 400, and an unbounded size is how one request reads the whole table.
+	 */
+	@Test
+	void anImpossiblePageOrSizeIsBroughtBackIntoRangeRatherThanRefused() {
+		raise();
+
+		assertThat(service.queue(null, null, null, -3, 0).items()).hasSize(1);
+		assertThat(service.queue(null, null, null, 0, 5000).size()).isEqualTo(100);
+	}
+
+	@Test
+	void theQueueNarrowsToOneSeverityAndOneElderWhenAsked() {
+		Incident raised = raise();
+
+		assertThat(service.queue(null, Incident.Severity.HIGH, 7L, 0, 20).items())
+				.extracting(Incident::id)
+				.containsExactly(raised.id());
+		assertThat(service.queue(null, Incident.Severity.LOW, null, 0, 20).items()).isEmpty();
+		assertThat(service.queue(null, null, 8L, 0, 20).items()).isEmpty();
 	}
 }

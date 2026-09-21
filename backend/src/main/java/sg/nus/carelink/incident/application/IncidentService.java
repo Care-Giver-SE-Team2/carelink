@@ -5,6 +5,7 @@ import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
@@ -14,6 +15,7 @@ import sg.nus.carelink.incident.domain.model.ContactAttempt;
 import sg.nus.carelink.incident.domain.model.EscalationChain;
 import sg.nus.carelink.incident.domain.model.Incident;
 import sg.nus.carelink.incident.domain.model.IncidentLog;
+import sg.nus.carelink.incident.domain.model.PageSlice;
 import sg.nus.carelink.incident.domain.model.Playbook;
 import sg.nus.carelink.incident.domain.repository.IncidentLogRepository;
 import sg.nus.carelink.incident.domain.repository.IncidentRepository;
@@ -36,6 +38,20 @@ import sg.nus.carelink.shared.error.ResourceNotFound;
 @Service
 @Transactional
 public class IncidentService {
+
+	/**
+	 * What the manager's queue shows when nobody has asked for a particular status: every
+	 * incident that is not finished with. Stated here rather than in the repository because
+	 * "still needs attention" is a decision about the use case, not about storage.
+	 */
+	private static final Set<Incident.Status> STILL_NEEDS_ATTENTION = Set.of(
+			Incident.Status.OPEN,
+			Incident.Status.ACKNOWLEDGED,
+			Incident.Status.IN_PROGRESS,
+			Incident.Status.UNRESOLVED_ESCALATED);
+
+	/** A page big enough for a shift's worth of incidents and small enough to be one read. */
+	private static final int MAX_PAGE_SIZE = 100;
 
 	private final IncidentRepository incidents;
 	private final IncidentLogRepository timeline;
@@ -234,6 +250,29 @@ public class IncidentService {
 	@Transactional(readOnly = true)
 	public List<Incident> forElder(Long elderId) {
 		return incidents.findByElder(elderId);
+	}
+
+	/**
+	 * UC-MG05 step 2: the queue the manager's console opens on.
+	 *
+	 * <p>Without a status filter it shows everything that still owes somebody an answer,
+	 * including UNRESOLVED_ESCALATED — an incident the chain ran out on is the one thing a
+	 * manager must not have to go looking for ("链用尽标未解决－已升级并置顶").
+	 * Asking for one status shows exactly that status, closed incidents included, because
+	 * the same endpoint is how anyone reviews what happened afterwards.
+	 *
+	 * <p>Page and size are clamped rather than validated. They come from a URL, where a
+	 * hand-typed {@code page=-1} is a slip and not an attack; answering with the first page
+	 * is more useful than a 400, and a size nobody bounded is how one request reads the
+	 * whole table.
+	 */
+	@Transactional(readOnly = true)
+	public PageSlice<Incident> queue(
+			Incident.Status status, Incident.Severity severity, Long elderId, int page, int size) {
+
+		Set<Incident.Status> statuses = status == null ? STILL_NEEDS_ATTENTION : Set.of(status);
+		return incidents.findQueue(
+				statuses, severity, elderId, Math.max(page, 0), Math.min(Math.max(size, 1), MAX_PAGE_SIZE));
 	}
 
 	@Transactional(readOnly = true)

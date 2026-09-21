@@ -2065,6 +2065,13 @@ paths:
           - LOW
           - MEDIUM
           - HIGH
+      - name: elderId
+        in: query
+        description: Narrows the queue to one elder. Omitted, the queue covers every elder — which
+          is the request the manager's console makes, since nobody knows an elder id on arrival.
+        schema:
+          type: integer
+          format: int64
       responses:
         '200':
           description: Page of incidents.
