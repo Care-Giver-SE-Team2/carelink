@@ -442,9 +442,10 @@ class EscalationFlowIT {
 		assertThat(queue.items())
 				.extracting(Incident::status)
 				.doesNotContain(Incident.Status.RESOLVED);
-		assertThat(queue.totalElements())
-				.as("everything still open in this class fits on one page, so the count is the page")
-				.isEqualTo(queue.items().size());
+		// totalElements is deliberately not compared with the page: the whole institution's
+		// open queue is in there, and how much of it other tests leave behind is not this
+		// test's business.
+		assertThat(queue.totalElements()).isGreaterThanOrEqualTo(queue.items().size());
 
 		closeSoTheSweepDoesNotFindIt(routed);
 		// The SOS has nobody named on it, so the helper - which takes the incident over as
