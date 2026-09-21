@@ -182,6 +182,9 @@ class EscalationFlowIT {
 	 * that opens an incident has to close it.
 	 */
 	private void closeSoTheSweepDoesNotFindIt(Incident raised) {
+		// Claimed first because the domain will not let an untaken incident be resolved,
+		// which is the same rule these tests rely on everywhere else.
+		incidents.claim(raised.id(), raised.responderUserId(), "test");
 		incidents.resolve(raised.id(), raised.responderUserId(),
 				"raised only to check who was notified", "HANDLED_ON_SITE", "test");
 	}
