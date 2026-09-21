@@ -52,6 +52,22 @@
 -- after that.
 -- =====================================================================
 
+-- TIMESTAMPS. Every time below is written as the Singapore wall-clock it should
+-- display, plus @appOffsetHours.
+--
+-- Not a quirk of this file. The application's own clock is Asia/Singapore, the JVM
+-- default zone is UTC, and the JDBC connection declares the server to be in
+-- Asia/Singapore. The driver converts on the way in and again on the way out, so a
+-- LocalDateTime the application writes lands in the column eight hours ahead of the
+-- time it means and reads back correct. Rows inserted here by hand get no such
+-- conversion, so they have to be written the way the application would have stored
+-- them. Without the shift the demonstration timeline reads eight hours early, which
+-- is what happened the first time this was loaded.
+--
+-- Singapore keeps no daylight saving, so the offset is constant. Set it to 0 when
+-- loading into a database whose reader runs in the same zone as its writer.
+SET @appOffsetHours := 8;
+
 -- ---------------------------------------------------------------- accounts ---
 -- username is unique, so IGNORE makes a second run a no-op rather than an error.
 INSERT IGNORE INTO app_user (username, password_hash, display_name, enabled) VALUES
@@ -121,7 +137,7 @@ SET @fionaFamily := (SELECT id FROM family_member WHERE user_id = @fiona);
 -- to be told. (elder_id, family_member_id) is unique.
 INSERT IGNORE INTO elder_family_binding (elder_id, family_member_id, relationship,
                                          is_primary_contact, access_scope, status, confirmed_at) VALUES
-    (@graceElder, @fionaFamily, 'DAUGHTER', TRUE, 'FULL', 'ACTIVE', '2026-09-01 09:00:00');
+    (@graceElder, @fionaFamily, 'DAUGHTER', TRUE, 'FULL', 'ACTIVE', '2026-09-01 09:00:00' + INTERVAL @appOffsetHours HOUR);
 
 -- ------------------------------------------------------------------ history ---
 -- One closed incident, so the escalation chain has a manager who already knows
@@ -132,7 +148,7 @@ INSERT INTO incident (elder_id, visit_id, reported_by_user_id, responder_user_id
                       respond_by, reported_at, resolved_at)
 SELECT @graceElder, NULL, @daniel, @ben, 'CAREGIVER', 'FALL', 'MEDIUM', 'RESOLVED',
        'Blk 123 Ang Mo Kio Ave 6, #04-56', 'Slipped getting out of the shower, no injury.',
-       NULL, '2026-09-09 10:15:00', '2026-09-09 11:02:00'
+       NULL, '2026-09-09 10:15:00' + INTERVAL @appOffsetHours HOUR, '2026-09-09 11:02:00' + INTERVAL @appOffsetHours HOUR
   FROM DUAL
  WHERE NOT EXISTS (
        SELECT 1 FROM incident
@@ -155,15 +171,15 @@ SELECT entries.incident_id, entries.actor, entries.action, entries.detail, entri
                CONCAT('caregiver:', @daniel) AS actor,
                'REPORTED' AS action,
                'reported by caregiver' AS detail,
-               '2026-09-09 10:15:00' AS occurred_at
+               '2026-09-09 10:15:00' + INTERVAL @appOffsetHours HOUR AS occurred_at
   UNION ALL SELECT @incident, 'system', 'ASSIGNED',
-               CONCAT('responder=', @ben, ' :: first responder'), '2026-09-09 10:15:00'
+               CONCAT('responder=', @ben, ' :: first responder'), '2026-09-09 10:15:00' + INTERVAL @appOffsetHours HOUR
   UNION ALL SELECT @incident, 'Ben Lim (demo-ben)', 'CLAIMED',
-               'taken over; countdown stopped', '2026-09-09 10:21:00'
+               'taken over; countdown stopped', '2026-09-09 10:21:00' + INTERVAL @appOffsetHours HOUR
   UNION ALL SELECT @incident, 'Ben Lim (demo-ben)', 'CONTACT_ATTEMPTED',
-               'Reached via PHONE - daughter informed', '2026-09-09 10:24:00'
+               'Reached via PHONE - daughter informed', '2026-09-09 10:24:00' + INTERVAL @appOffsetHours HOUR
   UNION ALL SELECT @incident, 'Ben Lim (demo-ben)', 'RESOLVED',
                'HANDLED_ON_SITE :: No injury. Bathroom grab bar to be fitted this week.',
-               '2026-09-09 11:02:00'
+               '2026-09-09 11:02:00' + INTERVAL @appOffsetHours HOUR
        ) AS entries
  WHERE NOT EXISTS (SELECT 1 FROM incident_log WHERE incident_id = @incident);
