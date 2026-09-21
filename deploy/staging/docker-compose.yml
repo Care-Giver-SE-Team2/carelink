@@ -52,11 +52,6 @@ services:
       # A 2 GB machine shared with MySQL: cap the JVM heap at half of what the
       # container sees, otherwise the two fight and the kernel kills one of them.
       JAVA_TOOL_OPTIONS: -XX:MaxRAMPercentage=50
-      # Demonstration accounts and sample elders, on top of the schema. Deliberately
-      # opted into here and nowhere else: a seed that shipped inside db/migration would
-      # also load into every integration-test database, where tests expect to start
-      # from an empty table and clear it themselves.
-      SPRING_FLYWAY_LOCATIONS: classpath:db/migration,classpath:db/demo
     ports:
       - "80:8080"
     healthcheck:

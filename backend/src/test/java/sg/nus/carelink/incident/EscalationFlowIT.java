@@ -43,9 +43,9 @@ import sg.nus.carelink.incident.domain.repository.IncidentRepository;
  * that never reaches the proxy.
  *
  * <p>Every row it needs, it creates. The database it starts from is the bare schema -
- * demonstration data lives in {@code db/demo} and only the staging deployment loads it - so
- * nothing here depends on rows somebody else might edit, and nothing here is in the way of
- * another test clearing a table.
+ * demonstration data lives in {@code db/demo} and is loaded by hand on staging, never by
+ * the application - so nothing here depends on rows somebody else might edit, and nothing
+ * here is in the way of another test clearing a table.
  *
  * <p>Time is the one thing that stays fake. The clock bean is replaced with one the test
  * moves by hand, so a five-minute countdown can be stepped over without the test taking five

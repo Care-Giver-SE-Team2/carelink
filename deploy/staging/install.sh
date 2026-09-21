@@ -41,6 +41,7 @@ usermod -aG docker ubuntu 2>/dev/null || true
 install -d -m 755 "$TARGET"
 install -m 644 "$HERE/docker-compose.yml" "$TARGET/docker-compose.yml"
 install -m 755 "$HERE/carelink-update.sh" "$TARGET/carelink-update.sh"
+install -m 755 "$HERE/load-demo-data.sh" "$TARGET/load-demo-data.sh"
 install -m 644 "$HERE/carelink-update.service" "$HERE/carelink-update.timer" /etc/systemd/system/
 
 # 3. Secrets: generated once on this machine, readable by root only, never printed

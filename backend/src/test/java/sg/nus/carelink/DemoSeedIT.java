@@ -2,42 +2,49 @@ package sg.nus.carelink;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
+import org.springframework.core.io.ClassPathResource;
+import org.springframework.core.io.Resource;
+import org.springframework.core.io.support.EncodedResource;
+import org.springframework.jdbc.core.ConnectionCallback;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.datasource.init.ScriptUtils;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.mysql.MySQLContainer;
 
 /**
- * Checks that the demonstration seed still loads and still describes a system worth
- * demonstrating.
+ * Checks that the demonstration seed still loads, that loading it twice is harmless, and
+ * that it does not care what is already in the database.
  *
- * <p>{@code db/demo/V900__demo_seed.sql} sits outside {@code db/migration} so that no
- * throwaway test database inherits it - a seeded row once turned another module's
- * {@code DELETE FROM family_member} into a foreign key violation, and moving the file is
- * what fixed it. The cost of that move is that nothing in the pipeline ran the seed any
- * more: it was executed for the first time when staging started, ten minutes into a
- * deployment, and a mistake in it surfaced as "staging did not pick up this commit"
- * rather than as a line number. This test buys that back.
+ * <p>The last of those is why this test exists in its present form. An earlier seed wrote
+ * its primary keys by hand, which works on an empty schema and nowhere else; staging had
+ * been in use for a fortnight and already held id 1, so the load failed on its first
+ * statement. It was a Flyway migration at the time, so the failure was recorded and the
+ * application then refused to start on every boot afterwards. A test that only ever saw an
+ * empty database could not have caught any of it, and the earlier version of this test did
+ * not.
  *
- * <p>It opts in through {@code spring.flyway.locations} for itself alone. The property
- * gives this class its own Spring context, and the container is per class as everywhere
- * else, so the seed reaches this database and no other. That isolation is the whole
- * arrangement - if it is ever weakened, the original failure comes back.
+ * <p>So the seed is no longer a migration and this no longer loads it like one. It runs the
+ * file the way {@code deploy/staging/load-demo-data.sh} runs it - as a script, on one
+ * connection, against a database that is already in use - because a test of a deployment
+ * step is worth only as much as its resemblance to the step.
  *
  * <p>The assertions are deliberately structural. They say "at least two managers", not
  * "exactly three", because the seed is demonstration material that anyone may extend; a
- * test that counts rows would turn every addition into a build failure. What is asserted
+ * test that counted rows would turn every addition into a build failure. What is asserted
  * is what the demonstrations actually depend on, and nothing beyond it.
  *
  * <p>Named *IT: runs under the integration-tests job of the pipeline; needs Docker.
  */
-@SpringBootTest(properties = "spring.flyway.locations=classpath:db/migration,classpath:db/demo")
+@SpringBootTest
 @Testcontainers
 class DemoSeedIT {
 
@@ -45,20 +52,62 @@ class DemoSeedIT {
 	@ServiceConnection
 	static final MySQLContainer MYSQL = new MySQLContainer("mysql:8.4");
 
+	private static final Resource SEED = new ClassPathResource("db/demo/demo-seed.sql");
+
+	/** Rows that were here before the seed was, as they are on staging. */
+	private static boolean databaseAlreadyInUse;
+
 	@Autowired
 	private JdbcTemplate jdbc;
 
 	/**
-	 * The plain fact that the context is up means Flyway ran every statement in the seed
-	 * against the real schema and Hibernate then validated its mappings. That is most of
-	 * the value here: a column the seed no longer matches, a value an enum no longer
-	 * accepts, or a foreign key pointing at a row somebody removed all fail before this
-	 * assertion is reached.
+	 * Puts somebody else's rows in first, once for the class.
+	 *
+	 * <p>They take the low ids, which is the entire point: on an empty database a seed that
+	 * writes {@code id = 1} looks correct. These two rows are what makes this database
+	 * resemble the one the seed actually has to load into.
+	 */
+	@BeforeEach
+	void letSomebodyElseHaveTheLowIdsFirst() {
+		if (!databaseAlreadyInUse) {
+			jdbc.update("insert into app_user (username, password_hash, display_name) "
+					+ "values ('someone-else', '{noop}unused-test-password', 'Someone Else')");
+			jdbc.update("insert into elder (full_name) values ('Somebody Else''s Elder')");
+			databaseAlreadyInUse = true;
+		}
+	}
+
+	@Test
+	void loadsIntoADatabaseThatIsAlreadyInUse() {
+		loadSeed();
+
+		List<String> usernames = jdbc.queryForList(
+				"select username from app_user where username like 'demo-%'", String.class);
+
+		assertThat(usernames).isNotEmpty();
+	}
+
+	/**
+	 * Loading twice is not an unusual thing to do - it is what happens when the first
+	 * attempt failed halfway, or when nobody is sure whether it was run. It has to be
+	 * uneventful, or nobody will dare run it before a demonstration.
 	 */
 	@Test
-	void theSeedLoadsAgainstTheCurrentSchema() {
-		assertThat(count("app_user")).isPositive();
-		assertThat(count("elder")).isPositive();
+	void loadingItAgainChangesNothing() {
+		loadSeed();
+		long usersBefore = count("app_user");
+		long eldersBefore = count("elder");
+		long bindingsBefore = count("elder_family_binding");
+		long incidentsBefore = count("incident");
+		long entriesBefore = count("incident_log");
+
+		loadSeed();
+
+		assertThat(count("app_user")).isEqualTo(usersBefore);
+		assertThat(count("elder")).isEqualTo(eldersBefore);
+		assertThat(count("elder_family_binding")).isEqualTo(bindingsBefore);
+		assertThat(count("incident")).isEqualTo(incidentsBefore);
+		assertThat(count("incident_log")).isEqualTo(entriesBefore);
 	}
 
 	/**
@@ -68,9 +117,11 @@ class DemoSeedIT {
 	 */
 	@Test
 	void thereAreEnoughManagersForAnEscalationToHaveSomewhereToGo() {
+		loadSeed();
+
 		List<Long> managers = jdbc.queryForList(
 				"select u.id from app_user u join user_role r on r.user_id = u.id "
-						+ "where u.enabled = true and r.role = 'MANAGER'",
+						+ "where u.enabled = true and r.role = 'MANAGER' and u.username like 'demo-%'",
 				Long.class);
 
 		assertThat(managers).hasSizeGreaterThanOrEqualTo(2);
@@ -86,6 +137,8 @@ class DemoSeedIT {
 	 */
 	@Test
 	void anElderIsReachableThroughFamilyTheWayTheNotifierLooksThemUp() {
+		loadSeed();
+
 		List<Long> recipients = jdbc.queryForList(
 				"select f.user_id from elder_family_binding b "
 						+ "join family_member f on f.id = b.family_member_id "
@@ -104,6 +157,8 @@ class DemoSeedIT {
 	 */
 	@Test
 	void aClosedIncidentGivesTheContinuityTierSomeHistoryToFind() {
+		loadSeed();
+
 		Long withResponder = jdbc.queryForObject(
 				"select count(*) from incident where status = 'RESOLVED' and responder_user_id is not null",
 				Long.class);
@@ -114,15 +169,29 @@ class DemoSeedIT {
 	/**
 	 * A resolved incident whose timeline is empty would show the manager's screen working
 	 * and say nothing about what the screen is for.
+	 *
+	 * <p>The ASSIGNED entry is checked for the responder id the escalation flow reads back
+	 * out of it. The seed builds that from whatever id the database gave Ben, and getting it
+	 * wrong would leave the timeline looking right and parsing to nothing.
 	 */
 	@Test
-	void theClosedIncidentCarriesItsTimeline() {
+	void theClosedIncidentCarriesATimelineThatNamesItsResponder() {
+		loadSeed();
+
 		Long entries = jdbc.queryForObject(
 				"select count(*) from incident_log l join incident i on i.id = l.incident_id "
 						+ "where i.status = 'RESOLVED'",
 				Long.class);
-
 		assertThat(entries).isGreaterThanOrEqualTo(2L);
+
+		Long named = jdbc.queryForObject(
+				"select count(*) from incident_log l "
+						+ "join incident i on i.id = l.incident_id "
+						+ "join app_user u on u.username = 'demo-ben' "
+						+ "where l.action = 'ASSIGNED' "
+						+ "  and l.detail = concat('responder=', u.id, ' :: first responder')",
+				Long.class);
+		assertThat(named).isPositive();
 	}
 
 	/**
@@ -132,13 +201,28 @@ class DemoSeedIT {
 	 */
 	@Test
 	void everyDemonstrationAccountStoresAHashedPassword() {
-		List<String> hashes = jdbc.queryForList("select password_hash from app_user", String.class);
+		loadSeed();
+
+		List<String> hashes = jdbc.queryForList(
+				"select password_hash from app_user where username like 'demo-%'", String.class);
 
 		assertThat(hashes).isNotEmpty().allSatisfy(hash ->
 				assertThat(hash).startsWith("{bcrypt}$"));
 	}
 
-	private Long count(String table) {
-		return jdbc.queryForObject("select count(*) from " + table, Long.class);
+	/**
+	 * One connection for the whole file, which the seed depends on: it carries its ids
+	 * between statements in session variables rather than writing them down.
+	 */
+	private void loadSeed() {
+		jdbc.execute((ConnectionCallback<Void>) connection -> {
+			ScriptUtils.executeSqlScript(connection, new EncodedResource(SEED, StandardCharsets.UTF_8));
+			return null;
+		});
+	}
+
+	private long count(String table) {
+		Long rows = jdbc.queryForObject("select count(*) from " + table, Long.class);
+		return rows == null ? 0L : rows;
 	}
 }
