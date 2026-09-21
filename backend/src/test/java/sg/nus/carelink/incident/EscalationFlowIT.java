@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
+import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.List;
 
@@ -146,6 +147,72 @@ class EscalationFlowIT {
 	private Incident raiseFor(Long elderId, String what) {
 		return incidents.reportByCaregiver(
 				elderId, null, null, Incident.Category.SOS, Incident.Severity.HIGH, what);
+	}
+
+	/**
+	 * Binds a family member to this test's elder, with an expiry.
+	 *
+	 * @return the family member's account id, which is who a notification would name
+	 */
+	private Long givenAFamilyMemberBoundUntil(String username, LocalDateTime expiresAt) {
+		jdbc.update(
+				"insert into app_user (username, password_hash, display_name, enabled)"
+						+ " values (?, '{noop}unused-here', 'Family Member', true)",
+				username);
+		Long userId = jdbc.queryForObject("select last_insert_id()", Long.class);
+		jdbc.update("insert into user_role (user_id, role) values (?, 'FAMILY')", userId);
+
+		jdbc.update("insert into family_member (user_id, full_name) values (?, 'Family Member')", userId);
+		Long familyMemberId = jdbc.queryForObject("select last_insert_id()", Long.class);
+
+		jdbc.update(
+				"insert into elder_family_binding (elder_id, family_member_id, relationship,"
+						+ " access_scope, status, confirmed_at, expires_at)"
+						+ " values (?, ?, 'DAUGHTER', 'FULL', 'ACTIVE', ?, ?)",
+				elder, familyMemberId, LocalDateTime.now(clock).minusDays(30), expiresAt);
+		return userId;
+	}
+
+	private long alertsAddressedTo(Long userId, Long incidentId) {
+		Long rows = jdbc.queryForObject(
+				"select count(*) from notification where recipient_user_id = ?"
+						+ " and resource_type = 'INCIDENT' and resource_id = ?",
+				Long.class, userId, incidentId);
+		return rows == null ? 0L : rows;
+	}
+
+	// ------------------------------------------------------- who hears about it ---
+
+	/**
+	 * The binding has not run out on the clock this system runs on, so the family is told.
+	 *
+	 * <p>Worth a test of its own because the expiry used to be compared against the
+	 * database's own {@code now()}. The two clocks agree in ordinary use and the question
+	 * only becomes visible when they are made to disagree, which is exactly what this fixed
+	 * clock does: the binding here has expired by the wall clock of the machine running the
+	 * test, and has not expired by the clock the application is using.
+	 */
+	@Test
+	void afamilyMemberWhoseBindingIsStillWithinItsTermIsTold() {
+		Long family = givenAFamilyMemberBoundUntil(
+				"it-family-current", LocalDateTime.now(clock).plusDays(2));
+
+		Incident raised = raiseFor(elder, "no answer at door");
+
+		assertThat(alertsAddressedTo(family, raised.id()))
+				.as("the binding runs for another two days on the application's clock")
+				.isPositive();
+	}
+
+	/** An expired delegation stops reaching the family; that is what the expiry is for. */
+	@Test
+	void afamilyMemberWhoseBindingHasRunOutIsNot() {
+		Long family = givenAFamilyMemberBoundUntil(
+				"it-family-expired", LocalDateTime.now(clock).minusDays(1));
+
+		Incident raised = raiseFor(elder, "no answer at door");
+
+		assertThat(alertsAddressedTo(family, raised.id())).isZero();
 	}
 
 	// ----------------------------------------------------------------- routing ---

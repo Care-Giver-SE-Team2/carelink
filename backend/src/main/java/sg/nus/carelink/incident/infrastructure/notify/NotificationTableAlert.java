@@ -1,5 +1,7 @@
 package sg.nus.carelink.incident.infrastructure.notify;
 
+import java.time.Clock;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -15,10 +17,12 @@ import sg.nus.carelink.shared.security.Role;
 /**
  * Writes alerts as rows in {@code notification}, which is what the in-app inbox reads.
  *
- * <p>Delivery beyond the inbox - push, SMS, email - is SUP-02, a supporting use case nobody
- * has claimed yet. Until someone does, a row with {@code status = PENDING} is the honest
- * state: the alert exists and is addressed, and whoever builds the sender will find it
- * waiting rather than having to reconstruct it.
+ * <p>Nothing sends these anywhere. Push, SMS and e-mail would need a component that polls
+ * this table, calls whatever carries the message, and moves the row to SENT or FAILED with
+ * a retry; no use case in the backlog covers it and nobody has taken it on. Until somebody
+ * does, a row with {@code status = PENDING} is the honest state: the alert exists and is
+ * addressed, and whoever builds the sender will find it waiting rather than having to work
+ * out the audience again.
  *
  * <p>Reads three tables it does not own - {@code user_role}, {@code elder_family_binding},
  * {@code visit} - with plain statements that take an id and nothing else. Reading is not
@@ -33,13 +37,22 @@ class NotificationTableAlert implements IncidentAlert {
 			where u.enabled = true and r.role = :role
 			""";
 
-	/** Family members with a binding that is active now, through to their account. */
+	/**
+	 * Family members with a binding that is active now, through to their account.
+	 *
+	 * <p>The moment is bound as a parameter rather than read with SQL {@code now()}, and the
+	 * difference matters. {@code expires_at} was written by the application, whose JVM zone
+	 * and JDBC connection zone differ, so the driver converts it on the way in and out;
+	 * {@code now()} is the database's own clock and gets no such conversion. Comparing the
+	 * two answers the wrong question, and would keep an expired binding receiving alerts.
+	 * Both sides of the comparison have to have travelled the same path.
+	 */
 	private static final String BOUND_FAMILY = """
 			select f.user_id from elder_family_binding b
 			join family_member f on f.id = b.family_member_id
 			where b.elder_id = :elderId
 			  and b.status = 'ACTIVE'
-			  and (b.expires_at is null or b.expires_at > now())
+			  and (b.expires_at is null or b.expires_at > :now)
 			  and f.user_id is not null
 			""";
 
@@ -59,9 +72,11 @@ class NotificationTableAlert implements IncidentAlert {
 			""";
 
 	private final JdbcClient jdbc;
+	private final Clock clock;
 
-	NotificationTableAlert(JdbcClient jdbc) {
+	NotificationTableAlert(JdbcClient jdbc, Clock clock) {
 		this.jdbc = jdbc;
+		this.clock = clock;
 	}
 
 	@Override
@@ -114,7 +129,11 @@ class NotificationTableAlert implements IncidentAlert {
 	private List<Long> boundFamily(Long elderId) {
 		return elderId == null
 				? List.of()
-				: jdbc.sql(BOUND_FAMILY).param("elderId", elderId).query(Long.class).list();
+				: jdbc.sql(BOUND_FAMILY)
+						.param("elderId", elderId)
+						.param("now", LocalDateTime.now(clock))
+						.query(Long.class)
+						.list();
 	}
 
 	private List<Long> recentCaregiver(Long elderId) {
