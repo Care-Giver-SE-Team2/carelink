@@ -1,17 +1,31 @@
 package sg.nus.carelink.profile.domain.repository;
 
+import java.util.List;
 import java.util.Optional;
 
 import sg.nus.carelink.profile.domain.model.ElderFamilyBinding;
 
 /**
- * Port for elder_family_binding: what the application layer may ask of storage, in domain terms.
- * Implemented by infrastructure.persistence.adapter.ElderFamilyBindingRepositoryAdapter. Add finders as
- * the use cases need them; identity.domain.repository.AppUserRepository is the template.
+ * Persistence port for elder-family bindings.
  */
 public interface ElderFamilyBindingRepository {
 
-	Optional<ElderFamilyBinding> findById(Long id);
+    Optional<ElderFamilyBinding> findById(Long id);
 
-	ElderFamilyBinding save(ElderFamilyBinding elderFamilyBinding);
+    /**
+     * Lists all bindings belonging to one elder.
+     */
+    List<ElderFamilyBinding> findByElderId(Long elderId);
+
+    /**
+     * Finds the unique relationship between one elder and one family member.
+     */
+    Optional<ElderFamilyBinding> findByElderIdAndFamilyMemberId(
+            Long elderId,
+            Long familyMemberId
+    );
+
+    ElderFamilyBinding save(
+            ElderFamilyBinding elderFamilyBinding
+    );
 }
