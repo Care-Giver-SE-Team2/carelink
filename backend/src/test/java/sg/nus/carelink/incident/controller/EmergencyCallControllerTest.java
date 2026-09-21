@@ -20,234 +20,292 @@ import sg.nus.carelink.identity.domain.model.AppUser;
 import sg.nus.carelink.incident.application.IncidentService;
 import sg.nus.carelink.incident.controller.dto.EmergencyCallCreateRequest;
 import sg.nus.carelink.incident.domain.model.Incident;
+import sg.nus.carelink.profile.application.ProfileService;
+import sg.nus.carelink.profile.domain.model.Elder;
 import sg.nus.carelink.shared.security.Role;
 
 class EmergencyCallControllerTest {
 
-	private final IncidentService incidentService =
-			mock(IncidentService.class);
+    private final IncidentService incidentService =
+            mock(IncidentService.class);
 
-	private final IdentityService identityService =
-			mock(IdentityService.class);
+    private final IdentityService identityService =
+            mock(IdentityService.class);
 
-	private final EmergencyCallController controller =
-			new EmergencyCallController(
-					incidentService,
-					identityService
-			);
+    private final ProfileService profileService =
+            mock(ProfileService.class);
 
-	@Test
-	void createsEmergencyCallForAuthenticatedElder() {
-		Principal principal = () -> "elder_test";
+    private final EmergencyCallController controller =
+            new EmergencyCallController(
+                    incidentService,
+                    identityService,
+                    profileService
+            );
 
-		AppUser elder = new AppUser(
-				7L,
-				"elder_test",
-				"Test Elder",
-				Set.of(Role.ELDER),
-				true
-		);
+    @Test
+    void createsEmergencyCallForAuthenticatedElder() {
 
-		EmergencyCallCreateRequest request =
-				new EmergencyCallCreateRequest(
-						new BigDecimal("1.2966"),
-						new BigDecimal("103.7764"),
-						"Test Elder Home",
-						"EL03 emergency call test"
-				);
+        Principal principal = () -> "elder_test";
 
-		Incident created = new Incident(
-				1L,
-				1L,
-				null,
-				7L,
-				null,
-				Incident.Source.ELDER_SOS,
-				Incident.Category.SOS,
-				Incident.Severity.HIGH,
-				Incident.Status.OPEN,
-				new BigDecimal("1.2966"),
-				new BigDecimal("103.7764"),
-				"Test Elder Home",
-				"EL03 emergency call test",
-				null,
-				LocalDateTime.of(
-						2026,
-						9,
-						16,
-						10,
-						0
-				),
-				null
-		);
+        AppUser user = new AppUser(
+                7L,
+                "elder_test",
+                "Test Elder",
+                Set.of(Role.ELDER),
+                true
+        );
 
-		when(identityService.require("elder_test"))
-				.thenReturn(elder);
+        Elder elder = new Elder(
+                1L,
+                7L,
+                "Test Elder",
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null
+        );
 
-		when(incidentService.createElderEmergency(
-				1L,
-				7L,
-				new BigDecimal("1.2966"),
-				new BigDecimal("103.7764"),
-				"Test Elder Home",
-				"EL03 emergency call test"
-		)).thenReturn(created);
+        EmergencyCallCreateRequest request =
+                new EmergencyCallCreateRequest(
+                        new BigDecimal("1.2966"),
+                        new BigDecimal("103.7764"),
+                        "Test Elder Home",
+                        "EL03 emergency call test"
+                );
 
-		ResponseEntity<Incident> response =
-				controller.createEmergencyCall(
-						1L,
-						request,
-						principal
-				);
+        Incident created = new Incident(
+                1L,
+                1L,
+                null,
+                7L,
+                null,
+                Incident.Source.ELDER_SOS,
+                Incident.Category.SOS,
+                Incident.Severity.HIGH,
+                Incident.Status.OPEN,
+                new BigDecimal("1.2966"),
+                new BigDecimal("103.7764"),
+                "Test Elder Home",
+                "EL03 emergency call test",
+                null,
+                LocalDateTime.of(
+                        2026,
+                        9,
+                        16,
+                        10,
+                        0
+                ),
+                null
+        );
 
-		assertThat(response.getStatusCode())
-				.isEqualTo(HttpStatus.CREATED);
+        when(identityService.require("elder_test"))
+                .thenReturn(user);
 
-		assertThat(response.getBody())
-				.isEqualTo(created);
+        when(profileService.requireElderByUserId(7L))
+                .thenReturn(elder);
 
-		verify(identityService)
-				.require("elder_test");
+        when(incidentService.createElderEmergency(
+                1L,
+                7L,
+                new BigDecimal("1.2966"),
+                new BigDecimal("103.7764"),
+                "Test Elder Home",
+                "EL03 emergency call test"
+        )).thenReturn(created);
 
-		verify(incidentService)
-				.createElderEmergency(
-						1L,
-						7L,
-						new BigDecimal("1.2966"),
-						new BigDecimal("103.7764"),
-						"Test Elder Home",
-						"EL03 emergency call test"
-				);
-	}
+        ResponseEntity<Incident> response =
+                controller.createMyEmergencyCall(
+                        request,
+                        principal
+                );
 
-	@Test
-	void createsEmergencyCallWhenRequestBodyIsAbsent() {
-		Principal principal = () -> "elder_test";
+        assertThat(response.getStatusCode())
+                .isEqualTo(HttpStatus.CREATED);
 
-		AppUser elder = new AppUser(
-				7L,
-				"elder_test",
-				"Test Elder",
-				Set.of(Role.ELDER),
-				true
-		);
+        assertThat(response.getBody())
+                .isEqualTo(created);
 
-		Incident created = new Incident(
-				2L,
-				1L,
-				null,
-				7L,
-				null,
-				Incident.Source.ELDER_SOS,
-				Incident.Category.SOS,
-				Incident.Severity.HIGH,
-				Incident.Status.OPEN,
-				null,
-				null,
-				null,
-				null,
-				null,
-				LocalDateTime.of(
-						2026,
-						9,
-						16,
-						10,
-						5
-				),
-				null
-		);
+        verify(identityService)
+                .require("elder_test");
 
-		when(identityService.require("elder_test"))
-				.thenReturn(elder);
+        verify(profileService)
+                .requireElderByUserId(7L);
 
-		when(incidentService.createElderEmergency(
-				1L,
-				7L,
-				null,
-				null,
-				null,
-				null
-		)).thenReturn(created);
+        verify(incidentService)
+                .createElderEmergency(
+                        1L,
+                        7L,
+                        new BigDecimal("1.2966"),
+                        new BigDecimal("103.7764"),
+                        "Test Elder Home",
+                        "EL03 emergency call test"
+                );
+    }
 
-		ResponseEntity<Incident> response =
-				controller.createEmergencyCall(
-						1L,
-						null,
-						principal
-				);
+    @Test
+    void createsEmergencyCallWhenRequestBodyIsAbsent() {
 
-		assertThat(response.getStatusCode())
-				.isEqualTo(HttpStatus.CREATED);
+        Principal principal = () -> "elder_test";
 
-		assertThat(response.getBody())
-				.isEqualTo(created);
+        AppUser user = new AppUser(
+                7L,
+                "elder_test",
+                "Test Elder",
+                Set.of(Role.ELDER),
+                true
+        );
 
-		verify(identityService)
-				.require("elder_test");
+        Elder elder = new Elder(
+                1L,
+                7L,
+                "Test Elder",
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null
+        );
 
-		verify(incidentService)
-				.createElderEmergency(
-						1L,
-						7L,
-						null,
-						null,
-						null,
-						null
-				);
-	}
+        Incident created = new Incident(
+                2L,
+                1L,
+                null,
+                7L,
+                null,
+                Incident.Source.ELDER_SOS,
+                Incident.Category.SOS,
+                Incident.Severity.HIGH,
+                Incident.Status.OPEN,
+                null,
+                null,
+                null,
+                null,
+                null,
+                LocalDateTime.of(
+                        2026,
+                        9,
+                        16,
+                        10,
+                        5
+                ),
+                null
+        );
 
-	@Test
-	void returnsEmergencyCallWhenItExists() {
-		Incident incident = new Incident(
-				3L,
-				1L,
-				null,
-				7L,
-				null,
-				Incident.Source.ELDER_SOS,
-				Incident.Category.SOS,
-				Incident.Severity.HIGH,
-				Incident.Status.OPEN,
-				null,
-				null,
-				"Home",
-				"Emergency",
-				null,
-				LocalDateTime.of(
-						2026,
-						9,
-						16,
-						10,
-						10
-				),
-				null
-		);
+        when(identityService.require("elder_test"))
+                .thenReturn(user);
 
-		when(incidentService.findIncident(3L))
-				.thenReturn(Optional.of(incident));
+        when(profileService.requireElderByUserId(7L))
+                .thenReturn(elder);
 
-		ResponseEntity<Incident> response =
-				controller.getEmergencyCall(3L);
+        when(incidentService.createElderEmergency(
+                1L,
+                7L,
+                null,
+                null,
+                null,
+                null
+        )).thenReturn(created);
 
-		assertThat(response.getStatusCode())
-				.isEqualTo(HttpStatus.OK);
+        ResponseEntity<Incident> response =
+                controller.createMyEmergencyCall(
+                        null,
+                        principal
+                );
 
-		assertThat(response.getBody())
-				.isEqualTo(incident);
-	}
+        assertThat(response.getStatusCode())
+                .isEqualTo(HttpStatus.CREATED);
 
-	@Test
-	void returns404WhenEmergencyCallDoesNotExist() {
-		when(incidentService.findIncident(999L))
-				.thenReturn(Optional.empty());
+        assertThat(response.getBody())
+                .isEqualTo(created);
 
-		ResponseEntity<Incident> response =
-				controller.getEmergencyCall(999L);
+        verify(identityService)
+                .require("elder_test");
 
-		assertThat(response.getStatusCode())
-				.isEqualTo(HttpStatus.NOT_FOUND);
+        verify(profileService)
+                .requireElderByUserId(7L);
 
-		assertThat(response.getBody())
-				.isNull();
-	}
+        verify(incidentService)
+                .createElderEmergency(
+                        1L,
+                        7L,
+                        null,
+                        null,
+                        null,
+                        null
+                );
+    }
+
+    @Test
+    void returnsEmergencyCallWhenItExists() {
+
+        Incident incident = new Incident(
+                3L,
+                1L,
+                null,
+                7L,
+                null,
+                Incident.Source.ELDER_SOS,
+                Incident.Category.SOS,
+                Incident.Severity.HIGH,
+                Incident.Status.OPEN,
+                null,
+                null,
+                "Home",
+                "Emergency",
+                null,
+                LocalDateTime.of(
+                        2026,
+                        9,
+                        16,
+                        10,
+                        10
+                ),
+                null
+        );
+
+        when(incidentService.findIncident(3L))
+                .thenReturn(Optional.of(incident));
+
+        ResponseEntity<Incident> response =
+                controller.getEmergencyCall(3L);
+
+        assertThat(response.getStatusCode())
+                .isEqualTo(HttpStatus.OK);
+
+        assertThat(response.getBody())
+                .isEqualTo(incident);
+    }
+
+    @Test
+    void returns404WhenEmergencyCallDoesNotExist() {
+
+        when(incidentService.findIncident(999L))
+                .thenReturn(Optional.empty());
+
+        ResponseEntity<Incident> response =
+                controller.getEmergencyCall(999L);
+
+        assertThat(response.getStatusCode())
+                .isEqualTo(HttpStatus.NOT_FOUND);
+
+        assertThat(response.getBody())
+                .isNull();
+    }
 }

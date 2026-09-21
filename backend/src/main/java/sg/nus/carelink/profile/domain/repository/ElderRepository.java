@@ -11,7 +11,15 @@ import sg.nus.carelink.profile.domain.model.Elder;
  */
 public interface ElderRepository {
 
-	Optional<Elder> findById(Long id);
+    Optional<Elder> findById(Long id);
 
-	Elder save(Elder elder);
+    /**
+     * Finds the elder profile associated with an application user account.
+     *
+     * @param userId app_user.id
+     * @return the elder linked to the user account, if one exists
+     */
+    Optional<Elder> findByUserId(Long userId);
+
+    Elder save(Elder elder);
 }

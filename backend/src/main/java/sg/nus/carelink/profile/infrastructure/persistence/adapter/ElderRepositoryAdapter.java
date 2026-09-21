@@ -15,19 +15,24 @@ import sg.nus.carelink.profile.infrastructure.persistence.repository.ElderJpaRep
 @Repository
 class ElderRepositoryAdapter implements ElderRepository {
 
-	private final ElderJpaRepository jpa;
+    private final ElderJpaRepository jpa;
 
-	ElderRepositoryAdapter(ElderJpaRepository jpa) {
-		this.jpa = jpa;
-	}
+    ElderRepositoryAdapter(ElderJpaRepository jpa) {
+        this.jpa = jpa;
+    }
 
-	@Override
-	public Optional<Elder> findById(Long id) {
-		return jpa.findById(id).map(ElderMapper::toDomain);
-	}
+    @Override
+    public Optional<Elder> findById(Long id) {
+        return jpa.findById(id).map(ElderMapper::toDomain);
+    }
 
-	@Override
-	public Elder save(Elder elder) {
-		return ElderMapper.toDomain(jpa.save(ElderMapper.toEntity(elder)));
-	}
+    @Override
+    public Optional<Elder> findByUserId(Long userId) {
+        return jpa.findByUserId(userId).map(ElderMapper::toDomain);
+    }
+
+    @Override
+    public Elder save(Elder elder) {
+        return ElderMapper.toDomain(jpa.save(ElderMapper.toEntity(elder)));
+    }
 }
