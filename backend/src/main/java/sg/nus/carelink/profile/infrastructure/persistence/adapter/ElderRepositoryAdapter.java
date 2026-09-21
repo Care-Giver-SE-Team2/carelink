@@ -1,5 +1,6 @@
 package sg.nus.carelink.profile.infrastructure.persistence.adapter;
 
+import java.util.List;
 import java.util.Optional;
 
 import org.springframework.stereotype.Repository;
@@ -9,7 +10,8 @@ import sg.nus.carelink.profile.domain.repository.ElderRepository;
 import sg.nus.carelink.profile.infrastructure.persistence.repository.ElderJpaRepository;
 
 /**
- * Implements the domain port with Spring Data. The dependency points infrastructure ->
+ * Implements the domain port with Spring Data. The dependency points
+ * infrastructure ->
  * domain, never the other way round (dependency inversion, as in identity).
  */
 @Repository
@@ -29,6 +31,11 @@ class ElderRepositoryAdapter implements ElderRepository {
     @Override
     public Optional<Elder> findByUserId(Long userId) {
         return jpa.findByUserId(userId).map(ElderMapper::toDomain);
+    }
+
+    @Override
+    public List<Elder> findAll() {
+        return jpa.findAll().stream().map(ElderMapper::toDomain).toList();
     }
 
     @Override

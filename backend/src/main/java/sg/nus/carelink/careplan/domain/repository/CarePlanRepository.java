@@ -13,5 +13,8 @@ public interface CarePlanRepository {
 
 	Optional<CarePlan> findById(Long id);
 
+	/** The elder's highest-version plan (draft, published or superseded), if any. */
+	Optional<CarePlan> findLatestByElderId(Long elderId);
+
 	CarePlan save(CarePlan carePlan);
 }

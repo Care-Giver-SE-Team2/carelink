@@ -64,3 +64,25 @@
   font: 500 10px/1 var(--font-mono);
   letter-spacing: 0.08em;
 }
+
+.identityGroup {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.logoutBtn {
+  flex: none;
+  padding: 6px 11px;
+  border: 1px solid var(--filter-border);
+  background: var(--bg);
+  color: var(--text-secondary);
+  font: 500 11px/1 var(--font);
+  min-height: auto;
+  cursor: pointer;
+}
+
+.logoutBtn:hover {
+  border-color: var(--text);
+  color: var(--text);
+}

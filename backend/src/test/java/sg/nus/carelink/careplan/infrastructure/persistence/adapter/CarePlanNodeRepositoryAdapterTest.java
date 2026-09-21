@@ -3,8 +3,10 @@ package sg.nus.carelink.careplan.infrastructure.persistence.adapter;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import java.util.List;
 import java.util.Optional;
 
 import org.junit.jupiter.api.Test;
@@ -47,5 +49,23 @@ class CarePlanNodeRepositoryAdapterTest {
 		CarePlanNode saved = adapter.save(CarePlanNodeMapper.toDomain(entity));
 
 		assertThat(saved).isNotNull();
+	}
+
+	@Test
+	void findByCarePlanIdMapsEachEntityToTheDomainModel() {
+		CarePlanNodeJpaEntity entity = new CarePlanNodeJpaEntity();
+		entity.setId(7L);
+		when(jpa.findByCarePlanId(3L)).thenReturn(List.of(entity));
+
+		List<CarePlanNode> found = adapter.findByCarePlanId(3L);
+
+		assertThat(found).extracting(CarePlanNode::id).containsExactly(7L);
+	}
+
+	@Test
+	void deleteByCarePlanIdDelegatesToSpringData() {
+		adapter.deleteByCarePlanId(3L);
+
+		verify(jpa).deleteByCarePlanId(3L);
 	}
 }

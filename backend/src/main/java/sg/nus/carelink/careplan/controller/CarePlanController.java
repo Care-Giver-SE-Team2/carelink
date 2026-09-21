@@ -1,14 +1,32 @@
 package sg.nus.carelink.careplan.controller;
 
+import jakarta.validation.Valid;
+
+import java.net.URI;
+import java.util.List;
+
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import sg.nus.carelink.careplan.application.CarePlanService;
+import sg.nus.carelink.careplan.application.PlanNodeInput;
+import sg.nus.carelink.careplan.application.VisitInput;
+import sg.nus.carelink.careplan.controller.dto.CarePlanNodeResponse;
+import sg.nus.carelink.careplan.controller.dto.CreateCarePlanRequest;
+import sg.nus.carelink.careplan.controller.dto.PlanNodeRequest;
+import sg.nus.carelink.careplan.controller.dto.PublishCarePlanRequest;
+import sg.nus.carelink.careplan.controller.dto.StopCarePlanRequest;
 import sg.nus.carelink.careplan.domain.model.CarePlan;
+import sg.nus.carelink.identity.application.UserDirectory;
+import sg.nus.carelink.shared.error.ResourceNotFound;
 
 /**
  * Presentation layer of the careplan module: HTTP in, HTTP out, status codes. No business
@@ -22,14 +40,67 @@ import sg.nus.carelink.careplan.domain.model.CarePlan;
 public class CarePlanController {
 
 	private final CarePlanService service;
+	private final UserDirectory users;
 
-	public CarePlanController(CarePlanService service) {
+	public CarePlanController(CarePlanService service, UserDirectory users) {
 		this.service = service;
+		this.users = users;
 	}
 
 	@GetMapping("/{id}")
 	@PreAuthorize("hasRole('MANAGER')")
 	public ResponseEntity<CarePlan> get(@PathVariable Long id) {
 		return ResponseEntity.of(service.findCarePlan(id));
+	}
+
+	/** The elder's highest-version plan (draft, published or superseded), if any. */
+	@GetMapping("/latest")
+	@PreAuthorize("hasRole('MANAGER')")
+	public ResponseEntity<CarePlan> latestForElder(@RequestParam Long elderId) {
+		return ResponseEntity.of(service.findLatestByElderId(elderId));
+	}
+
+	@GetMapping("/{id}/nodes")
+	@PreAuthorize("hasRole('MANAGER')")
+	public List<CarePlanNodeResponse> nodes(@PathVariable Long id) {
+		return CarePlanNodeResponse.listFrom(service.findNodes(id));
+	}
+
+	@PostMapping
+	@PreAuthorize("hasRole('MANAGER')")
+	public ResponseEntity<CarePlan> create(@Valid @RequestBody CreateCarePlanRequest request,
+			Authentication authentication) {
+		Long actingUserId = actingUserId(authentication);
+		CarePlan created = service.createDraft(request.elderId(), actingUserId);
+		return ResponseEntity.created(URI.create("/api/care-plans/" + created.id())).body(created);
+	}
+
+	@PostMapping("/{id}/publish")
+	@PreAuthorize("hasRole('MANAGER')")
+	public CarePlan publish(@PathVariable Long id, @Valid @RequestBody PublishCarePlanRequest request) {
+		return service.publish(id, request.nodes().stream().map(CarePlanController::toInput).toList());
+	}
+
+	@PostMapping("/{id}/stop")
+	@PreAuthorize("hasRole('MANAGER')")
+	public CarePlan stop(@PathVariable Long id, @Valid @RequestBody StopCarePlanRequest request,
+			Authentication authentication) {
+		return service.stop(id, request.effectiveDate(), request.reason(), actingUserId(authentication));
+	}
+
+	private Long actingUserId(Authentication authentication) {
+		return users.findByUsername(authentication.getName())
+				.orElseThrow(() -> new ResourceNotFound("Account", authentication.getName()))
+				.id();
+	}
+
+	private static PlanNodeInput toInput(PlanNodeRequest request) {
+		return new PlanNodeInput(
+				request.groupName(),
+				request.name(),
+				request.visits() == null
+						? List.of()
+						: request.visits().stream().map(v -> new VisitInput(v.day(), v.minutes())).toList(),
+				request.evidenceType());
 	}
 }

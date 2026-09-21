@@ -1,27 +1,39 @@
 package sg.nus.carelink.careplan.controller;
 
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
+import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 import org.junit.jupiter.api.Test;
+import org.springframework.http.MediaType;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
 import sg.nus.carelink.careplan.application.CarePlanService;
 import sg.nus.carelink.careplan.domain.model.CarePlan;
+import sg.nus.carelink.careplan.domain.model.CarePlanNode;
+import sg.nus.carelink.identity.application.UserDirectory;
+import sg.nus.carelink.identity.domain.model.AppUser;
+import sg.nus.carelink.shared.security.Role;
 
 /** HTTP surface only: status codes for found and not found. Security is tested at the filter-chain level. */
 class CarePlanControllerTest {
 
 	private final CarePlanService service = mock(CarePlanService.class);
-	private final MockMvc mvc = MockMvcBuilders.standaloneSetup(new CarePlanController(service)).build();
+	private final UserDirectory users = mock(UserDirectory.class);
+	private final MockMvc mvc = MockMvcBuilders.standaloneSetup(new CarePlanController(service, users)).build();
 
 	@Test
 	void returns200WithTheRecord() throws Exception {
@@ -45,5 +57,71 @@ class CarePlanControllerTest {
 		when(service.findCarePlan(2L)).thenReturn(Optional.empty());
 
 		mvc.perform(get("/api/care-plans/2")).andExpect(status().isNotFound());
+	}
+
+	@Test
+	void returns201WhenDraftIsCreated() throws Exception {
+		AppUser actingUser = new AppUser(7L, "mei.ling", "Tan Mei Ling", Set.of(Role.MANAGER), true);
+		when(users.findByUsername("mei.ling")).thenReturn(Optional.of(actingUser));
+		when(service.createDraft(42L, 7L)).thenReturn(new CarePlan(
+				1L, 42L, 7L, null, 1, CarePlan.Status.DRAFT, null, null, null, null));
+
+		mvc.perform(post("/api/care-plans")
+						.principal(new UsernamePasswordAuthenticationToken("mei.ling", null))
+						.contentType(MediaType.APPLICATION_JSON)
+						.content("{\"elderId\":42}"))
+				.andExpect(status().isCreated());
+	}
+
+	@Test
+	void returns200WithTheLatestPlanForAnElder() throws Exception {
+		when(service.findLatestByElderId(42L)).thenReturn(Optional.of(new CarePlan(
+				1L, 42L, 7L, null, 1, CarePlan.Status.DRAFT, null, null, null, null)));
+
+		mvc.perform(get("/api/care-plans/latest").param("elderId", "42")).andExpect(status().isOk());
+	}
+
+	@Test
+	void returns404WhenThereIsNoLatestPlanForAnElder() throws Exception {
+		when(service.findLatestByElderId(42L)).thenReturn(Optional.empty());
+
+		mvc.perform(get("/api/care-plans/latest").param("elderId", "42")).andExpect(status().isNotFound());
+	}
+
+	@Test
+	void returns200WithThePlanNodes() throws Exception {
+		when(service.findNodes(1L)).thenReturn(List.of(new CarePlanNode(
+				5L, 1L, "Personal care", "Bathing", "Mon,Wed", null, null,
+				CarePlanNode.EvidenceType.CHECKLIST, 1, null, null)));
+
+		mvc.perform(get("/api/care-plans/1/nodes")).andExpect(status().isOk());
+	}
+
+	@Test
+	void returns200WhenThePlanIsPublished() throws Exception {
+		when(service.publish(eq(1L), any())).thenReturn(new CarePlan(
+				1L, 42L, 7L, null, 1, CarePlan.Status.PUBLISHED, null, null, null, null));
+
+		mvc.perform(post("/api/care-plans/1/publish")
+						.contentType(MediaType.APPLICATION_JSON)
+						.content("""
+								{"nodes":[{"groupName":"Personal care","name":"Bathing",
+								"visits":[{"day":"Mon","minutes":30}],"evidenceType":"CHECKLIST"}]}
+								"""))
+				.andExpect(status().isOk());
+	}
+
+	@Test
+	void returns200WhenThePlanIsStopped() throws Exception {
+		AppUser actingUser = new AppUser(7L, "mei.ling", "Tan Mei Ling", Set.of(Role.MANAGER), true);
+		when(users.findByUsername("mei.ling")).thenReturn(Optional.of(actingUser));
+		when(service.stop(eq(1L), any(), eq("No longer needed"), eq(7L))).thenReturn(new CarePlan(
+				1L, 42L, 7L, null, 1, CarePlan.Status.STOPPED, null, null, null, null));
+
+		mvc.perform(post("/api/care-plans/1/stop")
+						.principal(new UsernamePasswordAuthenticationToken("mei.ling", null))
+						.contentType(MediaType.APPLICATION_JSON)
+						.content("{\"effectiveDate\":\"2026-09-20\",\"reason\":\"No longer needed\"}"))
+				.andExpect(status().isOk());
 	}
 }

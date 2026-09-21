@@ -3,7 +3,6 @@ package sg.nus.carelink.careplan.infrastructure.persistence.adapter;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
 
 import org.junit.jupiter.api.Test;
 
@@ -18,10 +17,8 @@ class CarePlanNodeMapperTest {
 		CarePlanNodeJpaEntity entity = new CarePlanNodeJpaEntity();
 		entity.setId(1L);
 		entity.setCarePlanId(2L);
-		entity.setParentId(3L);
-		entity.setNodeType(CarePlanNodeJpaEntity.NodeType.SUB_PLAN);
+		entity.setGroupName("Personal care");
 		entity.setName("v5");
-		entity.setServiceType("v6");
 		entity.setScheduleDays("v7");
 		entity.setDurationPerVisit(new BigDecimal("8.5"));
 		entity.setWeeklyHours(new BigDecimal("9.5"));
@@ -31,10 +28,8 @@ class CarePlanNodeMapperTest {
 		CarePlanNode domain = CarePlanNodeMapper.toDomain(entity);
 		assertThat(domain.id()).isEqualTo(entity.getId());
 		assertThat(domain.carePlanId()).isEqualTo(entity.getCarePlanId());
-		assertThat(domain.parentId()).isEqualTo(entity.getParentId());
-		assertThat(domain.nodeType().name()).isEqualTo(entity.getNodeType().name());
+		assertThat(domain.groupName()).isEqualTo(entity.getGroupName());
 		assertThat(domain.name()).isEqualTo(entity.getName());
-		assertThat(domain.serviceType()).isEqualTo(entity.getServiceType());
 		assertThat(domain.scheduleDays()).isEqualTo(entity.getScheduleDays());
 		assertThat(domain.durationPerVisit()).isEqualTo(entity.getDurationPerVisit());
 		assertThat(domain.weeklyHours()).isEqualTo(entity.getWeeklyHours());
@@ -44,10 +39,8 @@ class CarePlanNodeMapperTest {
 		CarePlanNodeJpaEntity back = CarePlanNodeMapper.toEntity(domain);
 		assertThat(back.getId()).isEqualTo(entity.getId());
 		assertThat(back.getCarePlanId()).isEqualTo(entity.getCarePlanId());
-		assertThat(back.getParentId()).isEqualTo(entity.getParentId());
-		assertThat(back.getNodeType()).isEqualTo(entity.getNodeType());
+		assertThat(back.getGroupName()).isEqualTo(entity.getGroupName());
 		assertThat(back.getName()).isEqualTo(entity.getName());
-		assertThat(back.getServiceType()).isEqualTo(entity.getServiceType());
 		assertThat(back.getScheduleDays()).isEqualTo(entity.getScheduleDays());
 		assertThat(back.getDurationPerVisit()).isEqualTo(entity.getDurationPerVisit());
 		assertThat(back.getWeeklyHours()).isEqualTo(entity.getWeeklyHours());

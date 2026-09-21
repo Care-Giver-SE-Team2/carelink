@@ -44,9 +44,13 @@ export function Sidebar() {
           key={item.label}
           to={item.path}
           end={item.end}
+          title={item.label}
           className={({ isActive }) => `${styles.navLink} ${isActive ? styles.active : ''}`}
         >
-          <span>{item.label}</span>
+          <span className={styles.navIcon} aria-hidden="true">
+            {item.label[0]}
+          </span>
+          <span className={styles.navLabel}>{item.label}</span>
           {item.count !== undefined && (
             <span className={styles.count} style={{ color: COUNT_TONE_VAR[item.countTone!] }}>
               {item.count}
@@ -55,13 +59,15 @@ export function Sidebar() {
         </NavLink>
       ))}
 
-      <div className={styles.policyHeading}>Policy</div>
-      <div className={styles.policyLines}>
-        {POLICY_LINES.map((line) => (
-          <div key={line} className={styles.policyLine}>
-            {line}
-          </div>
-        ))}
+      <div className={styles.policySection}>
+        <div className={styles.policyHeading}>Policy</div>
+        <div className={styles.policyLines}>
+          {POLICY_LINES.map((line) => (
+            <div key={line} className={styles.policyLine}>
+              {line}
+            </div>
+          ))}
+        </div>
       </div>
     </nav>
   )

@@ -16,10 +16,8 @@ final class CarePlanNodeMapper {
 		return new CarePlanNode(
 				e.getId(),
 				e.getCarePlanId(),
-				e.getParentId(),
-				e.getNodeType() == null ? null : CarePlanNode.NodeType.valueOf(e.getNodeType().name()),
+				e.getGroupName(),
 				e.getName(),
-				e.getServiceType(),
 				e.getScheduleDays(),
 				e.getDurationPerVisit(),
 				e.getWeeklyHours(),
@@ -33,10 +31,8 @@ final class CarePlanNodeMapper {
 		CarePlanNodeJpaEntity e = new CarePlanNodeJpaEntity();
 		e.setId(d.id());
 		e.setCarePlanId(d.carePlanId());
-		e.setParentId(d.parentId());
-		e.setNodeType(d.nodeType() == null ? null : CarePlanNodeJpaEntity.NodeType.valueOf(d.nodeType().name()));
+		e.setGroupName(d.groupName());
 		e.setName(d.name());
-		e.setServiceType(d.serviceType());
 		e.setScheduleDays(d.scheduleDays());
 		e.setDurationPerVisit(d.durationPerVisit());
 		e.setWeeklyHours(d.weeklyHours());

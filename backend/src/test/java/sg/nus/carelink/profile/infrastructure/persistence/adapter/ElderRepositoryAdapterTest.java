@@ -6,6 +6,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import java.util.List;
 import java.util.Optional;
 
 import org.junit.jupiter.api.Test;
@@ -96,6 +97,27 @@ class ElderRepositoryAdapterTest {
 
         verify(jpa)
                 .findByUserId(999L);
+    }
+
+    @Test
+    void findAllMapsEveryEntityToADomainModel() {
+        ElderJpaEntity first = new ElderJpaEntity();
+        first.setId(1L);
+
+        ElderJpaEntity second = new ElderJpaEntity();
+        second.setId(2L);
+
+        when(jpa.findAll())
+                .thenReturn(List.of(first, second));
+
+        List<Elder> found = adapter.findAll();
+
+        assertThat(found)
+                .extracting(Elder::id)
+                .containsExactly(1L, 2L);
+
+        verify(jpa)
+                .findAll();
     }
 
     @Test

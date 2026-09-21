@@ -1,0 +1,97 @@
+import type { DayVisit, PlanNode, SubPlanNode, TaskNode } from '../data/carePlans'
+
+/** Bottom-up weekly effort in hours: a sub-plan is the sum of its tasks. */
+export function weeklyHours(node: PlanNode): number {
+  if (node.type === 'task') {
+    return node.visits.reduce((sum, v) => sum + v.minutes, 0) / 60
+  }
+  return node.children.reduce((sum, child) => sum + weeklyHours(child), 0)
+}
+
+export function weeklyHoursOfTree(tree: PlanNode[]): number {
+  return tree.reduce((sum, node) => sum + weeklyHours(node), 0)
+}
+
+export function countTree(tree: PlanNode[]): { subPlans: number; tasks: number } {
+  let subPlans = 0
+  let tasks = 0
+  for (const node of tree) {
+    if (node.type === 'subplan') {
+      subPlans += 1
+      tasks += node.children.length
+    } else {
+      tasks += 1
+    }
+  }
+  return { subPlans, tasks }
+}
+
+/** "Mon, Wed, Fri" for a partial week, "daily" once every day is scheduled. */
+export function scheduleLabel(visits: DayVisit[]): string {
+  if (visits.length === 7) return 'daily'
+  return visits.map((v) => v.day).join(', ')
+}
+
+/**
+ * Per-visit duration for the table's "Per visit" column. A task scheduled at
+ * the same duration every day shows that single value; one whose duration
+ * varies by day shows a low–high range with a day-by-day tooltip, per the
+ * handoff ("tracked per-day, not as a single shared value").
+ */
+export function perVisitDisplay(visits: DayVisit[]): { text: string; tooltip?: string } {
+  const minutes = visits.map((v) => v.minutes)
+  const min = Math.min(...minutes)
+  const max = Math.max(...minutes)
+  if (min === max) return { text: `${min} m` }
+  return {
+    text: `${min}–${max} m`,
+    tooltip: visits.map((v) => `${v.day} ${v.minutes} m`).join(' · '),
+  }
+}
+
+/** Fixed two-decimal hours for table cells, e.g. "2.25 h". */
+export function formatHoursFixed(hours: number): string {
+  return `${hours.toFixed(2)} h`
+}
+
+/** Loose one-decimal hours for prose subtitles, e.g. "6.5 h". Trims a trailing .0. */
+export function formatHoursLoose(hours: number): string {
+  const rounded = Math.round(hours * 10) / 10
+  return `${rounded % 1 === 0 ? rounded.toFixed(0) : rounded.toFixed(1)} h`
+}
+
+/** "6h 30m" style duration for the rail's summary card. */
+export function formatHoursMinutes(hours: number): string {
+  const totalMinutes = Math.round(hours * 60)
+  const h = Math.floor(totalMinutes / 60)
+  const m = totalMinutes % 60
+  return m === 0 ? `${h}h` : `${h}h ${m}m`
+}
+
+/** Remove a top-level sub-plan, or a task nested one level under a sub-plan, by id. */
+export function removeNode(tree: PlanNode[], id: string): PlanNode[] {
+  return tree
+    .filter((node) => node.id !== id)
+    .map((node) =>
+      node.type === 'subplan' ? { ...node, children: node.children.filter((task) => task.id !== id) } : node,
+    )
+}
+
+/** Replace a task nested one level under a sub-plan, or a top-level task, by id. */
+export function updateTask(tree: PlanNode[], id: string, updated: TaskNode): PlanNode[] {
+  return tree.map((node) => {
+    if (node.id === id) return updated
+    if (node.type === 'subplan') {
+      return { ...node, children: node.children.map((task) => (task.id === id ? updated : task)) }
+    }
+    return node
+  })
+}
+
+export function findSubPlan(tree: PlanNode[], id: string): SubPlanNode | undefined {
+  return tree.find((node): node is SubPlanNode => node.type === 'subplan' && node.id === id)
+}
+
+export function taskCount(node: TaskNode | SubPlanNode): number {
+  return node.type === 'task' ? 1 : node.children.length
+}

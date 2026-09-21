@@ -3,92 +3,157 @@ package sg.nus.carelink.profile.application;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.List;
 
 import org.junit.jupiter.api.Test;
 
+import sg.nus.carelink.careplan.domain.model.CarePlan;
 import sg.nus.carelink.profile.domain.model.Elder;
 import sg.nus.carelink.shared.error.ResourceNotFound;
 
 class ProfileServiceTest {
 
-    private final InMemoryElderRepository repository =
-            new InMemoryElderRepository();
+        private final InMemoryElderRepository repository = new InMemoryElderRepository();
 
-    private final ProfileService service =
-            new ProfileService(repository);
+        private final FakeCarePlanLookup carePlans = new FakeCarePlanLookup();
 
-    @Test
-    void findsWhatWasSaved() {
-        Elder saved = saveElder(2L);
+        private final ProfileService service = new ProfileService(repository, carePlans);
 
-        assertThat(service.findElder(saved.id()))
-                .contains(saved);
-    }
+        @Test
+        void findsWhatWasSaved() {
+                Elder saved = saveElder(2L);
 
-    @Test
-    void isEmptyForAnUnknownId() {
-        assertThat(service.findElder(999L))
-                .isEmpty();
-    }
+                assertThat(service.findElder(saved.id()))
+                                .contains(saved);
+        }
 
-    @Test
-    void findsElderByLinkedUserId() {
-        Elder saved = saveElder(7L);
+        @Test
+        void isEmptyForAnUnknownId() {
+                assertThat(service.findElder(999L))
+                                .isEmpty();
+        }
 
-        Elder found =
-                service.requireElderByUserId(7L);
+        @Test
+        void findsElderByLinkedUserId() {
+                Elder saved = saveElder(7L);
 
-        assertThat(found)
-                .isEqualTo(saved);
+                Elder found = service.requireElderByUserId(7L);
 
-        assertThat(found.userId())
-                .isEqualTo(7L);
-    }
+                assertThat(found)
+                                .isEqualTo(saved);
 
-    @Test
-    void throwsWhenNoElderIsLinkedToUser() {
-        assertThatThrownBy(
-                () -> service.requireElderByUserId(999L)
-        )
-                .isInstanceOf(ResourceNotFound.class)
-                .hasMessageContaining("Elder for user")
-                .hasMessageContaining("999");
-    }
+                assertThat(found.userId())
+                                .isEqualTo(7L);
+        }
 
-    private Elder saveElder(Long userId) {
-        return repository.save(
-                new Elder(
-                        null,
-                        userId,
-                        "v3",
-                        Elder.Gender.MALE,
-                        LocalDate.of(2026, 9, 6),
-                        "v6",
-                        "v7",
-                        "v8",
-                        "v9",
-                        "v10",
-                        Boolean.TRUE,
-                        Elder.MobilityLevel.INDEPENDENT,
-                        Elder.ContinuityPreference.PREFERRED,
-                        "v14",
-                        LocalDateTime.of(
-                                2026,
-                                9,
-                                6,
-                                10,
-                                15
-                        ),
-                        LocalDateTime.of(
-                                2026,
-                                9,
-                                6,
-                                10,
-                                16
-                        )
-                )
-        );
-    }
+        @Test
+        void throwsWhenNoElderIsLinkedToUser() {
+                assertThatThrownBy(
+                                () -> service.requireElderByUserId(999L))
+                                .isInstanceOf(ResourceNotFound.class)
+                                .hasMessageContaining("Elder for user")
+                                .hasMessageContaining("999");
+        }
+
+        @Test
+        void listsEldersWithNoPlanAsNone() {
+                Elder saved = saveElder(1L);
+
+                List<ElderSummary> summaries = service.listElders();
+
+                assertThat(summaries)
+                                .containsExactly(new ElderSummary(saved, "none", null));
+        }
+
+        @Test
+        void listsEldersWithAPublishedPlan() {
+                Elder saved = saveElder(2L);
+                carePlans.put(saved.id(), plan(saved.id(), CarePlan.Status.PUBLISHED, 3));
+
+                List<ElderSummary> summaries = service.listElders();
+
+                assertThat(summaries)
+                                .containsExactly(new ElderSummary(saved, "published", 3));
+        }
+
+        @Test
+        void listsEldersWithADraftPlan() {
+                Elder saved = saveElder(3L);
+                carePlans.put(saved.id(), plan(saved.id(), CarePlan.Status.DRAFT, 1));
+
+                List<ElderSummary> summaries = service.listElders();
+
+                assertThat(summaries)
+                                .containsExactly(new ElderSummary(saved, "draft", 1));
+        }
+
+        @Test
+        void listsEldersWithASupersededPlanAsNone() {
+                Elder saved = saveElder(4L);
+                carePlans.put(saved.id(), plan(saved.id(), CarePlan.Status.SUPERSEDED, 1));
+
+                List<ElderSummary> summaries = service.listElders();
+
+                assertThat(summaries)
+                                .containsExactly(new ElderSummary(saved, "none", null));
+        }
+
+        @Test
+        void listsEldersWithAStoppedPlanAsNone() {
+                Elder saved = saveElder(5L);
+                carePlans.put(saved.id(), plan(saved.id(), CarePlan.Status.STOPPED, 1));
+
+                List<ElderSummary> summaries = service.listElders();
+
+                assertThat(summaries)
+                                .containsExactly(new ElderSummary(saved, "none", null));
+        }
+
+        private static CarePlan plan(Long elderId, CarePlan.Status status, int version) {
+                return new CarePlan(
+                                100L + version,
+                                elderId,
+                                1L,
+                                null,
+                                version,
+                                status,
+                                BigDecimal.TEN,
+                                LocalDateTime.of(2026, 9, 6, 9, 0),
+                                LocalDateTime.of(2026, 9, 6, 9, 0),
+                                LocalDateTime.of(2026, 9, 6, 9, 0));
+        }
+
+        private Elder saveElder(Long userId) {
+                return repository.save(
+                                new Elder(
+                                                null,
+                                                userId,
+                                                "v3",
+                                                Elder.Gender.MALE,
+                                                LocalDate.of(2026, 9, 6),
+                                                "v6",
+                                                "v7",
+                                                "v8",
+                                                "v9",
+                                                "v10",
+                                                Boolean.TRUE,
+                                                Elder.MobilityLevel.INDEPENDENT,
+                                                Elder.ContinuityPreference.PREFERRED,
+                                                "v14",
+                                                LocalDateTime.of(
+                                                                2026,
+                                                                9,
+                                                                6,
+                                                                10,
+                                                                15),
+                                                LocalDateTime.of(
+                                                                2026,
+                                                                9,
+                                                                6,
+                                                                10,
+                                                                16)));
+        }
 }

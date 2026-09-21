@@ -23,7 +23,11 @@ final class CarePlanMapper {
 				e.getTotalHours(),
 				e.getPublishedAt(),
 				e.getCreatedAt(),
-				e.getUpdatedAt());
+				e.getUpdatedAt(),
+				e.getStopEffectiveDate(),
+				e.getStopReason(),
+				e.getStoppedByUserId(),
+				e.getStoppedAt());
 	}
 
 	static CarePlanJpaEntity toEntity(CarePlan d) {
@@ -36,6 +40,10 @@ final class CarePlanMapper {
 		e.setStatus(d.status() == null ? null : CarePlanJpaEntity.Status.valueOf(d.status().name()));
 		e.setTotalHours(d.totalHours());
 		e.setPublishedAt(d.publishedAt());
+		e.setStopEffectiveDate(d.stopEffectiveDate());
+		e.setStopReason(d.stopReason());
+		e.setStoppedByUserId(d.stoppedByUserId());
+		e.setStoppedAt(d.stoppedAt());
 		return e;
 	}
 }

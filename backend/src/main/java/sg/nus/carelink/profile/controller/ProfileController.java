@@ -1,5 +1,7 @@
 package sg.nus.carelink.profile.controller;
 
+import java.util.List;
+
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -8,6 +10,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import sg.nus.carelink.profile.application.ProfileService;
+import sg.nus.carelink.profile.controller.dto.ElderListItemResponse;
 import sg.nus.carelink.profile.domain.model.Elder;
 
 /**
@@ -31,5 +34,11 @@ public class ProfileController {
 	@PreAuthorize("hasRole('MANAGER')")
 	public ResponseEntity<Elder> get(@PathVariable Long id) {
 		return ResponseEntity.of(service.findElder(id));
+	}
+
+	@GetMapping
+	@PreAuthorize("hasRole('MANAGER')")
+	public List<ElderListItemResponse> list() {
+		return service.listElders().stream().map(ElderListItemResponse::from).toList();
 	}
 }
