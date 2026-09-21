@@ -1,5 +1,6 @@
 package sg.nus.carelink.incident.domain.repository;
 
+import java.util.List;
 import java.util.Optional;
 
 import sg.nus.carelink.incident.domain.model.IncidentLog;
@@ -14,4 +15,7 @@ public interface IncidentLogRepository {
 	Optional<IncidentLog> findById(Long id);
 
 	IncidentLog save(IncidentLog incidentLog);
+
+	/** The whole timeline of one incident, oldest first. Never filtered: rejected attempts count. */
+	List<IncidentLog> findTimeline(Long incidentId);
 }

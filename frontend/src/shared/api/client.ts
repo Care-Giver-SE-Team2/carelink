@@ -1,53 +1,176 @@
-/**
- * Single place where the front end talks to the backend.
- *
- * Vite proxies /api to http://localhost:8080 in development (see vite.config.ts),
- * so no base URL and no CORS configuration are needed.
- *
- * `credentials: 'include'` matters: the session lives in an HttpOnly cookie, so
- * every request has to carry it. The CSRF token is read from the XSRF-TOKEN
- * cookie and echoed back in a header, which is why that one cookie is readable
- * by script while JSESSIONID is not.
- */
-function csrfToken(): string {
-  const match = document.cookie.match(/(?:^|;\s*)XSRF-TOKEN=([^;]*)/)
-  return match ? decodeURIComponent(match[1]) : ''
-}
-
-/**
- * HTTP failure with its response status and readable message.
- * @author Wang Zhili
- */
 export class ApiError extends Error {
   readonly status: number
+  readonly body: unknown
 
-  constructor(status: number, message: string) {
+  constructor(
+    message: string,
+    status: number,
+    body?: unknown,
+  ) {
     super(message)
     this.name = 'ApiError'
     this.status = status
+    this.body = body
   }
 }
 
 /**
- * Sends a session-authenticated JSON request and accepts empty success responses.
- * @param path API path relative to /api
- * @param init Request method, body, headers and cancellation signal
- * @return Parsed response, or undefined when the response is empty
- * @author Wang Zhili
+ * Shared HTTP client used by CareLink frontend features.
+ *
+ * Requests are sent to /api through the Vite development proxy.
+ * Browser session cookies are included automatically.
+ *
+ * Authentication failures are returned to the calling feature as
+ * ApiError instances. The shared client deliberately does not perform
+ * navigation for a 401 response because different CareLink workflows
+ * may handle authentication failures differently.
  */
-export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
-  const method = (init.method ?? 'GET').toUpperCase()
-  const headers = new Headers(init.headers)
-  headers.set('Accept', 'application/json')
-  if (init.body) headers.set('Content-Type', 'application/json')
-  if (method !== 'GET' && method !== 'HEAD') headers.set('X-XSRF-TOKEN', csrfToken())
+export async function api<T>(
+  path: string,
+  options: RequestInit = {},
+): Promise<T> {
+  const headers = new Headers(options.headers)
 
-  const response = await fetch(`/api${path}`, { ...init, headers, credentials: 'include' })
+  if (
+    options.body !== undefined &&
+    options.body !== null &&
+    !headers.has('Content-Type')
+  ) {
+    headers.set('Content-Type', 'application/json')
+  }
+
+  /*
+   * Spring Security exposes the CSRF token through the XSRF-TOKEN
+   * cookie. State-changing requests send the same value back using
+   * the X-XSRF-TOKEN header.
+   */
+  const method = (options.method ?? 'GET').toUpperCase()
+
+  const stateChanging =
+    method !== 'GET' &&
+    method !== 'HEAD' &&
+    method !== 'OPTIONS'
+
+  if (
+    stateChanging &&
+    !headers.has('X-XSRF-TOKEN')
+  ) {
+    const csrfToken = readCookie('XSRF-TOKEN')
+
+    if (csrfToken) {
+      headers.set(
+        'X-XSRF-TOKEN',
+        decodeURIComponent(csrfToken),
+      )
+    }
+  }
+
+  const response = await fetch(`/api${path}`, {
+    ...options,
+    headers,
+    credentials: 'include',
+  })
 
   if (!response.ok) {
-    const problem = await response.json().catch(() => null)
-    throw new ApiError(response.status, problem?.detail ?? `Request failed with ${response.status}`)
+    const body = await readResponseBody(response)
+
+    throw new ApiError(
+      errorMessage(body, response.status),
+      response.status,
+      body,
+    )
   }
-  const body = await response.text()
-  return body.trim() ? (JSON.parse(body) as T) : (undefined as T)
+
+  /*
+   * Successful endpoints such as CSRF bootstrap and logout may
+   * intentionally return no response body.
+   */
+  if (response.status === 204) {
+    return undefined as T
+  }
+
+  const contentType =
+    response.headers.get('content-type') ?? ''
+
+  if (contentType.includes('application/json')) {
+    return (await response.json()) as T
+  }
+
+  const text = await response.text()
+
+  if (!text) {
+    return undefined as T
+  }
+
+  return text as T
+}
+
+function readCookie(name: string): string | null {
+  const prefix = `${name}=`
+
+  for (const part of document.cookie.split(';')) {
+    const cookie = part.trim()
+
+    if (cookie.startsWith(prefix)) {
+      return cookie.substring(prefix.length)
+    }
+  }
+
+  return null
+}
+
+async function readResponseBody(
+  response: Response,
+): Promise<unknown> {
+  const contentType =
+    response.headers.get('content-type') ?? ''
+
+  try {
+    if (contentType.includes('application/json')) {
+      return await response.json()
+    }
+
+    const text = await response.text()
+
+    return text || null
+  } catch {
+    return null
+  }
+}
+
+function errorMessage(
+  body: unknown,
+  status: number,
+): string {
+  if (
+    body !== null &&
+    typeof body === 'object' &&
+    'message' in body
+  ) {
+    const message = (body as { message?: unknown }).message
+
+    if (
+      typeof message === 'string' &&
+      message.trim()
+    ) {
+      return message
+    }
+  }
+
+  if (
+    typeof body === 'string' &&
+    body.trim()
+  ) {
+    return body
+  }
+
+  if (status === 401) {
+    return 'Authentication is required.'
+  }
+
+  if (status === 403) {
+    return 'You are not authorised to perform this action.'
+  }
+
+  return `Request failed with status ${status}.`
 }

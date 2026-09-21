@@ -621,4 +621,18 @@
     padding: 40px 24px 24px;
     order: 2;
   }
+
+  .signInError {
+  padding: 12px 14px;
+  border: 1px solid #dc2626;
+  border-radius: 8px;
+  background: #fef2f2;
+  color: #b91c1c;
+  font-size: 14px;
+  line-height: 1.4;
+  }
+  .submit:disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
+  }
 }

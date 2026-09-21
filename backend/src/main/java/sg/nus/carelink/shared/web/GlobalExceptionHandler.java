@@ -8,6 +8,7 @@ import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.MissingPathVariableException;
+import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
@@ -88,6 +89,27 @@ class GlobalExceptionHandler {
 	@ExceptionHandler(MissingPathVariableException.class)
 	ProblemDetail onMissingPathVariable(MissingPathVariableException ex) {
 		return ex.isMissingAfterConversion() ? invalidParameter(ex.getVariableName()) : onUnexpected(ex);
+	}
+
+	/**
+	 * Report a required query parameter the caller left out.
+	 *
+	 * <p>Without this the omission reaches the catch-all and comes back as 500, which tells
+	 * the caller the server is broken when in fact the request was incomplete, and writes an
+	 * ERROR with a stack trace into the log for something nobody needs to investigate.
+	 *
+	 * @param ex The parameter the handler method required
+	 * @return A standard 400 problem response naming the missing parameter
+	 *
+	 * @author Wang Ziyu
+	 */
+	@ExceptionHandler(MissingServletRequestParameterException.class)
+	ProblemDetail onMissingRequestParameter(MissingServletRequestParameterException ex) {
+		ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST,
+				"Request is missing a required parameter");
+		problem.setTitle("Invalid request");
+		problem.setProperty("fields", Map.of(ex.getParameterName(), "Required"));
+		return problem;
 	}
 
 	private ProblemDetail invalidParameter(String name) {

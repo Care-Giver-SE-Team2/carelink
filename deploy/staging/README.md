@@ -30,6 +30,28 @@ To freeze the environment for a demonstration, stop the timer on the machine
 (`sudo systemctl stop carelink-update.timer`) and start it again afterwards; pushes to
 main keep publishing images but the VM stops picking them up.
 
+## Demonstration data
+
+The schema starts empty, so nothing can be shown until somebody puts accounts in it.
+Run this once from the repository root on your own machine:
+
+```
+ssh -i ~/.ssh/care-link.pem ubuntu@HOST 'sudo /opt/carelink/load-demo-data.sh'     < backend/src/main/resources/db/demo/demo-seed.sql
+```
+
+It adds three managers, a caregiver, a family member, two elders, a family binding and
+one closed incident with its timeline. Every account is `demo-`prefixed and the password
+is `Demo#2026`. The rows stay in the database afterwards, including across deployments,
+so this is a one-off; run it again only if the database volume is ever recreated.
+
+It only inserts, never deletes, and is written to be safe to run twice.
+
+Deliberately not part of start-up. The seed was a Flyway migration once, and a single
+INSERT that clashed with data already in the database left the application unable to
+start at all - Flyway records the failure and refuses to boot afterwards until the
+record is cleared. Loaded this way a failure prints in your terminal and staging carries
+on serving.
+
 ## The machine
 
 | Item | Value |

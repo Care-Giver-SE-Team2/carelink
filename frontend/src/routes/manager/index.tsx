@@ -3,6 +3,7 @@ import { Route, Routes, useParams } from 'react-router-dom'
 import Today from './pages/Today'
 import Roster from './pages/Roster'
 import Exceptions from './pages/Exceptions'
+import ExceptionDetail from './pages/exceptions/ExceptionDetail'
 import Elders from './pages/Elders'
 import CarePlan from './pages/CarePlan'
 import Caregivers from './pages/Caregivers'
@@ -32,6 +33,7 @@ export default function ManagerHome() {
       <Route index element={<Today />} />
       <Route path="roster" element={<Roster />} />
       <Route path="exceptions" element={<Exceptions />} />
+      <Route path="exceptions/:id" element={<ExceptionDetail />} />
       <Route path="elders" element={<Elders />} />
       <Route path="elders/:elderId" element={<CarePlanRoute />} />
       <Route path="caregivers" element={<Caregivers />} />

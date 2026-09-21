@@ -1,0 +1,340 @@
+/*
+ * Exception queue and take-over workbench.
+ *
+ * Same vocabulary as the rest of the manager console: square corners, 1px
+ * rules, mono for anything a person reads as data (references, clocks,
+ * countdowns, chain rows) and the sans face for the sentences. Tokens come from
+ * shared/theme/theme.css; nothing here invents a colour.
+ */
+
+.page {
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.pageHead {
+  display: flex;
+  align-items: baseline;
+  gap: 16px;
+}
+
+.pageHead h1 {
+  margin: 0;
+}
+
+.meta {
+  font: 400 12px/1 var(--font-mono);
+  color: var(--text-muted);
+  flex: 1;
+}
+
+.textButton {
+  min-height: auto;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  font: 500 12px/1 var(--font-mono);
+  color: var(--text-secondary);
+  text-decoration: underline;
+}
+
+.filters {
+  display: flex;
+  gap: 24px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+.filters label,
+.panel label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font: 500 10px/1 var(--font-mono);
+  letter-spacing: 0.1em;
+  color: var(--text-faint);
+  text-transform: uppercase;
+}
+
+.filters select,
+.panel select,
+.panel textarea {
+  min-height: var(--tap);
+  padding: 0 8px;
+  border: 1px solid var(--filter-border);
+  border-radius: var(--radius);
+  background: var(--bg);
+  font: 400 13.5px/1 var(--font);
+  color: var(--text);
+}
+
+.panel textarea {
+  min-height: auto;
+  padding: 8px;
+  line-height: 1.5;
+  resize: vertical;
+}
+
+.note {
+  font: 400 13px/1.6 var(--font);
+  color: var(--text-muted);
+  margin: 0;
+}
+
+.feedback {
+  border: 1px solid var(--danger);
+  background: var(--danger-tint);
+  padding: 12px 16px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.feedbackText {
+  margin: 0;
+  flex: 1;
+  font: 400 13.5px/1.5 var(--font);
+  color: var(--text);
+}
+
+.inlineError {
+  margin: 0;
+  border-left: 2px solid var(--danger);
+  padding: 6px 12px;
+  background: var(--danger-tint);
+  font: 400 13.5px/1.5 var(--font);
+}
+
+/* ------------------------------------------------------------------ queue --- */
+
+.cards {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.card {
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--text);
+  padding: 14px 16px;
+  background: var(--bg);
+}
+
+.cardHead {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.severityTag {
+  padding: 3px 6px;
+  border: 1px solid var(--text);
+  font: 500 10px/1 var(--font-mono);
+  letter-spacing: 0.08em;
+}
+
+.statusTag {
+  font: 500 10px/1 var(--font-mono);
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+  text-transform: uppercase;
+}
+
+.reference {
+  font: 500 12px/1 var(--font-mono);
+  color: var(--text-secondary);
+}
+
+.countdown {
+  margin-left: auto;
+  font: 500 13px/1 var(--font-mono);
+  color: var(--text);
+}
+
+.cardTitle {
+  margin: 10px 0 4px;
+  font: 600 16px/1.3 var(--font);
+}
+
+.cardDescription {
+  margin: 0 0 8px;
+  font: 400 13.5px/1.5 var(--font);
+  color: var(--text-secondary);
+}
+
+.cardMeta {
+  margin: 0;
+  font: 400 12px/1.6 var(--font-mono);
+  color: var(--text-muted);
+}
+
+.cardActions,
+.actions,
+.panelActions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 12px;
+}
+
+.linkButton {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--tap);
+  padding: 0 var(--gap);
+  border: 1px solid var(--border);
+  font: 400 13.5px/1 var(--font);
+  color: var(--text);
+  text-decoration: none;
+}
+
+/* -------------------------------------------------------------- workbench --- */
+
+.workbench {
+  display: flex;
+  align-items: flex-start;
+  gap: 24px;
+  padding: 24px;
+}
+
+.main {
+  flex: 2;
+  min-width: 0;
+}
+
+.side {
+  flex: 1;
+  min-width: 260px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.headerNote {
+  font: 400 12px/1 var(--font-mono);
+  color: var(--text-muted);
+}
+
+.sectionHeading {
+  margin: 24px 0 10px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--border);
+  font: 500 10px/1.4 var(--font-mono);
+  letter-spacing: 0.1em;
+  color: var(--text-faint);
+  text-transform: uppercase;
+}
+
+.panel {
+  margin-top: 16px;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.panelHeading {
+  margin: 0;
+  font: 600 14px/1.3 var(--font);
+}
+
+.steps {
+  margin: 8px 0 0;
+  padding-left: 18px;
+  font: 400 13px/1.6 var(--font);
+  color: var(--text-secondary);
+}
+
+.timeline {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.timelineRow {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border-light);
+}
+
+.timelineTime {
+  font: 400 12px/1.4 var(--font-mono);
+  color: var(--text-muted);
+  width: 68px;
+  flex-shrink: 0;
+}
+
+.timelineMark {
+  width: 7px;
+  height: 7px;
+  background: var(--text);
+  flex-shrink: 0;
+}
+
+.timelineTitle {
+  display: block;
+  font: 500 13.5px/1.4 var(--font);
+}
+
+.timelineDetail {
+  display: block;
+  font: 400 12px/1.6 var(--font-mono);
+  color: var(--text-muted);
+}
+
+/* --------------------------------------------------------- escalation chain --- */
+
+.sidePanel {
+  border: 1px solid var(--border);
+  padding: 12px 16px;
+}
+
+.sidePanel .sectionHeading {
+  margin-top: 0;
+}
+
+.levels {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+}
+
+.level,
+.levelCurrent {
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border-light);
+}
+
+/* The rung holding the incident right now is the one fact this panel exists
+   to show, so it is the only row that is not grey. */
+.levelCurrent {
+  border-left: 2px solid var(--text);
+  padding-left: 8px;
+  background: var(--accent-tint);
+}
+
+.levelTier {
+  display: block;
+  font: 500 12px/1.4 var(--font-mono);
+  color: var(--text-secondary);
+}
+
+.levelName {
+  display: block;
+  font: 500 13.5px/1.4 var(--font);
+}
+
+.levelMeta {
+  display: block;
+  font: 400 11px/1.4 var(--font-mono);
+  color: var(--text-muted);
+}
