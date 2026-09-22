@@ -8,7 +8,8 @@ import { countTree, formatHoursMinutes, weeklyHoursOfTree } from '../lib/planTre
 import { useElders } from '../lib/useElders'
 import { getAssignment, removeAssignment } from '../data/caregivers'
 import { AssignCaregiverModal } from './AssignCaregiverModal'
-import { RemoveCaregiverModal } from './RemoveCaregiverModal'
+import { RemoveCaregiverModal } from '../components/RemoveCaregiverModal'
+import { StopCarePlanModal } from '../components/StopCarePlanModal'
 import styles from './Elders.module.css'
 
 type PlanFilter = 'all' | PlanStatus
@@ -55,6 +56,7 @@ export default function Elders() {
   const [hoveredId, setHoveredId] = useState<string | null>(null)
   const [assignTarget, setAssignTarget] = useState<ElderRow | null>(null)
   const [removeTarget, setRemoveTarget] = useState<ElderRow | null>(null)
+  const [stopTarget, setStopTarget] = useState<ElderRow | null>(null)
 
   const { data: elders = [], isLoading, isError, error } = useElders()
 
@@ -231,7 +233,7 @@ export default function Elders() {
                       <div>
                         <div className={styles.rowName}>{e.name}</div>
                         <div className={[styles.rowMeta, isSelected && styles.selected].filter(Boolean).join(' ')}>
-                          {e.id} · {e.age} · {e.street}
+                          {e.age} y.o. — {e.street}
                         </div>
                       </div>
                     </div>
@@ -278,9 +280,7 @@ export default function Elders() {
                 <div>
                   <div className={styles.selectedName}>{selected.name}</div>
                   <div className={styles.selectedMeta}>
-                    {selected.id} · {selected.age}
-                    <br />
-                    {selected.street || 'no address on file'}
+                    {selected.age} y.o. — {selected.street || 'no address on file'}
                   </div>
                 </div>
               </div>
@@ -372,10 +372,7 @@ export default function Elders() {
               </div>
 
               {selected.planStatus === 'published' && (
-                <button
-                  className={styles.dangerBtn}
-                  onClick={() => navigate(`/manager/elders/${selected.id}`)}
-                >
+                <button className={styles.dangerBtn} onClick={() => setStopTarget(selected)}>
                   Stop care plan
                 </button>
               )}
@@ -408,6 +405,17 @@ export default function Elders() {
             removeAssignment(removeTarget.id)
             queryClient.invalidateQueries({ queryKey: ['elders'] })
             setRemoveTarget(null)
+          }}
+        />
+      )}
+
+      {stopTarget && (
+        <StopCarePlanModal
+          elder={stopTarget}
+          onClose={() => setStopTarget(null)}
+          onStopped={() => {
+            queryClient.invalidateQueries({ queryKey: ['elders'] })
+            setStopTarget(null)
           }}
         />
       )}

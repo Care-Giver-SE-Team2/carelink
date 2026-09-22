@@ -24,9 +24,9 @@ import {
   fetchCarePlanNodes,
   fetchLatestCarePlan,
   publishCarePlan,
-  stopCarePlan,
 } from '../../../shared/api/careplan'
 import type { CarePlanNodeResponse, PlanNodePayload } from '../../../shared/api/careplan'
+import { StopCarePlanModal } from '../components/StopCarePlanModal'
 import styles from './CarePlan.module.css'
 
 /** Placeholder until real roster data exists — see the publish modal copy. */
@@ -70,11 +70,6 @@ type DayState = { active: boolean; time: string; minutes: string }
 
 function initialDayState(): Record<string, DayState> {
   return Object.fromEntries(DAYS.map((d) => [d.key, { active: false, time: '8:00 AM', minutes: '15' }]))
-}
-
-/** Local-date "yyyy-MM-dd", matching what a <input type="date"> and java.time.LocalDate both expect. */
-function todayIso(): string {
-  return new Date().toISOString().slice(0, 10)
 }
 
 /** Pre-populates the day/minutes editor from an existing task's visits, for the edit panel. */
@@ -176,13 +171,8 @@ export default function CarePlan() {
   const [publishing, setPublishing] = useState(false)
   const [publishError, setPublishError] = useState<string | null>(null)
 
-  const [carePlanId, setCarePlanId] = useState<number | null>(null)
   const [stopInfo, setStopInfo] = useState<{ effectiveDate: string; reason: string } | null>(null)
   const [showStopModal, setShowStopModal] = useState(false)
-  const [stopEffectiveDate, setStopEffectiveDate] = useState('')
-  const [stopReason, setStopReason] = useState('')
-  const [stopping, setStopping] = useState(false)
-  const [stopError, setStopError] = useState<string | null>(null)
 
   const [addPanelOpen, setAddPanelOpen] = useState(false)
   const [newSubPlanName, setNewSubPlanName] = useState('')
@@ -241,7 +231,6 @@ export default function CarePlan() {
   useEffect(() => {
     if (!latestPlan || !planNodes) return
     setTree(fromCarePlanNodeResponses(planNodes))
-    setCarePlanId(latestPlan.id)
     setVersion(latestPlan.version)
     setStartDate(latestPlan.startDate ?? '')
     if (latestPlan.status === 'PUBLISHED') {
@@ -409,7 +398,6 @@ export default function CarePlan() {
         { version: published.version, date: 'today', summary: 'published from console' },
         ...prev,
       ])
-      setCarePlanId(published.id)
       setVersion(published.version)
       setStatus('published')
       setPriorPublishedHours(undefined)
@@ -423,29 +411,7 @@ export default function CarePlan() {
   }
 
   function openStopModal() {
-    setStopEffectiveDate(todayIso())
-    setStopReason('')
-    setStopError(null)
     setShowStopModal(true)
-  }
-
-  async function stopPlan() {
-    if (!stopReason.trim() || !stopEffectiveDate || carePlanId === null) return
-    setStopping(true)
-    setStopError(null)
-    try {
-      const stopped = await stopCarePlan(carePlanId, stopEffectiveDate, stopReason.trim())
-      setStatus('stopped')
-      setStopInfo({
-        effectiveDate: stopped.stopEffectiveDate ?? stopEffectiveDate,
-        reason: stopped.stopReason ?? stopReason.trim(),
-      })
-      setShowStopModal(false)
-    } catch (err) {
-      setStopError(err instanceof Error ? err.message : 'Could not stop this plan.')
-    } finally {
-      setStopping(false)
-    }
   }
 
   function renderSubPlan(node: SubPlanNode) {
@@ -869,47 +835,18 @@ export default function CarePlan() {
       )}
 
       {showStopModal && (
-        <div className={modalStyles.modalOverlay} onClick={() => setShowStopModal(false)}>
-          <div className={modalStyles.modalBox} onClick={(e) => e.stopPropagation()}>
-            <div className={`${modalStyles.modalEyebrow} ${modalStyles.danger}`}>Stop care plan</div>
-            <div className={modalStyles.modalTitle}>Stop the care plan for {elder.name}?</div>
-            <p className={modalStyles.modalBodyProse}>
-              The plan itself and its history are kept — this doesn't delete anything, and you can
-              create a new plan later.
-            </p>
-            <div className={styles.stepLabel}>Effective from</div>
-            <input
-              className={styles.nameInput}
-              type="date"
-              value={stopEffectiveDate}
-              onChange={(e) => setStopEffectiveDate(e.target.value)}
-            />
-            <div className={styles.stepLabel}>Reason (required)</div>
-            <textarea
-              className={styles.stopReasonInput}
-              value={stopReason}
-              onChange={(e) => setStopReason(e.target.value)}
-              placeholder="Why is this plan stopping?"
-            />
-            {stopError && <p className={modalStyles.modalBodyProse}>{stopError}</p>}
-            <div className={modalStyles.modalActions}>
-              <button
-                className={`${modalStyles.modalBtn} ${modalStyles.secondary}`}
-                disabled={stopping}
-                onClick={() => setShowStopModal(false)}
-              >
-                Cancel
-              </button>
-              <button
-                className={`${modalStyles.modalBtn} ${modalStyles.danger}`}
-                disabled={stopping || !stopReason.trim() || !stopEffectiveDate}
-                onClick={stopPlan}
-              >
-                {stopping ? 'Stopping…' : 'Stop care plan'}
-              </button>
-            </div>
-          </div>
-        </div>
+        <StopCarePlanModal
+          elder={elder}
+          onClose={() => setShowStopModal(false)}
+          onStopped={(stopped) => {
+            setStatus('stopped')
+            setStopInfo({
+              effectiveDate: stopped.stopEffectiveDate ?? '',
+              reason: stopped.stopReason ?? '',
+            })
+            setShowStopModal(false)
+          }}
+        />
       )}
 
       {deleteTarget && (

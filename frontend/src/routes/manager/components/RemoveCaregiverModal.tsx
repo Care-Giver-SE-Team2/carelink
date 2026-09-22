@@ -1,4 +1,4 @@
-import modalStyles from '../components/ConfirmModal.module.css'
+import modalStyles from './ConfirmModal.module.css'
 
 type Props = {
   caregiverName: string
