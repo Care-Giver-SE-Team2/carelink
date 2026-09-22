@@ -1,5 +1,6 @@
 import { fetchElderList } from '../../../shared/api/profile'
 import { ageFromDateOfBirth } from '../lib/age'
+import { primaryCaregiverName } from './caregivers'
 
 export type PlanStatus = 'published' | 'draft' | 'none'
 
@@ -16,9 +17,10 @@ export type ElderRow = {
 }
 
 /**
- * GET /api/elders, mapped down to ElderRow. primaryCaregiver and nextVisitAt
- * aren't sourced yet (rostering/visit modules), so they're always null until
- * those are wired up too.
+ * GET /api/elders, mapped down to ElderRow. primaryCaregiver is sourced from
+ * the local assignment store (data/caregivers.ts) until a real assignment
+ * endpoint exists. nextVisitAt isn't sourced yet (visit module), so it's
+ * always null until that's wired up too.
  */
 export async function fetchElders(): Promise<ElderRow[]> {
   const rows = await fetchElderList()
@@ -30,7 +32,7 @@ export async function fetchElders(): Promise<ElderRow[]> {
     sector: r.sector ?? '',
     planStatus: r.planStatus,
     planVersion: r.planVersion,
-    primaryCaregiver: null,
+    primaryCaregiver: primaryCaregiverName(String(r.id)),
     nextVisitAt: null,
   }))
 }

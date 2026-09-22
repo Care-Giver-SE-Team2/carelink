@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom'
 import { Link, useParams } from 'react-router-dom'
 import { ManagerShell } from '../components/ManagerShell'
 import headerStyles from '../components/Header.module.css'
+import modalStyles from '../components/ConfirmModal.module.css'
 import { ACTIVITY_CATALOG, CARE_PLANS, ELDER_PROFILES } from '../data/carePlans'
 import type { EvidenceType, PlanNode, SubPlanNode, TaskNode } from '../data/carePlans'
 import { useElder } from '../lib/useElder'
@@ -794,24 +795,28 @@ export default function CarePlan() {
       </div>
 
       {showPublishModal && (
-        <div className={styles.modalOverlay} onClick={() => setShowPublishModal(false)}>
-          <div className={styles.modalBox} onClick={(e) => e.stopPropagation()}>
-            <div className={styles.modalTitle}>Publish care plan</div>
-            <p className={styles.modalBody}>
+        <div className={modalStyles.modalOverlay} onClick={() => setShowPublishModal(false)}>
+          <div className={modalStyles.modalBox} onClick={(e) => e.stopPropagation()}>
+            <div className={modalStyles.modalTitle}>Publish care plan</div>
+            <p className={modalStyles.modalBody}>
               This publishes v{version + 1} at {formatHoursFixed(totalHours)}/week
               {priorPublishedHours !== undefined ? ` (from ${formatHoursFixed(priorPublishedHours)})` : ''}.
               Publishing re-runs the roster for the next {MOCK_AFFECTED_WEEKS} weeks.
             </p>
-            {publishError && <p className={styles.modalBodyProse}>{publishError}</p>}
-            <div className={styles.modalActions}>
+            {publishError && <p className={modalStyles.modalBodyProse}>{publishError}</p>}
+            <div className={modalStyles.modalActions}>
               <button
-                className={`${styles.modalBtn} ${styles.secondary}`}
+                className={`${modalStyles.modalBtn} ${modalStyles.secondary}`}
                 disabled={publishing}
                 onClick={() => setShowPublishModal(false)}
               >
                 Cancel
               </button>
-              <button className={`${styles.modalBtn} ${styles.primary}`} disabled={publishing} onClick={publish}>
+              <button
+                className={`${modalStyles.modalBtn} ${modalStyles.primary}`}
+                disabled={publishing}
+                onClick={publish}
+              >
                 {publishing ? 'Publishing…' : 'Publish'}
               </button>
             </div>
@@ -820,11 +825,11 @@ export default function CarePlan() {
       )}
 
       {showStopModal && (
-        <div className={styles.modalOverlay} onClick={() => setShowStopModal(false)}>
-          <div className={styles.modalBox} onClick={(e) => e.stopPropagation()}>
-            <div className={styles.modalEyebrow}>Stop care plan</div>
-            <div className={styles.modalTitle}>Stop the care plan for {elder.name}?</div>
-            <p className={styles.modalBodyProse}>
+        <div className={modalStyles.modalOverlay} onClick={() => setShowStopModal(false)}>
+          <div className={modalStyles.modalBox} onClick={(e) => e.stopPropagation()}>
+            <div className={`${modalStyles.modalEyebrow} ${modalStyles.danger}`}>Stop care plan</div>
+            <div className={modalStyles.modalTitle}>Stop the care plan for {elder.name}?</div>
+            <p className={modalStyles.modalBodyProse}>
               The plan itself and its history are kept — this doesn't delete anything, and you can
               create a new plan later.
             </p>
@@ -842,17 +847,17 @@ export default function CarePlan() {
               onChange={(e) => setStopReason(e.target.value)}
               placeholder="Why is this plan stopping?"
             />
-            {stopError && <p className={styles.modalBodyProse}>{stopError}</p>}
-            <div className={styles.modalActions}>
+            {stopError && <p className={modalStyles.modalBodyProse}>{stopError}</p>}
+            <div className={modalStyles.modalActions}>
               <button
-                className={`${styles.modalBtn} ${styles.secondary}`}
+                className={`${modalStyles.modalBtn} ${modalStyles.secondary}`}
                 disabled={stopping}
                 onClick={() => setShowStopModal(false)}
               >
                 Cancel
               </button>
               <button
-                className={`${styles.modalBtn} ${styles.danger}`}
+                className={`${modalStyles.modalBtn} ${modalStyles.danger}`}
                 disabled={stopping || !stopReason.trim() || !stopEffectiveDate}
                 onClick={stopPlan}
               >
@@ -864,22 +869,25 @@ export default function CarePlan() {
       )}
 
       {deleteTarget && (
-        <div className={styles.modalOverlay} onClick={() => setDeleteTarget(null)}>
-          <div className={styles.modalBox} onClick={(e) => e.stopPropagation()}>
-            <div className={styles.modalEyebrow}>Delete sub-plan</div>
-            <div className={styles.modalTitle}>Delete "{deleteTarget.name}"?</div>
-            <p className={styles.modalBodyProse}>
+        <div className={modalStyles.modalOverlay} onClick={() => setDeleteTarget(null)}>
+          <div className={modalStyles.modalBox} onClick={(e) => e.stopPropagation()}>
+            <div className={`${modalStyles.modalEyebrow} ${modalStyles.danger}`}>Delete sub-plan</div>
+            <div className={modalStyles.modalTitle}>Delete "{deleteTarget.name}"?</div>
+            <p className={modalStyles.modalBodyProse}>
               This sub-plan has {deleteTarget.children.length}{' '}
               {deleteTarget.children.length === 1 ? 'task' : 'tasks'} totalling{' '}
               {formatHoursFixed(weeklyHours(deleteTarget))}/week. Deleting it removes{' '}
               {deleteTarget.children.length === 1 ? 'that task' : 'all of them'} from the care plan — this
               can't be undone.
             </p>
-            <div className={styles.modalActions}>
-              <button className={`${styles.modalBtn} ${styles.secondary}`} onClick={() => setDeleteTarget(null)}>
+            <div className={modalStyles.modalActions}>
+              <button
+                className={`${modalStyles.modalBtn} ${modalStyles.secondary}`}
+                onClick={() => setDeleteTarget(null)}
+              >
                 Cancel
               </button>
-              <button className={`${styles.modalBtn} ${styles.danger}`} onClick={confirmDeleteSubPlan}>
+              <button className={`${modalStyles.modalBtn} ${modalStyles.danger}`} onClick={confirmDeleteSubPlan}>
                 Delete sub-plan
               </button>
             </div>

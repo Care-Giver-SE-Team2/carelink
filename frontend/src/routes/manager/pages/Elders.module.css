@@ -247,7 +247,7 @@
 }
 
 .rowCaregiver.unassigned {
-  color: var(--text-faint);
+  color: var(--danger);
 }
 
 .rowNextVisit {
@@ -389,6 +389,77 @@
 
 .contactName {
   color: var(--text);
+}
+
+.cardHeaderActions {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.cardLink {
+  min-height: auto;
+  padding: 0;
+  border: none;
+  background: none;
+  font: 500 11px/1 var(--font);
+  color: var(--accent);
+}
+
+.cardLink:hover {
+  color: var(--accent-hover);
+}
+
+.cardLinkDanger {
+  min-height: auto;
+  padding: 0;
+  border: none;
+  background: none;
+  font: 500 11px/1 var(--font);
+  color: var(--danger);
+}
+
+.cardLinkDanger:hover {
+  text-decoration: underline;
+}
+
+.caregiverRow {
+  margin-top: 9px;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+
+.caregiverAvatarSm {
+  width: 26px;
+  height: 26px;
+  flex: none;
+  background: repeating-linear-gradient(45deg, #f0f0ee 0 6px, #e4e4e0 6px 12px);
+  border: 1px solid #d8d8d4;
+}
+
+.caregiverName {
+  font: 400 11.5px/1.4 var(--font-mono);
+  color: var(--text-secondary);
+}
+
+.caregiverSince {
+  color: var(--text-faint);
+}
+
+.assignCaregiverBtn {
+  margin-top: 14px;
+  border: 1px solid var(--accent);
+  background: var(--bg);
+  color: var(--accent);
+  padding: 13px 0;
+  text-align: center;
+  font: 600 13px/1 var(--font);
+  min-height: auto;
+}
+
+.assignCaregiverBtn:hover {
+  background: var(--accent-tint);
 }
 
 .exceptionBanner {

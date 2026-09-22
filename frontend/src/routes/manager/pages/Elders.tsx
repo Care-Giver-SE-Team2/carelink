@@ -1,11 +1,15 @@
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useQueryClient } from '@tanstack/react-query'
 import { ManagerShell } from '../components/ManagerShell'
 import headerStyles from '../components/Header.module.css'
 import type { ElderRow, PlanStatus } from '../data/elders'
 import { CARE_PLANS } from '../data/carePlans'
 import { countTree, formatHoursMinutes, weeklyHoursOfTree } from '../lib/planTree'
 import { useElders } from '../lib/useElders'
+import { getAssignment, removeAssignment } from '../data/caregivers'
+import { AssignCaregiverModal } from './AssignCaregiverModal'
+import { RemoveCaregiverModal } from './RemoveCaregiverModal'
 import styles from './Elders.module.css'
 
 type PlanFilter = 'all' | PlanStatus
@@ -41,19 +45,17 @@ function planBadgeLabel(status: PlanStatus, version: number | null): string {
   return 'NO PLAN YET'
 }
 
-/**
- * Elders index (1c) — UC-MG01 step one. A manager searches for an elder,
- * previews that elder's plan in the rail, then opens it (routes to
- * CarePlan, 1d). See design_handoff_care_plan_authoring/README.md.
- */
 export default function Elders() {
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
   const [query, setQuery] = useState('')
   const [sector, setSector] = useState('all')
   const [planFilter, setPlanFilter] = useState<PlanFilter>('all')
   const [sort, setSort] = useState<SortOrder>('name')
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [hoveredId, setHoveredId] = useState<string | null>(null)
+  const [assignTarget, setAssignTarget] = useState<ElderRow | null>(null)
+  const [removeTarget, setRemoveTarget] = useState<ElderRow | null>(null)
 
   const { data: elders = [], isLoading, isError, error } = useElders()
 
@@ -91,6 +93,7 @@ export default function Elders() {
     ? elders.find((e) => e.id === selectedId)
     : undefined
   const selectedPlan = selected ? CARE_PLANS[selected.id] : undefined
+  const selectedAssignment = selected ? getAssignment(selected.id) : undefined
 
   function clearFilters() {
     setQuery('')
@@ -336,6 +339,31 @@ export default function Elders() {
                 </div>
               </div>
 
+              {selected.primaryCaregiver && (
+                <div className={styles.card}>
+                  <div className={styles.cardHeaderRow}>
+                    <span className={styles.cardTitle}>Primary caregiver</span>
+                    <div className={styles.cardHeaderActions}>
+                      <button className={styles.cardLink} onClick={() => setAssignTarget(selected)}>
+                        Assign…
+                      </button>
+                      <button className={styles.cardLinkDanger} onClick={() => setRemoveTarget(selected)}>
+                        Remove
+                      </button>
+                    </div>
+                  </div>
+                  <div className={styles.caregiverRow}>
+                    <div className={styles.caregiverAvatarSm} />
+                    <div className={styles.caregiverName}>
+                      {selected.primaryCaregiver}
+                      {selectedAssignment && (
+                        <span className={styles.caregiverSince}> · since {selectedAssignment.since}</span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+
               <div className={styles.actions}>
                 <button
                   className={styles.primaryBtn}
@@ -345,6 +373,12 @@ export default function Elders() {
                 </button>
                 <button className={styles.secondaryBtn}>View visit history</button>
               </div>
+
+              {!selected.primaryCaregiver && selected.planStatus !== 'none' && (
+                <button className={styles.assignCaregiverBtn} onClick={() => setAssignTarget(selected)}>
+                  Assign caregiver
+                </button>
+              )}
 
               {selected.planStatus === 'published' && (
                 <button
@@ -358,6 +392,34 @@ export default function Elders() {
           )}
         </div>
       </div>
+
+      {assignTarget && (
+        <AssignCaregiverModal
+          elder={assignTarget}
+          onClose={() => setAssignTarget(null)}
+          onAssign={() => {
+            queryClient.invalidateQueries({ queryKey: ['elders'] })
+            setAssignTarget(null)
+          }}
+          onRemove={() => {
+            queryClient.invalidateQueries({ queryKey: ['elders'] })
+            setAssignTarget(null)
+          }}
+        />
+      )}
+
+      {removeTarget && removeTarget.primaryCaregiver && (
+        <RemoveCaregiverModal
+          caregiverName={removeTarget.primaryCaregiver}
+          elderName={removeTarget.name}
+          onCancel={() => setRemoveTarget(null)}
+          onConfirm={() => {
+            removeAssignment(removeTarget.id)
+            queryClient.invalidateQueries({ queryKey: ['elders'] })
+            setRemoveTarget(null)
+          }}
+        />
+      )}
     </ManagerShell>
   )
 }
