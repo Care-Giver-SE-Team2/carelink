@@ -24,6 +24,7 @@ final class CarePlanMapper {
 				e.getPublishedAt(),
 				e.getCreatedAt(),
 				e.getUpdatedAt(),
+				e.getStartDate(),
 				e.getStopEffectiveDate(),
 				e.getStopReason(),
 				e.getStoppedByUserId(),
@@ -40,6 +41,7 @@ final class CarePlanMapper {
 		e.setStatus(d.status() == null ? null : CarePlanJpaEntity.Status.valueOf(d.status().name()));
 		e.setTotalHours(d.totalHours());
 		e.setPublishedAt(d.publishedAt());
+		e.setStartDate(d.startDate());
 		e.setStopEffectiveDate(d.stopEffectiveDate());
 		e.setStopReason(d.stopReason());
 		e.setStoppedByUserId(d.stoppedByUserId());

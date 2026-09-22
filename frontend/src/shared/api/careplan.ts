@@ -12,6 +12,7 @@ export type CarePlanResponse = {
   publishedAt: string | null
   createdAt: string
   updatedAt: string
+  startDate: string | null
   stopEffectiveDate: string | null
   stopReason: string | null
   stoppedByUserId: number | null
@@ -58,10 +59,15 @@ export function createCarePlanDraft(elderId: string | number): Promise<CarePlanR
   })
 }
 
-export function publishCarePlan(carePlanId: number, nodes: PlanNodePayload[]): Promise<CarePlanResponse> {
+/** startDate as an ISO "yyyy-MM-dd" string, matching java.time.LocalDate's JSON form. */
+export function publishCarePlan(
+  carePlanId: number,
+  startDate: string,
+  nodes: PlanNodePayload[],
+): Promise<CarePlanResponse> {
   return api<CarePlanResponse>(`/care-plans/${carePlanId}/publish`, {
     method: 'POST',
-    body: JSON.stringify({ nodes }),
+    body: JSON.stringify({ startDate, nodes }),
   })
 }
 

@@ -110,6 +110,34 @@
   margin-top: 6px;
 }
 
+.startsRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 9px;
+}
+
+.startsLabel {
+  font: 500 9px/1 var(--font-mono);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+
+.startsInput {
+  padding: 4px 7px;
+  border: 1px solid var(--text);
+  font: 500 11.5px/1.2 var(--font);
+  background: var(--bg);
+  min-height: auto;
+}
+
+.startsInput:disabled {
+  border-color: var(--border-light);
+  background: var(--surface-2);
+  color: var(--text-faint);
+}
+
 .planActions {
   display: flex;
   gap: 8px;
@@ -351,9 +379,9 @@
 
 .dayRow {
   display: grid;
-  grid-template-columns: 28px 1fr;
+  grid-template-columns: 28px 62px 1fr;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
   padding: 6px 12px;
 }
 
@@ -375,10 +403,26 @@
   color: var(--bg);
 }
 
+.dayTimeInput {
+  width: 62px;
+  padding: 5px 6px;
+  border: 1px solid var(--text);
+  font: 500 11px/1 var(--font-mono);
+  text-align: center;
+  min-height: auto;
+}
+
+.dayTimeInput:disabled {
+  border-color: var(--border-light);
+  background: var(--surface-2);
+  color: #c5c5c0;
+}
+
 .dayMinutes {
   display: flex;
   align-items: center;
   gap: 4px;
+  justify-self: end;
 }
 
 .dayMinutesInput {

@@ -56,12 +56,25 @@ class CarePlanTest {
 				5L, 10L, 1L, null, 2, CarePlan.Status.DRAFT,
 				null, null, LocalDateTime.now(), LocalDateTime.now());
 
-		CarePlan published = draft.publish(new BigDecimal("6.50"));
+		CarePlan published = draft.publish(LocalDate.of(2026, 4, 1), new BigDecimal("6.50"));
 
 		assertThat(published.status()).isEqualTo(CarePlan.Status.PUBLISHED);
 		assertThat(published.totalHours()).isEqualByComparingTo("6.50");
 		assertThat(published.publishedAt()).isNotNull();
+		assertThat(published.startDate()).isEqualTo(LocalDate.of(2026, 4, 1));
 		assertThat(published.id()).isEqualTo(draft.id());
+	}
+
+	@Test
+	void publishingWithoutAStartDateIsRejected() {
+		CarePlan draft = new CarePlan(
+				5L, 10L, 1L, null, 2, CarePlan.Status.DRAFT,
+				null, null, LocalDateTime.now(), LocalDateTime.now());
+
+		assertThatThrownBy(() -> draft.publish(null, new BigDecimal("6.50")))
+				.isInstanceOf(BusinessRuleViolation.class)
+				.extracting(ex -> ((BusinessRuleViolation) ex).code())
+				.isEqualTo("CARE_PLAN_START_DATE_REQUIRED");
 	}
 
 	@Test
@@ -70,22 +83,24 @@ class CarePlanTest {
 				5L, 10L, 1L, null, 2, CarePlan.Status.PUBLISHED,
 				new BigDecimal("6.50"), LocalDateTime.now(), LocalDateTime.now(), LocalDateTime.now());
 
-		assertThatThrownBy(() -> alreadyPublished.publish(new BigDecimal("7.00")))
+		assertThatThrownBy(() -> alreadyPublished.publish(LocalDate.of(2026, 4, 1), new BigDecimal("7.00")))
 				.isInstanceOf(BusinessRuleViolation.class)
 				.extracting(ex -> ((BusinessRuleViolation) ex).code())
 				.isEqualTo("CARE_PLAN_NOT_DRAFT");
 	}
 
 	@Test
-	void supersedeMarksAPublishedPlanAsSuperseded() {
+	void supersedeMarksAPublishedPlanAsSupersededAndKeepsItsStartDate() {
 		CarePlan published = new CarePlan(
 				5L, 10L, 1L, null, 2, CarePlan.Status.PUBLISHED,
-				new BigDecimal("6.50"), LocalDateTime.now(), LocalDateTime.now(), LocalDateTime.now());
+				new BigDecimal("6.50"), LocalDateTime.now(), LocalDateTime.now(), LocalDateTime.now(),
+				LocalDate.of(2026, 4, 1), null, null, null, null);
 
 		CarePlan superseded = published.supersede();
 
 		assertThat(superseded.status()).isEqualTo(CarePlan.Status.SUPERSEDED);
 		assertThat(superseded.id()).isEqualTo(published.id());
+		assertThat(superseded.startDate()).isEqualTo(LocalDate.of(2026, 4, 1));
 	}
 
 	@Test

@@ -73,6 +73,10 @@ public class CarePlanJpaEntity {
 	@Column(name = "updated_at", nullable = false, insertable = false, updatable = false)
 	private LocalDateTime updatedAt;
 
+	/** when care under this plan begins; required to publish */
+	@Column(name = "start_date")
+	private LocalDate startDate;
+
 	/** from this date the plan is no longer active */
 	@Column(name = "stop_effective_date")
 	private LocalDate stopEffectiveDate;
@@ -160,6 +164,14 @@ public class CarePlanJpaEntity {
 
 	public LocalDateTime getUpdatedAt() {
 		return updatedAt;
+	}
+
+	public LocalDate getStartDate() {
+		return startDate;
+	}
+
+	public void setStartDate(LocalDate startDate) {
+		this.startDate = startDate;
 	}
 
 	public LocalDate getStopEffectiveDate() {
