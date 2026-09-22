@@ -25,6 +25,7 @@ class CarePlanMapperTest {
 		entity.setStatus(CarePlanJpaEntity.Status.DRAFT);
 		entity.setTotalHours(new BigDecimal("7.5"));
 		entity.setPublishedAt(LocalDateTime.of(2026, 9, 6, 10, 8));
+		entity.setStartDate(LocalDate.of(2026, 4, 1));
 		entity.setStopEffectiveDate(LocalDate.of(2026, 9, 22));
 		entity.setStopReason("Elder moved away");
 		entity.setStoppedByUserId(9L);
@@ -39,6 +40,7 @@ class CarePlanMapperTest {
 		assertThat(domain.status().name()).isEqualTo(entity.getStatus().name());
 		assertThat(domain.totalHours()).isEqualTo(entity.getTotalHours());
 		assertThat(domain.publishedAt()).isEqualTo(entity.getPublishedAt());
+		assertThat(domain.startDate()).isEqualTo(entity.getStartDate());
 		assertThat(domain.stopEffectiveDate()).isEqualTo(entity.getStopEffectiveDate());
 		assertThat(domain.stopReason()).isEqualTo(entity.getStopReason());
 		assertThat(domain.stoppedByUserId()).isEqualTo(entity.getStoppedByUserId());
@@ -53,6 +55,7 @@ class CarePlanMapperTest {
 		assertThat(back.getStatus()).isEqualTo(entity.getStatus());
 		assertThat(back.getTotalHours()).isEqualTo(entity.getTotalHours());
 		assertThat(back.getPublishedAt()).isEqualTo(entity.getPublishedAt());
+		assertThat(back.getStartDate()).isEqualTo(entity.getStartDate());
 		assertThat(back.getStopEffectiveDate()).isEqualTo(entity.getStopEffectiveDate());
 		assertThat(back.getStopReason()).isEqualTo(entity.getStopReason());
 		assertThat(back.getStoppedByUserId()).isEqualTo(entity.getStoppedByUserId());

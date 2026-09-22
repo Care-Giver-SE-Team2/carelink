@@ -99,13 +99,13 @@ class CarePlanControllerTest {
 
 	@Test
 	void returns200WhenThePlanIsPublished() throws Exception {
-		when(service.publish(eq(1L), any())).thenReturn(new CarePlan(
+		when(service.publish(eq(1L), any(), any())).thenReturn(new CarePlan(
 				1L, 42L, 7L, null, 1, CarePlan.Status.PUBLISHED, null, null, null, null));
 
 		mvc.perform(post("/api/care-plans/1/publish")
 						.contentType(MediaType.APPLICATION_JSON)
 						.content("""
-								{"nodes":[{"groupName":"Personal care","name":"Bathing",
+								{"startDate":"2026-04-01","nodes":[{"groupName":"Personal care","name":"Bathing",
 								"visits":[{"day":"Mon","minutes":30}],"evidenceType":"CHECKLIST"}]}
 								"""))
 				.andExpect(status().isOk());

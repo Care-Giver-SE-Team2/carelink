@@ -24,6 +24,7 @@ public record CarePlan(
 		LocalDateTime publishedAt,
 		LocalDateTime createdAt,
 		LocalDateTime updatedAt,
+		LocalDate startDate,
 		LocalDate stopEffectiveDate,
 		String stopReason,
 		Long stoppedByUserId,
@@ -34,7 +35,7 @@ public record CarePlan(
 			CarePlan.Status status, BigDecimal totalHours, LocalDateTime publishedAt,
 			LocalDateTime createdAt, LocalDateTime updatedAt) {
 		this(id, elderId, createdByUserId, supersedesPlanId, version, status, totalHours, publishedAt,
-				createdAt, updatedAt, null, null, null, null);
+				createdAt, updatedAt, null, null, null, null, null);
 	}
 
 	public enum Status {
@@ -66,27 +67,35 @@ public record CarePlan(
 	}
 
 	/**
-	 * Publishes this draft with the given rolled-up weekly effort (the sum of its
-	 * care_plan_node rows — never entered by hand, see the schema comment on
-	 * total_hours). Only a draft may be published; publishing twice, or publishing a
-	 * plan that was never opened as a draft, is a business rule violation.
+	 * Publishes this draft with the given start date and rolled-up weekly effort (the sum of
+	 * its care_plan_node rows — never entered by hand, see the schema comment on total_hours).
+	 * Only a draft may be published; publishing twice, or publishing a plan that was never
+	 * opened as a draft, is a business rule violation. A start date is required — it is not
+	 * asked for until publish time, matching how the rest of the tree isn't saved until then.
 	 */
-	public CarePlan publish(BigDecimal totalHours) {
+	public CarePlan publish(LocalDate startDate, BigDecimal totalHours) {
 		if (status != Status.DRAFT) {
 			throw new BusinessRuleViolation(
 					"CARE_PLAN_NOT_DRAFT",
 					"Care plan [%s] is not a draft".formatted(id));
 		}
+		if (startDate == null) {
+			throw new BusinessRuleViolation(
+					"CARE_PLAN_START_DATE_REQUIRED",
+					"Care plan [%s] must have a start date to publish".formatted(id));
+		}
 		return new CarePlan(
 				id, elderId, createdByUserId, supersedesPlanId, version, Status.PUBLISHED,
-				totalHours, LocalDateTime.now(), createdAt, updatedAt);
+				totalHours, LocalDateTime.now(), createdAt, updatedAt,
+				startDate, null, null, null, null);
 	}
 
 	/** Marks a previously published plan as superseded once the plan that replaces it publishes. */
 	public CarePlan supersede() {
 		return new CarePlan(
 				id, elderId, createdByUserId, supersedesPlanId, version, Status.SUPERSEDED,
-				totalHours, publishedAt, createdAt, updatedAt);
+				totalHours, publishedAt, createdAt, updatedAt,
+				startDate, null, null, null, null);
 	}
 
 	/**
@@ -110,6 +119,6 @@ public record CarePlan(
 		return new CarePlan(
 				id, elderId, createdByUserId, supersedesPlanId, version, Status.STOPPED,
 				totalHours, publishedAt, createdAt, updatedAt,
-				effectiveDate, reason, stoppedByUserId, LocalDateTime.now());
+				startDate, effectiveDate, reason, stoppedByUserId, LocalDateTime.now());
 	}
 }

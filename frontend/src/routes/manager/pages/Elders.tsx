@@ -2,7 +2,6 @@ import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
 import { ManagerShell } from '../components/ManagerShell'
-import headerStyles from '../components/Header.module.css'
 import type { ElderRow, PlanStatus } from '../data/elders'
 import { CARE_PLANS } from '../data/carePlans'
 import { countTree, formatHoursMinutes, weeklyHoursOfTree } from '../lib/planTree'
@@ -101,15 +100,8 @@ export default function Elders() {
     setPlanFilter('all')
   }
 
-  const headerRight = (
-    <div className={headerStyles.identityGroup}>
-      <span className={headerStyles.userName}>Tan Mei Ling</span>
-      <span className={headerStyles.roleBadge}>CARE MGR</span>
-    </div>
-  )
-
   return (
-    <ManagerShell headerContext="Elders" headerRight={headerRight}>
+    <ManagerShell>
       <div className={styles.layout}>
         <div className={styles.mainColumn}>
           <div className={styles.topBar}>
@@ -372,13 +364,12 @@ export default function Elders() {
                   {selected.planStatus === 'none' ? 'Create care plan' : 'Open care plan'}
                 </button>
                 <button className={styles.secondaryBtn}>View visit history</button>
+                {!selected.primaryCaregiver && selected.planStatus !== 'none' && (
+                  <button className={styles.assignCaregiverBtn} onClick={() => setAssignTarget(selected)}>
+                    Assign caregiver
+                  </button>
+                )}
               </div>
-
-              {!selected.primaryCaregiver && selected.planStatus !== 'none' && (
-                <button className={styles.assignCaregiverBtn} onClick={() => setAssignTarget(selected)}>
-                  Assign caregiver
-                </button>
-              )}
 
               {selected.planStatus === 'published' && (
                 <button

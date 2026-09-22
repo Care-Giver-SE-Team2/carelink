@@ -78,7 +78,7 @@ public class CarePlanController {
 	@PostMapping("/{id}/publish")
 	@PreAuthorize("hasRole('MANAGER')")
 	public CarePlan publish(@PathVariable Long id, @Valid @RequestBody PublishCarePlanRequest request) {
-		return service.publish(id, request.nodes().stream().map(CarePlanController::toInput).toList());
+		return service.publish(id, request.startDate(), request.nodes().stream().map(CarePlanController::toInput).toList());
 	}
 
 	@PostMapping("/{id}/stop")

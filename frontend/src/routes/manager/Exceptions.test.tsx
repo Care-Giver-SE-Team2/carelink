@@ -1,5 +1,6 @@
 import { cleanup, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
@@ -123,6 +124,12 @@ function createServer(options: { resolveStatus?: number; queueStatus?: number } 
       return Promise.resolve(new Response(null))
     }
 
+    if (url.endsWith('/auth/me')) {
+      return Promise.resolve(
+        json({ id: 1, username: 'demo-alice', displayName: 'Alice Tan', roles: ['MANAGER'] }),
+      )
+    }
+
     if (url.startsWith('/api/incidents?')) {
       if (options.queueStatus) return Promise.resolve(new Response(null, { status: options.queueStatus }))
       const open = Object.values(incidents).filter((incident) => incident.status !== 'RESOLVED')
@@ -243,13 +250,16 @@ function createServer(options: { resolveStatus?: number; queueStatus?: number } 
 }
 
 function openConsole(path: string) {
+  const queryClient = new QueryClient()
   return render(
-    <MemoryRouter initialEntries={[path]}>
-      <Routes>
-        <Route path="/" element={<p>Sign in to CareLink</p>} />
-        <Route path="/manager/*" element={<ManagerHome />} />
-      </Routes>
-    </MemoryRouter>,
+    <QueryClientProvider client={queryClient}>
+      <MemoryRouter initialEntries={[path]}>
+        <Routes>
+          <Route path="/" element={<p>Sign in to CareLink</p>} />
+          <Route path="/manager/*" element={<ManagerHome />} />
+        </Routes>
+      </MemoryRouter>
+    </QueryClientProvider>,
   )
 }
 

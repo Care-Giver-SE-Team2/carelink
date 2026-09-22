@@ -63,6 +63,10 @@ export type CarePlan = {
   version: number
   status: 'published' | 'draft'
   visitsPerWeek: number
+  /** ISO "yyyy-MM-dd", matching what <input type="date"> and java.time.LocalDate both expect.
+   * Stands in for a future startDate field on careplan.domain.model.CarePlan / GET
+   * /api/care-plans/latest. */
+  startDate: string
   lastEditedAt: string
   lastEditedBy: string
   tree: PlanNode[]
@@ -128,6 +132,7 @@ export const CARE_PLANS: Record<string, CarePlan> = {
     version: 4,
     status: 'published',
     visitsPerWeek: 5,
+    startDate: '2024-04-11',
     lastEditedAt: '26 Aug',
     lastEditedBy: 'Tan Mei Ling',
     tree: [
@@ -232,6 +237,7 @@ export const CARE_PLANS: Record<string, CarePlan> = {
     version: 2,
     status: 'published',
     visitsPerWeek: 3,
+    startDate: '2024-02-02',
     lastEditedAt: '18 Jun',
     lastEditedBy: 'Tan Mei Ling',
     tree: [
@@ -275,6 +281,7 @@ export const CARE_PLANS: Record<string, CarePlan> = {
     status: 'draft',
     priorPublishedHours: 3.0,
     visitsPerWeek: 4,
+    startDate: '2024-05-20',
     lastEditedAt: '01 Sep',
     lastEditedBy: 'Tan Mei Ling',
     tree: [
@@ -317,6 +324,7 @@ export const CARE_PLANS: Record<string, CarePlan> = {
     version: 9,
     status: 'published',
     visitsPerWeek: 6,
+    startDate: '2024-06-02',
     lastEditedAt: '30 Aug',
     lastEditedBy: 'Tan Mei Ling',
     tree: [
@@ -395,6 +403,7 @@ export const CARE_PLANS: Record<string, CarePlan> = {
     version: 1,
     status: 'published',
     visitsPerWeek: 2,
+    startDate: '2024-08-20',
     lastEditedAt: '20 Aug',
     lastEditedBy: 'Tan Mei Ling',
     tree: [

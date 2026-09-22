@@ -1,12 +1,14 @@
 import { useEffect, useMemo, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { Link, useParams } from 'react-router-dom'
+import { useQuery } from '@tanstack/react-query'
 import { ManagerShell } from '../components/ManagerShell'
-import headerStyles from '../components/Header.module.css'
+import { UserIdentity } from '../components/UserIdentity'
 import modalStyles from '../components/ConfirmModal.module.css'
 import { ACTIVITY_CATALOG, CARE_PLANS, ELDER_PROFILES } from '../data/carePlans'
 import type { EvidenceType, PlanNode, SubPlanNode, TaskNode } from '../data/carePlans'
 import { useElder } from '../lib/useElder'
+import { useCurrentUser } from '../lib/useCurrentUser'
 import {
   countTree,
   formatHoursFixed,
@@ -64,10 +66,10 @@ const DAYS: { key: string; full: string }[] = [
   { key: 'sun', full: 'Sun' },
 ]
 
-type DayState = { active: boolean; minutes: string }
+type DayState = { active: boolean; time: string; minutes: string }
 
 function initialDayState(): Record<string, DayState> {
-  return Object.fromEntries(DAYS.map((d) => [d.key, { active: false, minutes: '15' }]))
+  return Object.fromEntries(DAYS.map((d) => [d.key, { active: false, time: '8:00 AM', minutes: '15' }]))
 }
 
 /** Local-date "yyyy-MM-dd", matching what a <input type="date"> and java.time.LocalDate both expect. */
@@ -81,7 +83,7 @@ function dayStateFromVisits(visits: TaskNode['visits']): Record<string, DayState
   return Object.fromEntries(
     DAYS.map((d) => {
       const minutes = byFull.get(d.full)
-      return [d.key, { active: minutes !== undefined, minutes: String(minutes ?? 15) }]
+      return [d.key, { active: minutes !== undefined, time: '8:00 AM', minutes: String(minutes ?? 15) }]
     }),
   )
 }
@@ -156,6 +158,7 @@ export default function CarePlan() {
   const { elderId } = useParams()
 
   const { data: elder, isLoading: elderLoading, isError: elderError } = useElder(elderId)
+  const { data: currentUser } = useCurrentUser()
   const initialPlan = elderId ? CARE_PLANS[elderId] : undefined
   const profile = elderId ? ELDER_PROFILES[elderId] : undefined
 
@@ -164,6 +167,7 @@ export default function CarePlan() {
   const [version, setVersion] = useState(initialPlan?.version ?? 0)
   const [versions, setVersions] = useState(initialPlan?.versions ?? [])
   const [priorPublishedHours, setPriorPublishedHours] = useState(initialPlan?.priorPublishedHours)
+  const [startDate, setStartDate] = useState(initialPlan?.startDate ?? '')
   const [collapsed, setCollapsed] = useState<Set<string>>(() =>
     collectDefaultCollapsed(initialPlan?.tree ?? []),
   )
@@ -209,41 +213,49 @@ export default function CarePlan() {
   const { tasks } = useMemo(() => countTree(tree), [tree])
 
   useEffect(() => {
-    if (elder) {
-      console.info('[audit] opened care plan', { actor: 'Tan Mei Ling', elderId: elder.id, at: new Date().toISOString() })
+    if (elder && currentUser) {
+      console.info('[audit] opened care plan', {
+        actor: currentUser.displayName,
+        elderId: elder.id,
+        at: new Date().toISOString(),
+      })
     }
-  }, [elder])
+  }, [elder, currentUser])
 
   // Loads whatever is actually in the database for this elder, overriding the mock fixture
   // above (which never matches a real, numeric elder id). An elder with no plan yet keeps the
-  // empty-draft defaults the mock fallback already set up.
+  // empty-draft defaults the mock fallback already set up. Goes through useQuery (not a plain
+  // effect) so React 18 StrictMode's dev-mode double-mount doesn't fire the GETs twice.
+  const { data: latestPlan } = useQuery({
+    queryKey: ['carePlan', 'latest', elder?.id],
+    queryFn: () => fetchLatestCarePlan(elder!.id),
+    enabled: elder !== undefined,
+  })
+
+  const { data: planNodes } = useQuery({
+    queryKey: ['carePlan', 'nodes', latestPlan?.id],
+    queryFn: () => fetchCarePlanNodes(latestPlan!.id),
+    enabled: latestPlan != null,
+  })
+
   useEffect(() => {
-    if (!elder) return
-    let cancelled = false
-    ;(async () => {
-      const latest = await fetchLatestCarePlan(elder.id)
-      if (cancelled || !latest) return
-      const nodes = await fetchCarePlanNodes(latest.id)
-      if (cancelled) return
-      setTree(fromCarePlanNodeResponses(nodes))
-      setCarePlanId(latest.id)
-      setVersion(latest.version)
-      if (latest.status === 'PUBLISHED') {
-        setStatus('published')
-      } else if (latest.status === 'STOPPED') {
-        setStatus('stopped')
-        setStopInfo({
-          effectiveDate: latest.stopEffectiveDate ?? '',
-          reason: latest.stopReason ?? '',
-        })
-      } else {
-        setStatus('draft')
-      }
-    })()
-    return () => {
-      cancelled = true
+    if (!latestPlan || !planNodes) return
+    setTree(fromCarePlanNodeResponses(planNodes))
+    setCarePlanId(latestPlan.id)
+    setVersion(latestPlan.version)
+    setStartDate(latestPlan.startDate ?? '')
+    if (latestPlan.status === 'PUBLISHED') {
+      setStatus('published')
+    } else if (latestPlan.status === 'STOPPED') {
+      setStatus('stopped')
+      setStopInfo({
+        effectiveDate: latestPlan.stopEffectiveDate ?? '',
+        reason: latestPlan.stopReason ?? '',
+      })
+    } else {
+      setStatus('draft')
     }
-  }, [elder])
+  }, [latestPlan, planNodes])
 
   if (elderLoading) {
     return (
@@ -303,6 +315,10 @@ export default function CarePlan() {
     setEditTaskDays((prev) => ({ ...prev, [key]: { ...prev[key], minutes } }))
   }
 
+  function setEditDayTime(key: string, time: string) {
+    setEditTaskDays((prev) => ({ ...prev, [key]: { ...prev[key], time } }))
+  }
+
   const editActiveDays = DAYS.filter((d) => editTaskDays[d.key]?.active)
 
   function submitEditTask(task: TaskNode) {
@@ -339,6 +355,10 @@ export default function CarePlan() {
 
   function setDayMinutes(key: string, minutes: string) {
     setNewSubPlanDays((prev) => ({ ...prev, [key]: { ...prev[key], minutes } }))
+  }
+
+  function setDayTime(key: string, time: string) {
+    setNewSubPlanDays((prev) => ({ ...prev, [key]: { ...prev[key], time } }))
   }
 
   const activeDays = DAYS.filter((d) => newSubPlanDays[d.key]?.active)
@@ -379,11 +399,12 @@ export default function CarePlan() {
   }
 
   async function publish() {
+    if (!startDate) return
     setPublishing(true)
     setPublishError(null)
     try {
       const planId = await getOrCreateDraftPlanId()
-      const published = await publishCarePlan(planId, toPlanNodePayloads(tree))
+      const published = await publishCarePlan(planId, startDate, toPlanNodePayloads(tree))
       setVersions((prev) => [
         { version: published.version, date: 'today', summary: 'published from console' },
         ...prev,
@@ -523,6 +544,14 @@ export default function CarePlan() {
                 >
                   {d.full[0]}
                 </button>
+                <input
+                  className={styles.dayTimeInput}
+                  type="text"
+                  disabled={!state.active}
+                  placeholder="—"
+                  value={state.active ? state.time : ''}
+                  onChange={(e) => setEditDayTime(d.key, e.target.value)}
+                />
                 <div className={styles.dayMinutes}>
                   <input
                     className={styles.dayMinutesInput}
@@ -573,15 +602,12 @@ export default function CarePlan() {
       <span className={`${styles.statusBadge} ${styles[statusTone]}`}>
         {status.toUpperCase()} v{version}
       </span>
-      <div className={headerStyles.identityGroup}>
-        <span className={headerStyles.userName}>Tan Mei Ling</span>
-        <span className={headerStyles.roleBadge}>CARE MGR</span>
-      </div>
+      <UserIdentity />
     </>
   )
 
   const primaryLabel = status === 'draft' ? `Publish v${version + 1}` : 'Edit plan'
-  const primaryDisabled = status === 'draft' && tasks === 0
+  const primaryDisabled = status === 'draft' && (tasks === 0 || !startDate)
 
   return (
     <ManagerShell headerContext={headerContext} headerRight={headerRight}>
@@ -601,6 +627,16 @@ export default function CarePlan() {
                 Back to Elders
               </Link>
               <h2 className={styles.planTitle}>Care Plan</h2>
+              <div className={styles.startsRow}>
+                <span className={styles.startsLabel}>Starts</span>
+                <input
+                  className={styles.startsInput}
+                  type="date"
+                  value={startDate}
+                  disabled={!editable}
+                  onChange={(e) => setStartDate(e.target.value)}
+                />
+              </div>
             </div>
             {!locked && (
               <div className={styles.planActions}>
@@ -671,6 +707,14 @@ export default function CarePlan() {
                       >
                         {d.full[0]}
                       </button>
+                      <input
+                        className={styles.dayTimeInput}
+                        type="text"
+                        disabled={!state.active}
+                        placeholder="—"
+                        value={state.active ? state.time : ''}
+                        onChange={(e) => setDayTime(d.key, e.target.value)}
+                      />
                       <div className={styles.dayMinutes}>
                         <input
                           className={styles.dayMinutesInput}
@@ -814,7 +858,7 @@ export default function CarePlan() {
               </button>
               <button
                 className={`${modalStyles.modalBtn} ${modalStyles.primary}`}
-                disabled={publishing}
+                disabled={publishing || !startDate}
                 onClick={publish}
               >
                 {publishing ? 'Publishing…' : 'Publish'}

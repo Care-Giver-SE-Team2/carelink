@@ -65,7 +65,7 @@ public class CarePlanService {
 	 * superseded. The list is a snapshot at the moment of publishing, not incrementally saved, so
 	 * the whole thing is replaced rather than diffed.
 	 */
-	public CarePlan publish(Long planId, List<PlanNodeInput> nodes) {
+	public CarePlan publish(Long planId, LocalDate startDate, List<PlanNodeInput> nodes) {
 		CarePlan plan = carePlans.findById(planId)
 				.orElseThrow(() -> new ResourceNotFound("CarePlan", planId));
 
@@ -76,7 +76,7 @@ public class CarePlanService {
 			totalHours = totalHours.add(saveTask(planId, node, order++));
 		}
 
-		CarePlan published = carePlans.save(plan.publish(totalHours));
+		CarePlan published = carePlans.save(plan.publish(startDate, totalHours));
 
 		if (plan.supersedesPlanId() != null) {
 			carePlans.findById(plan.supersedesPlanId())

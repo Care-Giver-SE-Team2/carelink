@@ -57,7 +57,7 @@ class CarePlanServiceTest {
 	void publishesADraftAndRollsUpTotalHoursFromItsTasks() {
 		CarePlan draft = service.createDraft(42L, 7L);
 
-		CarePlan published = service.publish(draft.id(), List.of(
+		CarePlan published = service.publish(draft.id(), LocalDate.of(2026, 4, 1), List.of(
 				new PlanNodeInput(
 						"Personal care",
 						"Bathing assistance",
@@ -66,6 +66,7 @@ class CarePlanServiceTest {
 
 		assertThat(published.status()).isEqualTo(CarePlan.Status.PUBLISHED);
 		assertThat(published.publishedAt()).isNotNull();
+		assertThat(published.startDate()).isEqualTo(LocalDate.of(2026, 4, 1));
 		assertThat(published.totalHours()).isEqualByComparingTo("1.50");
 
 		List<CarePlanNode> nodes = service.findNodes(draft.id());
@@ -78,12 +79,25 @@ class CarePlanServiceTest {
 		List<PlanNodeInput> tasks = List.of(new PlanNodeInput(
 				"Personal care", "Bathing assistance",
 				List.of(new VisitInput("Mon", 30)), CarePlanNode.EvidenceType.CHECKLIST));
-		CarePlan published = service.publish(draft.id(), tasks);
+		CarePlan published = service.publish(draft.id(), LocalDate.of(2026, 4, 1), tasks);
 
-		assertThatThrownBy(() -> service.publish(published.id(), tasks))
+		assertThatThrownBy(() -> service.publish(published.id(), LocalDate.of(2026, 4, 1), tasks))
 				.isInstanceOf(BusinessRuleViolation.class)
 				.extracting(ex -> ((BusinessRuleViolation) ex).code())
 				.isEqualTo("CARE_PLAN_NOT_DRAFT");
+	}
+
+	@Test
+	void publishingWithoutAStartDateIsRejected() {
+		CarePlan draft = service.createDraft(42L, 7L);
+		List<PlanNodeInput> tasks = List.of(new PlanNodeInput(
+				"Personal care", "Bathing assistance",
+				List.of(new VisitInput("Mon", 30)), CarePlanNode.EvidenceType.CHECKLIST));
+
+		assertThatThrownBy(() -> service.publish(draft.id(), null, tasks))
+				.isInstanceOf(BusinessRuleViolation.class)
+				.extracting(ex -> ((BusinessRuleViolation) ex).code())
+				.isEqualTo("CARE_PLAN_START_DATE_REQUIRED");
 	}
 
 	@Test
@@ -92,7 +106,7 @@ class CarePlanServiceTest {
 		List<PlanNodeInput> tasks = List.of(
 				new PlanNodeInput("Personal care", "Bathing assistance", List.of(), CarePlanNode.EvidenceType.CHECKLIST));
 
-		assertThatThrownBy(() -> service.publish(draft.id(), tasks))
+		assertThatThrownBy(() -> service.publish(draft.id(), LocalDate.of(2026, 4, 1), tasks))
 				.isInstanceOf(BusinessRuleViolation.class)
 				.extracting(ex -> ((BusinessRuleViolation) ex).code())
 				.isEqualTo("CARE_PLAN_TASK_NO_VISITS");
@@ -104,7 +118,7 @@ class CarePlanServiceTest {
 		List<PlanNodeInput> tasks = List.of(new PlanNodeInput(
 				"Personal care", "Bathing assistance",
 				List.of(new VisitInput("Mon", 30)), CarePlanNode.EvidenceType.CHECKLIST));
-		CarePlan published = service.publish(draft.id(), tasks);
+		CarePlan published = service.publish(draft.id(), LocalDate.of(2026, 4, 1), tasks);
 
 		CarePlan stopped = service.stop(published.id(), LocalDate.of(2026, 9, 22), "Elder moved away", 9L);
 
@@ -133,10 +147,10 @@ class CarePlanServiceTest {
 				"Personal care", "Bathing assistance",
 				List.of(new VisitInput("Mon", 30)), CarePlanNode.EvidenceType.CHECKLIST));
 		CarePlan firstDraft = service.createDraft(42L, 7L);
-		CarePlan firstPublished = service.publish(firstDraft.id(), tasks);
+		CarePlan firstPublished = service.publish(firstDraft.id(), LocalDate.of(2026, 4, 1), tasks);
 
 		CarePlan secondDraft = service.createDraft(42L, 7L);
-		service.publish(secondDraft.id(), tasks);
+		service.publish(secondDraft.id(), LocalDate.of(2026, 4, 1), tasks);
 
 		assertThat(service.findCarePlan(firstPublished.id()).orElseThrow().status())
 				.isEqualTo(CarePlan.Status.SUPERSEDED);
@@ -150,7 +164,7 @@ class CarePlanServiceTest {
 				new VisitInput("Thu", 30), new VisitInput("Fri", 30), new VisitInput("Sat", 30),
 				new VisitInput("Sun", 30));
 
-		service.publish(draft.id(), List.of(
+		service.publish(draft.id(), LocalDate.of(2026, 4, 1), List.of(
 				new PlanNodeInput("Personal care", "Bathing assistance", everyDay, CarePlanNode.EvidenceType.CHECKLIST)));
 
 		assertThat(service.findNodes(draft.id()).getFirst().scheduleDays()).isEqualTo("DAILY");
