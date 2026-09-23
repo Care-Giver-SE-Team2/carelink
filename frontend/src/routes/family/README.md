@@ -1,6 +1,6 @@
 # 家属端　Family portal
 
-**FM01 负责人：** Wang Zhili。FM01 页面放在 `intake/`；其他家属用例按团队分工在各自子目录扩展。
+**FM01 / FM02 负责人：** Wang Zhili。申请页面放在 `intake/`，周排程页面放在 `schedule/`；家属布局和登录放在 `components/`。
 
 ## 要覆盖的用例
 
@@ -42,7 +42,15 @@ FM01 页面已接入现有后端接口：
 - 日期显示为新加坡时间。页面使用真实响应，测试样例仅存在于测试文件。
 
 视觉参考 `docs/family/family.html`，采用 React 和局部 CSS Modules，支持手机窄屏；未复制原型中的固定手机外框。
-其他家属用例尚未由这些页面实现。
+
+FM02 周排程入口为 `/family/schedule`，也可通过家属导航进入：
+
+- 选择当前有权查看的老人，查看本周、上一周、下一周的访视。日期和时间均按新加坡时区显示。
+- 请求先通过 GET `/api/auth/me` 确认家属身份，再复用 GET `/api/elders` 数组选择老人，使用 GET `/api/visits?elderId=...&dateFrom=...&dateTo=...&page=...&size=20` 读取排程。资源授权仍由后端执行。
+- 每页最多 20 条，显示整周总数、当前显示范围及翻页按钮；切换老人或周次回到第一页。刷新重新检查当前身份和可访问老人。
+- 分别显示无有效绑定、本周无访视、加载中和请求失败。401 提供原页登录；403 清除受保护内容并提供重新查询老人或更换账号。切换或刷新时取消旧请求，迟到响应不会覆盖新选择。
+- 卡片显示服务、计划时间、访视状态和护理员分配情况；结束时间为空时显示待确认。护理员姓名、公开资料和资质详情尚未接入页面。
+- `features/schedule/` 管理 API 参数、类型、请求生命周期和日期展示；`schedule/` 管理页面与 CSS Modules。页面不写入绑定、排班、护理员分配或访视状态，也不在浏览器持久保存排程数据。
 
 提交行为：
 
@@ -92,3 +100,6 @@ npm run build
 `FamilyHome.test.tsx` 从页面入口验证列表、分页、筛选、详情、登录、权限失效、请求取消和失败恢复；
 `IntakeCreatePage.test.tsx` 验证提交、校验边界、防重复点击、登录恢复和不确定结果处理；
 `shared/api/client.test.ts` 验证 Cookie/CSRF 请求、空响应和 HTTP 错误状态。测试仅替换网络边界，不依赖本地数据库。
+
+`FamilySchedulePage.test.tsx` 验证周排程路由、选择与分页、权限失效、登录恢复和旧请求取消；
+`features/schedule/api.test.ts` 和 `presentation.test.ts` 验证 API 参数、新加坡周界、跨月跨年及可空字段展示。
