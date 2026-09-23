@@ -6,12 +6,13 @@ import { ManagerShell } from '../components/ManagerShell'
 import { UserIdentity } from '../components/UserIdentity'
 import modalStyles from '../components/ConfirmModal.module.css'
 import { ACTIVITY_CATALOG, CARE_PLANS, ELDER_PROFILES } from '../data/carePlans'
-import type { EvidenceType, PlanNode, SubPlanNode, TaskNode } from '../data/carePlans'
+import type { PlanNode, SubPlanNode, TaskNode } from '../data/carePlans'
 import { useElder } from '../lib/useElder'
 import { useCurrentUser } from '../lib/useCurrentUser'
 import {
   countTree,
   formatHoursFixed,
+  fromCarePlanNodeResponses,
   perVisitDisplay,
   removeNode,
   scheduleLabel,
@@ -25,7 +26,7 @@ import {
   fetchLatestCarePlan,
   publishCarePlan,
 } from '../../../shared/api/careplan'
-import type { CarePlanNodeResponse, PlanNodePayload } from '../../../shared/api/careplan'
+import type { PlanNodePayload } from '../../../shared/api/careplan'
 import { StopCarePlanModal } from '../components/StopCarePlanModal'
 import styles from './CarePlan.module.css'
 
@@ -109,45 +110,12 @@ function taskToPayload(node: TaskNode, groupName: string | null): PlanNodePayloa
   }
 }
 
-/** GET /api/care-plans/{id}/nodes's wire shape -> the frontend tree. The backend list is flat;
- * tasks sharing the same groupName are regrouped here into a sub-plan for display, in the order
- * each group first appears. A task with no groupName renders standalone. */
-function fromCarePlanNodeResponses(nodes: CarePlanNodeResponse[]): PlanNode[] {
-  const result: PlanNode[] = []
-  const groups = new Map<string, SubPlanNode>()
-  for (const node of nodes) {
-    const task = toTaskNode(node)
-    if (!node.groupName) {
-      result.push(task)
-      continue
-    }
-    let group = groups.get(node.groupName)
-    if (!group) {
-      group = { id: `subplan-${node.groupName}`, type: 'subplan', name: node.groupName, children: [] }
-      groups.set(node.groupName, group)
-      result.push(group)
-    }
-    group.children.push(task)
-  }
-  return result
-}
-
-function toTaskNode(node: CarePlanNodeResponse): TaskNode {
-  return {
-    id: `task-${node.id}`,
-    type: 'task',
-    name: node.name,
-    visits: node.visits,
-    evidence: (node.evidenceType === 'NONE' ? 'CHECKLIST' : node.evidenceType) as EvidenceType,
-  }
-}
-
 /**
- * Care plan (1d) — UC-MG01. Editable, flat sub-plan/task list with a live
+ * Care plan editor — UC-MG01. Editable, flat sub-plan/task list with a live
  * weekly-effort rollup (lib/planTree.ts) and a publish flow that snapshots
  * the current tree as a new published version. Sub-plan deletion is
- * confirmed via 1j. See design_handoff_care_plan_authoring/README.md for the
- * full spec.
+ * confirmed via a modal. See design_handoff_care_plan_authoring/README.md
+ * for the full spec.
  */
 export default function CarePlan() {
   const { elderId } = useParams()

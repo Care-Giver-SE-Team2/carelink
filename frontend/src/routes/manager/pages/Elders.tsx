@@ -1,11 +1,18 @@
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useQueryClient } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { ManagerShell } from '../components/ManagerShell'
 import type { ElderRow, PlanStatus } from '../data/elders'
-import { CARE_PLANS } from '../data/carePlans'
-import { countTree, formatHoursMinutes, weeklyHoursOfTree } from '../lib/planTree'
+import {
+  countTree,
+  formatHoursMinutes,
+  fromCarePlanNodeResponses,
+  visitsPerWeekOfTree,
+  weeklyHoursOfTree,
+} from '../lib/planTree'
 import { useElders } from '../lib/useElders'
+import { formatDate, formatNextVisit } from '../lib/nextVisit'
+import { fetchCarePlanNodes, fetchLatestCarePlan } from '../../../shared/api/careplan'
 import { getAssignment, removeAssignment } from '../data/caregivers'
 import { AssignCaregiverModal } from './AssignCaregiverModal'
 import { RemoveCaregiverModal } from '../components/RemoveCaregiverModal'
@@ -29,14 +36,11 @@ const SORT_LABELS: Record<SortOrder, string> = {
   'plan-status': 'plan status',
 }
 
-const NEXT_VISIT_RANK = ['today', 'tomorrow', 'sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat']
 const PLAN_STATUS_RANK: Record<PlanStatus, number> = { none: 0, draft: 1, published: 2 }
 
-function nextVisitRank(value: string | null): number {
-  if (!value) return 99
-  const first = value.toLowerCase().slice(0, 3)
-  const idx = NEXT_VISIT_RANK.indexOf(first)
-  return idx === -1 ? 50 : idx
+/** nextVisitAt is an ISO "yyyy-MM-dd" string, so lexical order is chronological order. */
+function nextVisitRank(value: string | null): string {
+  return value ?? '9999-99-99'
 }
 
 function planBadgeLabel(status: PlanStatus, version: number | null): string {
@@ -73,7 +77,8 @@ export default function Elders() {
     const sorted = [...rows]
     if (sort === 'name') sorted.sort((a, b) => a.name.localeCompare(b.name))
     else if (sort === 'name-desc') sorted.sort((a, b) => b.name.localeCompare(a.name))
-    else if (sort === 'next-visit') sorted.sort((a, b) => nextVisitRank(a.nextVisitAt) - nextVisitRank(b.nextVisitAt))
+    else if (sort === 'next-visit')
+      sorted.sort((a, b) => nextVisitRank(a.nextVisitAt).localeCompare(nextVisitRank(b.nextVisitAt)))
     else if (sort === 'plan-status')
       sorted.sort((a, b) => PLAN_STATUS_RANK[a.planStatus] - PLAN_STATUS_RANK[b.planStatus])
     // Elders needing attention float to the top, regardless of the chosen sort — each stable
@@ -93,8 +98,24 @@ export default function Elders() {
   const selected: ElderRow | undefined = selectedId
     ? elders.find((e) => e.id === selectedId)
     : undefined
-  const selectedPlan = selected ? CARE_PLANS[selected.id] : undefined
   const selectedAssignment = selected ? getAssignment(selected.id) : undefined
+
+  const { data: selectedLatestPlan } = useQuery({
+    queryKey: ['carePlan', 'latest', selected?.id],
+    queryFn: () => fetchLatestCarePlan(selected!.id),
+    enabled: selected != null,
+  })
+
+  const { data: selectedPlanNodes } = useQuery({
+    queryKey: ['carePlan', 'nodes', selectedLatestPlan?.id],
+    queryFn: () => fetchCarePlanNodes(selectedLatestPlan!.id),
+    enabled: selectedLatestPlan != null,
+  })
+
+  const selectedTree = useMemo(
+    () => (selectedPlanNodes ? fromCarePlanNodeResponses(selectedPlanNodes) : []),
+    [selectedPlanNodes],
+  )
 
   function clearFilters() {
     setQuery('')
@@ -255,7 +276,7 @@ export default function Elders() {
                         .filter(Boolean)
                         .join(' ')}
                     >
-                      {e.nextVisitAt ?? '—'}
+                      {formatNextVisit(e.nextVisitAt) ?? '—'}
                     </span>
                   </div>
                 )
@@ -286,12 +307,12 @@ export default function Elders() {
               </div>
 
               <div className={`${styles.card} ${styles.first}`}>
-                {selected.planStatus === 'none' || !selectedPlan ? (
+                {selected.planStatus === 'none' || !selectedLatestPlan ? (
                   <p className={styles.cardMuted}>No plan published yet.</p>
                 ) : (
                   <>
                     <div className={styles.cardHeaderRow}>
-                      <span className={styles.cardTitle}>Care plan v{selectedPlan.version}</span>
+                      <span className={styles.cardTitle}>Care plan v{selectedLatestPlan.version}</span>
                       <span className={[styles.planStatusBadge, styles[selected.planStatus]].join(' ')}>
                         {selected.planStatus.toUpperCase()}
                       </span>
@@ -299,25 +320,23 @@ export default function Elders() {
                     <div className={styles.statList}>
                       <div className={styles.statRow}>
                         <span>visits per week</span>
-                        <span className={styles.statValue}>{selectedPlan.visitsPerWeek}</span>
+                        <span className={styles.statValue}>{visitsPerWeekOfTree(selectedTree)}</span>
                       </div>
                       <div className={styles.statRow}>
                         <span>effort per week</span>
                         <span className={styles.statValue}>
-                          {formatHoursMinutes(weeklyHoursOfTree(selectedPlan.tree))}
+                          {formatHoursMinutes(weeklyHoursOfTree(selectedTree))}
                         </span>
                       </div>
                       <div className={styles.statRow}>
                         <span>tasks</span>
                         <span className={styles.statValue}>
-                          {countTree(selectedPlan.tree).tasks} in {countTree(selectedPlan.tree).subPlans} sub-plans
+                          {countTree(selectedTree).tasks} in {countTree(selectedTree).subPlans} sub-plans
                         </span>
                       </div>
                       <div className={styles.statRow}>
                         <span>last edited</span>
-                        <span className={styles.statValue}>
-                          {selectedPlan.lastEditedAt} · {selectedPlan.lastEditedBy}
-                        </span>
+                        <span className={styles.statValue}>{formatDate(selectedLatestPlan.updatedAt)}</span>
                       </div>
                     </div>
                   </>

@@ -12,7 +12,8 @@ public record ElderListItemResponse(
 		String address,
 		String sector,
 		String planStatus,
-		Integer planVersion) {
+		Integer planVersion,
+		LocalDate nextVisitDate) {
 
 	public static ElderListItemResponse from(ElderSummary summary) {
 		return new ElderListItemResponse(
@@ -22,6 +23,7 @@ public record ElderListItemResponse(
 				summary.elder().address(),
 				summary.elder().sector(),
 				summary.planStatus(),
-				summary.planVersion());
+				summary.planVersion(),
+				summary.nextVisitDate());
 	}
 }

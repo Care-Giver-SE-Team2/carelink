@@ -65,18 +65,19 @@ class ProfileServiceTest {
                 List<ElderSummary> summaries = service.listElders();
 
                 assertThat(summaries)
-                                .containsExactly(new ElderSummary(saved, "none", null));
+                                .containsExactly(new ElderSummary(saved, "none", null, null));
         }
 
         @Test
         void listsEldersWithAPublishedPlan() {
                 Elder saved = saveElder(2L);
                 carePlans.put(saved.id(), plan(saved.id(), CarePlan.Status.PUBLISHED, 3));
+                carePlans.putNextVisit(saved.id(), LocalDate.of(2026, 9, 25));
 
                 List<ElderSummary> summaries = service.listElders();
 
                 assertThat(summaries)
-                                .containsExactly(new ElderSummary(saved, "published", 3));
+                                .containsExactly(new ElderSummary(saved, "published", 3, LocalDate.of(2026, 9, 25)));
         }
 
         @Test
@@ -87,7 +88,7 @@ class ProfileServiceTest {
                 List<ElderSummary> summaries = service.listElders();
 
                 assertThat(summaries)
-                                .containsExactly(new ElderSummary(saved, "draft", 1));
+                                .containsExactly(new ElderSummary(saved, "draft", 1, null));
         }
 
         @Test
@@ -98,7 +99,7 @@ class ProfileServiceTest {
                 List<ElderSummary> summaries = service.listElders();
 
                 assertThat(summaries)
-                                .containsExactly(new ElderSummary(saved, "none", null));
+                                .containsExactly(new ElderSummary(saved, "none", null, null));
         }
 
         @Test
@@ -109,7 +110,7 @@ class ProfileServiceTest {
                 List<ElderSummary> summaries = service.listElders();
 
                 assertThat(summaries)
-                                .containsExactly(new ElderSummary(saved, "none", null));
+                                .containsExactly(new ElderSummary(saved, "none", null, null));
         }
 
         private static CarePlan plan(Long elderId, CarePlan.Status status, int version) {
