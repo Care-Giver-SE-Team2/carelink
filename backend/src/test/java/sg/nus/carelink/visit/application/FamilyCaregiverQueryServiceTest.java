@@ -4,9 +4,12 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -17,6 +20,7 @@ import org.springframework.security.access.AccessDeniedException;
 
 import sg.nus.carelink.profile.application.CaregiverDirectory;
 import sg.nus.carelink.profile.application.CaregiverPublicProfile;
+import sg.nus.carelink.profile.application.CaregiverPublicCredential;
 import sg.nus.carelink.profile.application.FamilyAccessQuery;
 import sg.nus.carelink.shared.error.ResourceNotFound;
 import sg.nus.carelink.visit.domain.repository.VisitScheduleQuery;
@@ -105,5 +109,74 @@ class FamilyCaregiverQueryServiceTest {
 	private void allowCaregiver() {
 		when(access.readableElderIds("family-a")).thenReturn(Set.of(101L));
 		when(visits.hasAssignedVisit(Set.of(101L), 201L)).thenReturn(true);
+	}
+
+	@Test
+	void credentialListChecksRelationshipBeforeCallingTheDirectory() {
+		allowCaregiver();
+		var result = List.of(new CaregiverPublicCredential(401L, 201L, 11L, "First Aid", null,
+				null, LocalDate.of(2027, 1, 1), "PUBLISHED"));
+		when(caregivers.listPublicCredentials(201L)).thenReturn(result);
+
+		assertThat(service.listCredentials("family-a", 201L)).isEqualTo(result);
+		var ordered = inOrder(access, visits, caregivers);
+		ordered.verify(access).readableElderIds("family-a");
+		ordered.verify(visits).hasAssignedVisit(Set.of(101L), 201L);
+		ordered.verify(caregivers).listPublicCredentials(201L);
+		verify(caregivers, never()).findPublicProfile(201L);
+	}
+
+	@Test
+	void caregiverWithoutPublicCredentialsReturnsAnEmptyListAfterAuthorization() {
+		allowCaregiver();
+		when(caregivers.listPublicCredentials(201L)).thenReturn(List.of());
+
+		assertThat(service.listCredentials("family-a", 201L)).isEmpty();
+	}
+
+	@Test
+	void credentialListRequiresCurrentFamilyIdentityBeforeAnyLookup() {
+		when(access.readableElderIds("family-a")).thenThrow(new AccessDeniedException("Unavailable family"));
+
+		assertThatThrownBy(() -> service.listCredentials("family-a", 201L)).isInstanceOf(AccessDeniedException.class);
+		verifyNoInteractions(visits, caregivers);
+	}
+
+	@Test
+	void unrelatedCaregiverCannotQueryEvenAnEmptyCredentialList() {
+		when(access.readableElderIds("family-a")).thenReturn(Set.of(101L));
+		when(visits.hasAssignedVisit(Set.of(101L), 999L)).thenReturn(false);
+
+		assertThatThrownBy(() -> service.listCredentials("family-a", 999L)).isInstanceOf(AccessDeniedException.class);
+		verifyNoInteractions(caregivers);
+	}
+
+	@Test
+	void readingAProfileDoesNotAuthorizeLaterCredentialRequestsAfterRevocation() {
+		when(access.readableElderIds("family-a")).thenReturn(Set.of(101L), Set.of());
+		when(visits.hasAssignedVisit(Set.of(101L), 201L)).thenReturn(true);
+		when(caregivers.findPublicProfile(201L))
+				.thenReturn(Optional.of(new CaregiverPublicProfile(201L, "Lim Jia Hui", List.of())));
+		assertThat(service.getProfile("family-a", 201L).id()).isEqualTo(201L);
+
+		assertThatThrownBy(() -> service.listCredentials("family-a", 201L)).isInstanceOf(AccessDeniedException.class);
+		verify(caregivers, never()).listPublicCredentials(201L);
+	}
+
+	@Test
+	void credentialLookupFailuresAreNotConvertedToEmptyLists() {
+		allowCaregiver();
+		when(caregivers.listPublicCredentials(201L)).thenThrow(new DataAccessResourceFailureException("Unavailable"));
+
+		assertThatThrownBy(() -> service.listCredentials("family-a", 201L))
+				.isInstanceOf(DataAccessResourceFailureException.class);
+	}
+
+	@Test
+	void missingAuthorizedCaregiverIsNotConvertedToAnEmptyCredentialList() {
+		allowCaregiver();
+		when(caregivers.listPublicCredentials(201L)).thenThrow(new ResourceNotFound("Caregiver", 201L));
+
+		assertThatThrownBy(() -> service.listCredentials("family-a", 201L)).isInstanceOf(ResourceNotFound.class);
 	}
 }

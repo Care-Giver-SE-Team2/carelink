@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import java.time.Clock;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -17,6 +18,8 @@ import org.springframework.dao.DataAccessResourceFailureException;
 
 import sg.nus.carelink.profile.domain.model.Caregiver;
 import sg.nus.carelink.profile.domain.repository.CaregiverRepository;
+import sg.nus.carelink.profile.domain.repository.CredentialRepository;
+import sg.nus.carelink.profile.domain.repository.CredentialTypeRepository;
 
 /**
  * Checks public profile projection and the stored comma-separated language format.
@@ -26,7 +29,8 @@ import sg.nus.carelink.profile.domain.repository.CaregiverRepository;
 class CaregiverDirectoryServiceTest {
 
 	private final CaregiverRepository caregivers = mock(CaregiverRepository.class);
-	private final CaregiverDirectory service = new CaregiverDirectoryService(caregivers);
+	private final CaregiverDirectory service = new CaregiverDirectoryService(caregivers,
+			mock(CredentialRepository.class), mock(CredentialTypeRepository.class), Clock.systemUTC());
 
 	@Test
 	void returnsPublicFieldsAndPreservesLanguageOrderSpellingAndDuplicates() {

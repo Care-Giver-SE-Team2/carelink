@@ -1,17 +1,20 @@
 package sg.nus.carelink.visit.application;
 
+import java.util.List;
+
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import sg.nus.carelink.profile.application.CaregiverDirectory;
 import sg.nus.carelink.profile.application.CaregiverPublicProfile;
+import sg.nus.carelink.profile.application.CaregiverPublicCredential;
 import sg.nus.carelink.profile.application.FamilyAccessQuery;
 import sg.nus.carelink.shared.error.ResourceNotFound;
 import sg.nus.carelink.visit.domain.repository.VisitScheduleQuery;
 
 /**
- * Reads caregiver profiles after current family and visit relationship checks.
+ * Reads caregiver profiles and credentials after current family and visit relationship checks.
  *
  * @author Wang Zhili
  */
@@ -41,11 +44,28 @@ public class FamilyCaregiverQueryService {
 	 * @author Wang Zhili
 	 */
 	public CaregiverPublicProfile getProfile(String authenticatedUsername, Long caregiverId) {
+		requireRelationship(authenticatedUsername, caregiverId);
+		return caregivers.findPublicProfile(caregiverId)
+				.orElseThrow(() -> new ResourceNotFound("Caregiver", caregiverId));
+	}
+
+	/**
+	 * Lists public credentials after independently checking current caregiver access.
+	 *
+	 * @param authenticatedUsername Account supplied by the authenticated session
+	 * @param caregiverId Caregiver profile identifier from the request path
+	 * @return Ordered public credentials, or an empty list
+	 * @author Wang Zhili
+	 */
+	public List<CaregiverPublicCredential> listCredentials(String authenticatedUsername, Long caregiverId) {
+		requireRelationship(authenticatedUsername, caregiverId);
+		return caregivers.listPublicCredentials(caregiverId);
+	}
+
+	private void requireRelationship(String authenticatedUsername, Long caregiverId) {
 		var elderIds = access.readableElderIds(authenticatedUsername);
 		if (elderIds.isEmpty() || !visits.hasAssignedVisit(elderIds, caregiverId)) {
 			throw new AccessDeniedException("A caregiver relationship with a readable elder is required");
 		}
-		return caregivers.findPublicProfile(caregiverId)
-				.orElseThrow(() -> new ResourceNotFound("Caregiver", caregiverId));
 	}
 }

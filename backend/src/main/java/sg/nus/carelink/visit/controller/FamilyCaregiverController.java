@@ -1,6 +1,7 @@
 package sg.nus.carelink.visit.controller;
 
 import java.security.Principal;
+import java.util.List;
 
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -10,9 +11,10 @@ import org.springframework.web.bind.annotation.RestController;
 
 import sg.nus.carelink.visit.application.FamilyCaregiverQueryService;
 import sg.nus.carelink.visit.controller.dto.FamilyCaregiverResponse;
+import sg.nus.carelink.visit.controller.dto.FamilyCredentialResponse;
 
 /**
- * Exposes caregiver public profiles to authorized family members.
+ * Exposes caregiver public profiles and credentials to authorized family members.
  *
  * @author Wang Zhili
  */
@@ -38,5 +40,20 @@ public class FamilyCaregiverController {
 	@PreAuthorize("hasRole('FAMILY')")
 	public FamilyCaregiverResponse get(@PathVariable Long caregiverId, Principal principal) {
 		return FamilyCaregiverResponse.from(queries.getProfile(principal.getName(), caregiverId));
+	}
+
+	/**
+	 * Lists public credentials after checking current family access to the caregiver.
+	 *
+	 * @param caregiverId Caregiver profile identifier from the request path
+	 * @param principal Account supplied by the authenticated session
+	 * @return Public credentials ordered by credential type and record ID
+	 * @author Wang Zhili
+	 */
+	@GetMapping("/{caregiverId}/credentials")
+	@PreAuthorize("hasRole('FAMILY')")
+	public List<FamilyCredentialResponse> credentials(@PathVariable Long caregiverId, Principal principal) {
+		return queries.listCredentials(principal.getName(), caregiverId).stream()
+				.map(FamilyCredentialResponse::from).toList();
 	}
 }
