@@ -61,7 +61,7 @@ class ProfileControllerTest {
 				1L, 2L, "v3", Elder.Gender.MALE, LocalDate.of(2026, 9, 6), "v6", "v7", "v8", "v9",
 				"v10", Boolean.TRUE, Elder.MobilityLevel.INDEPENDENT, Elder.ContinuityPreference.PREFERRED,
 				"v14", LocalDateTime.of(2026, 9, 6, 10, 15), LocalDateTime.of(2026, 9, 6, 10, 16));
-		when(service.listElders()).thenReturn(List.of(new ElderSummary(elder, "draft", 2)));
+		when(service.listElders()).thenReturn(List.of(new ElderSummary(elder, "draft", 2, null)));
 
 		mvc.perform(get("/api/elders")).andExpect(status().isOk());
 	}

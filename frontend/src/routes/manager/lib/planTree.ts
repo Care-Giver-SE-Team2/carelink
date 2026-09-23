@@ -1,4 +1,5 @@
-import type { DayVisit, PlanNode, SubPlanNode, TaskNode } from '../data/carePlans'
+import type { DayVisit, EvidenceType, PlanNode, SubPlanNode, TaskNode } from '../data/carePlans'
+import type { CarePlanNodeResponse } from '../../../shared/api/careplan'
 
 /** Bottom-up weekly effort in hours: a sub-plan is the sum of its tasks. */
 export function weeklyHours(node: PlanNode): number {
@@ -94,4 +95,49 @@ export function findSubPlan(tree: PlanNode[], id: string): SubPlanNode | undefin
 
 export function taskCount(node: TaskNode | SubPlanNode): number {
   return node.type === 'task' ? 1 : node.children.length
+}
+
+/** Distinct days of the week a caregiver visits, across every task in the tree — a task scheduled
+ * on the same day as another still counts as a single weekly visit. */
+export function visitsPerWeekOfTree(tree: PlanNode[]): number {
+  const days = new Set<string>()
+  function collect(node: PlanNode) {
+    if (node.type === 'task') node.visits.forEach((v) => days.add(v.day))
+    else node.children.forEach(collect)
+  }
+  tree.forEach(collect)
+  return days.size
+}
+
+function toTaskNode(node: CarePlanNodeResponse): TaskNode {
+  return {
+    id: `task-${node.id}`,
+    type: 'task',
+    name: node.name,
+    visits: node.visits,
+    evidence: (node.evidenceType === 'NONE' ? 'CHECKLIST' : node.evidenceType) as EvidenceType,
+  }
+}
+
+/** GET /api/care-plans/{id}/nodes's wire shape -> the frontend tree. The backend list is flat;
+ * tasks sharing the same groupName are regrouped here into a sub-plan for display, in the order
+ * each group first appears. A task with no groupName renders standalone. */
+export function fromCarePlanNodeResponses(nodes: CarePlanNodeResponse[]): PlanNode[] {
+  const result: PlanNode[] = []
+  const groups = new Map<string, SubPlanNode>()
+  for (const node of nodes) {
+    const task = toTaskNode(node)
+    if (!node.groupName) {
+      result.push(task)
+      continue
+    }
+    let group = groups.get(node.groupName)
+    if (!group) {
+      group = { id: `subplan-${node.groupName}`, type: 'subplan', name: node.groupName, children: [] }
+      groups.set(node.groupName, group)
+      result.push(group)
+    }
+    group.children.push(task)
+  }
+  return result
 }

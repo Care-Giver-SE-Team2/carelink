@@ -8,7 +8,7 @@ import {
   priorVisitCount,
   removeAssignment,
 } from '../data/caregivers'
-import { RemoveCaregiverModal } from './RemoveCaregiverModal'
+import { RemoveCaregiverModal } from '../components/RemoveCaregiverModal'
 import modalStyles from '../components/ConfirmModal.module.css'
 import styles from './AssignCaregiverModal.module.css'
 

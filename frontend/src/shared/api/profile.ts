@@ -33,6 +33,7 @@ export type ElderListItem = {
   sector: string | null
   planStatus: 'published' | 'draft' | 'none'
   planVersion: number | null
+  nextVisitDate: string | null
 }
 
 export function fetchElderList(): Promise<ElderListItem[]> {

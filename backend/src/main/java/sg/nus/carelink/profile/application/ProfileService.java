@@ -1,5 +1,6 @@
 package sg.nus.carelink.profile.application;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 
@@ -38,23 +39,30 @@ public class ProfileService {
 		return elders.findById(id);
 	}
 
-	/** UC-MG01 step one: every elder the manager can search, each with its latest plan status. */
+	/**
+	 * UC-MG01 step one: every elder the manager can search, each with its latest plan status and
+	 * next visit date.
+	 */
 	@Transactional(readOnly = true)
 	public List<ElderSummary> listElders() {
+		LocalDate today = LocalDate.now();
 		return elders.findAll().stream()
-				.map(elder -> toSummary(elder, carePlans.findLatestByElderId(elder.id()).orElse(null)))
+				.map(elder -> toSummary(
+						elder,
+						carePlans.findLatestByElderId(elder.id()).orElse(null),
+						carePlans.findNextVisitDate(elder.id(), today).orElse(null)))
 				.toList();
 	}
 
-	private static ElderSummary toSummary(Elder elder, CarePlan latestPlan) {
+	private static ElderSummary toSummary(Elder elder, CarePlan latestPlan, LocalDate nextVisitDate) {
 		boolean noActivePlan = latestPlan == null
 				|| latestPlan.status() == CarePlan.Status.SUPERSEDED
 				|| latestPlan.status() == CarePlan.Status.STOPPED;
 		if (noActivePlan) {
-			return new ElderSummary(elder, "none", null);
+			return new ElderSummary(elder, "none", null, null);
 		}
 		String status = latestPlan.status() == CarePlan.Status.PUBLISHED ? "published" : "draft";
-		return new ElderSummary(elder, status, latestPlan.version());
+		return new ElderSummary(elder, status, latestPlan.version(), nextVisitDate);
 	}
 
 	    /**
