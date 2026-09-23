@@ -819,49 +819,100 @@ paths:
     - $ref: '#/components/parameters/CaregiverId'
     get:
       tags:
-      - Caregivers
+        - Caregivers
       summary: Get a caregiver profile
       x-status: draft
+      x-family-status: implemented
       responses:
         '200':
           description: >-
-            Family response uses the explicitly listed family schema. Other roles retain the original response
-            schema; the server chooses by authenticated role, never by a client projection flag.
+            The implemented FAMILY response contains only FamilyCaregiverView fields. The
+            original Caregiver response is retained for other roles, whose implementation is
+            pending. The server selects the projection from the authenticated role.
           content:
             application/json:
               schema:
                 anyOf:
-                - $ref: '#/components/schemas/FamilyCaregiverView'
-                - $ref: '#/components/schemas/Caregiver'
+                  - $ref: '#/components/schemas/FamilyCaregiverView'
+                  - $ref: '#/components/schemas/Caregiver'
+              examples:
+                familyProfile:
+                  summary: Public profile of a caregiver with an authorized visit relationship
+                  value:
+                    id: 201
+                    fullName: Lim Jia Hui
+                    dialects:
+                      - Mandarin
+                      - Hokkien
+                noDialects:
+                  summary: Public profile with no recorded dialects
+                  value:
+                    id: 202
+                    fullName: Daniel Goh
+                    dialects: []
+        '400':
+          description: The caregiverId path value is not a signed 64-bit integer.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
         '401':
-          $ref: '#/components/responses/FamilyUnauthorized'
+          description: >-
+            No valid authenticated session. Shared security determines the response body;
+            clients must handle the HTTP status without requiring a JSON body.
         '403':
-          $ref: '#/components/responses/FamilyForbidden'
+          description: >-
+            The caller lacks FAMILY, the current family account/profile is unavailable, or
+            caregiverId has no visit relationship to a currently readable elder. This includes
+            unrelated and nonexistent integer IDs, including zero and negative IDs. The
+            relationship check precedes the profile lookup.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
         '404':
-          $ref: '#/components/responses/NotFound'
+          description: >-
+            The caregiver profile cannot be found after the family's visit relationship has
+            passed authorization. An ID without an authorized relationship returns 403 first.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
       x-contract-status: specified
       x-family-use-cases:
-      - UC-FM02
+        - UC-FM02
       x-family-owner: Member 4 (FM01-FM05 behaviour); source data remains with its assigned owner.
       security:
-      - sessionCookie: []
+        - sessionCookie: []
       operationId: getCaregiver
       description: >-
-        Family callers may read the public profile of a caregiver assigned to a visit of an elder they can
-        currently access. Historical assigned visits also establish this relationship while the elder binding
-        remains valid. An arbitrary unrelated caregiver ID is forbidden. Return the FamilyCaregiverView only;
-        other roles retain their existing profile behaviour.
+        The implemented FAMILY detail reads the public profile of a caregiver assigned to a
+        current or historical visit of an elder the caller can currently access. The visit's
+        caregiverId must match; a visit_assignment replacement-history row alone grants no
+        access. This relationship is independent of the selected schedule week or visit status.
+        Historical visits remain eligible only while the elder binding remains readable.
 
+        Identity comes from the authenticated session; the account must currently be enabled,
+        hold FAMILY and have a family profile. Each request checks ACTIVE, unexpired bindings
+        with FULL or READ_ONLY scope. Expiry is evaluated in Asia/Singapore and access ends
+        exactly at expiresAt. Revocation or expiry takes effect on subsequent requests. The
+        client cannot select a family identity or response projection. This read-only GET
+        requires a valid session but no CSRF header.
 
-        Family callers are identified from the authenticated session, never a caller-supplied familyMemberId. For
-        family callers, care resources require an ACTIVE binding to their actual elder, with no revocation and no
-        elapsed expiresAt, and the applicable access scope at request time. Revocation/expiry takes effect on
-        subsequent reads and writes, including historical content. Reading a family care resource records the
-        caller, resource and server access time in the internal audit trail. Read access alone does not imply
-        explicit acknowledgement. FULL/READ_ONLY do not imply different clinical field sets: both may use the
-        family read projections below; an authorised notification recipient may record read/view/acknowledgement
-        under either scope because those commands record the recipient response, not a change to the elder care
-        record.
+        Example: GET /api/caregivers/201. The path value must fit a signed 64-bit integer;
+        malformed or overflowing values return 400. Authorization runs before the profile
+        lookup: no eligible visit relationship returns 403, including an unrelated or
+        nonexistent ID. Only a missing profile after successful authorization returns 404.
+
+        The response contains only id, fullName and dialects. Stored comma-separated dialects
+        become an array: trim each item and omit empty items while preserving order, spelling
+        and duplicates. Null or blank source values become []. No phone, user/account ID,
+        sector, internal status, performance or credential details are returned. An inactive
+        caregiver's public profile remains readable through an eligible historical visit.
+        Persistent access auditing is planned for a later batch.
+
+        Other-role profile contracts remain planned and their original response schema is
+        retained. Their implementation is pending; non-FAMILY callers currently receive 403.
       x-family-response-schema:
         $ref: '#/components/schemas/FamilyCaregiverView'
     patch:
@@ -6111,13 +6162,19 @@ components:
           minLength: 1
         dialects:
           type: array
+          description: >-
+            Dialects from the source comma-separated string. Items are trimmed and empty
+            items omitted; order, spelling and duplicates are preserved. Null or blank
+            source values produce an empty array.
           items:
             type: string
-      description: 'Public profile only: no phone, private contact details, staff performance or internal availability state.'
+      description: >-
+        Public profile only: id, fullName and dialects. No phone, user/account ID, sector,
+        private contact details, staff performance, internal availability state or credentials.
       required:
-      - id
-      - fullName
-      - dialects
+        - id
+        - fullName
+        - dialects
     FamilyCredentialView:
       type: object
       additionalProperties: false

@@ -1,0 +1,51 @@
+package sg.nus.carelink.visit.application;
+
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import sg.nus.carelink.profile.application.CaregiverDirectory;
+import sg.nus.carelink.profile.application.CaregiverPublicProfile;
+import sg.nus.carelink.profile.application.FamilyAccessQuery;
+import sg.nus.carelink.shared.error.ResourceNotFound;
+import sg.nus.carelink.visit.domain.repository.VisitScheduleQuery;
+
+/**
+ * Reads caregiver profiles after current family and visit relationship checks.
+ *
+ * @author Wang Zhili
+ */
+@Service
+@Transactional(readOnly = true)
+public class FamilyCaregiverQueryService {
+
+	private final FamilyAccessQuery access;
+	private final VisitScheduleQuery visits;
+	private final CaregiverDirectory caregivers;
+
+	public FamilyCaregiverQueryService(FamilyAccessQuery access, VisitScheduleQuery visits,
+			CaregiverDirectory caregivers) {
+		this.access = access;
+		this.visits = visits;
+		this.caregivers = caregivers;
+	}
+
+	/**
+	 * Returns public details of a caregiver assigned to a currently readable elder's visit.
+	 *
+	 * @param authenticatedUsername Account supplied by the authenticated session
+	 * @param caregiverId Caregiver profile identifier from the request path
+	 * @return Public caregiver details
+	 * @throws AccessDeniedException If current family access or a visit relationship is absent
+	 * @throws ResourceNotFound If the authorized caregiver profile is unavailable
+	 * @author Wang Zhili
+	 */
+	public CaregiverPublicProfile getProfile(String authenticatedUsername, Long caregiverId) {
+		var elderIds = access.readableElderIds(authenticatedUsername);
+		if (elderIds.isEmpty() || !visits.hasAssignedVisit(elderIds, caregiverId)) {
+			throw new AccessDeniedException("A caregiver relationship with a readable elder is required");
+		}
+		return caregivers.findPublicProfile(caregiverId)
+				.orElseThrow(() -> new ResourceNotFound("Caregiver", caregiverId));
+	}
+}
