@@ -2,6 +2,7 @@ package sg.nus.carelink.profile.domain.repository;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 import sg.nus.carelink.profile.domain.model.Elder;
 
@@ -15,6 +16,15 @@ public interface ElderRepository {
     Optional<Elder> findById(Long id);
 
     List<Elder> findAll();
+
+    /**
+     * Finds the supplied elder IDs in ascending ID order.
+     *
+     * @param elderIds IDs selected by the calling use case
+     * @return Matching elder profiles
+     * @author Wang Zhili
+     */
+    List<Elder> findByIds(Set<Long> elderIds);
 
     /**
      * Finds the elder profile associated with an application user account.

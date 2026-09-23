@@ -3,6 +3,7 @@ package sg.nus.carelink.profile.application;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -45,12 +46,31 @@ public class ProfileService {
 	 */
 	@Transactional(readOnly = true)
 	public List<ElderSummary> listElders() {
-		LocalDate today = LocalDate.now();
-		return elders.findAll().stream()
+		return summarize(elders.findAll(), LocalDate.now());
+	}
+
+	/**
+	 * Lists selected elders with plan status and the next planned visit date.
+	 *
+	 * @param elderIds Elder IDs authorized by the calling use case
+	 * @param fromDate First date considered for the next planned visit
+	 * @return Elder summaries in ascending ID order, or an empty list
+	 * @author Wang Zhili
+	 */
+	@Transactional(readOnly = true)
+	public List<ElderSummary> listEldersByIds(Set<Long> elderIds, LocalDate fromDate) {
+		if (elderIds.isEmpty()) {
+			return List.of();
+		}
+		return summarize(elders.findByIds(elderIds), fromDate);
+	}
+
+	private List<ElderSummary> summarize(List<Elder> selectedElders, LocalDate fromDate) {
+		return selectedElders.stream()
 				.map(elder -> toSummary(
 						elder,
 						carePlans.findLatestByElderId(elder.id()).orElse(null),
-						carePlans.findNextVisitDate(elder.id(), today).orElse(null)))
+						carePlans.findNextVisitDate(elder.id(), fromDate).orElse(null)))
 				.toList();
 	}
 

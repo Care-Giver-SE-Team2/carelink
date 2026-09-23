@@ -168,35 +168,68 @@ paths:
           $ref: '#/components/responses/Unauthorized'
   /elders:
     get:
-      tags:
-      - Elders
+      tags: [Elders]
       summary: List elders
-      x-status: draft
-      description: 'Manager sees every elder. Family sees only the elders they are actively bound to; this is enforced server-side,
-        not by a client filter.
+      operationId: listElders
+      x-status: implemented
+      x-family-use-cases: [UC-FM02]
+      security:
+        - sessionCookie: []
+      description: >-
+        MANAGER callers receive every elder. FAMILY callers receive only elders linked to their
+        current family profile by an ACTIVE binding with FULL or READ_ONLY access. The family
+        account must currently be enabled and hold FAMILY. A binding is readable when expiresAt
+        is absent or strictly later than the current time in Asia/Singapore; pending, rejected,
+        revoked and expired bindings grant no access. Authorization is checked on every request.
 
-        '
-      parameters:
-      - $ref: '#/components/parameters/Page'
-      - $ref: '#/components/parameters/Size'
-      - name: sector
-        in: query
-        schema:
-          type: string
-      - name: search
-        in: query
-        description: Matches against name.
-        schema:
-          type: string
+        Both roles receive the same array of elder summaries. A family member with no readable
+        elders receives 200 with an empty array. This operation has no pagination, search or sector
+        filters. Identity comes from the authenticated session; no family ID or role parameter is
+        accepted. This read-only GET requires no CSRF header.
       responses:
         '200':
-          description: Page of elders.
+          description: Elder summaries visible to the current caller; an empty result is an empty array.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ElderPage'
+                type: array
+                items:
+                  $ref: '#/components/schemas/ElderListItemResponse'
+              examples:
+                elders:
+                  summary: Two readable elders, with and without a care plan
+                  value:
+                    - id: 101
+                      fullName: Tan Mei
+                      dateOfBirth: '1946-05-12'
+                      address: 12 Example Road
+                      sector: Central
+                      planStatus: published
+                      planVersion: 2
+                      nextVisitDate: '2026-09-24'
+                    - id: 102
+                      fullName: Lim Wei
+                      dateOfBirth: null
+                      address: null
+                      sector: null
+                      planStatus: none
+                      planVersion: null
+                      nextVisitDate: null
+                empty:
+                  summary: No readable elders
+                  value: []
         '401':
-          $ref: '#/components/responses/Unauthorized'
+          description: >-
+            No valid authenticated session. Shared security determines the response body;
+            clients must handle the HTTP status without requiring a JSON body.
+        '403':
+          description: >-
+            The caller lacks a permitted role, or the family account is disabled, no longer
+            holds FAMILY or has no family profile.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
     post:
       tags:
       - Elders
@@ -3618,6 +3651,51 @@ components:
         type: integer
         format: int64
   schemas:
+    ElderListItemResponse:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - fullName
+        - dateOfBirth
+        - address
+        - sector
+        - planStatus
+        - planVersion
+        - nextVisitDate
+      properties:
+        id:
+          type: integer
+          format: int64
+          description: Elder profile ID.
+        fullName:
+          type: string
+        dateOfBirth:
+          type: string
+          format: date
+          nullable: true
+        address:
+          type: string
+          nullable: true
+        sector:
+          type: string
+          nullable: true
+        planStatus:
+          type: string
+          enum: [published, draft, none]
+          description: Latest care plan state; absent, superseded or stopped plans are shown as none.
+        planVersion:
+          type: integer
+          nullable: true
+          description: Latest plan version; null when planStatus is none.
+        nextVisitDate:
+          type: string
+          format: date
+          nullable: true
+          description: >-
+            Next date derived from the published care plan on or after today, or null if none.
+            This value does not establish that a dated visit record or caregiver assignment exists.
+
     LoginRequest:
       type: object
       required:
