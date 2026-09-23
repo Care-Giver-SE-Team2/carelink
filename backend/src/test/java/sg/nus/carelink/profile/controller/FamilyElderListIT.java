@@ -232,7 +232,7 @@ class FamilyElderListIT {
 	}
 
 	private static void assertListFields(JsonNode body) {
-		assertThat(body).allSatisfy(item -> assertThat(item.propertyNames()).containsExactlyInAnyOrder(
+		assertThat(body).isNotEmpty().allSatisfy(item -> assertThat(item.propertyNames()).containsExactlyInAnyOrder(
 				"id", "fullName", "dateOfBirth", "address", "sector", "planStatus", "planVersion", "nextVisitDate"));
 	}
 

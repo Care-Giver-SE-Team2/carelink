@@ -1,6 +1,7 @@
 package sg.nus.carelink.profile.application;
 
 import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -46,7 +47,7 @@ public class ProfileService {
 	 */
 	@Transactional(readOnly = true)
 	public List<ElderSummary> listElders() {
-		return summarize(elders.findAll(), LocalDate.now());
+		return summarize(elders.findAll(), LocalDate.now(ZoneId.systemDefault()));
 	}
 
 	/**
