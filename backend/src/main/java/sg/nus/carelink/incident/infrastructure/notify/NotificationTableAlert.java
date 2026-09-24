@@ -1,5 +1,6 @@
 package sg.nus.carelink.incident.infrastructure.notify;
 
+import java.sql.Timestamp;
 import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -40,12 +41,16 @@ class NotificationTableAlert implements IncidentAlert {
 	/**
 	 * Family members with a binding that is active now, through to their account.
 	 *
-	 * <p>The moment is bound as a parameter rather than read with SQL {@code now()}, and the
-	 * difference matters. {@code expires_at} was written by the application, whose JVM zone
-	 * and JDBC connection zone differ, so the driver converts it on the way in and out;
-	 * {@code now()} is the database's own clock and gets no such conversion. Comparing the
-	 * two answers the wrong question, and would keep an expired binding receiving alerts.
-	 * Both sides of the comparison have to have travelled the same path.
+	 * <p>The moment is bound as a {@link Timestamp} made from the application's clock, and
+	 * both halves of that matter. Not SQL {@code now()}: that is the database's own clock, in
+	 * the database's own zone. And not a {@link LocalDateTime}: the JVM runs in UTC while the
+	 * JDBC connection declares Asia/Singapore, and Connector/J converts a {@code Timestamp}
+	 * between the two but sends a {@code LocalDateTime} exactly as it is. {@code expires_at}
+	 * is written through JPA, which binds a {@code Timestamp}, so it sits in the column eight
+	 * hours from its nominal value. Only a {@code Timestamp} parameter lands on the same side
+	 * of that shift; a {@code LocalDateTime} kept an expired binding receiving alerts for eight
+	 * more hours, which is what this code did until the report module's queries showed the
+	 * two parameter types are not treated alike.
 	 */
 	private static final String BOUND_FAMILY = """
 			select f.user_id from elder_family_binding b
@@ -67,8 +72,10 @@ class NotificationTableAlert implements IncidentAlert {
 
 	private static final String INSERT = """
 			insert into notification
-			    (recipient_user_id, event_type, channel, title, body, resource_type, resource_id, status)
-			values (:userId, :eventType, 'IN_APP', :title, :body, 'INCIDENT', :incidentId, 'PENDING')
+			    (recipient_user_id, event_type, channel, title, body, resource_type, resource_id, status,
+			     created_at)
+			values (:userId, :eventType, 'IN_APP', :title, :body, 'INCIDENT', :incidentId, 'PENDING',
+			        :createdAt)
 			""";
 
 	private final JdbcClient jdbc;
@@ -131,7 +138,7 @@ class NotificationTableAlert implements IncidentAlert {
 				? List.of()
 				: jdbc.sql(BOUND_FAMILY)
 						.param("elderId", elderId)
-						.param("now", LocalDateTime.now(clock))
+						.param("now", Timestamp.valueOf(LocalDateTime.now(clock)))
 						.query(Long.class)
 						.list();
 	}
@@ -153,6 +160,10 @@ class NotificationTableAlert implements IncidentAlert {
 				.param("title", trim(title, 150))
 				.param("body", trim(body, 1000))
 				.param("incidentId", incidentId)
+				// Written here rather than left to the column default: the default is the
+				// database's clock, which JPA would read back sixteen hours out. A Timestamp from
+				// the application's clock lands where the application's own writes do.
+				.param("createdAt", Timestamp.valueOf(LocalDateTime.now(clock)))
 				.update();
 	}
 
