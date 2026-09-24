@@ -167,6 +167,7 @@ class NotificationTableAlert implements IncidentAlert {
 		return switch (source) {
 			case ELDER_SOS -> "Raised by the elder's emergency button";
 			case CAREGIVER -> "Reported by a caregiver";
+			case ELDER_SERVICE_DISPUTE -> "Raised by the elder after disputing a completed service";
 			case SYSTEM_MISSED_CHECKIN -> "Raised automatically by a missed check-in";
 		};
 	}
