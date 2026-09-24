@@ -54,6 +54,8 @@ class FamilyElderListIT {
 	private static final LocalDateTime NOW = LocalDateTime.of(2026, 9, 23, 10, 0);
 	private static final List<Long> ELDER_IDS = List.of(101L, 102L, 103L, 104L, 105L, 106L, 107L, 108L, 110L);
 
+	// @Testcontainers stops the container after the class; the chained withCommand hides that from the checker.
+	@SuppressWarnings("resource")
 	@Container
 	@ServiceConnection
 	static final MySQLContainer MYSQL = new MySQLContainer("mysql:8.4")
@@ -145,9 +147,9 @@ class FamilyElderListIT {
 		assertThat(body).extracting(item -> item.path("id").longValue()).containsExactlyInAnyOrder(101L, 102L);
 		assertListFields(body);
 		assertThat(body).allSatisfy(item -> {
-			assertThat(item.path("dateOfBirth").asText()).isEqualTo("1945-01-02");
-			assertThat(item.path("address").asText()).isEqualTo("12 Example Road");
-			assertThat(item.path("sector").asText()).isEqualTo("North");
+			assertThat(item.path("dateOfBirth").asString()).isEqualTo("1945-01-02");
+			assertThat(item.path("address").asString()).isEqualTo("12 Example Road");
+			assertThat(item.path("sector").asString()).isEqualTo("North");
 		});
 	}
 
@@ -158,8 +160,8 @@ class FamilyElderListIT {
 				.andExpect(status().isOk()).andReturn().getResponse();
 		var body = json.readTree(response.getContentAsString());
 		assertThat(body).extracting(item -> item.path("id").longValue()).containsExactly(110L);
-		assertThat(body.get(0).path("planStatus").asText()).isEqualTo("none");
-		assertThat(body.get(0).path("planVersion").isNull()).isTrue();
+		assertThat(body.get(0).path("planStatus").asString()).isEqualTo("stopped");
+		assertThat(body.get(0).path("planVersion").asInt()).isEqualTo(4);
 		assertThat(body.get(0).path("nextVisitDate").isNull()).isTrue();
 	}
 
