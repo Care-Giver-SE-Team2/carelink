@@ -8,7 +8,6 @@ import java.util.Set;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Repository;
 
 import sg.nus.carelink.incident.domain.model.Incident;
@@ -33,17 +32,12 @@ class IncidentRepositoryAdapter implements IncidentRepository {
 			Set.of(IncidentJpaEntity.Status.OPEN, IncidentJpaEntity.Status.ACKNOWLEDGED);
 
 	/**
-	 * Most urgent first: the nearest response deadline, then the incidents that never got
-	 * one, newest of those first.
-	 *
-	 * <p>{@code nullsLast} is the whole point. An unrouted SOS has no respond_by, and MySQL
-	 * sorts nulls to the front of an ascending order, which would put the incidents with no
-	 * promise attached above the ones about to break one. Hibernate emulates the null
-	 * precedence the database does not spell itself.
+	 * The state the queue pins above everything else: the chain ran out and nobody is
+	 * answerable any more (UC-MG05 3b). Handed to the query as a parameter rather than
+	 * spelled as a nested enum's name inside JPQL.
 	 */
-	private static final Sort QUEUE_ORDER = Sort.by(
-			Sort.Order.asc("respondBy").nullsLast(),
-			Sort.Order.desc("reportedAt"));
+	private static final IncidentJpaEntity.Status PINNED_TO_THE_TOP =
+			IncidentJpaEntity.Status.UNRESOLVED_ESCALATED;
 
 	private final IncidentJpaRepository jpa;
 
@@ -111,10 +105,10 @@ class IncidentRepositoryAdapter implements IncidentRepository {
 				? EnumSet.allOf(IncidentJpaEntity.Severity.class)
 				: EnumSet.of(IncidentJpaEntity.Severity.valueOf(severity.name()));
 
-		PageRequest request = PageRequest.of(page, size, QUEUE_ORDER);
-		Page<IncidentJpaEntity> rows = elderId == null
-				? jpa.findByStatusInAndSeverityIn(rowStatuses, rowSeverities, request)
-				: jpa.findByStatusInAndSeverityInAndElderId(rowStatuses, rowSeverities, elderId, request);
+		// Unsorted on purpose: the order is the query's own, and a sort here would be
+		// appended after it.
+		Page<IncidentJpaEntity> rows = jpa.findQueue(
+				rowStatuses, rowSeverities, elderId, PINNED_TO_THE_TOP, PageRequest.of(page, size));
 
 		return new PageSlice<>(
 				rows.getContent().stream().map(IncidentMapper::toDomain).toList(),
