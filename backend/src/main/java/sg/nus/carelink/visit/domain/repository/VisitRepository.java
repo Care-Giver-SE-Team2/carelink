@@ -10,6 +10,7 @@ import sg.nus.carelink.visit.domain.model.Visit;
  * the use cases need them; identity.domain.repository.AppUserRepository is the template.
  */
 public interface VisitRepository {
+	java.util.List<Visit> findAssigned(Long caregiverId, java.time.LocalDateTime from, java.time.LocalDateTime until);
 
 	Optional<Visit> findById(Long id);
 

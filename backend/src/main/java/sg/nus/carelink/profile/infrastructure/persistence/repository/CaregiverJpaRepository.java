@@ -6,4 +6,5 @@ import sg.nus.carelink.profile.infrastructure.persistence.entity.CaregiverJpaEnt
 
 /** Spring Data repository for caregiver. Used by persistence.adapter only; never exposed outwards. */
 public interface CaregiverJpaRepository extends JpaRepository<CaregiverJpaEntity, Long> {
+	java.util.Optional<CaregiverJpaEntity> findByUserId(Long userId);
 }

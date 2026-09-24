@@ -22,6 +22,11 @@ class VisitTaskRepositoryAdapter implements VisitTaskRepository {
 	}
 
 	@Override
+	public java.util.List<VisitTask> findByVisitId(Long visitId) {
+		return jpa.findByVisitIdOrderByIdAsc(visitId).stream().map(VisitTaskMapper::toDomain).toList();
+	}
+
+	@Override
 	public Optional<VisitTask> findById(Long id) {
 		return jpa.findById(id).map(VisitTaskMapper::toDomain);
 	}

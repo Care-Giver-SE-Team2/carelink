@@ -6,4 +6,5 @@ import sg.nus.carelink.profile.infrastructure.persistence.entity.CredentialJpaEn
 
 /** Spring Data repository for credential. Used by persistence.adapter only; never exposed outwards. */
 public interface CredentialJpaRepository extends JpaRepository<CredentialJpaEntity, Long> {
+	java.util.List<CredentialJpaEntity> findByCaregiverIdOrderByExpiryDateAscIdAsc(Long caregiverId);
 }

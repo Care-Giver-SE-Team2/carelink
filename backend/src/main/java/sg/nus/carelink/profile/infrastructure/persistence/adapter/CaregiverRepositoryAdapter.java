@@ -22,6 +22,11 @@ class CaregiverRepositoryAdapter implements CaregiverRepository {
 	}
 
 	@Override
+	public Optional<Caregiver> findByUserId(Long userId) {
+		return jpa.findByUserId(userId).map(CaregiverMapper::toDomain);
+	}
+
+	@Override
 	public Optional<Caregiver> findById(Long id) {
 		return jpa.findById(id).map(CaregiverMapper::toDomain);
 	}

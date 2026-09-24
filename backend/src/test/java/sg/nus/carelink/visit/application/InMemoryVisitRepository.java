@@ -14,6 +14,13 @@ class InMemoryVisitRepository implements VisitRepository {
 	private long nextId = 1;
 
 	@Override
+	public java.util.List<Visit> findAssigned(Long caregiverId, java.time.LocalDateTime from, java.time.LocalDateTime until) {
+		return rows.values().stream().filter(v -> caregiverId.equals(v.caregiverId()))
+				.filter(v -> !v.scheduledStart().isBefore(from) && v.scheduledStart().isBefore(until))
+				.sorted(java.util.Comparator.comparing(Visit::scheduledStart).thenComparing(Visit::id)).toList();
+	}
+
+	@Override
 	public Optional<Visit> findById(Long id) {
 		return Optional.ofNullable(rows.get(id));
 	}

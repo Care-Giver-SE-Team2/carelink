@@ -6,4 +6,6 @@ import sg.nus.carelink.visit.infrastructure.persistence.entity.VisitJpaEntity;
 
 /** Spring Data repository for visit. Used by persistence.adapter only; never exposed outwards. */
 public interface VisitJpaRepository extends JpaRepository<VisitJpaEntity, Long> {
+	java.util.List<VisitJpaEntity> findByCaregiverIdAndScheduledStartGreaterThanEqualAndScheduledStartLessThanOrderByScheduledStartAscIdAsc(
+			Long caregiverId, java.time.LocalDateTime from, java.time.LocalDateTime until);
 }

@@ -10,6 +10,7 @@ import sg.nus.carelink.profile.domain.model.Credential;
  * the use cases need them; identity.domain.repository.AppUserRepository is the template.
  */
 public interface CredentialRepository {
+	java.util.List<Credential> findByCaregiverId(Long caregiverId);
 
 	Optional<Credential> findById(Long id);
 

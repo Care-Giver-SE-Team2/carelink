@@ -10,7 +10,11 @@ info:
     not the other way around.
 
 
-    Only the `Auth` group is backed by a running controller today. Every
+    Historical design snapshot. The three caregiver read operations (GET /caregivers/me,
+    GET /caregivers/me/schedule and GET /visits/{visitId}/work-pack) are now implemented;
+    their authoritative contract is openapi.yaml, not their older shapes in this draft.
+
+    At the time of this draft, only the `Auth` group was backed by a controller. Every
 
     other group is a draft: agreed enough to shape the frontend and the
 

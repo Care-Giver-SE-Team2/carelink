@@ -20,6 +20,8 @@ spring:
 # gets later-level-multiplier times as long, because a second responder is a safety net
 # rather than a competitor.
 carelink:
+  caregiver:
+    credential-warning-days: 30
   escalation:
     countdown:
       HIGH: PT5M

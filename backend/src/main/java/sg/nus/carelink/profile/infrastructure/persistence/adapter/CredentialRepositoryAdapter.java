@@ -22,6 +22,12 @@ class CredentialRepositoryAdapter implements CredentialRepository {
 	}
 
 	@Override
+	public java.util.List<Credential> findByCaregiverId(Long caregiverId) {
+		return jpa.findByCaregiverIdOrderByExpiryDateAscIdAsc(caregiverId).stream()
+				.map(CredentialMapper::toDomain).toList();
+	}
+
+	@Override
 	public Optional<Credential> findById(Long id) {
 		return jpa.findById(id).map(CredentialMapper::toDomain);
 	}
