@@ -2,9 +2,11 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useFamilySchedule } from '../../../features/schedule/useFamilySchedule'
 import type { ScheduleSelection } from '../../../features/schedule/useFamilySchedule'
+import type { FamilyVisitPage } from '../../../features/schedule/types'
 import { shiftDays, singaporeToday, weekLabel, weekStart } from '../../../features/schedule/presentation'
 import { ScheduleFeedback } from './ScheduleFeedback'
 import { ScheduleVisitList } from './ScheduleVisitList'
+import { CaregiverDetails } from './CaregiverDetails'
 import styles from './FamilySchedule.module.css'
 
 /**
@@ -16,7 +18,8 @@ export function FamilySchedulePage() {
     elderId: null, date: singaporeToday(), page: 0,
   }))
   const week = weekStart(selection.date)
-  const { resource, refresh } = useFamilySchedule({ ...selection, week })
+  const { resource, refresh, invalidateAccess } = useFamilySchedule({ ...selection, week })
+  const [caregiver, setCaregiver] = useState<{ visits: FamilyVisitPage; id: number } | null>(null)
   const selectedElderId = resource.status === 'success'
     ? resource.data.selectedElderId : selection.elderId
   const changeDate = (date: string) => setSelection({ elderId: selectedElderId, date, page: 0 })
@@ -82,9 +85,17 @@ export function FamilySchedulePage() {
           <p>Your available elders will appear here once a family binding is active. Contact your care team if you need help with access.</p>
           <Link to="/family/intake">View my applications</Link>
         </section>}
-        {resource.data.visits && <ScheduleVisitList visits={resource.data.visits} onPage={(page) => {
-          setSelection({ ...selection, elderId: selectedElderId, page })
-        }} />}
+        {resource.data.visits && <ScheduleVisitList
+          visits={resource.data.visits}
+          onPage={(page) => setSelection({ ...selection, elderId: selectedElderId, page })}
+          onCaregiver={(id) => setCaregiver({ visits: resource.data.visits!, id })}
+        />}
+        {caregiver && caregiver.visits === resource.data.visits && <CaregiverDetails
+          key={caregiver.id}
+          caregiverId={caregiver.id}
+          onClose={() => setCaregiver(null)}
+          onAccessError={invalidateAccess}
+        />}
       </>}
     </div>
   )

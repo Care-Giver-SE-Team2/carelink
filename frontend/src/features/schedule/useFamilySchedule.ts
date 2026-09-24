@@ -44,7 +44,7 @@ async function loadSchedule(selection: ScheduleSelection, signal: AbortSignal): 
 /**
  * Loads one schedule page and discards data from cancelled selections or refreshes.
  * @param selection Elder, Singapore week start and zero-based page
- * @return Request state and a function to reload current access and visits
+ * @return Request state and functions to reload or clear protected schedule data
  * @author Wang Zhili
  */
 export function useFamilySchedule({ elderId, week, page }: ScheduleSelection) {
@@ -55,6 +55,11 @@ export function useFamilySchedule({ elderId, week, page }: ScheduleSelection) {
     resource: { status: 'loading' },
   })
   const refresh = useCallback(() => setRevision((value) => value + 1), [])
+  const invalidateAccess = useCallback((error: unknown) => {
+    setResult((current) => current.key === key
+      ? { key, resource: { status: 'error', error } }
+      : current)
+  }, [key])
 
   useEffect(() => {
     const controller = new AbortController()
@@ -70,5 +75,5 @@ export function useFamilySchedule({ elderId, week, page }: ScheduleSelection) {
   }, [key])
 
   const resource: ScheduleResource = result.key === key ? result.resource : { status: 'loading' }
-  return { resource, refresh }
+  return { resource, refresh, invalidateAccess }
 }

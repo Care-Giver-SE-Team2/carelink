@@ -222,6 +222,13 @@
   color: #6d8177;
   font-size: 10px;
 }
+.caregiverButton {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 14px;
+}
 .pagination {
   display: flex;
   align-items: center;

@@ -39,3 +39,28 @@ export interface ScheduleQuery {
   page: number
   size: number
 }
+
+/**
+ * Public caregiver profile available to an authorised family member.
+ * @author Wang Zhili
+ */
+export interface FamilyCaregiver {
+  id: number
+  fullName: string
+  dialects: string[]
+}
+
+/**
+ * Public credential details with nullable source fields preserved.
+ * @author Wang Zhili
+ */
+export interface FamilyCredential {
+  id: number
+  caregiverId: number
+  credentialTypeId: number
+  credentialTypeName: string
+  issuingBody: string | null
+  validFrom: string | null
+  expiryDate: string
+  status: 'PUBLISHED' | 'EXPIRING' | 'EXPIRED' | 'REVOKED'
+}

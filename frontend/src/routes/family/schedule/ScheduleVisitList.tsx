@@ -6,9 +6,10 @@ import styles from './FamilySchedule.module.css'
  * Displays the returned page of planned visits and its server snapshot time.
  * @author Wang Zhili
  */
-export function ScheduleVisitList({ visits, onPage }: {
+export function ScheduleVisitList({ visits, onPage, onCaregiver }: {
   visits: FamilyVisitPage
   onPage: (page: number) => void
+  onCaregiver: (id: number) => void
 }) {
   const pages = Math.ceil(visits.totalElements / visits.size)
   const snapshot = visits.items[0]?.asOf
@@ -53,6 +54,12 @@ export function ScheduleVisitList({ visits, onPage }: {
                 <span>{visit.caregiverId === null ? 'Caregiver awaiting assignment' : 'Caregiver assigned'}</span>
                 <span className={styles.reference}>Visit #{visit.id}</span>
               </div>
+              {visit.caregiverId !== null && <button
+                className={styles.caregiverButton}
+                aria-label={`View caregiver for visit ${visit.id}`}
+                aria-haspopup="dialog"
+                onClick={() => onCaregiver(visit.caregiverId!)}
+              >View caregiver <span aria-hidden="true">→</span></button>}
             </li>
           ))}
         </ol>
