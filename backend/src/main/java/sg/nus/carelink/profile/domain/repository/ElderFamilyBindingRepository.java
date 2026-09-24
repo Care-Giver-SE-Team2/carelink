@@ -18,6 +18,15 @@ public interface ElderFamilyBindingRepository {
     List<ElderFamilyBinding> findByElderId(Long elderId);
 
     /**
+     * Lists one family's bindings so the domain can evaluate current read access.
+     *
+     * @param familyMemberId Family profile identifier, not an account identifier
+     * @return Bindings in elder ID order, including inactive and expired relationships
+     * @author Wang Zhili
+     */
+    List<ElderFamilyBinding> findByFamilyMemberId(Long familyMemberId);
+
+    /**
      * Finds the unique relationship between one elder and one family member.
      */
     Optional<ElderFamilyBinding> findByElderIdAndFamilyMemberId(

@@ -119,14 +119,26 @@ function readCookie(name: string): string | null {
   return null
 }
 
+/**
+ * Read an error body while retaining the HTTP error if parsing fails.
+ *
+ * @param response Failed HTTP response
+ * @return Parsed JSON, text, or null when the body cannot be read
+ * @author Wang Zhili
+ */
 async function readResponseBody(
   response: Response,
 ): Promise<unknown> {
-  const contentType =
-    response.headers.get('content-type') ?? ''
+  const contentType = (response.headers.get('content-type') ?? '')
+    .split(';')[0]
+    .trim()
+    .toLowerCase()
 
   try {
-    if (contentType.includes('application/json')) {
+    if (
+      contentType === 'application/json' ||
+      contentType === 'application/problem+json'
+    ) {
       return await response.json()
     }
 
@@ -138,22 +150,28 @@ async function readResponseBody(
   }
 }
 
+/**
+ * Select a message from JSON or text errors, with a status fallback.
+ *
+ * @param body Parsed error body
+ * @param status HTTP response status
+ * @return Message, problem detail, problem title, or fallback text
+ * @author Wang Zhili
+ */
 function errorMessage(
   body: unknown,
   status: number,
 ): string {
   if (
     body !== null &&
-    typeof body === 'object' &&
-    'message' in body
+    typeof body === 'object'
   ) {
-    const message = (body as { message?: unknown }).message
+    for (const field of ['message', 'detail', 'title']) {
+      const value = (body as Record<string, unknown>)[field]
 
-    if (
-      typeof message === 'string' &&
-      message.trim()
-    ) {
-      return message
+      if (typeof value === 'string' && value.trim()) {
+        return value
+      }
     }
   }
 

@@ -3,14 +3,19 @@ import { IntakeLayout } from './intake/IntakeLayout'
 import { IntakeListPage } from './intake/IntakeListPage'
 import { IntakeDetailPage } from './intake/IntakeDetailPage'
 import { IntakeCreatePage } from './intake/IntakeCreatePage'
+import { FamilyLayout } from './components/FamilyLayout'
+import { FamilySchedulePage } from './schedule/FamilySchedulePage'
 
 /**
- * Family routes; FM01 pages are isolated in the intake directory.
+ * Family application and weekly schedule routes.
  * @author Wang Zhili
  */
 export default function FamilyHome() {
   return (
     <Routes>
+      <Route element={<FamilyLayout title="Weekly schedule" />}>
+        <Route path="schedule" element={<FamilySchedulePage />} />
+      </Route>
       <Route element={<IntakeLayout />}>
         <Route index element={<Navigate to="intake" replace />} />
         <Route path="intake" element={<IntakeListPage />} />
