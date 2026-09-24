@@ -5,7 +5,9 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anySet;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.nullable;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -18,12 +20,15 @@ import java.time.LocalDate;
 import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Set;
+import java.util.function.Supplier;
 
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.dao.DataAccessResourceFailureException;
 import org.springframework.security.access.AccessDeniedException;
 
 import sg.nus.carelink.profile.application.FamilyAccessQuery;
+import sg.nus.carelink.profile.application.FamilyReadAudit;
 import sg.nus.carelink.visit.domain.model.VisitPage;
 import sg.nus.carelink.visit.domain.model.VisitScheduleFilter;
 import sg.nus.carelink.visit.domain.repository.VisitScheduleQuery;
@@ -35,10 +40,17 @@ import sg.nus.carelink.visit.domain.repository.VisitScheduleQuery;
  */
 class FamilyVisitQueryServiceTest {
 
+	private final FamilyReadAudit audit = mock(FamilyReadAudit.class);
 	private final FamilyAccessQuery access = mock(FamilyAccessQuery.class);
 	private final VisitScheduleQuery visits = mock(VisitScheduleQuery.class);
 	private final FamilyVisitQueryService service = new FamilyVisitQueryService(access, visits,
-			Clock.fixed(Instant.parse("2026-09-27T16:30:00Z"), ZoneOffset.UTC));
+			Clock.fixed(Instant.parse("2026-09-27T16:30:00Z"), ZoneOffset.UTC), audit);
+
+	@BeforeEach
+	void executeAuditedQueries() {
+		when(audit.read(anyString(), any(), nullable(Long.class), anyString(), any()))
+				.thenAnswer(call -> call.<Supplier<?>>getArgument(4).get());
+	}
 
 	@Test
 	void defaultsToTheCurrentSingaporeWeekWithinAllReadableElders() {

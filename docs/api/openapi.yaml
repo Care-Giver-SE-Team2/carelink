@@ -118,6 +118,18 @@ paths:
         elders receives 200 with an empty array. This operation has no pagination, search or sector
         filters. Identity comes from the authenticated session; no family ID or role parameter is
         accepted. This read-only GET requires no CSRF header.
+
+        Validated requests reaching the FAMILY application query persist a READ record with
+        the actor app_user ID (when resolvable), resource and outcome: OK, including empty
+        results; DENIED for access refusal; or FAILED for lookup/query errors. Records
+        commit independently with server occurred_at in Asia/Singapore. Authentication 401,
+        method-role rejection 403 and MVC validation/conversion 400 rejected before the
+        FAMILY application query are outside this audit. Existing request logging is
+        unchanged. Audit storage failure returns 503 without protected data. Records
+        exclude response bodies, raw query strings, exception details and secrets. Reading
+        does not acknowledge notifications or incidents. The resource is ELDER with a null
+        collection ID. MANAGER reads retain their existing behavior and are outside this
+        family audit.
       responses:
         '200':
           description: Elder summaries visible to the current caller; an empty result is an empty array.
@@ -164,6 +176,8 @@ paths:
                 $ref: '#/components/schemas/ProblemDetail'
 
   # Member 4: FM01-FM05 contracts; x-status records each operation's implementation status.
+        '503':
+          $ref: '#/components/responses/FamilyAuditUnavailable'
   /intake-applications:
     post:
       tags:
@@ -415,6 +429,8 @@ paths:
             application/problem+json:
               schema:
                 $ref: '#/components/schemas/ProblemDetail'
+        '503':
+          $ref: '#/components/responses/FamilyAuditUnavailable'
       x-contract-status: specified
       x-family-use-cases:
         - UC-FM02
@@ -446,10 +462,20 @@ paths:
         and duplicates. Null or blank source values become []. No phone, user/account ID,
         sector, internal status, performance or credential details are returned. An inactive
         caregiver's public profile remains readable through an eligible historical visit.
-        Persistent access auditing is planned for a later batch.
 
         Other-role profile contracts remain planned and their original response schema is
         retained. Their implementation is pending; non-FAMILY callers currently receive 403.
+
+        Validated requests reaching the FAMILY application query persist a READ record with
+        the actor app_user ID (when resolvable), resource and outcome: OK, including empty
+        results; DENIED for access refusal; or FAILED for lookup/query errors. Records
+        commit independently with server occurred_at in Asia/Singapore. Authentication 401,
+        method-role rejection 403 and MVC validation/conversion 400 rejected before the
+        FAMILY application query are outside this audit. Existing request logging is
+        unchanged. Audit storage failure returns 503 without protected data. Records
+        exclude response bodies, raw query strings, exception details and secrets. Reading
+        does not acknowledge notifications or incidents. The resource is CAREGIVER,
+        identified by the requested caregiverId.
       x-family-response-schema:
         $ref: '#/components/schemas/FamilyCaregiverView'
   /caregivers/{caregiverId}/credentials:
@@ -561,6 +587,8 @@ paths:
             application/problem+json:
               schema:
                 $ref: '#/components/schemas/ProblemDetail'
+        '503':
+          $ref: '#/components/responses/FamilyAuditUnavailable'
       x-contract-status: specified
       x-family-use-cases:
         - UC-FM02
@@ -600,9 +628,20 @@ paths:
         rather than treating PUBLISHED or EXPIRING alone as proof of current validity.
 
         Reading credentials does not update stored statuses, perform approval or run the
-        expiry scan. Persistent access auditing is planned for a later batch. Other-role
+        expiry scan. Other-role
         contracts and their original response schema remain planned; non-FAMILY callers
         currently receive 403.
+
+        Validated requests reaching the FAMILY application query persist a READ record with
+        the actor app_user ID (when resolvable), resource and outcome: OK, including empty
+        results; DENIED for access refusal; or FAILED for lookup/query errors. Records
+        commit independently with server occurred_at in Asia/Singapore. Authentication 401,
+        method-role rejection 403 and MVC validation/conversion 400 rejected before the
+        FAMILY application query are outside this audit. Existing request logging is
+        unchanged. Audit storage failure returns 503 without protected data. Records
+        exclude response bodies, raw query strings, exception details and secrets. Reading
+        does not acknowledge notifications or incidents. The resource is
+        CAREGIVER_CREDENTIALS, identified by the requested caregiverId.
       x-family-response-schema:
         type: array
         items:
@@ -641,12 +680,24 @@ paths:
         Example: GET /api/visits?elderId=101&dateFrom=2026-09-21&dateTo=2026-09-27&page=0&size=2.
         Null caregiverId means unassigned; null serviceType means the source visit has no service
         type. Timestamps include an explicit offset. All items share the server snapshot asOf
-        for this response. Persistent access auditing is planned for a later batch.
+        for this response.
 
         Other-role contracts remain planned: managers can filter freely, caregivers see their
         own visits, and elders see their own scope. UC-CG06 uses a past dateTo for historical
         records. Their original response alternative is retained; their collection-query
         implementation is pending and non-FAMILY callers currently receive 403.
+
+        Validated requests reaching the FAMILY application query persist a READ record with
+        the actor app_user ID (when resolvable), resource and outcome: OK, including empty
+        results; DENIED for access refusal; or FAILED for lookup/query errors. Records
+        commit independently with server occurred_at in Asia/Singapore. Authentication 401,
+        method-role rejection 403 and MVC validation/conversion 400 rejected before the
+        FAMILY application query are outside this audit. Existing request logging is
+        unchanged. Audit storage failure returns 503 without protected data. Records
+        exclude response bodies, raw query strings, exception details and secrets. Reading
+        does not acknowledge notifications or incidents. The resource is VISIT with a null
+        collection ID. Audit detail contains only validated elder/caregiver IDs, resolved
+        inclusive dates, status, page and size.
       parameters:
         - $ref: '#/components/parameters/Page'
         - $ref: '#/components/parameters/Size'
@@ -767,6 +818,8 @@ paths:
             application/problem+json:
               schema:
                 $ref: '#/components/schemas/ProblemDetail'
+        '503':
+          $ref: '#/components/responses/FamilyAuditUnavailable'
       x-contract-status: specified
       x-family-use-cases:
         - UC-FM02
@@ -3309,6 +3362,18 @@ components:
         application/problem+json:
           schema:
             $ref: '#/components/schemas/FamilyProblemDetail'
+    FamilyAuditUnavailable:
+      description: >-
+        The family access record could not be committed. After any query outcome, failure to
+        record access returns 503 instead of the result or original error, without protected data.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetail'
+          example:
+            title: Access recording unavailable
+            status: 503
+            detail: Access could not be recorded. Please retry later.
     FamilyServiceUnavailable:
       description: >-
         Report rendering is temporarily unavailable. The authorised online report remains readable;

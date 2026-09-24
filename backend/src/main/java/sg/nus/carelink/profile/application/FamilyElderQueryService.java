@@ -6,7 +6,6 @@ import java.time.ZoneId;
 import java.util.List;
 
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Queries elder summaries within the current family's readable bindings.
@@ -14,17 +13,18 @@ import org.springframework.transaction.annotation.Transactional;
  * @author Wang Zhili
  */
 @Service
-@Transactional(readOnly = true)
 public class FamilyElderQueryService {
 
 	private final FamilyAccessQuery access;
 	private final ProfileService profiles;
 	private final Clock clock;
+	private final FamilyReadAudit audit;
 
-	public FamilyElderQueryService(FamilyAccessQuery access, ProfileService profiles, Clock clock) {
+	public FamilyElderQueryService(FamilyAccessQuery access, ProfileService profiles, Clock clock, FamilyReadAudit audit) {
 		this.access = access;
 		this.profiles = profiles;
 		this.clock = clock;
+		this.audit = audit;
 	}
 
 	/**
@@ -35,8 +35,10 @@ public class FamilyElderQueryService {
 	 * @author Wang Zhili
 	 */
 	public List<ElderSummary> listForFamily(String authenticatedUsername) {
-		var elderIds = access.readableElderIds(authenticatedUsername);
-		LocalDate today = LocalDate.now(clock.withZone(ZoneId.of("Asia/Singapore")));
-		return profiles.listEldersByIds(elderIds, today);
+		return audit.read(authenticatedUsername, FamilyReadAudit.Resource.ELDERS, null, "", () -> {
+			var elderIds = access.readableElderIds(authenticatedUsername);
+			LocalDate today = LocalDate.now(clock.withZone(ZoneId.of("Asia/Singapore")));
+			return profiles.listEldersByIds(elderIds, today);
+		});
 	}
 }

@@ -3,6 +3,8 @@ package sg.nus.carelink.profile.application;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.nullable;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -18,7 +20,9 @@ import java.time.LocalDate;
 import java.time.ZoneOffset;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Supplier;
 
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.dao.DataAccessResourceFailureException;
 import org.springframework.security.access.AccessDeniedException;
@@ -36,12 +40,19 @@ class FamilyElderQueryServiceTest {
 
 	private static final LocalDate SINGAPORE_TODAY = LocalDate.of(2026, 9, 23);
 
+	private final FamilyReadAudit audit = mock(FamilyReadAudit.class);
 	private final FamilyAccessQuery access = mock(FamilyAccessQuery.class);
 	private final InMemoryElderRepository elders = spy(new InMemoryElderRepository());
 	private final CarePlanLookup carePlans = mock(CarePlanLookup.class);
 	private final FamilyElderQueryService service = new FamilyElderQueryService(
 			access, new ProfileService(elders, carePlans),
-			Clock.fixed(Instant.parse("2026-09-22T16:30:00Z"), ZoneOffset.UTC));
+			Clock.fixed(Instant.parse("2026-09-22T16:30:00Z"), ZoneOffset.UTC), audit);
+
+	@BeforeEach
+	void executeAuditedQueries() {
+		when(audit.read(anyString(), any(), nullable(Long.class), anyString(), any()))
+				.thenAnswer(call -> call.<Supplier<?>>getArgument(4).get());
+	}
 
 	@Test
 	void loadsOnlyReadableProfilesAndTheirPlanMetadataUsingTheSingaporeDate() {

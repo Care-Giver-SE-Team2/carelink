@@ -2,6 +2,9 @@ package sg.nus.carelink.visit.application;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.nullable;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -13,7 +16,9 @@ import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Supplier;
 
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.dao.DataAccessResourceFailureException;
 import org.springframework.security.access.AccessDeniedException;
@@ -22,6 +27,7 @@ import sg.nus.carelink.profile.application.CaregiverDirectory;
 import sg.nus.carelink.profile.application.CaregiverPublicProfile;
 import sg.nus.carelink.profile.application.CaregiverPublicCredential;
 import sg.nus.carelink.profile.application.FamilyAccessQuery;
+import sg.nus.carelink.profile.application.FamilyReadAudit;
 import sg.nus.carelink.shared.error.ResourceNotFound;
 import sg.nus.carelink.visit.domain.repository.VisitScheduleQuery;
 
@@ -32,10 +38,17 @@ import sg.nus.carelink.visit.domain.repository.VisitScheduleQuery;
  */
 class FamilyCaregiverQueryServiceTest {
 
+	private final FamilyReadAudit audit = mock(FamilyReadAudit.class);
 	private final FamilyAccessQuery access = mock(FamilyAccessQuery.class);
 	private final VisitScheduleQuery visits = mock(VisitScheduleQuery.class);
 	private final CaregiverDirectory caregivers = mock(CaregiverDirectory.class);
-	private final FamilyCaregiverQueryService service = new FamilyCaregiverQueryService(access, visits, caregivers);
+	private final FamilyCaregiverQueryService service = new FamilyCaregiverQueryService(access, visits, caregivers, audit);
+
+	@BeforeEach
+	void executeAuditedQueries() {
+		when(audit.read(anyString(), any(), nullable(Long.class), anyString(), any()))
+				.thenAnswer(call -> call.<Supplier<?>>getArgument(4).get());
+	}
 
 	@Test
 	void readsPublicDetailsOnlyAfterCheckingAllCurrentlyReadableElders() {

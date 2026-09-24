@@ -4,12 +4,12 @@ import java.util.List;
 
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 import sg.nus.carelink.profile.application.CaregiverDirectory;
 import sg.nus.carelink.profile.application.CaregiverPublicProfile;
 import sg.nus.carelink.profile.application.CaregiverPublicCredential;
 import sg.nus.carelink.profile.application.FamilyAccessQuery;
+import sg.nus.carelink.profile.application.FamilyReadAudit;
 import sg.nus.carelink.shared.error.ResourceNotFound;
 import sg.nus.carelink.visit.domain.repository.VisitScheduleQuery;
 
@@ -19,18 +19,19 @@ import sg.nus.carelink.visit.domain.repository.VisitScheduleQuery;
  * @author Wang Zhili
  */
 @Service
-@Transactional(readOnly = true)
 public class FamilyCaregiverQueryService {
 
 	private final FamilyAccessQuery access;
 	private final VisitScheduleQuery visits;
 	private final CaregiverDirectory caregivers;
+	private final FamilyReadAudit audit;
 
 	public FamilyCaregiverQueryService(FamilyAccessQuery access, VisitScheduleQuery visits,
-			CaregiverDirectory caregivers) {
+			CaregiverDirectory caregivers, FamilyReadAudit audit) {
 		this.access = access;
 		this.visits = visits;
 		this.caregivers = caregivers;
+		this.audit = audit;
 	}
 
 	/**
@@ -44,9 +45,11 @@ public class FamilyCaregiverQueryService {
 	 * @author Wang Zhili
 	 */
 	public CaregiverPublicProfile getProfile(String authenticatedUsername, Long caregiverId) {
-		requireRelationship(authenticatedUsername, caregiverId);
-		return caregivers.findPublicProfile(caregiverId)
-				.orElseThrow(() -> new ResourceNotFound("Caregiver", caregiverId));
+		return audit.read(authenticatedUsername, FamilyReadAudit.Resource.CAREGIVER, caregiverId, "", () -> {
+			requireRelationship(authenticatedUsername, caregiverId);
+			return caregivers.findPublicProfile(caregiverId)
+					.orElseThrow(() -> new ResourceNotFound("Caregiver", caregiverId));
+		});
 	}
 
 	/**
@@ -58,8 +61,10 @@ public class FamilyCaregiverQueryService {
 	 * @author Wang Zhili
 	 */
 	public List<CaregiverPublicCredential> listCredentials(String authenticatedUsername, Long caregiverId) {
-		requireRelationship(authenticatedUsername, caregiverId);
-		return caregivers.listPublicCredentials(caregiverId);
+		return audit.read(authenticatedUsername, FamilyReadAudit.Resource.CREDENTIALS, caregiverId, "", () -> {
+			requireRelationship(authenticatedUsername, caregiverId);
+			return caregivers.listPublicCredentials(caregiverId);
+		});
 	}
 
 	private void requireRelationship(String authenticatedUsername, Long caregiverId) {
