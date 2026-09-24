@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
 import sg.nus.carelink.shared.error.BusinessRuleViolation;
+import sg.nus.carelink.shared.error.AuditUnavailable;
 import sg.nus.carelink.shared.error.ResourceNotFound;
 
 import java.util.LinkedHashMap;
@@ -31,6 +32,20 @@ import java.util.Map;
 class GlobalExceptionHandler {
 
 	private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
+
+	/**
+	 * Reports unavailable access recording without exposing protected content or storage details.
+	 *
+	 * @return A retryable 503 problem response
+	 * @author Wang Zhili
+	 */
+	@ExceptionHandler(AuditUnavailable.class)
+	ProblemDetail onAuditUnavailable() {
+		ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.SERVICE_UNAVAILABLE,
+				"Access could not be recorded. Please retry later.");
+		problem.setTitle("Access recording unavailable");
+		return problem;
+	}
 
 	@ExceptionHandler(BusinessRuleViolation.class)
 	ProblemDetail onBusinessRuleViolation(BusinessRuleViolation ex) {

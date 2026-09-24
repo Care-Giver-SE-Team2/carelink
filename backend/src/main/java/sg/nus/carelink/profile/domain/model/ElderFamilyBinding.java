@@ -1,6 +1,7 @@
 package sg.nus.carelink.profile.domain.model;
 
 import java.time.LocalDateTime;
+import java.util.Objects;
 
 import sg.nus.carelink.shared.error.BusinessRuleViolation;
 
@@ -154,6 +155,20 @@ public record ElderFamilyBinding(
                 createdAt,
                 updatedAt
         );
+    }
+
+    /**
+     * Checks whether this binding grants read access at the supplied Singapore time.
+     *
+     * @param accessTime Server access time in Asia/Singapore
+     * @return True for an ACTIVE, unexpired binding with FULL or READ_ONLY scope
+     * @author Wang Zhili
+     */
+    public boolean allowsReadAt(LocalDateTime accessTime) {
+        Objects.requireNonNull(accessTime, "accessTime");
+        return status == Status.ACTIVE
+                && (accessScope == AccessScope.FULL || accessScope == AccessScope.READ_ONLY)
+                && (expiresAt == null || expiresAt.isAfter(accessTime));
     }
 
     public boolean belongsToElder(Long expectedElderId) {

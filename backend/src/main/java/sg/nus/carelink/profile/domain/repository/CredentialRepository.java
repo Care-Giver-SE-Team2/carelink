@@ -1,5 +1,6 @@
 package sg.nus.carelink.profile.domain.repository;
 
+import java.util.List;
 import java.util.Optional;
 
 import sg.nus.carelink.profile.domain.model.Credential;
@@ -12,6 +13,15 @@ import sg.nus.carelink.profile.domain.model.Credential;
 public interface CredentialRepository {
 
 	Optional<Credential> findById(Long id);
+
+	/**
+	 * Reads one caregiver's credentials in credential type and record ID order.
+	 *
+	 * @param caregiverId Caregiver profile identifier
+	 * @return Credentials ordered by credentialTypeId then id, both ascending
+	 * @author Wang Zhili
+	 */
+	List<Credential> findByCaregiverId(Long caregiverId);
 
 	Credential save(Credential credential);
 }

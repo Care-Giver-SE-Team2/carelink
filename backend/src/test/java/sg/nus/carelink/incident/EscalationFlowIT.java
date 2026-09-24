@@ -408,25 +408,25 @@ class EscalationFlowIT {
 	// ---------------------------------------------------------------- the queue ---
 
 	/**
-	 * The manager's queue, against the database that actually has to produce it.
-	 *
-	 * <p>Two halves of this query only exist as SQL and cannot be proved anywhere else. The
-	 * finder is derived by Spring Data when the context starts, so a name that does not
-	 * parse fails here and nowhere earlier; and "nulls last" is not something MySQL writes -
-	 * ascending order puts nulls first, and Hibernate has to emulate the precedence the
-	 * adapter asks for. A fake repository sorting in Java would agree with the adapter no
-	 * matter what the database did, which is why the ordering is asserted here.
+	 * The queue's order is three tiers deep and written in JPQL, so this is the one place it
+	 * is checked against MySQL rather than against the in-memory fake: which tier comes
+	 * first, and that MySQL's nulls-first ascending sort does not push a deadline-less row
+	 * above one with a deadline inside the same tier.
 	 */
 	@Test
-	void theQueueOrdersByDeadlineAndLeavesClosedIncidentsOut() {
+	void theQueuePinsWhatNobodyIsAnswerableForAndThenOrdersByDeadline() {
 		givenTheElderWasHandledBefore(ben);
 		Incident routed = raiseFor(elder, "fell in the bathroom");
-		// Through the elder module's own entry point: nothing routes an SOS yet, so this
-		// one has no responder and no deadline. It is the row that has to sort last.
+		// Through the elder module's own entry point: nothing routes an SOS yet, so this one
+		// has nobody named on it and no deadline, and the scan will never move it.
 		Incident unrouted = incidents.createElderEmergency(
 				elder, alice, null, null, null, "SOS pressed");
+		// Written directly rather than walked there through four sweeps, which would also
+		// escalate every other test's leftovers. It is never swept - the scan only reads
+		// incidents still waiting to be taken over - so it does not need closing.
+		Long exhausted = givenAnIncidentTheChainRanOutOn();
 
-		PageSlice<Incident> queue = incidents.queue(null, null, null, 0, 20);
+		PageSlice<Incident> queue = incidents.queue(null, null, null, 0, 100);
 
 		List<Long> thisElders = queue.items().stream()
 				.filter(incident -> elder.equals(incident.elderId()))
@@ -436,12 +436,15 @@ class EscalationFlowIT {
 		// Other tests leave their own incidents behind, so only this elder's rows are read
 		// out of the queue. Their order within it is the institution-wide order.
 		assertThat(thisElders)
-				.as("the incident with a deadline first, the one with none after it, and the "
-						+ "call-out closed last week not at all")
-				.containsExactly(routed.id(), unrouted.id());
+				.as("the one nobody took on, then the one nobody was named on, then the one "
+						+ "with a deadline; the call-out closed last week not at all")
+				.containsExactly(exhausted, unrouted.id(), routed.id());
 		assertThat(queue.items())
 				.extracting(Incident::status)
 				.doesNotContain(Incident.Status.RESOLVED);
+		assertThat(queue.items().get(0).status())
+				.as("an incident the chain ran out on is pinned above the whole institution's queue")
+				.isEqualTo(Incident.Status.UNRESOLVED_ESCALATED);
 		// totalElements is deliberately not compared with the page: the whole institution's
 		// open queue is in there, and how much of it other tests leave behind is not this
 		// test's business.
@@ -453,6 +456,17 @@ class EscalationFlowIT {
 		incidents.claim(unrouted.id(), alice, "test");
 		incidents.resolve(unrouted.id(), alice, "raised only to check the queue's ordering",
 				"HANDLED_ON_SITE", "test");
+	}
+
+	/** An incident for this test's elder that went all the way up the chain unanswered. */
+	private Long givenAnIncidentTheChainRanOutOn() {
+		jdbc.update(
+				"insert into incident (elder_id, responder_user_id, source, category, severity,"
+						+ " status, description, respond_by, reported_at)"
+						+ " values (?, ?, 'CAREGIVER', 'FALL', 'HIGH', 'UNRESOLVED_ESCALATED',"
+						+ " 'nobody took it on', null, ?)",
+				elder, ben, LocalDateTime.now(clock).minusHours(2));
+		return jdbc.queryForObject("select last_insert_id()", Long.class);
 	}
 
 	// ----------------------------------------------------------------- the clock ---

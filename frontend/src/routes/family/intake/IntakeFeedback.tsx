@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { ApiError } from '../../../shared/api/client'
-import { FamilySignIn } from './FamilySignIn'
+import { FamilySignIn } from '../components/FamilySignIn'
 import styles from './FamilyIntake.module.css'
 
 /**

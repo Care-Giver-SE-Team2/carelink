@@ -17,6 +17,8 @@ public interface ElderFamilyBindingJpaRepository
     List<ElderFamilyBindingJpaEntity>
             findByElderIdOrderByCreatedAtDesc(Long elderId);
 
+    List<ElderFamilyBindingJpaEntity> findByFamilyMemberIdOrderByElderIdAsc(Long familyMemberId);
+
     Optional<ElderFamilyBindingJpaEntity>
             findByElderIdAndFamilyMemberId(
                     Long elderId,

@@ -1,6 +1,6 @@
 # 家属端　Family portal
 
-**FM01 负责人：** Wang Zhili。FM01 页面放在 `intake/`；其他家属用例按团队分工在各自子目录扩展。
+**FM01 / FM02 负责人：** Wang Zhili。申请页面放在 `intake/`，周排程页面放在 `schedule/`；家属布局和登录放在 `components/`。
 
 ## 要覆盖的用例
 
@@ -42,7 +42,17 @@ FM01 页面已接入现有后端接口：
 - 日期显示为新加坡时间。页面使用真实响应，测试样例仅存在于测试文件。
 
 视觉参考 `docs/family/family.html`，采用 React 和局部 CSS Modules，支持手机窄屏；未复制原型中的固定手机外框。
-其他家属用例尚未由这些页面实现。
+
+FM02 周排程入口为 `/family/schedule`，也可通过家属导航进入：
+
+- 选择当前有权查看的老人；用日期选择器选择任意一天，查看该周周一至周日的访视，也可切换本周、上一周、下一周。日期和时间均按新加坡时区显示。
+- 请求先通过 GET `/api/auth/me` 确认家属身份，再复用 GET `/api/elders` 数组选择老人，使用 GET `/api/visits?elderId=...&dateFrom=...&dateTo=...&page=...&size=20` 读取排程。资源授权仍由后端执行。
+- 每页最多 20 条，显示整周总数、当前显示范围及翻页按钮；切换老人或周次回到第一页。刷新重新检查当前身份和可访问老人。
+- 分别显示无有效绑定、本周无访视、加载中和请求失败。401 提供原页登录；403 清除受保护内容并提供重新查询老人或更换账号。切换或刷新时取消旧请求，迟到响应不会覆盖新选择。
+- 卡片显示服务、计划时间、访视状态和护理员分配情况；结束时间为空时显示待确认。已分配护理员的卡片提供 `View caregiver`，点击后打开手机适配的详情弹窗，读取 GET `/api/caregivers/{id}` 和 GET `/api/caregivers/{id}/credentials`，显示姓名、语言和公开资质；未分配时不请求护理员资料。
+- 资料与资质独立加载和重试；空资质与加载失败分别提示。按后端公开状态和当前新加坡日期共同判断，区分当前有效、尚未生效、过期及撤销；`9999-12-31` 显示为无到期日，不能覆盖撤销或尚未生效的提示。
+- 关闭详情或切换老人、周次、页码时取消详情请求，重新打开时重新查询。任一详情请求返回 401／403 时清除整个页面的受保护排程、老人和护理员数据，再显示登录或权限提示。
+- `features/schedule/` 管理 API 参数、类型、请求生命周期和日期展示；`schedule/` 管理页面与 CSS Modules。页面不写入绑定、排班、护理员分配或访视状态，也不在浏览器持久保存排程数据。
 
 提交行为：
 
@@ -92,3 +102,19 @@ npm run build
 `FamilyHome.test.tsx` 从页面入口验证列表、分页、筛选、详情、登录、权限失效、请求取消和失败恢复；
 `IntakeCreatePage.test.tsx` 验证提交、校验边界、防重复点击、登录恢复和不确定结果处理；
 `shared/api/client.test.ts` 验证 Cookie/CSRF 请求、空响应和 HTTP 错误状态。测试仅替换网络边界，不依赖本地数据库。
+
+`FamilySchedulePage.test.tsx` 验证周排程路由、选择与分页、权限失效、登录恢复和旧请求取消；
+`features/schedule/api.test.ts` 和 `presentation.test.ts` 验证 API 参数、新加坡周界、跨月跨年及可空字段展示。
+`FamilyCaregiverDetails.test.tsx` 验证按需加载资料与资质、独立重试、权限失效和详情取消；
+`features/schedule/caregiverApi.test.ts`、`credentialPresentation.test.ts` 验证公开接口和资质的日期、状态展示规则。
+
+日期选择仅接受 API 支持范围内的完整周，首末周的越界导航自动禁用；非法输入保留当前周。页面及日期测试覆盖年份边界和正常跨月、跨年切换。
+
+后端 `FamilyScheduleWorkflowIT` 通过真实 HTTP、Session Cookie、CSRF 和 Testcontainers MySQL 验证登录 → 老人列表 → 排程分页 → 护理员资料／资质的完整读取流程，另覆盖绑定撤销、退出后旧会话失效、主管老人数组及 FM01 提交／查询兼容。测试使用隔离数据，不依赖本地已有账号。从项目根目录运行：
+
+```bash
+cd backend
+./mvnw verify -Pintegration -Dit.test=FamilyScheduleWorkflowIT
+```
+
+需要 JDK 25 与可运行 Testcontainers 的 Docker。完整后端回归使用 `./mvnw verify -Pintegration`。这些查询测试不代替绑定确认、排程生成和护理员分配等上游写入流程的联调。

@@ -7,6 +7,8 @@ import java.util.List;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 import sg.nus.carelink.incident.infrastructure.persistence.entity.IncidentJpaEntity;
 
@@ -36,26 +38,49 @@ public interface IncidentJpaRepository extends JpaRepository<IncidentJpaEntity, 
 			Long elderId, Long excludedId, Pageable pageable);
 
 	/**
-	 * One page of the manager's queue.
+	 * One page of the manager's queue, most urgent first.
 	 *
-	 * <p>Severity is taken as a collection rather than a single value so that "no severity
-	 * filter" is expressed by passing all three rather than by a null parameter: a derived
-	 * query compares with {@code = null}, which matches no row, and the queue would come
-	 * back empty for the commonest request of all.
+	 * <p>The order is written into the query rather than passed as a {@code Sort}, because
+	 * it is not an order over columns. Three tiers, then the deadline inside each:
+	 * <ol>
+	 *   <li>incidents the chain ran out on ({@code pinned}). UC-MG05 3b pins them to the top
+	 *       of the view: nobody is answerable for them any more;</li>
+	 *   <li>incidents with nobody named on them. An SOS that was never routed has no
+	 *       countdown, so the scheduled scan will never move it - only a person reading this
+	 *       list will;</li>
+	 *   <li>everything else.</li>
+	 * </ol>
+	 * Inside a tier the nearest respond_by comes first and the ones with none come after,
+	 * newest first among those. The nulls are placed with a CASE because MySQL sorts nulls
+	 * first in ascending order and has no NULLS LAST of its own.
 	 *
-	 * <p>The ordering is not in the method name. It is a domain decision - whoever is
-	 * closest to a broken deadline first - and the adapter states it once as a {@link
-	 * org.springframework.data.domain.Sort} it puts on the {@link Pageable}.
+	 * <p>{@code elderId} null means every elder. Severity is a collection, never null: a null
+	 * enum parameter compares {@code = null} and matches no row, so "any severity" is passed
+	 * as all three. The page request must be unsorted, or its sort is appended after this one.
 	 */
-	Page<IncidentJpaEntity> findByStatusInAndSeverityIn(
-			Collection<IncidentJpaEntity.Status> statuses,
-			Collection<IncidentJpaEntity.Severity> severities,
-			Pageable pageable);
-
-	/** As above, narrowed to one elder. The older per-elder listing, now a filter on the queue. */
-	Page<IncidentJpaEntity> findByStatusInAndSeverityInAndElderId(
-			Collection<IncidentJpaEntity.Status> statuses,
-			Collection<IncidentJpaEntity.Severity> severities,
-			Long elderId,
+	@Query(value = """
+			select i from IncidentJpaEntity i
+			where i.status in :statuses
+			  and i.severity in :severities
+			  and (:elderId is null or i.elderId = :elderId)
+			order by
+			  case when i.status = :pinned then 0
+			       when i.responderUserId is null then 1
+			       else 2 end,
+			  case when i.respondBy is null then 1 else 0 end,
+			  i.respondBy asc,
+			  i.reportedAt desc
+			""",
+			countQuery = """
+			select count(i) from IncidentJpaEntity i
+			where i.status in :statuses
+			  and i.severity in :severities
+			  and (:elderId is null or i.elderId = :elderId)
+			""")
+	Page<IncidentJpaEntity> findQueue(
+			@Param("statuses") Collection<IncidentJpaEntity.Status> statuses,
+			@Param("severities") Collection<IncidentJpaEntity.Severity> severities,
+			@Param("elderId") Long elderId,
+			@Param("pinned") IncidentJpaEntity.Status pinned,
 			Pageable pageable);
 }

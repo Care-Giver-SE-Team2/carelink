@@ -2,6 +2,7 @@ package sg.nus.carelink.profile.domain.model;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.Optional;
 
 /**
  * Domain model for credential.
@@ -25,6 +26,22 @@ public record Credential(
 		LocalDateTime createdAt,
 		LocalDateTime updatedAt,
 		Long renewsCredentialId) {
+
+	/**
+	 * Projects a public credential status without changing the stored review state.
+	 * Expiry dates include the named day; future validFrom remains a separate display constraint.
+	 *
+	 * @param today Current date in Asia/Singapore
+	 * @return Public status, or empty for submitted or rejected credentials
+	 * @author Wang Zhili
+	 */
+	public Optional<Status> publicStatusOn(LocalDate today) {
+		return switch (status) {
+			case SUBMITTED, REJECTED -> Optional.empty();
+			case REVOKED, EXPIRED -> Optional.of(status);
+			case PUBLISHED, EXPIRING -> Optional.of(expiryDate.isBefore(today) ? Status.EXPIRED : status);
+		};
+	}
 
 	public enum Status {
 		SUBMITTED, PUBLISHED, REJECTED, EXPIRING, EXPIRED, REVOKED
