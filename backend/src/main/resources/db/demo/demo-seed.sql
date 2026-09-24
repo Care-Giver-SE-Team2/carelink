@@ -183,3 +183,131 @@ SELECT entries.incident_id, entries.actor, entries.action, entries.detail, entri
                '2026-09-09 11:02:00' + INTERVAL @appOffsetHours HOUR
        ) AS entries
  WHERE NOT EXISTS (SELECT 1 FROM incident_log WHERE incident_id = @incident);
+
+-- ------------------------------------------------------------------- visits ---
+-- UC-MG07's periodic reports are made from visits, the readings taken on them,
+-- the evidence they left and the caregiver's notes. Without any, every report
+-- says "No visits were scheduled in this period" and the three readers' versions
+-- cannot be told apart. So Grace gets two weeks of Daniel's visits, laid out so
+-- that each case the reports distinguish can be shown from the seed alone:
+--
+--   week of  7-13 Sep  two VERIFIED visits, and the fall above on the 9th.
+--                      Everything closed: a complete report with an incident.
+--   week of 14-20 Sep  one VERIFIED visit and one COMPLETED - checked out, still
+--                      waiting for Grace to confirm, which UC-CG05 does not count
+--                      as written off. The report is marked incomplete and names it.
+--   Tue 29 Sep         one SCHEDULED visit, after both weeks, touching neither.
+--
+-- These rows go into the visit module's tables. No code of that module changes,
+-- and nothing here reads them back except the reports.
+SET @danielCaregiver := (SELECT id FROM caregiver WHERE user_id = @daniel);
+
+-- A visit is identified by elder and start time, the only key the seed has.
+INSERT INTO visit (elder_id, caregiver_id, service_type, scheduled_start, scheduled_end,
+                   checked_in_at, checked_out_at, status)
+SELECT @graceElder, @danielCaregiver, 'Personal care',
+       planned.scheduled_start, planned.scheduled_start + INTERVAL 1 HOUR,
+       planned.checked_in_at, planned.checked_out_at, planned.status
+  FROM (
+        SELECT '2026-09-08 09:00:00' + INTERVAL @appOffsetHours HOUR AS scheduled_start,
+               '2026-09-08 09:03:00' + INTERVAL @appOffsetHours HOUR AS checked_in_at,
+               '2026-09-08 09:58:00' + INTERVAL @appOffsetHours HOUR AS checked_out_at,
+               'VERIFIED' AS status
+  UNION ALL SELECT '2026-09-10 09:00:00' + INTERVAL @appOffsetHours HOUR,
+               '2026-09-10 09:01:00' + INTERVAL @appOffsetHours HOUR,
+               '2026-09-10 10:02:00' + INTERVAL @appOffsetHours HOUR, 'VERIFIED'
+  UNION ALL SELECT '2026-09-15 09:00:00' + INTERVAL @appOffsetHours HOUR,
+               '2026-09-15 09:04:00' + INTERVAL @appOffsetHours HOUR,
+               '2026-09-15 09:55:00' + INTERVAL @appOffsetHours HOUR, 'VERIFIED'
+  UNION ALL SELECT '2026-09-17 09:00:00' + INTERVAL @appOffsetHours HOUR,
+               '2026-09-17 09:02:00' + INTERVAL @appOffsetHours HOUR,
+               '2026-09-17 10:00:00' + INTERVAL @appOffsetHours HOUR, 'COMPLETED'
+  UNION ALL SELECT '2026-09-29 09:00:00' + INTERVAL @appOffsetHours HOUR, NULL, NULL, 'SCHEDULED'
+       ) AS planned
+ WHERE @graceElder IS NOT NULL
+   AND @danielCaregiver IS NOT NULL
+   AND NOT EXISTS (SELECT 1 FROM visit
+                    WHERE elder_id = @graceElder AND scheduled_start = planned.scheduled_start);
+
+SET @visitSep08 := (SELECT id FROM visit WHERE elder_id = @graceElder
+                       AND scheduled_start = '2026-09-08 09:00:00' + INTERVAL @appOffsetHours HOUR ORDER BY id LIMIT 1);
+SET @visitSep10 := (SELECT id FROM visit WHERE elder_id = @graceElder
+                       AND scheduled_start = '2026-09-10 09:00:00' + INTERVAL @appOffsetHours HOUR ORDER BY id LIMIT 1);
+SET @visitSep15 := (SELECT id FROM visit WHERE elder_id = @graceElder
+                       AND scheduled_start = '2026-09-15 09:00:00' + INTERVAL @appOffsetHours HOUR ORDER BY id LIMIT 1);
+SET @visitSep17 := (SELECT id FROM visit WHERE elder_id = @graceElder
+                       AND scheduled_start = '2026-09-17 09:00:00' + INTERVAL @appOffsetHours HOUR ORDER BY id LIMIT 1);
+
+-- Four readings on every visit that happened, one systolic reading a week above
+-- range - Grace is hypertensive - so the family's ranges and the institution's
+-- flagged readings visibly differ. A visit that already has readings gets none.
+INSERT INTO vital_sign (visit_id, metric, value, unit, out_of_range, recorded_at)
+SELECT readings.visit_id, readings.metric, readings.value, readings.unit, readings.out_of_range, readings.recorded_at
+  FROM (
+        SELECT @visitSep08 AS visit_id, 'systolic' AS metric, 132.00 AS value, 'mmHg' AS unit,
+               FALSE AS out_of_range, '2026-09-08 09:15:00' + INTERVAL @appOffsetHours HOUR AS recorded_at
+  UNION ALL SELECT @visitSep08, 'diastolic', 84.00, 'mmHg', FALSE, '2026-09-08 09:15:00' + INTERVAL @appOffsetHours HOUR
+  UNION ALL SELECT @visitSep08, 'pulse', 72.00, 'bpm', FALSE, '2026-09-08 09:15:00' + INTERVAL @appOffsetHours HOUR
+  UNION ALL SELECT @visitSep08, 'temperature', 36.70, '°C', FALSE, '2026-09-08 09:15:00' + INTERVAL @appOffsetHours HOUR
+  UNION ALL SELECT @visitSep10, 'systolic', 146.00, 'mmHg', TRUE, '2026-09-10 09:12:00' + INTERVAL @appOffsetHours HOUR
+  UNION ALL SELECT @visitSep10, 'diastolic', 90.00, 'mmHg', FALSE, '2026-09-10 09:12:00' + INTERVAL @appOffsetHours HOUR
+  UNION ALL SELECT @visitSep10, 'pulse', 78.00, 'bpm', FALSE, '2026-09-10 09:12:00' + INTERVAL @appOffsetHours HOUR
+  UNION ALL SELECT @visitSep10, 'temperature', 36.90, '°C', FALSE, '2026-09-10 09:12:00' + INTERVAL @appOffsetHours HOUR
+  UNION ALL SELECT @visitSep15, 'systolic', 128.00, 'mmHg', FALSE, '2026-09-15 09:14:00' + INTERVAL @appOffsetHours HOUR
+  UNION ALL SELECT @visitSep15, 'diastolic', 82.00, 'mmHg', FALSE, '2026-09-15 09:14:00' + INTERVAL @appOffsetHours HOUR
+  UNION ALL SELECT @visitSep15, 'pulse', 70.00, 'bpm', FALSE, '2026-09-15 09:14:00' + INTERVAL @appOffsetHours HOUR
+  UNION ALL SELECT @visitSep15, 'temperature', 36.60, '°C', FALSE, '2026-09-15 09:14:00' + INTERVAL @appOffsetHours HOUR
+  UNION ALL SELECT @visitSep17, 'systolic', 142.00, 'mmHg', TRUE, '2026-09-17 09:10:00' + INTERVAL @appOffsetHours HOUR
+  UNION ALL SELECT @visitSep17, 'diastolic', 88.00, 'mmHg', FALSE, '2026-09-17 09:10:00' + INTERVAL @appOffsetHours HOUR
+  UNION ALL SELECT @visitSep17, 'pulse', 76.00, 'bpm', FALSE, '2026-09-17 09:10:00' + INTERVAL @appOffsetHours HOUR
+  UNION ALL SELECT @visitSep17, 'temperature', 36.80, '°C', FALSE, '2026-09-17 09:10:00' + INTERVAL @appOffsetHours HOUR
+       ) AS readings
+ WHERE readings.visit_id IS NOT NULL
+   AND NOT EXISTS (SELECT 1 FROM vital_sign WHERE visit_id = readings.visit_id);
+
+-- A photo and a signature per visit. Verified on the visits that are, not yet on
+-- the one Grace has not confirmed.
+INSERT INTO visit_evidence (visit_id, kind, reference, verification_status, captured_at)
+SELECT proof.visit_id, proof.kind, proof.reference, proof.verification_status, proof.captured_at
+  FROM (
+        SELECT @visitSep08 AS visit_id, 'PHOTO' AS kind, 'demo/2026-09-08/arrival.jpg' AS reference,
+               'VERIFIED' AS verification_status, '2026-09-08 09:03:00' + INTERVAL @appOffsetHours HOUR AS captured_at
+  UNION ALL SELECT @visitSep08, 'SIGNATURE', 'demo/2026-09-08/signature.png', 'VERIFIED',
+               '2026-09-08 09:58:00' + INTERVAL @appOffsetHours HOUR
+  UNION ALL SELECT @visitSep10, 'PHOTO', 'demo/2026-09-10/arrival.jpg', 'VERIFIED',
+               '2026-09-10 09:01:00' + INTERVAL @appOffsetHours HOUR
+  UNION ALL SELECT @visitSep10, 'SIGNATURE', 'demo/2026-09-10/signature.png', 'VERIFIED',
+               '2026-09-10 10:02:00' + INTERVAL @appOffsetHours HOUR
+  UNION ALL SELECT @visitSep15, 'PHOTO', 'demo/2026-09-15/arrival.jpg', 'VERIFIED',
+               '2026-09-15 09:04:00' + INTERVAL @appOffsetHours HOUR
+  UNION ALL SELECT @visitSep15, 'SIGNATURE', 'demo/2026-09-15/signature.png', 'VERIFIED',
+               '2026-09-15 09:55:00' + INTERVAL @appOffsetHours HOUR
+  UNION ALL SELECT @visitSep17, 'PHOTO', 'demo/2026-09-17/arrival.jpg', 'UNVERIFIED',
+               '2026-09-17 09:02:00' + INTERVAL @appOffsetHours HOUR
+  UNION ALL SELECT @visitSep17, 'SIGNATURE', 'demo/2026-09-17/signature.png', 'UNVERIFIED',
+               '2026-09-17 10:00:00' + INTERVAL @appOffsetHours HOUR
+       ) AS proof
+ WHERE proof.visit_id IS NOT NULL
+   AND NOT EXISTS (SELECT 1 FROM visit_evidence WHERE visit_id = proof.visit_id);
+
+-- Daniel's note on each visit: the observations section of the reports. The
+-- family reads these words, the institution reads them with the visit and task,
+-- the regulator is told only how many there were.
+INSERT INTO visit_task (visit_id, name, status, caregiver_note, completed_at)
+SELECT notes.visit_id, notes.name, 'DONE', notes.caregiver_note, notes.completed_at
+  FROM (
+        SELECT @visitSep08 AS visit_id, 'Mobility check' AS name,
+               'Walked to the void deck and back with her cane, steady throughout.' AS caregiver_note,
+               '2026-09-08 09:40:00' + INTERVAL @appOffsetHours HOUR AS completed_at
+  UNION ALL SELECT @visitSep10, 'Bathing assistance',
+               'Used the shower chair as advised after the fall. No pain reported.',
+               '2026-09-10 09:45:00' + INTERVAL @appOffsetHours HOUR
+  UNION ALL SELECT @visitSep15, 'Meal preparation',
+               'Ate most of her porridge and asked for more tea. In good spirits.',
+               '2026-09-15 09:35:00' + INTERVAL @appOffsetHours HOUR
+  UNION ALL SELECT @visitSep17, 'Medication reminder',
+               'Took her blood pressure tablets. Said she felt slightly dizzy on standing.',
+               '2026-09-17 09:30:00' + INTERVAL @appOffsetHours HOUR
+       ) AS notes
+ WHERE notes.visit_id IS NOT NULL
+   AND NOT EXISTS (SELECT 1 FROM visit_task WHERE visit_id = notes.visit_id);
