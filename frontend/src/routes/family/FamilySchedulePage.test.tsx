@@ -203,6 +203,59 @@ describe('Family weekly schedule', () => {
     expect(queries(fetchMock)).toEqual(requestsBeforeClear)
   })
 
+  it.each(['9999-12-31', '9999-12-27', '1000-01-01', '0999-12-31', '2026-02-30', '10000-01-01'])(
+    'keeps the displayed week when a date is invalid or outside the supported calendar: %s', async (date) => {
+      const fetchMock = installApi()
+      openSchedule()
+      expect(await screen.findByRole('heading', { name: 'Bathing assistance' })).toBeInTheDocument()
+      const requestsBeforeChange = queries(fetchMock)
+      const datePicker = screen.getByLabelText('Choose a date')
+
+      fireEvent.change(datePicker, { target: { value: date } })
+
+      expect(datePicker).toHaveValue('2026-09-28')
+      expect(screen.getByRole('heading', { name: '28 Sept – 4 Oct 2026' })).toBeInTheDocument()
+      expect(screen.getByRole('heading', { name: 'Bathing assistance' })).toBeInTheDocument()
+      expect(queries(fetchMock)).toEqual(requestsBeforeChange)
+    },
+  )
+
+  it.each([
+    {
+      date: '1000-01-12', from: '1000-01-06', to: '1000-01-12',
+      blocked: /Previous week/, available: /Next week/,
+      nextDate: '1000-01-19', nextFrom: '1000-01-13', nextTo: '1000-01-19',
+    },
+    {
+      date: '9999-12-20', from: '9999-12-20', to: '9999-12-26',
+      blocked: /Next week/, available: /Previous week/,
+      nextDate: '9999-12-13', nextFrom: '9999-12-13', nextTo: '9999-12-19',
+    },
+  ])('allows the complete boundary week containing $date and prevents navigation outside it', async ({ date, from, to, blocked, available, nextDate, nextFrom, nextTo }) => {
+    const user = userEvent.setup()
+    const fetchMock = installApi()
+    openSchedule()
+    expect(await screen.findByRole('heading', { name: 'Bathing assistance' })).toBeInTheDocument()
+    const datePicker = screen.getByLabelText('Choose a date')
+
+    fireEvent.change(datePicker, { target: { value: date } })
+
+    expect(await screen.findByRole('heading', { name: 'Bathing assistance' })).toBeInTheDocument()
+    expect(datePicker).toHaveValue(date)
+    expect(queries(fetchMock).at(-1)).toMatchObject({ dateFrom: from, dateTo: to, page: '0' })
+    const blockedNavigation = screen.getByRole('button', { name: blocked })
+    expect(blockedNavigation).toBeDisabled()
+    const requestsAtBoundary = queries(fetchMock)
+    await user.click(blockedNavigation)
+    expect(datePicker).toHaveValue(date)
+    expect(queries(fetchMock)).toEqual(requestsAtBoundary)
+
+    await user.click(screen.getByRole('button', { name: available }))
+    expect(await screen.findByRole('heading', { name: 'Bathing assistance' })).toBeInTheDocument()
+    expect(datePicker).toHaveValue(nextDate)
+    expect(queries(fetchMock).at(-1)).toMatchObject({ dateFrom: nextFrom, dateTo: nextTo })
+  })
+
   it('resets the page when selecting another available elder', async () => {
     const user = userEvent.setup()
     const fetchMock = installApi(paginatedVisits)

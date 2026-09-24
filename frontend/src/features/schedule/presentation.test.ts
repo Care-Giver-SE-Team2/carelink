@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  isScheduleDate,
   serviceLabel,
   shiftDays,
   singaporeToday,
@@ -39,6 +40,26 @@ describe('Singapore schedule dates', () => {
   ])('shifts %s by %i days across calendar boundaries', (date, days, expected) => {
     expect(shiftDays(date, days)).toBe(expected)
   })
+
+  it.each([
+    ['9999-12-31', 1],
+    ['0000-01-01', -1],
+  ])('rejects a shift from %s by %i days beyond a four-digit year', (date, days) => {
+    expect(() => shiftDays(date, days)).toThrow(RangeError)
+  })
+
+  it.each(['1000-01-06', '1000-01-12', '2028-02-29', '9999-12-20', '9999-12-26'])(
+    'accepts %s as a date in a complete supported schedule week', (date) => {
+      expect(isScheduleDate(date)).toBe(true)
+    },
+  )
+
+  it.each(['0999-12-31', '1000-01-01', '1000-01-05', '9999-12-27', '9999-12-31',
+    '2026-02-30', '2026-13-01', '2026-9-21', '+010000-01-01', '', 'invalid'])(
+    'rejects malformed dates and incomplete or unsupported schedule weeks: %s', (date) => {
+      expect(isScheduleDate(date)).toBe(false)
+    },
+  )
 
   it.each(['2026-02-30', '2026-13-01', '2026-9-21', 'invalid'])('rejects invalid calendar dates: %s', (date) => {
     expect(() => weekStart(date)).toThrow(RangeError)

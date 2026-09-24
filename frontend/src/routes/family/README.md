@@ -107,3 +107,14 @@ npm run build
 `features/schedule/api.test.ts` 和 `presentation.test.ts` 验证 API 参数、新加坡周界、跨月跨年及可空字段展示。
 `FamilyCaregiverDetails.test.tsx` 验证按需加载资料与资质、独立重试、权限失效和详情取消；
 `features/schedule/caregiverApi.test.ts`、`credentialPresentation.test.ts` 验证公开接口和资质的日期、状态展示规则。
+
+日期选择仅接受 API 支持范围内的完整周，首末周的越界导航自动禁用；非法输入保留当前周。页面及日期测试覆盖年份边界和正常跨月、跨年切换。
+
+后端 `FamilyScheduleWorkflowIT` 通过真实 HTTP、Session Cookie、CSRF 和 Testcontainers MySQL 验证登录 → 老人列表 → 排程分页 → 护理员资料／资质的完整读取流程，另覆盖绑定撤销、退出后旧会话失效、主管老人数组及 FM01 提交／查询兼容。测试使用隔离数据，不依赖本地已有账号。从项目根目录运行：
+
+```bash
+cd backend
+./mvnw verify -Pintegration -Dit.test=FamilyScheduleWorkflowIT
+```
+
+需要 JDK 25 与可运行 Testcontainers 的 Docker。完整后端回归使用 `./mvnw verify -Pintegration`。这些查询测试不代替绑定确认、排程生成和护理员分配等上游写入流程的联调。

@@ -2,6 +2,9 @@ import type { FamilyVisitStatus } from './types'
 
 const singapore = 'Asia/Singapore'
 
+// Complete Monday-to-Sunday weeks within the API's 1000-01-01 to 9999-12-30 range.
+export const scheduleDateBounds = { min: '1000-01-06', max: '9999-12-26' } as const
+
 export const visitStatusLabels: Record<FamilyVisitStatus, string> = {
   SCHEDULED: 'Scheduled',
   ARRIVED: 'Arrived',
@@ -31,6 +34,22 @@ export function singaporeToday(now = new Date()): string {
 }
 
 /**
+ * Checks that a real calendar date belongs to a complete supported schedule week.
+ * @param value Date entered in YYYY-MM-DD format
+ * @return Whether the date and its whole week can be queried
+ * @author Wang Zhili
+ */
+export function isScheduleDate(value: string): boolean {
+  if (value < scheduleDateBounds.min || value > scheduleDateBounds.max) return false
+  try {
+    calendarDate(value)
+    return true
+  } catch {
+    return false
+  }
+}
+
+/**
  * Finds the Monday containing a calendar date.
  * @param date Date in YYYY-MM-DD format
  * @return Monday in YYYY-MM-DD format
@@ -46,11 +65,15 @@ export function weekStart(date: string): string {
  * @param date Date in YYYY-MM-DD format
  * @param days Number of calendar days to move
  * @return Shifted date in YYYY-MM-DD format
+ * @throws RangeError If the shifted date cannot use a four-digit year
  * @author Wang Zhili
  */
 export function shiftDays(date: string, days: number): string {
   const result = calendarDate(date)
   result.setUTCDate(result.getUTCDate() + days)
+  if (result.getUTCFullYear() < 0 || result.getUTCFullYear() > 9999) {
+    throw new RangeError('Shifted date must have a four-digit year')
+  }
   return result.toISOString().slice(0, 10)
 }
 

@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import { useFamilySchedule } from '../../../features/schedule/useFamilySchedule'
 import type { ScheduleSelection } from '../../../features/schedule/useFamilySchedule'
 import type { FamilyVisitPage } from '../../../features/schedule/types'
-import { shiftDays, singaporeToday, weekLabel, weekStart } from '../../../features/schedule/presentation'
+import { isScheduleDate, scheduleDateBounds, shiftDays, singaporeToday, weekLabel, weekStart } from '../../../features/schedule/presentation'
 import { ScheduleFeedback } from './ScheduleFeedback'
 import { ScheduleVisitList } from './ScheduleVisitList'
 import { CaregiverDetails } from './CaregiverDetails'
@@ -22,7 +22,9 @@ export function FamilySchedulePage() {
   const [caregiver, setCaregiver] = useState<{ visits: FamilyVisitPage; id: number } | null>(null)
   const selectedElderId = resource.status === 'success'
     ? resource.data.selectedElderId : selection.elderId
-  const changeDate = (date: string) => setSelection({ elderId: selectedElderId, date, page: 0 })
+  const changeDate = (date: string) => {
+    if (isScheduleDate(date)) setSelection({ elderId: selectedElderId, date, page: 0 })
+  }
   const resetAccess = () => {
     setSelection((value) => ({ ...value, elderId: null, page: 0 }))
     refresh()
@@ -49,6 +51,8 @@ export function FamilySchedulePage() {
           <input
             id="schedule-date"
             type="date"
+            min={scheduleDateBounds.min}
+            max={scheduleDateBounds.max}
             value={selection.date}
             aria-describedby="schedule-date-help"
             onChange={(event) => {
@@ -59,8 +63,14 @@ export function FamilySchedulePage() {
           <p id="schedule-date-help">Choose any date to view its whole week.</p>
         </div>
         <div className={styles.weekControls}>
-          <button onClick={() => changeDate(shiftDays(selection.date, -7))}>← Previous week</button>
-          <button onClick={() => changeDate(shiftDays(selection.date, 7))}>Next week →</button>
+          <button
+            disabled={week <= scheduleDateBounds.min}
+            onClick={() => changeDate(shiftDays(selection.date, -7))}
+          >← Previous week</button>
+          <button
+            disabled={week >= weekStart(scheduleDateBounds.max)}
+            onClick={() => changeDate(shiftDays(selection.date, 7))}
+          >Next week →</button>
         </div>
         <p>All dates and times are in Singapore time (SGT).</p>
       </section>
