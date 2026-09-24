@@ -1,0 +1,96 @@
+@startuml UC-MG07-activity
+' UC-MG07 Generate and archive periodic reports, as built at the end of Sprint 2.
+' Source: use case specification v3.0, narrowed where the team decided otherwise:
+' no PDF export, no LLM summary (every report is from the structured template),
+' no push to the family, and the family's own reading of reports belongs to UC-FM04.
+' Render: java -jar plantuml.jar -tpng UC-MG07-activity.puml
+skinparam backgroundColor white
+skinparam defaultFontName "Segoe UI"
+skinparam defaultFontSize 12
+skinparam activity {
+  BackgroundColor #FFFFFF
+  BorderColor #444444
+  DiamondBackgroundColor #FFFFFF
+  DiamondBorderColor #444444
+}
+skinparam note {
+  BackgroundColor #F8F8F6
+  BorderColor #9A9A9A
+}
+skinparam swimlane {
+  BorderColor #888888
+  TitleFontStyle bold
+}
+title UC-MG07  Generate and archive periodic reports\n(one set of facts, three readers)
+
+|Manager|
+start
+if (What starts the run?) then (the manager)
+  :Choose a period on the Reports screen,
+  for one elder or for every elder,
+  and press Generate;
+  |System|
+else (the weekly schedule)
+  |System|
+  :Sunday 23:00, Singapore time:
+  last week, every elder with visits in it;
+endif
+
+|System|
+repeat :Take the next elder;
+  :Gather the period's facts once:
+  visits and their evidence, vital signs,
+  the caregivers' notes, incidents
+  with their timelines;
+  repeat :Take the next reader (family, regulator, internal);
+    if (A report for this elder, period
+and reader already on file?) then (yes)
+      :Keep the one on file;
+      note right
+        Running the same period twice,
+        by hand or by the schedule,
+        files nothing twice.
+      end note
+    else (no)
+      if (Any visit in the period not closed?) then (yes)
+        :Mark the data incomplete
+        and list each missing visit;
+      else (no)
+      endif
+      :Write the four sections in a fixed order:
+      Service completion, Vital signs,
+      Observations, Incidents;
+      note right
+        **Template Method**: the order is final
+        and the same for every reader. A reader
+        decides only how much of each step it sees:
+        caregivers by name or by number,
+        vital signs as ranges or every reading,
+        notes quoted or only counted, incidents
+        with or without who did what.
+      end note
+      :Add the medical disclaimer
+      (family version only);
+      :File the report as published;
+    endif
+  repeat while (Another reader?) is (yes) not (no)
+repeat while (Another elder?) is (yes) not (no)
+
+|Manager|
+:Open a report from the list:
+its sections, completeness,
+disclaimer and corrections;
+if (Something to correct?) then (yes)
+  :Write a correction;
+  |System|
+  :Append the correction with its author and time,
+  the report itself stays as filed;
+  note right
+    A filed report is never edited or
+    deleted: there is no endpoint for
+    either, and the report has no setter.
+  end note
+else (no)
+endif
+stop
+@enduml
