@@ -7,11 +7,13 @@ import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.time.LocalDateTime;
 import java.util.Arrays;
+import java.util.List;
 
 import org.junit.jupiter.api.Test;
 
 import sg.nus.carelink.report.domain.model.Report;
 import sg.nus.carelink.report.domain.model.ReportAmendment;
+import sg.nus.carelink.report.domain.model.ReportContent;
 import sg.nus.carelink.report.support.ReportFixtures;
 import sg.nus.carelink.shared.error.BusinessRuleViolation;
 
@@ -91,7 +93,9 @@ class ReportTest {
 		Report report = ReportFixtures.stored(40L, Report.Audience.FAMILY);
 
 		assertThat(report.amend("x".repeat(1000), 9L, LATER).amendments()).hasSize(1);
-		assertThatThrownBy(() -> report.amend("x".repeat(1001), 9L, LATER))
+
+		String tooLong = "x".repeat(1001);
+		assertThatThrownBy(() -> report.amend(tooLong, 9L, LATER))
 				.isInstanceOf(BusinessRuleViolation.class)
 				.extracting(error -> ((BusinessRuleViolation) error).code())
 				.isEqualTo("REPORT_AMENDMENT_TOO_LONG");
@@ -115,9 +119,10 @@ class ReportTest {
 
 	@Test
 	void theCorrectionsCannotBeEditedThroughTheList() {
-		Report report = ReportFixtures.stored(40L, Report.Audience.FAMILY).amend("note", 9L, LATER);
+		List<ReportAmendment> amendments =
+				ReportFixtures.stored(40L, Report.Audience.FAMILY).amend("note", 9L, LATER).amendments();
 
-		assertThatThrownBy(() -> report.amendments().clear()).isInstanceOf(UnsupportedOperationException.class);
+		assertThatThrownBy(amendments::clear).isInstanceOf(UnsupportedOperationException.class);
 	}
 
 	/**
@@ -139,13 +144,15 @@ class ReportTest {
 
 	@Test
 	void aReportNeedsItsElderReaderPeriodAndContent() {
+		ReportContent content = ReportFixtures.content();
+
 		assertThatThrownBy(() -> new Report(1L, null, 7L, Report.Audience.FAMILY, ReportFixtures.WEEK,
-				Report.Status.PUBLISHED, ReportFixtures.content(), null, LATER))
+				Report.Status.PUBLISHED, content, null, LATER))
 				.isInstanceOf(NullPointerException.class);
 		assertThatThrownBy(() -> new Report(1L, 1L, 7L, Report.Audience.FAMILY, ReportFixtures.WEEK,
 				Report.Status.PUBLISHED, null, null, LATER))
 				.isInstanceOf(NullPointerException.class);
 		assertThat(new Report(1L, 1L, 7L, Report.Audience.FAMILY, ReportFixtures.WEEK,
-				Report.Status.PUBLISHED, ReportFixtures.content(), null, LATER).amendments()).isEmpty();
+				Report.Status.PUBLISHED, content, null, LATER).amendments()).isEmpty();
 	}
 }

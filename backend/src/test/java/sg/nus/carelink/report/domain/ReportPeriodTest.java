@@ -38,7 +38,10 @@ class ReportPeriodTest {
 
 	@Test
 	void aPeriodCannotEndBeforeItStarts() {
-		assertThatThrownBy(() -> new ReportPeriod(LocalDate.of(2026, 9, 20), LocalDate.of(2026, 9, 14)))
+		LocalDate start = LocalDate.of(2026, 9, 20);
+		LocalDate end = LocalDate.of(2026, 9, 14);
+
+		assertThatThrownBy(() -> new ReportPeriod(start, end))
 				.isInstanceOf(BusinessRuleViolation.class)
 				.hasMessageContaining("2026-09-14")
 				.extracting(error -> ((BusinessRuleViolation) error).code())

@@ -61,10 +61,12 @@ class ReportContentBuilderTest {
 
 		assertThat(content.sections()).hasSize(1);
 		assertThat(content.missingItems()).containsExactly("Visit 13");
-		assertThatThrownBy(() -> content.sections().add(new ReportSection("x", "y")))
-				.isInstanceOf(UnsupportedOperationException.class);
-		assertThatThrownBy(() -> content.missingItems().add("Visit 99"))
-				.isInstanceOf(UnsupportedOperationException.class);
+
+		List<ReportSection> sections = content.sections();
+		ReportSection extra = new ReportSection("x", "y");
+		List<String> missingItems = content.missingItems();
+		assertThatThrownBy(() -> sections.add(extra)).isInstanceOf(UnsupportedOperationException.class);
+		assertThatThrownBy(() -> missingItems.add("Visit 99")).isInstanceOf(UnsupportedOperationException.class);
 	}
 
 	/** The one default that must not exist: silence about completeness reading as "complete". */

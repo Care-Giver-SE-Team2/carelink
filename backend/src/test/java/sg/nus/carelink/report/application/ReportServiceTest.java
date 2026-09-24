@@ -79,6 +79,7 @@ class ReportServiceTest {
 		ReportService withCompleteWeek = new ReportService(repository, complete, SUNDAY_NIGHT);
 
 		assertThat(withCompleteWeek.generate(ReportFixtures.ELDER, MONDAY, SUNDAY, 7L))
+				.isNotEmpty()
 				.allSatisfy(report -> {
 					assertThat(report.content().dataComplete()).isTrue();
 					assertThat(report.content().missingItems()).isEmpty();
@@ -207,9 +208,9 @@ class ReportServiceTest {
 
 	@Test
 	void anEmptyCorrectionIsRefusedByTheRule() {
-		Report family = service.generate(ReportFixtures.ELDER, MONDAY, SUNDAY, 7L).getFirst();
+		Long familyId = service.generate(ReportFixtures.ELDER, MONDAY, SUNDAY, 7L).getFirst().id();
 
-		assertThatThrownBy(() -> service.amend(family.id(), " ", 9L)).isInstanceOf(BusinessRuleViolation.class);
+		assertThatThrownBy(() -> service.amend(familyId, " ", 9L)).isInstanceOf(BusinessRuleViolation.class);
 	}
 
 	// -------------------------------------------------------------------- reading ---

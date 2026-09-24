@@ -161,7 +161,7 @@ public class ReportService {
 	 */
 	@Transactional(readOnly = true)
 	public ReportPage page(Long elderId, Report.Audience audience, int page, int size) {
-		return reports.findPage(elderId, audience, Math.max(page, 0), Math.min(Math.max(size, 1), MAX_PAGE_SIZE));
+		return reports.findPage(elderId, audience, Math.max(page, 0), Math.clamp(size, 1, MAX_PAGE_SIZE));
 	}
 
 	private Report require(Long id) {

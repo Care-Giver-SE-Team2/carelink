@@ -62,8 +62,9 @@ class ReportFactsTest {
 		assertThat(nothing.vitals()).isEmpty();
 		assertThat(nothing.observations()).isEmpty();
 		assertThat(nothing.incidents()).isEmpty();
-		assertThatThrownBy(() -> ReportFixtures.week().visits().clear())
-				.isInstanceOf(UnsupportedOperationException.class);
+
+		List<VisitFact> given = ReportFixtures.week().visits();
+		assertThatThrownBy(given::clear).isInstanceOf(UnsupportedOperationException.class);
 	}
 
 	@Test

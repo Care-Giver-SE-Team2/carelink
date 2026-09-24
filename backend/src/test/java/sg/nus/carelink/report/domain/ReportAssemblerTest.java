@@ -194,9 +194,12 @@ class ReportAssemblerTest {
 	void theFamilyIsToldWhatHappenedButNotWhoOnTheStaffHandledIt() {
 		String incidents = section(Report.Audience.FAMILY, "Incidents");
 
-		assertThat(incidents).isEqualTo("Tue 15 Sep 10:15 · Fall reported · "
-				+ ReportFixtures.FALL_DESCRIPTION + " · resolved Tue 15 Sep 11:02");
-		assertThat(incidents).doesNotContain("Ben Lim").doesNotContain("CLAIMED").doesNotContain("HANDLED_ON_SITE");
+		assertThat(incidents)
+				.isEqualTo("Tue 15 Sep 10:15 · Fall reported · "
+						+ ReportFixtures.FALL_DESCRIPTION + " · resolved Tue 15 Sep 11:02")
+				.doesNotContain("Ben Lim")
+				.doesNotContain("CLAIMED")
+				.doesNotContain("HANDLED_ON_SITE");
 	}
 
 	@Test
@@ -255,9 +258,10 @@ class ReportAssemblerTest {
 	void theRegulatorIsToldHowManyNotesThereWereButNotWhatTheySay() {
 		String observations = section(Report.Audience.REGULATOR, "Observations");
 
-		assertThat(observations).isEqualTo(
-				"2 observations recorded across 2 visits. The notes themselves are not included in this version.");
-		assertThat(observations).doesNotContain(ReportFixtures.MOBILITY_NOTE).doesNotContain(ReportFixtures.MEALS_NOTE);
+		assertThat(observations)
+				.isEqualTo("2 observations recorded across 2 visits. The notes themselves are not included in this version.")
+				.doesNotContain(ReportFixtures.MOBILITY_NOTE)
+				.doesNotContain(ReportFixtures.MEALS_NOTE);
 	}
 
 	@Test
@@ -313,11 +317,11 @@ class ReportAssemblerTest {
 		VisitFact unassigned = new VisitFact(
 				14L, null, null, null, LocalDateTime.of(2026, 9, 19, 14, 0), VisitFact.Status.CANCELLED, 0, 0);
 		ReportFacts week = ReportFixtures.quietWeek();
-		ReportFacts facts = new ReportFacts(week.elderId(), week.period(), List.of(unassigned),
+		ReportFacts unassignedWeek = new ReportFacts(week.elderId(), week.period(), List.of(unassigned),
 				List.of(), List.of(), List.of());
 
 		for (Report.Audience audience : Report.Audience.values()) {
-			assertThat(ReportAssembler.forAudience(audience).assemble(facts).sections().get(0).body())
+			assertThat(ReportAssembler.forAudience(audience).assemble(unassignedWeek).sections().get(0).body())
 					.isEqualTo("1 visit: 1 cancelled.\n"
 							+ "Sat 19 Sep 14:00 · Visit · no caregiver assigned · cancelled · no evidence");
 		}
@@ -329,10 +333,10 @@ class ReportAssemblerTest {
 		VisitFact visit = new VisitFact(
 				15L, 3L, "Daniel Goh", "Personal care", LocalDateTime.of(2026, 9, 17, 9, 0), status, 1, 0);
 		ReportFacts week = ReportFixtures.quietWeek();
-		ReportFacts facts = new ReportFacts(week.elderId(), week.period(), List.of(visit),
+		ReportFacts oneVisitWeek = new ReportFacts(week.elderId(), week.period(), List.of(visit),
 				List.of(), List.of(), List.of());
 
-		ReportContent content = ReportAssembler.forAudience(Report.Audience.INTERNAL).assemble(facts);
+		ReportContent content = ReportAssembler.forAudience(Report.Audience.INTERNAL).assemble(oneVisitWeek);
 		String service = content.sections().get(0).body();
 
 		assertThat(service).doesNotContain(status.name()).contains("evidence 0 of 1 verified");

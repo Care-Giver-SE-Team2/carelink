@@ -45,6 +45,8 @@ public class ReportAmendmentJpaEntity {
 	private LocalDateTime createdAt;
 
 	public ReportAmendmentJpaEntity() {
+		// JPA instantiates an entity through its no-argument constructor and then sets the
+		// columns itself; the mapper does the same through the setters. Nothing to do here.
 	}
 
 	public Long getId() {

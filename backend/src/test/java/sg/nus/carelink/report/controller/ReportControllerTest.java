@@ -332,8 +332,7 @@ class ReportControllerTest {
 				.filter(method -> AnnotatedElementUtils.hasAnnotation(method, RequestMapping.class))
 				.toList();
 
-		assertThat(endpoints).hasSize(4);
-		assertThat(endpoints).allSatisfy(method ->
+		assertThat(endpoints).hasSize(4).allSatisfy(method ->
 				assertThat(method.getAnnotation(PreAuthorize.class).value()).isEqualTo("hasRole('MANAGER')"));
 	}
 }

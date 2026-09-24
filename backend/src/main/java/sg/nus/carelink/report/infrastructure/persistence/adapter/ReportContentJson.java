@@ -65,11 +65,7 @@ final class ReportContentJson {
 
 		ReportContent toDomain() {
 			return new ReportContent(
-					sections == null
-							? List.of()
-							: sections.stream()
-									.map(section -> new ReportSection(section.title(), section.body() == null ? "" : section.body()))
-									.toList(),
+					sections == null ? List.of() : sections.stream().map(StoredSection::toDomain).toList(),
 					dataComplete,
 					missingItems == null ? List.of() : missingItems,
 					disclaimer,
@@ -79,5 +75,10 @@ final class ReportContentJson {
 
 	/** The stored shape of one section. */
 	record StoredSection(String title, String body) {
+
+		/** A section stored without a body reads back as an empty one, as the builder would have made it. */
+		ReportSection toDomain() {
+			return new ReportSection(title, body == null ? "" : body);
+		}
 	}
 }

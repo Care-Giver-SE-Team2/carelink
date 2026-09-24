@@ -83,8 +83,9 @@ class ReportRepositoryAdapterTest {
 
 	@Test
 	void aReportAlreadyOnFileIsNeverWrittenAgain() {
-		assertThatThrownBy(() -> adapter.save(ReportFixtures.stored(40L, Report.Audience.FAMILY)))
-				.isInstanceOf(IllegalArgumentException.class);
+		Report onFile = ReportFixtures.stored(40L, Report.Audience.FAMILY);
+
+		assertThatThrownBy(() -> adapter.save(onFile)).isInstanceOf(IllegalArgumentException.class);
 		verify(reports, never()).save(any());
 	}
 
@@ -106,9 +107,9 @@ class ReportRepositoryAdapterTest {
 
 	@Test
 	void aCorrectionAlreadyOnFileIsNeverWrittenAgain() {
-		assertThatThrownBy(() -> adapter.saveAmendment(
-				new ReportAmendment(5L, 40L, "note", 9L, LocalDateTime.of(2026, 9, 21, 9, 30))))
-				.isInstanceOf(IllegalArgumentException.class);
+		ReportAmendment onFile = new ReportAmendment(5L, 40L, "note", 9L, LocalDateTime.of(2026, 9, 21, 9, 30));
+
+		assertThatThrownBy(() -> adapter.saveAmendment(onFile)).isInstanceOf(IllegalArgumentException.class);
 	}
 
 	@Test
