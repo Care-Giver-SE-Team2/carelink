@@ -76,11 +76,11 @@ public class ProfileService {
 	}
 
 	private static ElderSummary toSummary(Elder elder, CarePlan latestPlan, LocalDate nextVisitDate) {
-		boolean noActivePlan = latestPlan == null
-				|| latestPlan.status() == CarePlan.Status.SUPERSEDED
-				|| latestPlan.status() == CarePlan.Status.STOPPED;
-		if (noActivePlan) {
+		if (latestPlan == null || latestPlan.status() == CarePlan.Status.SUPERSEDED) {
 			return new ElderSummary(elder, "none", null, null);
+		}
+		if (latestPlan.status() == CarePlan.Status.STOPPED) {
+			return new ElderSummary(elder, "stopped", latestPlan.version(), null);
 		}
 		String status = latestPlan.status() == CarePlan.Status.PUBLISHED ? "published" : "draft";
 		return new ElderSummary(elder, status, latestPlan.version(), nextVisitDate);

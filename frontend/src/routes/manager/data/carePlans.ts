@@ -50,6 +50,11 @@ export const ACTIVITY_CATALOG: { category: string; activities: string[] }[] = [
   },
 ]
 
+/** The catalog category an activity belongs to, which is the sub-plan it's filed under. */
+export function activityCategory(activity: string): string | undefined {
+  return ACTIVITY_CATALOG.find((group) => group.activities.includes(activity))?.category
+}
+
 export type ElderProfile = {
   dialect: string
   family: string

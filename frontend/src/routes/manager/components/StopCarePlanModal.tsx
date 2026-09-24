@@ -40,7 +40,9 @@ export function StopCarePlanModal({ elder, onClose, onStopped }: Props) {
     setError(null)
     try {
       const stopped = await stopCarePlan(carePlanId, effectiveDate, reason.trim())
-      queryClient.setQueryData(['carePlan', 'latest', elder.id], stopped)
+      // Refetch rather than seeding the cache with `stopped`: the save response doesn't read back
+      // the database-maintained created_at/updated_at columns, so those come back null.
+      await queryClient.invalidateQueries({ queryKey: ['carePlan', 'latest', elder.id] })
       onStopped(stopped)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not stop this plan.')
