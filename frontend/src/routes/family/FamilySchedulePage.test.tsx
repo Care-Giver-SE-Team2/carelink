@@ -1,4 +1,4 @@
-import { act, cleanup, render, screen, waitFor, within } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -135,6 +135,72 @@ describe('Family weekly schedule', () => {
     await user.click(screen.getByRole('button', { name: /Previous week/ }))
     expect(await screen.findByText('Page 1 of 2')).toBeInTheDocument()
     expect(queries(fetchMock).at(-1)).toMatchObject({ dateFrom: '2026-09-21', dateTo: '2026-09-27', page: '0' })
+  })
+
+  it('opens the selected date’s Monday-to-Sunday week while retaining the elder and resetting pagination', async () => {
+    const user = userEvent.setup()
+    const fetchMock = installApi(paginatedVisits)
+    openSchedule()
+    await user.selectOptions(await screen.findByRole('combobox', { name: 'Care for' }), '22')
+    expect(await screen.findByText('Page 1 of 2')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Next page' }))
+    expect(await screen.findByText('Page 2 of 2')).toBeInTheDocument()
+
+    const datePicker = screen.getByLabelText('Choose a date')
+    expect(datePicker).toHaveAttribute('type', 'date')
+    expect(datePicker).toHaveValue('2026-09-28')
+    fireEvent.change(datePicker, { target: { value: '2026-10-15' } })
+
+    expect(await screen.findByText('Page 1 of 2')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: '12 Oct – 18 Oct 2026' })).toBeInTheDocument()
+    expect(datePicker).toHaveValue('2026-10-15')
+    expect(screen.getByRole('combobox', { name: 'Care for' })).toHaveValue('22')
+    expect(queries(fetchMock).at(-1)).toEqual({ elderId: '22', dateFrom: '2026-10-12', dateTo: '2026-10-18', page: '0', size: '20' })
+  })
+
+  it('keeps the date picker in sync with week navigation and returns to today in Singapore', async () => {
+    const user = userEvent.setup()
+    const fetchMock = installApi()
+    openSchedule()
+    expect(await screen.findByRole('heading', { name: 'Bathing assistance' })).toBeInTheDocument()
+    const datePicker = screen.getByLabelText('Choose a date')
+    fireEvent.change(datePicker, { target: { value: '2026-10-15' } })
+    expect(await screen.findByRole('heading', { name: 'Bathing assistance' })).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: /Previous week/ }))
+    expect(await screen.findByRole('heading', { name: 'Bathing assistance' })).toBeInTheDocument()
+    expect(datePicker).toHaveValue('2026-10-08')
+    expect(screen.getByRole('heading', { name: '5 Oct – 11 Oct 2026' })).toBeInTheDocument()
+    expect(queries(fetchMock).at(-1)).toMatchObject({ dateFrom: '2026-10-05', dateTo: '2026-10-11', page: '0' })
+
+    await user.click(screen.getByRole('button', { name: /Next week/ }))
+    expect(await screen.findByRole('heading', { name: 'Bathing assistance' })).toBeInTheDocument()
+    expect(datePicker).toHaveValue('2026-10-15')
+    expect(queries(fetchMock).at(-1)).toMatchObject({ dateFrom: '2026-10-12', dateTo: '2026-10-18', page: '0' })
+
+    await user.click(screen.getByRole('button', { name: 'This week' }))
+    expect(await screen.findByRole('heading', { name: 'Bathing assistance' })).toBeInTheDocument()
+    expect(datePicker).toHaveValue('2026-09-28')
+    expect(screen.getByRole('heading', { name: '28 Sept – 4 Oct 2026' })).toBeInTheDocument()
+    expect(queries(fetchMock).at(-1)).toMatchObject({ dateFrom: '2026-09-28', dateTo: '2026-10-04', page: '0' })
+  })
+
+  it('keeps the selected week when the date picker is cleared without sending an invalid request', async () => {
+    const user = userEvent.setup()
+    const fetchMock = installApi()
+    openSchedule()
+    expect(await screen.findByRole('heading', { name: 'Bathing assistance' })).toBeInTheDocument()
+    const datePicker = screen.getByLabelText('Choose a date')
+    fireEvent.change(datePicker, { target: { value: '2026-10-15' } })
+    expect(await screen.findByRole('heading', { name: 'Bathing assistance' })).toBeInTheDocument()
+    const requestsBeforeClear = queries(fetchMock)
+
+    await user.clear(datePicker)
+
+    expect(datePicker).toHaveValue('2026-10-15')
+    expect(screen.getByRole('heading', { name: '12 Oct – 18 Oct 2026' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Bathing assistance' })).toBeInTheDocument()
+    expect(queries(fetchMock)).toEqual(requestsBeforeClear)
   })
 
   it('resets the page when selecting another available elder', async () => {

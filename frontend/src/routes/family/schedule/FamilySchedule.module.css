@@ -42,6 +42,39 @@
   font-size: 19px;
   margin-top: 5px;
 }
+.datePicker {
+  margin-top: 18px;
+}
+.datePicker label {
+  display: block;
+  margin-bottom: 7px;
+  font-size: 12px;
+  font-weight: 650;
+  color: #496d60;
+}
+.datePicker input {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  min-height: 46px;
+  padding: 10px 12px;
+  border: 1px solid #cadbd7;
+  border-radius: 12px;
+  font: inherit;
+  font-size: 16px;
+  color: #203a36;
+  background: white;
+  color-scheme: light;
+}
+.datePicker input:focus-visible {
+  outline: 3px solid #14947f;
+  outline-offset: 3px;
+}
+.datePicker p {
+  margin-top: 7px;
+  font-size: 12px;
+  color: #526f62;
+}
 .weekControls {
   display: flex;
   justify-content: space-between;

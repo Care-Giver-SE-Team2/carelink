@@ -12,13 +12,14 @@ import styles from './FamilySchedule.module.css'
  * @author Wang Zhili
  */
 export function FamilySchedulePage() {
-  const [selection, setSelection] = useState<ScheduleSelection>(() => ({
-    elderId: null, week: weekStart(singaporeToday()), page: 0,
+  const [selection, setSelection] = useState<Pick<ScheduleSelection, 'elderId' | 'page'> & { date: string }>(() => ({
+    elderId: null, date: singaporeToday(), page: 0,
   }))
-  const { resource, refresh } = useFamilySchedule(selection)
+  const week = weekStart(selection.date)
+  const { resource, refresh } = useFamilySchedule({ ...selection, week })
   const selectedElderId = resource.status === 'success'
     ? resource.data.selectedElderId : selection.elderId
-  const changeWeek = (week: string) => setSelection({ elderId: selectedElderId, week, page: 0 })
+  const changeDate = (date: string) => setSelection({ elderId: selectedElderId, date, page: 0 })
   const resetAccess = () => {
     setSelection((value) => ({ ...value, elderId: null, page: 0 }))
     refresh()
@@ -37,12 +38,26 @@ export function FamilySchedulePage() {
       </section>
       <section className={styles.weekPanel} aria-label="Choose a week">
         <div className={styles.weekHeading}>
-          <div><span>WEEK OF</span><h2>{weekLabel(selection.week)}</h2></div>
-          <button onClick={() => changeWeek(weekStart(singaporeToday()))}>This week</button>
+          <div><span>WEEK OF</span><h2>{weekLabel(week)}</h2></div>
+          <button onClick={() => changeDate(singaporeToday())}>This week</button>
+        </div>
+        <div className={styles.datePicker}>
+          <label htmlFor="schedule-date">Choose a date</label>
+          <input
+            id="schedule-date"
+            type="date"
+            value={selection.date}
+            aria-describedby="schedule-date-help"
+            onChange={(event) => {
+              const { value, validity } = event.currentTarget
+              if (value && validity.valid && /^\d{4}-\d{2}-\d{2}$/.test(value)) changeDate(value)
+            }}
+          />
+          <p id="schedule-date-help">Choose any date to view its whole week.</p>
         </div>
         <div className={styles.weekControls}>
-          <button onClick={() => changeWeek(shiftDays(selection.week, -7))}>← Previous week</button>
-          <button onClick={() => changeWeek(shiftDays(selection.week, 7))}>Next week →</button>
+          <button onClick={() => changeDate(shiftDays(selection.date, -7))}>← Previous week</button>
+          <button onClick={() => changeDate(shiftDays(selection.date, 7))}>Next week →</button>
         </div>
         <p>All dates and times are in Singapore time (SGT).</p>
       </section>
