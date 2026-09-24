@@ -69,12 +69,24 @@ public class ReportJpaEntity {
 	@Column(name = "status", nullable = false)
 	private Status status = Status.DRAFT;
 
-	/** rendered sections, already filtered for the audience */
+	/**
+	 * rendered sections, already filtered for the audience.
+	 *
+	 * <p>Kept as a String: Hibernate passes a String through to a JSON column untouched, so the
+	 * text written is the text stored. Turning ReportContent into that text, and back, is
+	 * ReportContentJson's job in the adapter.
+	 */
 	@JdbcTypeCode(SqlTypes.JSON)
 	@Column(name = "content")
 	private String content;
 
-	@Column(name = "created_at", nullable = false, insertable = false, updatable = false)
+	/**
+	 * Written by the application rather than left to the column's DEFAULT CURRENT_TIMESTAMP.
+	 * The database's clock is not the one the rest of a report is dated by - its session zone
+	 * is not the connection zone the driver converts through - and a report whose createdAt
+	 * came back null from the save that filed it would answer POST /generate without one.
+	 */
+	@Column(name = "created_at", nullable = false, updatable = false)
 	private LocalDateTime createdAt;
 
 	public ReportJpaEntity() {
@@ -146,5 +158,9 @@ public class ReportJpaEntity {
 
 	public LocalDateTime getCreatedAt() {
 		return createdAt;
+	}
+
+	public void setCreatedAt(LocalDateTime createdAt) {
+		this.createdAt = createdAt;
 	}
 }

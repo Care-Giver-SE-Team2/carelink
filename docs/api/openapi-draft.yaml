@@ -3109,7 +3109,7 @@ paths:
       tags:
       - Reports
       summary: Generate periodic reports
-      x-status: draft
+      x-status: implemented
       description: 'UC-MG07. Run by the scheduler at the end of each period and by a manager on demand. One period of records
         becomes three audience-filtered artefacts in a single run — `FAMILY`, `REGULATOR` and `INTERNAL` share a skeleton
         but not a filtering rule. Unclosed visits in the period do not block generation: the report is marked `dataComplete:
@@ -3155,7 +3155,8 @@ paths:
       tags:
       - Reports
       summary: List generated reports
-      x-status: draft
+      x-status: implemented
+      x-implemented-roles: [MANAGER]
       parameters:
       - $ref: '#/components/parameters/Page'
       - $ref: '#/components/parameters/Size'
@@ -3303,7 +3304,8 @@ paths:
       tags:
       - Reports
       summary: Read a report online
-      x-status: draft
+      x-status: implemented
+      x-implemented-roles: [MANAGER]
       description: >-
         The report's sections, already filtered for its audience. Readable even when PDF export fails (5b). A
         family member can only read `FAMILY` reports of elders they are bound to. There is deliberately no DELETE
@@ -3375,7 +3377,7 @@ paths:
       tags:
       - Reports
       summary: Append a correction to an archived report
-      x-status: draft
+      x-status: implemented
       description: 'UC-MG07 business rule: an archived report is immutable, so a correction is a dated, signed note appended
         to it — the original text stays as it was generated.
 
