@@ -41,7 +41,7 @@ import sg.nus.carelink.report.domain.model.VisitFact;
 import sg.nus.carelink.report.domain.repository.ReportFactsSource;
 
 /**
- * UC-MG07 against a real MySQL, with the real Flyway migrations (V7's report_amendment
+ * UC-MG07 against a real MySQL, with the real Flyway migrations (V8's report_amendment
  * included), the real Spring wiring and the real JSON column.
  *
  * <p>The unit tests prove what the three reports say; this proves the parts that only a

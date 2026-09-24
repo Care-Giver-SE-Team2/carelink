@@ -10,7 +10,7 @@ import jakarta.persistence.Table;
 import java.time.LocalDateTime;
 
 /**
- * JPA entity for table report_amendment (V7).
+ * JPA entity for table report_amendment (V8).
  *
  * <p>A correction appended to a report. Rows are inserted and never updated, so every column
  * is {@code updatable = false}; a correction to a correction is another row.
