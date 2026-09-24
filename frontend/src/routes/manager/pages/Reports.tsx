@@ -1,14 +1,10 @@
-import { ManagerShell } from '../components/ManagerShell'
-import styles from './Placeholder.module.css'
+import ReportList from './reports/ReportList'
 
 /**
- * MG07/MG08 — generate periodic reports and record home-visit spot checks.
- * Placeholder; see README.md.
+ * MG07 — generate and archive periodic reports.
+ * The screen itself is in ./reports; this keeps the sidebar's route where
+ * index.tsx expects to find it. MG08's spot checks are not on it yet.
  */
 export default function Reports() {
-  return (
-    <ManagerShell>
-      <p className={styles.placeholder}>Reports — placeholder.</p>
-    </ManagerShell>
-  )
+  return <ReportList />
 }

@@ -9,6 +9,7 @@ import CarePlan from './pages/CarePlan'
 import Caregivers from './pages/Caregivers'
 import Certifications from './pages/Certifications'
 import Reports from './pages/Reports'
+import ReportDetail from './pages/reports/ReportDetail'
 
 /**
  * Keys CarePlan by elderId so navigating between two elders' plans (e.g. via
@@ -39,6 +40,7 @@ export default function ManagerHome() {
       <Route path="caregivers" element={<Caregivers />} />
       <Route path="certifications" element={<Certifications />} />
       <Route path="reports" element={<Reports />} />
+      <Route path="reports/:id" element={<ReportDetail />} />
     </Routes>
   )
 }

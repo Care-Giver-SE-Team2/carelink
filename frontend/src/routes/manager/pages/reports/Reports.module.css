@@ -1,0 +1,316 @@
+/*
+ * Periodic reports: the list with its generate form, and one report.
+ *
+ * Same vocabulary as the rest of the manager console: square corners, 1px
+ * rules, mono for anything read as data (periods, references, times, the
+ * column heads) and the sans face for sentences. Tokens come from
+ * shared/theme/theme.css; nothing here invents a colour.
+ */
+
+.page {
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  max-width: 1100px;
+}
+
+.pageHead {
+  display: flex;
+  align-items: baseline;
+  gap: 16px;
+}
+
+.pageHead h1 {
+  margin: 0;
+}
+
+.meta {
+  font: 400 12px/1.6 var(--font-mono);
+  color: var(--text-muted);
+  flex: 1;
+  margin: 0;
+}
+
+.textButton {
+  min-height: auto;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  font: 500 12px/1 var(--font-mono);
+  color: var(--text-secondary);
+  text-decoration: underline;
+}
+
+.note {
+  font: 400 13px/1.6 var(--font);
+  color: var(--text-muted);
+  margin: 0;
+}
+
+.feedback {
+  border: 1px solid var(--danger);
+  background: var(--danger-tint);
+  padding: 12px 16px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.feedbackText {
+  margin: 0;
+  flex: 1;
+  font: 400 13.5px/1.5 var(--font);
+  color: var(--text);
+}
+
+.inlineError {
+  margin: 0;
+  border-left: 2px solid var(--danger);
+  padding: 6px 12px;
+  background: var(--danger-tint);
+  font: 400 13.5px/1.5 var(--font);
+}
+
+.notice {
+  margin: 0;
+  border-left: 2px solid var(--success);
+  padding: 6px 12px;
+  background: var(--surface-2);
+  font: 400 13.5px/1.5 var(--font);
+}
+
+/* ---------------------------------------------------------------- generate --- */
+
+.panel {
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.panelHeading {
+  margin: 0;
+  font: 600 14px/1.3 var(--font);
+}
+
+.fields {
+  display: flex;
+  align-items: flex-end;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.fields label,
+.filters label,
+.panel > label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font: 500 10px/1 var(--font-mono);
+  letter-spacing: 0.1em;
+  color: var(--text-faint);
+  text-transform: uppercase;
+}
+
+.fields input,
+.filters input,
+.filters select,
+.panel textarea {
+  min-height: var(--tap);
+  padding: 0 8px;
+  border: 1px solid var(--filter-border);
+  border-radius: var(--radius);
+  background: var(--bg);
+  font: 400 13.5px/1 var(--font);
+  color: var(--text);
+}
+
+.panel textarea {
+  min-height: auto;
+  padding: 8px;
+  line-height: 1.5;
+  resize: vertical;
+}
+
+.hint {
+  margin: 0;
+  font: 400 12px/1.6 var(--font-mono);
+  color: var(--text-muted);
+}
+
+/* -------------------------------------------------------------------- list --- */
+
+.filters {
+  display: flex;
+  gap: 24px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.table th {
+  padding: 10px 12px 10px 0;
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+  font: 500 10px/1 var(--font-mono);
+  letter-spacing: 0.08em;
+  color: var(--text-faint);
+  text-transform: uppercase;
+}
+
+.table td {
+  padding: 12px 12px 12px 0;
+  border-bottom: 1px solid var(--border-light);
+  font: 400 13.5px/1.4 var(--font);
+  vertical-align: top;
+}
+
+.table td.data {
+  font: 400 12px/1.4 var(--font-mono);
+  color: var(--text-tertiary);
+}
+
+.table a {
+  color: var(--text);
+}
+
+.readerTag {
+  display: inline-block;
+  padding: 3px 6px;
+  border: 1px solid var(--text);
+  font: 500 10px/1 var(--font-mono);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.statusTag {
+  font: 500 10px/1 var(--font-mono);
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+  text-transform: uppercase;
+}
+
+.complete {
+  color: var(--success);
+}
+
+/* The one state in the list a manager should not scroll past. */
+.incompleteMark {
+  color: var(--warning-text);
+}
+
+/* ------------------------------------------------------------------ detail --- */
+
+.headerNote {
+  font: 400 12px/1 var(--font-mono);
+  color: var(--text-muted);
+}
+
+.readerNote {
+  margin: 0;
+  font: 400 12px/1.6 var(--font-mono);
+  color: var(--text-muted);
+}
+
+/* "Data incomplete" is said at the top, before any section, never implied. */
+.incomplete {
+  border: 1px solid var(--warning);
+  border-left-width: 3px;
+  padding: 12px 16px;
+}
+
+.incomplete h2 {
+  margin: 0 0 6px;
+  font: 600 14px/1.3 var(--font);
+  color: var(--warning-text);
+}
+
+.incomplete ul {
+  margin: 0;
+  padding-left: 18px;
+  font: 400 12.5px/1.6 var(--font-mono);
+}
+
+.section {
+  display: flex;
+  flex-direction: column;
+}
+
+.sectionHeading {
+  margin: 8px 0 10px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--border);
+  font: 500 10px/1.4 var(--font-mono);
+  letter-spacing: 0.1em;
+  color: var(--text-faint);
+  text-transform: uppercase;
+}
+
+.line {
+  margin: 0;
+  padding: 3px 0;
+  font: 400 13.5px/1.5 var(--font);
+}
+
+/* The steps of an incident's timeline sit under the incident. */
+.subLine {
+  margin: 0;
+  padding: 2px 0 2px 20px;
+  font: 400 12px/1.5 var(--font-mono);
+  color: var(--text-muted);
+}
+
+.disclaimer {
+  margin: 8px 0 0;
+  padding: 10px 12px;
+  border-top: 1px solid var(--border);
+  font: italic 400 12.5px/1.6 var(--font);
+  color: var(--text-secondary);
+}
+
+.amendments {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.amendment {
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border-light);
+}
+
+.amendmentMeta {
+  display: block;
+  font: 400 11px/1.4 var(--font-mono);
+  color: var(--text-muted);
+}
+
+.amendmentNote {
+  display: block;
+  font: 400 13.5px/1.5 var(--font);
+  white-space: pre-line;
+}
+
+.panelActions {
+  display: flex;
+  gap: 8px;
+}
+
+.linkButton {
+  display: inline-flex;
+  align-self: flex-start;
+  align-items: center;
+  min-height: var(--tap);
+  padding: 0 var(--gap);
+  border: 1px solid var(--border);
+  font: 400 13.5px/1 var(--font);
+  color: var(--text);
+  text-decoration: none;
+}
