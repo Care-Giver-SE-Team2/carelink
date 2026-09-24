@@ -2,6 +2,7 @@ package sg.nus.carelink.incident;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.sql.Timestamp;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
@@ -65,9 +66,18 @@ import sg.nus.carelink.incident.domain.repository.IncidentRepository;
 })
 class EscalationFlowIT {
 
+	/**
+	 * Connected the way staging connects. The JVM in CI runs in UTC, as staging's does, and the
+	 * connection declares Asia/Singapore, so a Timestamp is shifted eight hours between the two
+	 * and a LocalDateTime is not. Without the parameter both would pass through unchanged and a
+	 * comparison that mixes them would look correct here and be wrong in production. (A
+	 * developer machine whose own zone is Singapore sees no shift either way; CI is where this
+	 * has teeth.)
+	 */
 	@Container
 	@ServiceConnection
-	static final MySQLContainer MYSQL = new MySQLContainer("mysql:8.4");
+	static final MySQLContainer MYSQL = new MySQLContainer("mysql:8.4")
+			.withUrlParam("connectionTimeZone", "Asia/Singapore");
 
 	/**
 	 * The institution's managers, created once for the class.
@@ -153,6 +163,11 @@ class EscalationFlowIT {
 	/**
 	 * Binds a family member to this test's elder, with an expiry.
 	 *
+	 * <p>The dates go in as Timestamps because that is how the application writes them: the
+	 * binding is saved through JPA, which binds a Timestamp. Written any other way they would
+	 * not sit where production's rows sit, and the comparison under test would be checked
+	 * against rows nothing real produces.
+	 *
 	 * @return the family member's account id, which is who a notification would name
 	 */
 	private Long givenAFamilyMemberBoundUntil(String username, LocalDateTime expiresAt) {
@@ -170,7 +185,8 @@ class EscalationFlowIT {
 				"insert into elder_family_binding (elder_id, family_member_id, relationship,"
 						+ " access_scope, status, confirmed_at, expires_at)"
 						+ " values (?, ?, 'DAUGHTER', 'FULL', 'ACTIVE', ?, ?)",
-				elder, familyMemberId, LocalDateTime.now(clock).minusDays(30), expiresAt);
+				elder, familyMemberId, Timestamp.valueOf(LocalDateTime.now(clock).minusDays(30)),
+				Timestamp.valueOf(expiresAt));
 		return userId;
 	}
 
@@ -223,11 +239,19 @@ class EscalationFlowIT {
 		closeSoTheSweepDoesNotFindIt(raised);
 	}
 
-	/** An expired delegation stops reaching the family; that is what the expiry is for. */
+	/**
+	 * An expired delegation stops reaching the family; that is what the expiry is for.
+	 *
+	 * <p>Two hours ago, not a day ago. The mistake this guards against is eight hours wide: a
+	 * moment bound as a LocalDateTime skips the driver's conversion that the stored expiry went
+	 * through. An expiry a day old is past on either reading and proves nothing; one two hours
+	 * old is past on the application's clock and still eight hours ahead of a moment bound the
+	 * wrong way.
+	 */
 	@Test
 	void afamilyMemberWhoseBindingHasRunOutIsNot() {
 		Long family = givenAFamilyMemberBoundUntil(
-				"it-family-expired", LocalDateTime.now(clock).minusDays(1));
+				"it-family-expired", LocalDateTime.now(clock).minusHours(2));
 
 		Incident raised = raiseFor(elder, "no answer at door");
 
