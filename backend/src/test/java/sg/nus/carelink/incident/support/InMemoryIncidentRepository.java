@@ -78,13 +78,22 @@ public final class InMemoryIncidentRepository implements IncidentRepository {
 				.filter(incident -> severity == null || incident.severity() == severity)
 				.filter(incident -> elderId == null || elderId.equals(incident.elderId()))
 				.sorted(Comparator
-						.comparing(Incident::respondBy, Comparator.nullsLast(Comparator.naturalOrder()))
+						.comparingInt(InMemoryIncidentRepository::queueTier)
+						.thenComparing(Incident::respondBy, Comparator.nullsLast(Comparator.naturalOrder()))
 						.thenComparing(Incident::reportedAt, Comparator.reverseOrder()))
 				.toList();
 
 		int from = Math.min(page * size, matching.size());
 		int to = Math.min(from + size, matching.size());
 		return new PageSlice<>(matching.subList(from, to), page, size, matching.size());
+	}
+
+	/** The same three tiers the real query orders by; see IncidentRepository#findQueue. */
+	private static int queueTier(Incident incident) {
+		if (incident.status() == Incident.Status.UNRESOLVED_ESCALATED) {
+			return 0;
+		}
+		return incident.responderUserId() == null ? 1 : 2;
 	}
 
 	public int size() {

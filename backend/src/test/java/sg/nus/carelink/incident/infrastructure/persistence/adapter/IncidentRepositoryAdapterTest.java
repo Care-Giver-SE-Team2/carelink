@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyCollection;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -19,7 +20,6 @@ import org.mockito.ArgumentCaptor;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Sort;
 
 import sg.nus.carelink.incident.domain.model.Incident;
 import sg.nus.carelink.incident.domain.model.PageSlice;
@@ -112,7 +112,7 @@ class IncidentRepositoryAdapterTest {
 	 */
 	@Test
 	void theQueueTranslatesTheDomainStatesAndComesBackAsADomainPage() {
-		when(jpa.findByStatusInAndSeverityIn(anyCollection(), anyCollection(), any(Pageable.class)))
+		when(jpa.findQueue(anyCollection(), anyCollection(), any(), any(), any(Pageable.class)))
 				.thenReturn(new PageImpl<>(List.of(row(7L)), PageRequest.of(0, 1), 3));
 
 		PageSlice<Incident> queue = adapter.findQueue(
@@ -131,8 +131,8 @@ class IncidentRepositoryAdapterTest {
 		@SuppressWarnings("unchecked")
 		ArgumentCaptor<Collection<IncidentJpaEntity.Severity>> severities =
 				ArgumentCaptor.forClass(Collection.class);
-		verify(jpa).findByStatusInAndSeverityIn(
-				statuses.capture(), severities.capture(), any(Pageable.class));
+		verify(jpa).findQueue(
+				statuses.capture(), severities.capture(), isNull(), any(), any(Pageable.class));
 
 		assertThat(statuses.getValue()).containsExactlyInAnyOrder(
 				IncidentJpaEntity.Status.OPEN, IncidentJpaEntity.Status.ACKNOWLEDGED);
@@ -142,29 +142,32 @@ class IncidentRepositoryAdapterTest {
 	}
 
 	/**
-	 * An unrouted SOS has no respond_by. Ascending order puts nulls first in MySQL, which
-	 * would file the incidents with no promise attached above the ones about to break one.
+	 * The order is the query's own, three tiers deep, and only the query can express it.
+	 * What the adapter owes it is which state sits on top - the chain ran out and nobody is
+	 * answerable, UC-MG05 3b - and a page request with no sort of its own, which would
+	 * otherwise be appended after the query's order and quietly change it.
 	 */
 	@Test
-	void theQueueAsksForTheNearestDeadlineFirstAndTheMissingOnesLast() {
-		when(jpa.findByStatusInAndSeverityIn(anyCollection(), anyCollection(), any(Pageable.class)))
+	void theQueuePinsTheIncidentsTheChainRanOutOnAndLeavesTheOrderToTheQuery() {
+		when(jpa.findQueue(anyCollection(), anyCollection(), any(), any(), any(Pageable.class)))
 				.thenReturn(new PageImpl<>(List.of()));
 
 		adapter.findQueue(Set.of(Incident.Status.OPEN), null, null, 1, 5);
 
+		ArgumentCaptor<IncidentJpaEntity.Status> pinned =
+				ArgumentCaptor.forClass(IncidentJpaEntity.Status.class);
 		ArgumentCaptor<Pageable> request = ArgumentCaptor.forClass(Pageable.class);
-		verify(jpa).findByStatusInAndSeverityIn(anyCollection(), anyCollection(), request.capture());
+		verify(jpa).findQueue(anyCollection(), anyCollection(), any(), pinned.capture(), request.capture());
 
+		assertThat(pinned.getValue()).isEqualTo(IncidentJpaEntity.Status.UNRESOLVED_ESCALATED);
 		assertThat(request.getValue().getPageNumber()).isEqualTo(1);
 		assertThat(request.getValue().getPageSize()).isEqualTo(5);
-		assertThat(request.getValue().getSort()).containsExactly(
-				Sort.Order.asc("respondBy").nullsLast(), Sort.Order.desc("reportedAt"));
+		assertThat(request.getValue().getSort().isUnsorted()).isTrue();
 	}
 
 	@Test
-	void askingTheQueueForOneElderUsesTheNarrowedQuery() {
-		when(jpa.findByStatusInAndSeverityInAndElderId(
-				anyCollection(), anyCollection(), eq(7L), any(Pageable.class)))
+	void askingTheQueueForOneElderPassesTheElderAndTheSeverityThrough() {
+		when(jpa.findQueue(anyCollection(), anyCollection(), eq(7L), any(), any(Pageable.class)))
 				.thenReturn(new PageImpl<>(List.of(row(7L))));
 
 		PageSlice<Incident> queue = adapter.findQueue(
@@ -175,8 +178,7 @@ class IncidentRepositoryAdapterTest {
 		@SuppressWarnings("unchecked")
 		ArgumentCaptor<Collection<IncidentJpaEntity.Severity>> severities =
 				ArgumentCaptor.forClass(Collection.class);
-		verify(jpa).findByStatusInAndSeverityInAndElderId(
-				anyCollection(), severities.capture(), eq(7L), any(Pageable.class));
+		verify(jpa).findQueue(anyCollection(), severities.capture(), eq(7L), any(), any(Pageable.class));
 		assertThat(severities.getValue()).containsExactly(IncidentJpaEntity.Severity.HIGH);
 	}
 }

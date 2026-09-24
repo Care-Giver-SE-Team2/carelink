@@ -2358,7 +2358,11 @@ paths:
       - Incidents
       summary: List incidents
       x-status: implemented
-      description: Manager's queue.
+      description: >-
+        Manager's queue, most urgent first. Incidents the escalation chain ran out on (UNRESOLVED_ESCALATED)
+        come first, as UC-MG05 3b pins them to the top; then incidents with nobody named on them, such as an
+        SOS that was never routed; then the rest. Within each tier the nearest respondBy comes first and
+        incidents without one after it, newest first.
       parameters:
       - $ref: '#/components/parameters/Page'
       - $ref: '#/components/parameters/Size'
