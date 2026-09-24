@@ -103,14 +103,15 @@ class ProfileServiceTest {
         }
 
         @Test
-        void listsEldersWithAStoppedPlanAsNone() {
+        void listsEldersWithAStoppedPlanAsStopped() {
                 Elder saved = saveElder(5L);
-                carePlans.put(saved.id(), plan(saved.id(), CarePlan.Status.STOPPED, 1));
+                carePlans.put(saved.id(), plan(saved.id(), CarePlan.Status.STOPPED, 2));
+                carePlans.putNextVisit(saved.id(), LocalDate.of(2026, 9, 25));
 
                 List<ElderSummary> summaries = service.listElders();
 
                 assertThat(summaries)
-                                .containsExactly(new ElderSummary(saved, "none", null, null));
+                                .containsExactly(new ElderSummary(saved, "stopped", 2, null));
         }
 
         private static CarePlan plan(Long elderId, CarePlan.Status status, int version) {

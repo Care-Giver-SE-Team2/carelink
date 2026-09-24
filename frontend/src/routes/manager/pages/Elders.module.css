@@ -22,6 +22,11 @@
   color: var(--success);
 }
 
+.badge.stopped {
+  border: 1px solid var(--text-faint);
+  color: var(--text-muted);
+}
+
 /* ---- filter dropdown ---- */
 
 .dropdown {
@@ -352,6 +357,11 @@
 .planStatusBadge.published {
   border: 1px solid var(--success);
   color: var(--success);
+}
+
+.planStatusBadge.stopped {
+  border: 1px solid var(--text-faint);
+  color: var(--text-muted);
 }
 
 .statList {

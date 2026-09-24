@@ -26,6 +26,7 @@ const PLAN_FILTER_LABELS: Record<PlanFilter, string> = {
   all: 'any',
   published: 'published',
   draft: 'draft',
+  stopped: 'stopped',
   none: 'none',
 }
 
@@ -36,7 +37,7 @@ const SORT_LABELS: Record<SortOrder, string> = {
   'plan-status': 'plan status',
 }
 
-const PLAN_STATUS_RANK: Record<PlanStatus, number> = { none: 0, draft: 1, published: 2 }
+const PLAN_STATUS_RANK: Record<PlanStatus, number> = { none: 0, draft: 1, published: 2, stopped: 3 }
 
 /** nextVisitAt is an ISO "yyyy-MM-dd" string, so lexical order is chronological order. */
 function nextVisitRank(value: string | null): string {
@@ -46,6 +47,7 @@ function nextVisitRank(value: string | null): string {
 function planBadgeLabel(status: PlanStatus, version: number | null): string {
   if (status === 'published') return `PUBLISHED v${version}`
   if (status === 'draft') return `DRAFT v${version}`
+  if (status === 'stopped') return `STOPPED v${version}`
   return 'NO PLAN YET'
 }
 
@@ -87,6 +89,8 @@ export default function Elders() {
     // wired up yet — so this pass is a no-op for now, but stays correct once it is).
     sorted.sort((a, b) => (a.primaryCaregiver ? 1 : 0) - (b.primaryCaregiver ? 1 : 0))
     sorted.sort((a, b) => (a.planStatus === 'none' ? 0 : 1) - (b.planStatus === 'none' ? 0 : 1))
+    // A stopped plan is history, not something to act on, so those elders sink to the bottom.
+    sorted.sort((a, b) => (a.planStatus === 'stopped' ? 1 : 0) - (b.planStatus === 'stopped' ? 1 : 0))
     return sorted
   }, [elders, query, sector, planFilter, sort])
 
@@ -383,7 +387,7 @@ export default function Elders() {
                   {selected.planStatus === 'none' ? 'Create care plan' : 'Open care plan'}
                 </button>
                 <button className={styles.secondaryBtn}>View visit history</button>
-                {!selected.primaryCaregiver && selected.planStatus !== 'none' && (
+                {!selected.primaryCaregiver && selected.planStatus !== 'none' && selected.planStatus !== 'stopped' && (
                   <button className={styles.assignCaregiverBtn} onClick={() => setAssignTarget(selected)}>
                     Assign caregiver
                   </button>

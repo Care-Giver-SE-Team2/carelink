@@ -69,13 +69,15 @@ export function formatHoursMinutes(hours: number): string {
   return m === 0 ? `${h}h` : `${h}h ${m}m`
 }
 
-/** Remove a top-level sub-plan, or a task nested one level under a sub-plan, by id. */
+/** Remove a top-level sub-plan, or a task nested one level under a sub-plan, by id. A sub-plan
+ * left with no tasks by the removal is removed along with it. */
 export function removeNode(tree: PlanNode[], id: string): PlanNode[] {
-  return tree
-    .filter((node) => node.id !== id)
-    .map((node) =>
-      node.type === 'subplan' ? { ...node, children: node.children.filter((task) => task.id !== id) } : node,
-    )
+  return tree.flatMap((node) => {
+    if (node.id === id) return []
+    if (node.type !== 'subplan' || !node.children.some((task) => task.id === id)) return [node]
+    const children = node.children.filter((task) => task.id !== id)
+    return children.length === 0 ? [] : [{ ...node, children }]
+  })
 }
 
 /** Replace a task nested one level under a sub-plan, or a top-level task, by id. */

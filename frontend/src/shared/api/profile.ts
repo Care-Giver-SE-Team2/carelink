@@ -31,7 +31,7 @@ export type ElderListItem = {
   dateOfBirth: string | null
   address: string | null
   sector: string | null
-  planStatus: 'published' | 'draft' | 'none'
+  planStatus: 'published' | 'draft' | 'stopped' | 'none'
   planVersion: number | null
   nextVisitDate: string | null
 }
