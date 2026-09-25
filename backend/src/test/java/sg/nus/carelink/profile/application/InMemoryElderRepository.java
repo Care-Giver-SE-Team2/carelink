@@ -4,6 +4,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
+import java.util.Comparator;
 
 import sg.nus.carelink.profile.domain.model.Elder;
 import sg.nus.carelink.profile.domain.repository.ElderRepository;
@@ -25,6 +27,14 @@ class InMemoryElderRepository implements ElderRepository {
     @Override
     public List<Elder> findAll() {
         return List.copyOf(rows.values());
+    }
+
+    @Override
+    public List<Elder> findByIds(Set<Long> elderIds) {
+        return rows.values().stream()
+                .filter(elder -> elderIds.contains(elder.id()))
+                .sorted(Comparator.comparing(Elder::id))
+                .toList();
     }
 
     @Override

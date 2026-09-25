@@ -23,8 +23,9 @@ import sg.nus.carelink.shared.error.BusinessRuleViolation;
 import sg.nus.carelink.shared.error.ResourceNotFound;
 
 /**
- * Application layer of the incident module: one public method per step of UC-MG05, plus the
- * two entry points that raise an incident in the first place (UC-EL03, UC-CG04).
+ * Application layer of the incident module: one public method per step of UC-MG05, plus
+ * the entry points that raise an incident in the first place
+ * (UC-EL03, UC-EL01 and UC-CG04).
  *
  * <p>Each method does the same four things and nothing else: load through the ports, call
  * the domain model, save, write the timeline. The rules themselves are in
@@ -39,269 +40,570 @@ import sg.nus.carelink.shared.error.ResourceNotFound;
 @Transactional
 public class IncidentService {
 
-	/**
-	 * What the manager's queue shows when nobody has asked for a particular status: every
-	 * incident that is not finished with. Stated here rather than in the repository because
-	 * "still needs attention" is a decision about the use case, not about storage.
-	 */
-	private static final Set<Incident.Status> STILL_NEEDS_ATTENTION = Set.of(
-			Incident.Status.OPEN,
-			Incident.Status.ACKNOWLEDGED,
-			Incident.Status.IN_PROGRESS,
-			Incident.Status.UNRESOLVED_ESCALATED);
+    /**
+     * What the manager's queue shows when nobody has asked for a particular status: every
+     * incident that is not finished with. Stated here rather than in the repository because
+     * "still needs attention" is a decision about the use case, not about storage.
+     */
+    private static final Set<Incident.Status>
+            STILL_NEEDS_ATTENTION =
+            Set.of(
+                    Incident.Status.OPEN,
+                    Incident.Status.ACKNOWLEDGED,
+                    Incident.Status.IN_PROGRESS,
+                    Incident.Status.UNRESOLVED_ESCALATED
+            );
 
-	/** A page big enough for a shift's worth of incidents and small enough to be one read. */
-	private static final int MAX_PAGE_SIZE = 100;
+    /** A page big enough for a shift's worth of incidents and small enough to be one read. */
+    private static final int MAX_PAGE_SIZE =
+            100;
 
-	private final IncidentRepository incidents;
-	private final IncidentLogRepository timeline;
-	private final EscalationService escalation;
-	private final Clock clock;
+    private final IncidentRepository incidents;
+    private final IncidentLogRepository timeline;
+    private final EscalationService escalation;
+    private final Clock clock;
 
-	IncidentService(
-			IncidentRepository incidents,
-			IncidentLogRepository timeline,
-			EscalationService escalation,
-			Clock clock) {
+    IncidentService(
+            IncidentRepository incidents,
+            IncidentLogRepository timeline,
+            EscalationService escalation,
+            Clock clock) {
 
-		this.incidents = incidents;
-		this.timeline = timeline;
-		this.escalation = escalation;
-		this.clock = clock;
-	}
+        this.incidents = incidents;
+        this.timeline = timeline;
+        this.escalation = escalation;
+        this.clock = clock;
+    }
 
-	// ------------------------------------------------------------------- raising ---
+    // ------------------------------------------------------------------- raising ---
 
-	/**
-	 * UC-EL03: an elder triggers the one-tap emergency call.
-	 *
-	 * <p>Owned by the elder module. Left exactly as it was written there: it records the
-	 * incident and stops.
-	 *
-	 * <p><strong>The incident is not routed here.</strong> An SOS with no responder and no
-	 * countdown sits in the table until a human notices it, which is the failure UC-MG05's
-	 * escalation chain exists to prevent. Closing that gap is one line -
-	 * {@code return escalation.routeNewIncident(saved);} - but it belongs to whoever owns
-	 * this use case, not to the manager module, so it is raised on the pull request rather
-	 * than made here.
-	 */
-	public Incident createElderEmergency(
-			Long elderId,
-			Long reportedByUserId,
-			BigDecimal latitude,
-			BigDecimal longitude,
-			String locationText,
-			String description) {
+    /**
+     * UC-EL03: an elder triggers the one-tap emergency call.
+     *
+     * <p>Owned by the elder module. Left exactly as it was written there: it records the
+     * incident and stops.
+     *
+     * <p><strong>The incident is not routed here.</strong> An SOS with no responder and no
+     * countdown sits in the table until a human notices it, which is the failure UC-MG05's
+     * escalation chain exists to prevent. Closing that gap is one line -
+     * {@code return escalation.routeNewIncident(saved);} - but it belongs to whoever owns
+     * this use case, not to the manager module, so it is raised on the pull request rather
+     * than made here.
+     */
+    public Incident createElderEmergency(
+            Long elderId,
+            Long reportedByUserId,
+            BigDecimal latitude,
+            BigDecimal longitude,
+            String locationText,
+            String description) {
 
-		Incident incident = Incident.createElderSos(
-				elderId, reportedByUserId, latitude, longitude, locationText, description);
+        Incident incident =
+                Incident.createElderSos(
+                        elderId,
+                        reportedByUserId,
+                        latitude,
+                        longitude,
+                        locationText,
+                        description
+                );
 
-		return incidents.save(incident);
-	}
+        return incidents.save(
+                incident
+        );
+    }
 
-	/** UC-CG04: a caregiver reports a care exception during or after a visit. */
-	public Incident reportByCaregiver(
-			Long elderId,
-			Long visitId,
-			Long reportedByUserId,
-			Incident.Category category,
-			Incident.Severity severity,
-			String description) {
+    /**
+     * UC-EL01:
+     * Opens an operational incident when an elder disputes a completed visit.
+     *
+     * <p>Unlike EL03, this incident is associated with a visit and is routed immediately
+     * through the existing escalation workflow. The manager therefore sees the dispute
+     * through the same exception queue used by UC-MG05.
+     */
+    public Incident createElderServiceDispute(
+            Long elderId,
+            Long visitId,
+            Long reportedByUserId,
+            String description) {
 
-		Incident saved = incidents.save(Incident.reportedByCaregiver(
-				elderId, visitId, reportedByUserId, category, severity, description, now()));
+        Incident saved =
+                incidents.save(
+                        Incident
+                                .reportedByElderServiceDispute(
+                                        elderId,
+                                        visitId,
+                                        reportedByUserId,
+                                        description,
+                                        now()
+                                )
+                );
 
-		timeline.save(IncidentLog.entry(saved.id(), actorLabel(reportedByUserId, "caregiver"),
-				IncidentLog.Action.REPORTED, "reported by caregiver", now()));
+        timeline.save(
+                IncidentLog.entry(
+                        saved.id(),
+                        actorLabel(
+                                reportedByUserId,
+                                "elder"
+                        ),
+                        IncidentLog.Action.REPORTED,
+                        "service disputed by elder",
+                        now()
+                )
+        );
 
-		return escalation.routeNewIncident(saved);
-	}
+        return escalation.routeNewIncident(
+                saved
+        );
+    }
 
-	// ------------------------------------------------------------------ handling ---
+    /** UC-CG04: a caregiver reports a care exception during or after a visit. */
+    public Incident reportByCaregiver(
+            Long elderId,
+            Long visitId,
+            Long reportedByUserId,
+            Incident.Category category,
+            Incident.Severity severity,
+            String description) {
 
-	/**
-	 * UC-MG05 step 3: a manager takes the incident over. The countdown stops, which is what
-	 * takes it out of the scheduled scan's reach.
-	 *
-	 * <p>A take-over that is refused because somebody else got there first is written to the
-	 * timeline before the rejection is thrown, so the attempt leaves a trace.
-	 */
-	public Incident claim(Long incidentId, Long userId, String actor) {
-		Incident incident = require(incidentId);
-		try {
-			Incident claimed = incidents.save(incident.claimBy(userId));
-			timeline.save(IncidentLog.entry(incidentId, actor, IncidentLog.Action.CLAIMED,
-					"taken over; countdown stopped", now()));
-			return claimed;
-		}
-		catch (BusinessRuleViolation rejected) {
-			timeline.save(IncidentLog.entry(incidentId, actor, IncidentLog.Action.CLAIM_REJECTED,
-					rejected.getMessage(), now()));
-			throw rejected;
-		}
-	}
+        Incident saved =
+                incidents.save(
+                        Incident.reportedByCaregiver(
+                                elderId,
+                                visitId,
+                                reportedByUserId,
+                                category,
+                                severity,
+                                description,
+                                now()
+                        )
+                );
 
-	/** UC-MG05 exception 3a and UC-SYS02: hand the incident to the next level. */
-	public Incident escalate(Long incidentId, String reason, String actor) {
-		Incident incident = require(incidentId);
-		if (!incident.awaitingTakeOver()) {
-			throw new BusinessRuleViolation(
-					"INCIDENT_NOT_AWAITING_TAKE_OVER",
-					"Only an incident still waiting to be taken over can be escalated; it is "
-							+ incident.status());
-		}
-		return escalation.escalate(incident, reason == null || reason.isBlank() ? "escalated by hand" : reason, actor);
-	}
+        timeline.save(
+                IncidentLog.entry(
+                        saved.id(),
+                        actorLabel(
+                                reportedByUserId,
+                                "caregiver"
+                        ),
+                        IncidentLog.Action.REPORTED,
+                        "reported by caregiver",
+                        now()
+                )
+        );
 
-	/**
-	 * UC-MG05 step 4: record an attempt to reach the family, reached or not.
-	 *
-	 * <p>When the family could not be reached the caller is told which playbook applies, so
-	 * the manager can act without waiting — "家属联络不上：启用标准处置预案先行处置".
-	 */
-	public ContactOutcome recordContactAttempt(Long incidentId, ContactAttempt attempt, String actor) {
-		Incident incident = require(incidentId);
-		timeline.save(IncidentLog.entry(incidentId, actor, IncidentLog.Action.CONTACT_ATTEMPTED,
-				attempt.describe(), now()));
+        return escalation.routeNewIncident(
+                saved
+        );
+    }
 
-		Optional<Playbook> fallback = attempt.reachedTheFamily()
-				? Optional.empty()
-				: Playbook.forCategory(incident.category());
+    // ------------------------------------------------------------------ handling ---
 
-		return new ContactOutcome(incident, attempt, fallback.orElse(null));
-	}
+    /**
+     * UC-MG05 step 3: a manager takes the incident over. The countdown stops, which is what
+     * takes it out of the scheduled scan's reach.
+     *
+     * <p>A take-over that is refused because somebody else got there first is written to the
+     * timeline before the rejection is thrown, so the attempt leaves a trace.
+     */
+    public Incident claim(
+            Long incidentId,
+            Long userId,
+            String actor) {
 
-	/** UC-MG05 step 5: apply the standard response for this category. */
-	public Incident applyPlaybook(Long incidentId, String playbookCode, String actor) {
-		Incident incident = require(incidentId);
-		Playbook playbook = Playbook.byCode(playbookCode)
-				.orElseThrow(() -> new ResourceNotFound("Playbook", playbookCode));
+        Incident incident =
+                require(incidentId);
 
-		if (playbook.category() != incident.category()) {
-			throw new BusinessRuleViolation(
-					"PLAYBOOK_CATEGORY_MISMATCH",
-					"Playbook %s is for %s incidents, this one is %s"
-							.formatted(playbook.code(), playbook.category(), incident.category()));
-		}
+        try {
+            Incident claimed =
+                    incidents.save(
+                            incident.claimBy(
+                                    userId
+                            )
+                    );
 
-		timeline.save(IncidentLog.entry(incidentId, actor, IncidentLog.Action.PLAYBOOK_APPLIED,
-				"%s - %s".formatted(playbook.code(), playbook.title()), now()));
-		return incident;
-	}
+            timeline.save(
+                    IncidentLog.entry(
+                            incidentId,
+                            actor,
+                            IncidentLog.Action.CLAIMED,
+                            "taken over; countdown stopped",
+                            now()
+                    )
+            );
 
-	/**
-	 * UC-MG05 alternative 5a: the situation worsened. The severity changes, the chain is
-	 * rebuilt for it, and the same timeline continues.
-	 */
-	public Incident changeSeverity(Long incidentId, Incident.Severity severity, String reason, String actor) {
-		Incident incident = require(incidentId);
-		Incident.Severity before = incident.severity();
+            return claimed;
+        } catch (
+                BusinessRuleViolation rejected
+        ) {
+            timeline.save(
+                    IncidentLog.entry(
+                            incidentId,
+                            actor,
+                            IncidentLog.Action.CLAIM_REJECTED,
+                            rejected.getMessage(),
+                            now()
+                    )
+            );
 
-		Incident changed = incidents.save(incident.changeSeverityTo(severity));
-		timeline.save(IncidentLog.entry(incidentId, actor, IncidentLog.Action.SEVERITY_CHANGED,
-				"%s -> %s: %s".formatted(before, severity, reason == null ? "no reason given" : reason), now()));
+            throw rejected;
+        }
+    }
 
-		return escalation.reassembleAfterSeverityChange(changed);
-	}
+    /** UC-MG05 exception 3a and UC-SYS02: hand the incident to the next level. */
+    public Incident escalate(
+            Long incidentId,
+            String reason,
+            String actor) {
 
-	/**
-	 * UC-MG05 step 6: record the conclusion and close the incident.
-	 *
-	 * <p>Only the responder who took it over may close it. Anyone else gets 403 rather than
-	 * 409, because the request is well formed and the incident is in a closable state — the
-	 * caller is simply not the person handling it.
-	 */
-	public Incident resolve(Long incidentId, Long userId, String resolutionNote, String outcome, String actor) {
-		Incident incident = require(incidentId);
+        Incident incident =
+                require(incidentId);
 
-		if (!incident.isHandledBy(userId)) {
-			throw new AccessDeniedException(
-					"Only the responder handling this incident may resolve it");
-		}
-		if (resolutionNote == null || resolutionNote.isBlank()) {
-			throw new BusinessRuleViolation(
-					"RESOLUTION_NOTE_REQUIRED", "An incident cannot be closed without a resolution note");
-		}
+        if (!incident.awaitingTakeOver()) {
+            throw new BusinessRuleViolation(
+                    "INCIDENT_NOT_AWAITING_TAKE_OVER",
+                    "Only an incident still waiting to be taken over can be escalated; it is "
+                            + incident.status()
+            );
+        }
 
-		Incident resolved = incidents.save(incident.resolveAt(now()));
-		timeline.save(IncidentLog.entry(incidentId, actor, IncidentLog.Action.RESOLVED,
-				"%s :: %s".formatted(outcome == null ? "HANDLED_ON_SITE" : outcome, resolutionNote), now()));
-		return resolved;
-	}
+        return escalation.escalate(
+                incident,
+                reason == null
+                        || reason.isBlank()
+                        ? "escalated by hand"
+                        : reason,
+                actor
+        );
+    }
 
-	// -------------------------------------------------------------------- reading ---
+    /**
+     * UC-MG05 step 4: record an attempt to reach the family, reached or not.
+     *
+     * <p>When the family could not be reached the caller is told which playbook applies, so
+     * the manager can act without waiting — "家属联络不上：启用标准处置预案先行处置".
+     */
+    public ContactOutcome recordContactAttempt(
+            Long incidentId,
+            ContactAttempt attempt,
+            String actor) {
 
-	@Transactional(readOnly = true)
-	public Optional<Incident> findIncident(Long id) {
-		return incidents.findById(id);
-	}
+        Incident incident =
+                require(incidentId);
 
-	@Transactional(readOnly = true)
-	public List<IncidentLog> timelineOf(Long incidentId) {
-		require(incidentId);
-		return timeline.findTimeline(incidentId);
-	}
+        timeline.save(
+                IncidentLog.entry(
+                        incidentId,
+                        actor,
+                        IncidentLog.Action.CONTACT_ATTEMPTED,
+                        attempt.describe(),
+                        now()
+                )
+        );
 
-	@Transactional(readOnly = true)
-	public EscalationChain escalationChainOf(Long incidentId) {
-		return escalation.describeChain(require(incidentId));
-	}
+        Optional<Playbook> fallback =
+                attempt.reachedTheFamily()
+                        ? Optional.empty()
+                        : Playbook.forCategory(
+                                incident.category()
+                        );
 
-	@Transactional(readOnly = true)
-	public List<Incident> forElder(Long elderId) {
-		return incidents.findByElder(elderId);
-	}
+        return new ContactOutcome(
+                incident,
+                attempt,
+                fallback.orElse(null)
+        );
+    }
 
-	/**
-	 * UC-MG05 step 2: the queue the manager's console opens on.
-	 *
-	 * <p>Without a status filter it shows everything that still owes somebody an answer,
-	 * including UNRESOLVED_ESCALATED — an incident the chain ran out on is the one thing a
-	 * manager must not have to go looking for ("链用尽标未解决－已升级并置顶").
-	 * Asking for one status shows exactly that status, closed incidents included, because
-	 * the same endpoint is how anyone reviews what happened afterwards.
-	 *
-	 * <p>Page and size are clamped rather than validated. They come from a URL, where a
-	 * hand-typed {@code page=-1} is a slip and not an attack; answering with the first page
-	 * is more useful than a 400, and a size nobody bounded is how one request reads the
-	 * whole table.
-	 */
-	@Transactional(readOnly = true)
-	public PageSlice<Incident> queue(
-			Incident.Status status, Incident.Severity severity, Long elderId, int page, int size) {
+    /** UC-MG05 step 5: apply the standard response for this category. */
+    public Incident applyPlaybook(
+            Long incidentId,
+            String playbookCode,
+            String actor) {
 
-		Set<Incident.Status> statuses = status == null ? STILL_NEEDS_ATTENTION : Set.of(status);
-		return incidents.findQueue(
-				statuses, severity, elderId, Math.max(page, 0), Math.min(Math.max(size, 1), MAX_PAGE_SIZE));
-	}
+        Incident incident =
+                require(incidentId);
 
-	@Transactional(readOnly = true)
-	public List<Playbook> playbooks() {
-		return List.of(Playbook.values());
-	}
+        Playbook playbook =
+                Playbook.byCode(
+                        playbookCode
+                )
+                        .orElseThrow(() ->
+                                new ResourceNotFound(
+                                        "Playbook",
+                                        playbookCode
+                                )
+                        );
 
-	// -------------------------------------------------------------------- helpers ---
+        if (playbook.category()
+                != incident.category()) {
 
-	private Incident require(Long id) {
-		return incidents.findById(id).orElseThrow(() -> new ResourceNotFound("Incident", id));
-	}
+            throw new BusinessRuleViolation(
+                    "PLAYBOOK_CATEGORY_MISMATCH",
+                    "Playbook %s is for %s incidents, this one is %s"
+                            .formatted(
+                                    playbook.code(),
+                                    playbook.category(),
+                                    incident.category()
+                            )
+            );
+        }
 
-	private LocalDateTime now() {
-		return LocalDateTime.now(clock);
-	}
+        timeline.save(
+                IncidentLog.entry(
+                        incidentId,
+                        actor,
+                        IncidentLog.Action.PLAYBOOK_APPLIED,
+                        "%s - %s".formatted(
+                                playbook.code(),
+                                playbook.title()
+                        ),
+                        now()
+                )
+        );
 
-	private static String actorLabel(Long userId, String role) {
-		return userId == null ? role : "%s:%d".formatted(role, userId);
-	}
+        return incident;
+    }
 
-	/**
-	 * What came back from recording a contact attempt: the incident, what was tried, and the
-	 * playbook to fall back on when the family could not be reached.
-	 */
-	public record ContactOutcome(Incident incident, ContactAttempt attempt, Playbook suggestedPlaybook) {
+    /**
+     * UC-MG05 alternative 5a: the situation worsened. The severity changes, the chain is
+     * rebuilt for it, and the same timeline continues.
+     */
+    public Incident changeSeverity(
+            Long incidentId,
+            Incident.Severity severity,
+            String reason,
+            String actor) {
 
-		public boolean hasFallback() {
-			return suggestedPlaybook != null;
-		}
-	}
+        Incident incident =
+                require(incidentId);
+
+        Incident.Severity before =
+                incident.severity();
+
+        Incident changed =
+                incidents.save(
+                        incident.changeSeverityTo(
+                                severity
+                        )
+                );
+
+        timeline.save(
+                IncidentLog.entry(
+                        incidentId,
+                        actor,
+                        IncidentLog.Action.SEVERITY_CHANGED,
+                        "%s -> %s: %s".formatted(
+                                before,
+                                severity,
+                                reason == null
+                                        ? "no reason given"
+                                        : reason
+                        ),
+                        now()
+                )
+        );
+
+        return escalation
+                .reassembleAfterSeverityChange(
+                        changed
+                );
+    }
+
+    /**
+     * UC-MG05 step 6: record the conclusion and close the incident.
+     *
+     * <p>Only the responder who took it over may close it. Anyone else gets 403 rather than
+     * 409, because the request is well formed and the incident is in a closable state — the
+     * caller is simply not the person handling it.
+     */
+    public Incident resolve(
+            Long incidentId,
+            Long userId,
+            String resolutionNote,
+            String outcome,
+            String actor) {
+
+        Incident incident =
+                require(incidentId);
+
+        if (!incident.isHandledBy(
+                userId)) {
+
+            throw new AccessDeniedException(
+                    "Only the responder handling this incident may resolve it"
+            );
+        }
+
+        if (resolutionNote == null
+                || resolutionNote.isBlank()) {
+
+            throw new BusinessRuleViolation(
+                    "RESOLUTION_NOTE_REQUIRED",
+                    "An incident cannot be closed without a resolution note"
+            );
+        }
+
+        Incident resolved =
+                incidents.save(
+                        incident.resolveAt(
+                                now()
+                        )
+                );
+
+        timeline.save(
+                IncidentLog.entry(
+                        incidentId,
+                        actor,
+                        IncidentLog.Action.RESOLVED,
+                        "%s :: %s".formatted(
+                                outcome == null
+                                        ? "HANDLED_ON_SITE"
+                                        : outcome,
+                                resolutionNote
+                        ),
+                        now()
+                )
+        );
+
+        return resolved;
+    }
+
+    // -------------------------------------------------------------------- reading ---
+
+    @Transactional(readOnly = true)
+    public Optional<Incident> findIncident(
+            Long id) {
+
+        return incidents.findById(
+                id
+        );
+    }
+
+    @Transactional(readOnly = true)
+    public List<IncidentLog> timelineOf(
+            Long incidentId) {
+
+        require(incidentId);
+
+        return timeline.findTimeline(
+                incidentId
+        );
+    }
+
+    @Transactional(readOnly = true)
+    public EscalationChain escalationChainOf(
+            Long incidentId) {
+
+        return escalation.describeChain(
+                require(incidentId)
+        );
+    }
+
+    @Transactional(readOnly = true)
+    public List<Incident> forElder(
+            Long elderId) {
+
+        return incidents.findByElder(
+                elderId
+        );
+    }
+
+    /**
+     * UC-MG05 step 2: the queue the manager's console opens on.
+     *
+     * <p>Without a status filter it shows everything that still owes somebody an answer,
+     * including UNRESOLVED_ESCALATED — an incident the chain ran out on is the one thing a
+     * manager must not have to go looking for ("链用尽标未解决－已升级并置顶").
+     * Asking for one status shows exactly that status, closed incidents included, because
+     * the same endpoint is how anyone reviews what happened afterwards.
+     *
+     * <p>Page and size are clamped rather than validated. They come from a URL, where a
+     * hand-typed {@code page=-1} is a slip and not an attack; answering with the first page
+     * is more useful than a 400, and a size nobody bounded is how one request reads the
+     * whole table.
+     */
+    @Transactional(readOnly = true)
+    public PageSlice<Incident> queue(
+            Incident.Status status,
+            Incident.Severity severity,
+            Long elderId,
+            int page,
+            int size) {
+
+        Set<Incident.Status> statuses =
+                status == null
+                        ? STILL_NEEDS_ATTENTION
+                        : Set.of(status);
+
+        return incidents.findQueue(
+                statuses,
+                severity,
+                elderId,
+                Math.max(
+                        page,
+                        0
+                ),
+                Math.min(
+                        Math.max(
+                                size,
+                                1
+                        ),
+                        MAX_PAGE_SIZE
+                )
+        );
+    }
+
+    @Transactional(readOnly = true)
+    public List<Playbook> playbooks() {
+        return List.of(
+                Playbook.values()
+        );
+    }
+
+    // -------------------------------------------------------------------- helpers ---
+
+    private Incident require(Long id) {
+        return incidents
+                .findById(id)
+                .orElseThrow(() ->
+                        new ResourceNotFound(
+                                "Incident",
+                                id
+                        )
+                );
+    }
+
+    private LocalDateTime now() {
+        return LocalDateTime.now(
+                clock
+        );
+    }
+
+    private static String actorLabel(
+            Long userId,
+            String role) {
+
+        return userId == null
+                ? role
+                : "%s:%d".formatted(
+                        role,
+                        userId
+                );
+    }
+
+    /**
+     * What came back from recording a contact attempt: the incident, what was tried, and the
+     * playbook to fall back on when the family could not be reached.
+     */
+    public record ContactOutcome(
+            Incident incident,
+            ContactAttempt attempt,
+            Playbook suggestedPlaybook) {
+
+        public boolean hasFallback() {
+            return suggestedPlaybook
+                    != null;
+        }
+    }
 }

@@ -5,7 +5,7 @@ import { useQuery } from '@tanstack/react-query'
 import { ManagerShell } from '../components/ManagerShell'
 import { UserIdentity } from '../components/UserIdentity'
 import modalStyles from '../components/ConfirmModal.module.css'
-import { ACTIVITY_CATALOG, CARE_PLANS, ELDER_PROFILES } from '../data/carePlans'
+import { ACTIVITY_CATALOG, CARE_PLANS, ELDER_PROFILES, activityCategory } from '../data/carePlans'
 import type { PlanNode, SubPlanNode, TaskNode } from '../data/carePlans'
 import { useElder } from '../lib/useElder'
 import { useCurrentUser } from '../lib/useCurrentUser'
@@ -334,13 +334,28 @@ export default function CarePlan() {
       })),
       evidence: 'CHECKLIST',
     }
-    const subplan: SubPlanNode = {
-      id: `subplan-${Date.now()}`,
-      type: 'subplan',
-      name,
-      children: [task],
+    // Activities are filed under their catalog category, so a second activity from the same
+    // category joins the existing sub-plan rather than starting a new one.
+    const groupName = activityCategory(name) ?? name
+    const existing = tree.find((n): n is SubPlanNode => n.type === 'subplan' && n.name === groupName)
+    if (existing) {
+      setTree((prev) =>
+        prev.map((n) => (n.id === existing.id && n.type === 'subplan' ? { ...n, children: [...n.children, task] } : n)),
+      )
+      setCollapsed((prev) => {
+        const next = new Set(prev)
+        next.delete(existing.id)
+        return next
+      })
+    } else {
+      const subplan: SubPlanNode = {
+        id: `subplan-${Date.now()}`,
+        type: 'subplan',
+        name: groupName,
+        children: [task],
+      }
+      setTree((prev) => [...prev, subplan])
     }
-    setTree((prev) => [...prev, subplan])
     setAddPanelOpen(false)
   }
 

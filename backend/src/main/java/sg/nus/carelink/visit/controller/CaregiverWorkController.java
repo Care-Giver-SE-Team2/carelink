@@ -6,7 +6,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
-import sg.nus.carelink.profile.application.CaregiverDirectory;
+import sg.nus.carelink.profile.application.CaregiverWorkDirectory;
 import sg.nus.carelink.visit.application.CaregiverWorkService;
 
 @RestController
@@ -17,7 +17,7 @@ public class CaregiverWorkController {
     public CaregiverWorkController(CaregiverWorkService service) { this.service = service; }
 
     @GetMapping("/caregivers/me")
-    public CaregiverDirectory.Profile profile(Principal principal) { return service.profile(principal.getName()); }
+    public CaregiverWorkDirectory.Profile profile(Principal principal) { return service.profile(principal.getName()); }
 
     @GetMapping("/caregivers/me/schedule")
     public CaregiverWorkService.Schedule schedule(Principal principal,

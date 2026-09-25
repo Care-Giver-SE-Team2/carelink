@@ -6,13 +6,143 @@ import {
   vi,
 } from 'vitest'
 
-import { api } from './client'
+import { api, ApiError } from './client'
 
 afterEach(() => {
   vi.unstubAllGlobals()
 
   document.cookie =
     'XSRF-TOKEN=; Max-Age=0; path=/'
+})
+
+describe('API error responses', () => {
+  it.each([
+    'application/problem+json',
+    'application/problem+json; charset=UTF-8',
+    'Application/Problem+JSON; charset=utf-8',
+    'application/json; charset=utf-8',
+  ])('reads structured errors from %s and retains their fields', async (contentType) => {
+    const body = {
+      title: 'Invalid request',
+      detail: 'The date range must include both dates.',
+      status: 500,
+      fields: { dateTo: 'Required' },
+      code: 'INVALID_DATE_RANGE',
+    }
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify(body), {
+      status: 400,
+      headers: { 'Content-Type': contentType },
+    })))
+
+    const failure = await api('/visits').catch((error: unknown) => error)
+
+    expect(failure).toBeInstanceOf(ApiError)
+    expect(failure).toMatchObject({
+      name: 'ApiError',
+      status: 400,
+      message: body.detail,
+      body,
+    })
+  })
+
+  it.each([
+    {
+      body: { message: 'Existing message', detail: 'Specific detail', title: 'Title' },
+      expected: 'Existing message',
+    },
+    {
+      body: { message: '  ', detail: 'Specific detail', title: 'Title' },
+      expected: 'Specific detail',
+    },
+    {
+      body: { message: 4, detail: null, title: 'Invalid request' },
+      expected: 'Invalid request',
+    },
+    {
+      body: { message: false, detail: { reason: 'Invalid' }, title: '  ' },
+      expected: 'Request failed with status 400.',
+    },
+  ])('selects a usable message: $expected', async ({ body, expected }) => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify(body), {
+      status: 400,
+      headers: { 'Content-Type': 'application/problem+json' },
+    })))
+
+    await expect(api('/visits')).rejects.toMatchObject({ status: 400, message: expected, body })
+  })
+
+  it.each([null, [], 123, false])('falls back for JSON without an error message: %j', async (body) => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify(body), {
+      status: 500,
+      headers: { 'Content-Type': 'application/problem+json' },
+    })))
+
+    await expect(api('/visits')).rejects.toMatchObject({
+      status: 500,
+      message: 'Request failed with status 500.',
+      body,
+    })
+  })
+
+  it.each([
+    ['application/problem+json', '{invalid'],
+    ['application/problem+json', ''],
+    ['application/json', '{invalid'],
+  ])('retains the HTTP error for unreadable %s bodies', async (contentType, body) => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(body, {
+      status: 401,
+      headers: { 'Content-Type': contentType },
+    })))
+
+    await expect(api('/visits')).rejects.toMatchObject({
+      status: 401,
+      message: 'Authentication is required.',
+      body: null,
+    })
+  })
+
+  it('keeps the status fallback when reading a text error fails', async () => {
+    const response = new Response('Unavailable', { status: 503 })
+    vi.spyOn(response, 'text').mockRejectedValue(new TypeError('Body stream failed'))
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(response))
+
+    await expect(api('/visits')).rejects.toMatchObject({
+      status: 503,
+      message: 'Request failed with status 503.',
+      body: null,
+    })
+  })
+
+  it.each([
+    new TypeError('Failed to fetch'),
+    new DOMException('Request cancelled', 'AbortError'),
+  ])('preserves fetch failures without fabricating an HTTP status: %s', async (failure) => {
+    const fetchMock = vi.fn().mockRejectedValue(failure)
+    const controller = new AbortController()
+    vi.stubGlobal('fetch', fetchMock)
+
+    await expect(api('/visits', { signal: controller.signal })).rejects.toBe(failure)
+    expect(fetchMock).toHaveBeenCalledExactlyOnceWith('/api/visits', expect.objectContaining({
+      signal: controller.signal,
+      credentials: 'include',
+    }))
+  })
+
+  it('preserves caller headers and successful JSON parsing', async () => {
+    document.cookie = 'XSRF-TOKEN=cookie-token; path=/'
+    const headers = new Headers({ 'X-XSRF-TOKEN': 'explicit-token', 'Content-Type': 'text/plain' })
+    const fetchMock = vi.fn().mockResolvedValue(new Response('{"saved":true}', {
+      headers: { 'Content-Type': 'application/json; charset=utf-8' },
+    }))
+    vi.stubGlobal('fetch', fetchMock)
+
+    await expect(api('/example', { method: 'POST', headers, body: 'example' }))
+      .resolves.toEqual({ saved: true })
+    const [, init] = fetchMock.mock.calls[0]
+    expect(init.headers.get('X-XSRF-TOKEN')).toBe('explicit-token')
+    expect(init.headers.get('Content-Type')).toBe('text/plain')
+    expect(headers.get('X-XSRF-TOKEN')).toBe('explicit-token')
+  })
 })
 
 describe('API client', () => {

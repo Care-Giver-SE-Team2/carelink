@@ -1,55 +1,92 @@
 package sg.nus.carelink.profile.application;
 
-import static org.assertj.core.api.Assertions.*;
-import static org.mockito.Mockito.*;
-import java.time.LocalDate;
-import java.util.*;
-import org.junit.jupiter.api.Test;
-import org.springframework.security.access.AccessDeniedException;
-import sg.nus.carelink.identity.application.UserDirectory;
-import sg.nus.carelink.profile.domain.model.*;
-import sg.nus.carelink.profile.domain.repository.*;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
+import java.time.Clock;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Optional;
+
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.NullAndEmptySource;
+import org.junit.jupiter.params.provider.ValueSource;
+import org.springframework.dao.DataAccessResourceFailureException;
+
+import sg.nus.carelink.profile.domain.model.Caregiver;
+import sg.nus.carelink.profile.domain.repository.CaregiverRepository;
+import sg.nus.carelink.profile.domain.repository.CredentialRepository;
+import sg.nus.carelink.profile.domain.repository.CredentialTypeRepository;
+
+/**
+ * Checks public profile projection and the stored comma-separated language format.
+ *
+ * @author Wang Zhili
+ */
 class CaregiverDirectoryServiceTest {
-    final UserDirectory users = mock(UserDirectory.class);
-    final CaregiverRepository caregivers = mock(CaregiverRepository.class);
-    final ElderRepository elders = mock(ElderRepository.class);
-    final CredentialRepository credentials = mock(CredentialRepository.class);
-    final CredentialTypeRepository types = mock(CredentialTypeRepository.class);
-    final CaregiverDirectoryService service = new CaregiverDirectoryService(users,caregivers,elders,credentials,types,30);
-    final LocalDate day = LocalDate.of(2026,9,24);
-    Credential credential(long id, int offset, Credential.Status status) {
-        var c = mock(Credential.class);
-        when(c.id()).thenReturn(id);
-        when(c.expiryDate()).thenReturn(day.plusDays(offset));
-        when(c.status()).thenReturn(status);
-        return c;
-    }
-    @Test void warningsUseInclusiveWindowAndExcludeRejectedPendingAndRevoked() {
-        var rows = List.of(
-            credential(1,-1,Credential.Status.PUBLISHED),credential(2,0,Credential.Status.PUBLISHED),
-            credential(3,30,Credential.Status.PUBLISHED),credential(4,31,Credential.Status.PUBLISHED),
-            credential(5,-1,Credential.Status.REJECTED),credential(6,1,Credential.Status.SUBMITTED),
-            credential(7,-1,Credential.Status.REVOKED));
-        when(credentials.findByCaregiverId(1L)).thenReturn(rows);
-        var alerts = service.alerts(1L,day);
-        assertThat(alerts).extracting(CaregiverDirectory.CredentialAlert::id).containsExactly(1L,2L,3L);
-        assertThat(alerts).extracting(CaregiverDirectory.CredentialAlert::warning).containsExactly("EXPIRED","EXPIRING","EXPIRING");
-    }
-    @Test void elderProjectionNeverReadsMedicalNotes() {
-        var elder = mock(Elder.class);
-        when(elder.id()).thenReturn(1L);
-        when(elder.fullName()).thenReturn("Mei");
-        when(elder.preferredDialects()).thenReturn("English, Mandarin, ");
-        when(elders.findById(1L)).thenReturn(Optional.of(elder));
-        var result = service.elder(1L);
-        assertThat(result.languageNeeds()).containsExactly("English","Mandarin");
-        assertThat(result.accessNotes()).isNull();
-        assertThat(result.emergencyNotes()).isNull();
-        verify(elder,never()).medicalNotes();
-    }
-    @Test void absentAccountIsDeniedBeforeProfileLookup() {
-        assertThatThrownBy(() -> service.require("missing")).isInstanceOf(AccessDeniedException.class);
-        verifyNoInteractions(caregivers);
-    }
+
+	private final CaregiverRepository caregivers = mock(CaregiverRepository.class);
+	private final CaregiverDirectory service = new CaregiverDirectoryService(caregivers,
+			mock(CredentialRepository.class), mock(CredentialTypeRepository.class), Clock.systemUTC());
+
+	@Test
+	void returnsPublicFieldsAndPreservesLanguageOrderSpellingAndDuplicates() {
+		when(caregivers.findById(201L)).thenReturn(Optional.of(caregiver(" Mandarin, ,Hokkien, Mandarin,\tTamil ,")));
+
+		assertThat(service.findPublicProfile(201L)).contains(new CaregiverPublicProfile(
+				201L, "Lim Jia Hui", List.of("Mandarin", "Hokkien", "Mandarin", "Tamil")));
+	}
+
+	@ParameterizedTest
+	@NullAndEmptySource
+	@ValueSource(strings = { "  \t ", ", ,,," })
+	void missingLanguagesReturnAnEmptyArray(String dialects) {
+		when(caregivers.findById(201L)).thenReturn(Optional.of(caregiver(dialects)));
+
+		assertThat(service.findPublicProfile(201L)).contains(new CaregiverPublicProfile(
+				201L, "Lim Jia Hui", List.of()));
+	}
+
+	@Test
+	void doesNotGuessUndocumentedLanguageSeparators() {
+		when(caregivers.findById(201L)).thenReturn(Optional.of(caregiver("Mandarin;Hokkien")));
+
+		assertThat(service.findPublicProfile(201L)).contains(new CaregiverPublicProfile(
+				201L, "Lim Jia Hui", List.of("Mandarin;Hokkien")));
+	}
+
+	@Test
+	void missingCaregiverReturnsNoProfile() {
+		when(caregivers.findById(999L)).thenReturn(Optional.empty());
+
+		assertThat(service.findPublicProfile(999L)).isEmpty();
+	}
+
+	@Test
+	void storageFailureDoesNotLookLikeAMissingProfile() {
+		when(caregivers.findById(201L)).thenThrow(new DataAccessResourceFailureException("Unavailable"));
+
+		assertThatThrownBy(() -> service.findPublicProfile(201L))
+				.isInstanceOf(DataAccessResourceFailureException.class);
+	}
+
+	@Test
+	void crossModuleProfileDoesNotShareMutableLanguageLists() {
+		var languages = new ArrayList<>(List.of("Mandarin"));
+		var profile = new CaregiverPublicProfile(201L, "Lim Jia Hui", languages);
+		languages.add("Hokkien");
+
+		assertThat(profile.dialects()).containsExactly("Mandarin");
+		var publishedLanguages = profile.dialects();
+		assertThatThrownBy(() -> publishedLanguages.add("Tamil"))
+				.isInstanceOf(UnsupportedOperationException.class);
+	}
+
+	private static Caregiver caregiver(String dialects) {
+		return new Caregiver(201L, 1201L, "Lim Jia Hui", "private-phone", "private-sector",
+				dialects, Caregiver.Status.INACTIVE, null, null);
+	}
 }

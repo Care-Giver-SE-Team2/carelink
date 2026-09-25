@@ -52,6 +52,13 @@ class ElderFamilyBindingRepositoryAdapter
     }
 
     @Override
+    public List<ElderFamilyBinding> findByFamilyMemberId(Long familyMemberId) {
+        return jpa.findByFamilyMemberIdOrderByElderIdAsc(familyMemberId).stream()
+                .map(ElderFamilyBindingMapper::toDomain)
+                .toList();
+    }
+
+    @Override
     public Optional<ElderFamilyBinding>
             findByElderIdAndFamilyMemberId(
                     Long elderId,

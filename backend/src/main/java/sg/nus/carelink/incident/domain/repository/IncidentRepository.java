@@ -33,10 +33,12 @@ public interface IncidentRepository {
 	/**
 	 * One page of the manager's queue: the incidents in the given states, most urgent first.
 	 *
-	 * <p>"Most urgent" is respond_by ascending with the incidents that have no deadline at
-	 * the end, then newest first among those. A deadline is a promise to somebody; an
-	 * incident that has one and is closest to breaking it belongs at the top, and an SOS
-	 * that was never routed has no deadline to break but must still be visible.
+	 * <p>"Most urgent" comes in three tiers. First the incidents the chain ran out on, which
+	 * UC-MG05 3b pins to the top because nobody is answerable for them any more. Then the
+	 * ones with nobody named on them, such as an SOS that was never routed: they have no
+	 * countdown, so the scheduled scan can never move them, and a person reading this list
+	 * is the only thing that will. Then the rest. Inside each tier the nearest respond_by
+	 * comes first, the incidents with none after it, newest first among those.
 	 *
 	 * <p>Both filters are optional and {@code null} means "do not filter": a manager opening
 	 * the queue does not know any elder's id, which is precisely why asking for one was the

@@ -9,7 +9,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.security.access.AccessDeniedException;
 import sg.nus.carelink.careplan.application.VisitPlanReader;
-import sg.nus.carelink.profile.application.CaregiverDirectory;
+import sg.nus.carelink.profile.application.CaregiverWorkDirectory;
 import sg.nus.carelink.shared.audit.AccessAudit;
 import sg.nus.carelink.shared.error.*;
 import sg.nus.carelink.visit.domain.model.*;
@@ -18,7 +18,7 @@ import sg.nus.carelink.visit.domain.repository.*;
 class CaregiverWorkServiceTest {
     final VisitRepository visits = mock(VisitRepository.class);
     final VisitTaskRepository tasks = mock(VisitTaskRepository.class);
-    final CaregiverDirectory directory = mock(CaregiverDirectory.class);
+    final CaregiverWorkDirectory directory = mock(CaregiverWorkDirectory.class);
     final VisitPlanReader plans = mock(VisitPlanReader.class);
     final AccessAudit audit = mock(AccessAudit.class);
     final Clock clock = Clock.fixed(Instant.parse("2026-09-23T17:00:00Z"), ZoneOffset.UTC);
@@ -26,7 +26,7 @@ class CaregiverWorkServiceTest {
     final LocalDate day = LocalDate.of(2026,9,24);
 
     @BeforeEach void profile() {
-        when(directory.require("a")).thenReturn(new CaregiverDirectory.Profile(2L,20L,"A",null,null,null,"AVAILABLE"));
+        when(directory.require("a")).thenReturn(new CaregiverWorkDirectory.Profile(2L,20L,"A",null,null,null,"AVAILABLE"));
     }
     Visit visit(Long caregiver) {
         return new Visit(1L,3L,caregiver,11L,null,"CARE",day.atTime(9,0),day.atTime(10,0),
@@ -68,7 +68,7 @@ class CaregiverWorkServiceTest {
     }
     @Test void usesBoundVersionAndOnlyAssignedTaskEvidence() {
         when(visits.findById(1L)).thenReturn(Optional.of(visit(2L)));
-        when(directory.elder(3L)).thenReturn(new CaregiverDirectory.ElderView(3L,"Mei","Address","North",List.of("English"),null,null));
+        when(directory.elder(3L)).thenReturn(new CaregiverWorkDirectory.ElderView(3L,"Mei","Address","North",List.of("English"),null,null));
         when(plans.read(4L,3L)).thenReturn(new VisitPlanReader.Snapshot(4L,1,List.of(
             new VisitPlanReader.Task(11L,"Hygiene","CHECKLIST"),
             new VisitPlanReader.Task(12L,"Chat","NONE"),

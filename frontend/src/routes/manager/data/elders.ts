@@ -2,7 +2,7 @@ import { fetchElderList } from '../../../shared/api/profile'
 import { ageFromDateOfBirth } from '../lib/age'
 import { primaryCaregiverName } from './caregivers'
 
-export type PlanStatus = 'published' | 'draft' | 'none'
+export type PlanStatus = 'published' | 'draft' | 'stopped' | 'none'
 
 export type ElderRow = {
   id: string

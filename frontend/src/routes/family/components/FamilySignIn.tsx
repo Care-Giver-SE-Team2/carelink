@@ -2,15 +2,22 @@ import { useEffect, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
 import { signInWithSession } from '../../../features/auth/api'
 import { ApiError } from '../../../shared/api/client'
-import { IntakeIcon } from './IntakeLayout'
-import styles from './FamilyIntake.module.css'
+import { FamilyIcon } from './FamilyIcon'
+import styles from '../intake/FamilyIntake.module.css'
 
 /**
  * Signs a family member in using the existing session and CSRF endpoints.
- * @param onSignedIn Continues the application flow after successful login
+ * @param onSignedIn Continues the current page after successful login
+ * @param description Explains what signing in allows the family member to view
  * @author Wang Zhili
  */
-export function FamilySignIn({ onSignedIn }: { onSignedIn: () => void }) {
+export function FamilySignIn({
+  onSignedIn,
+  description = 'Sign in with your family account to continue with your care application.',
+}: {
+  onSignedIn: () => void
+  description?: string
+}) {
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [busy, setBusy] = useState(false)
@@ -48,10 +55,10 @@ export function FamilySignIn({ onSignedIn }: { onSignedIn: () => void }) {
   return (
     <section className={styles.signIn} aria-labelledby="family-sign-in-title">
       <span className={styles.emptyIcon}>
-        <IntakeIcon name="heart" />
+        <FamilyIcon name="heart" />
       </span>
       <h2 id="family-sign-in-title">Sign in to continue</h2>
-      <p>Sign in with your family account to continue with your care application.</p>
+      <p>{description}</p>
       <form onSubmit={signIn} aria-busy={busy}>
         <label htmlFor="family-username">Username</label>
         <input

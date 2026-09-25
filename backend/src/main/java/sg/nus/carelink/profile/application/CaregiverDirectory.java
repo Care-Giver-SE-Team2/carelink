@@ -1,16 +1,31 @@
 package sg.nus.carelink.profile.application;
 
-import java.time.LocalDate;
 import java.util.List;
+import java.util.Optional;
 
-/** Minimal cross-module projections for an authenticated caregiver's assigned work. */
+/**
+ * Provides public caregiver data to authorized application use cases.
+ *
+ * @author Wang Zhili
+ */
 public interface CaregiverDirectory {
-    Profile require(String username);
-    ElderView elder(Long elderId);
-    List<CredentialAlert> alerts(Long caregiverId, LocalDate today);
 
-    record Profile(Long id, Long userId, String fullName, String phone, String sector, String dialects, String status) {}
-    record ElderView(Long elderId, String preferredName, String serviceAddress, String postalSector,
-                     List<String> languageNeeds, String accessNotes, String emergencyNotes) {}
-    record CredentialAlert(Long id, String name, String certificateNo, LocalDate expiryDate, String status, String warning) {}
+	/**
+	 * Finds public details after the caller has checked resource access.
+	 *
+	 * @param caregiverId Caregiver profile identifier
+	 * @return Public profile, or empty when the caregiver does not exist
+	 * @author Wang Zhili
+	 */
+	Optional<CaregiverPublicProfile> findPublicProfile(Long caregiverId);
+
+	/**
+	 * Lists public credentials after the caller has checked resource access.
+	 *
+	 * @param caregiverId Authorized caregiver profile identifier
+	 * @return Public credentials ordered by credential type and record ID
+	 * @throws sg.nus.carelink.shared.error.ResourceNotFound If the caregiver profile is missing
+	 * @author Wang Zhili
+	 */
+	List<CaregiverPublicCredential> listPublicCredentials(Long caregiverId);
 }

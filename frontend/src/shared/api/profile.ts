@@ -31,11 +31,17 @@ export type ElderListItem = {
   dateOfBirth: string | null
   address: string | null
   sector: string | null
-  planStatus: 'published' | 'draft' | 'none'
+  planStatus: 'published' | 'draft' | 'stopped' | 'none'
   planVersion: number | null
   nextVisitDate: string | null
 }
 
-export function fetchElderList(): Promise<ElderListItem[]> {
-  return api<ElderListItem[]>('/elders')
+/**
+ * Lists elders visible to the current user.
+ * @param signal Cancels an outstanding request
+ * @return Elder list using the shared profile response
+ * @author Wang Zhili
+ */
+export function fetchElderList(signal?: AbortSignal): Promise<ElderListItem[]> {
+  return api<ElderListItem[]>('/elders', { signal })
 }

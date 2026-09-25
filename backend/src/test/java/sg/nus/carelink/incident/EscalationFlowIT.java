@@ -2,6 +2,7 @@ package sg.nus.carelink.incident;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.sql.Timestamp;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
@@ -65,9 +66,18 @@ import sg.nus.carelink.incident.domain.repository.IncidentRepository;
 })
 class EscalationFlowIT {
 
+	/**
+	 * Connected the way staging connects. The JVM in CI runs in UTC, as staging's does, and the
+	 * connection declares Asia/Singapore, so a Timestamp is shifted eight hours between the two
+	 * and a LocalDateTime is not. Without the parameter both would pass through unchanged and a
+	 * comparison that mixes them would look correct here and be wrong in production. (A
+	 * developer machine whose own zone is Singapore sees no shift either way; CI is where this
+	 * has teeth.)
+	 */
 	@Container
 	@ServiceConnection
-	static final MySQLContainer MYSQL = new MySQLContainer("mysql:8.4");
+	static final MySQLContainer MYSQL = new MySQLContainer("mysql:8.4")
+			.withUrlParam("connectionTimeZone", "Asia/Singapore");
 
 	/**
 	 * The institution's managers, created once for the class.
@@ -153,6 +163,11 @@ class EscalationFlowIT {
 	/**
 	 * Binds a family member to this test's elder, with an expiry.
 	 *
+	 * <p>The dates go in as Timestamps because that is how the application writes them: the
+	 * binding is saved through JPA, which binds a Timestamp. Written any other way they would
+	 * not sit where production's rows sit, and the comparison under test would be checked
+	 * against rows nothing real produces.
+	 *
 	 * @return the family member's account id, which is who a notification would name
 	 */
 	private Long givenAFamilyMemberBoundUntil(String username, LocalDateTime expiresAt) {
@@ -170,7 +185,8 @@ class EscalationFlowIT {
 				"insert into elder_family_binding (elder_id, family_member_id, relationship,"
 						+ " access_scope, status, confirmed_at, expires_at)"
 						+ " values (?, ?, 'DAUGHTER', 'FULL', 'ACTIVE', ?, ?)",
-				elder, familyMemberId, LocalDateTime.now(clock).minusDays(30), expiresAt);
+				elder, familyMemberId, Timestamp.valueOf(LocalDateTime.now(clock).minusDays(30)),
+				Timestamp.valueOf(expiresAt));
 		return userId;
 	}
 
@@ -223,11 +239,19 @@ class EscalationFlowIT {
 		closeSoTheSweepDoesNotFindIt(raised);
 	}
 
-	/** An expired delegation stops reaching the family; that is what the expiry is for. */
+	/**
+	 * An expired delegation stops reaching the family; that is what the expiry is for.
+	 *
+	 * <p>Two hours ago, not a day ago. The mistake this guards against is eight hours wide: a
+	 * moment bound as a LocalDateTime skips the driver's conversion that the stored expiry went
+	 * through. An expiry a day old is past on either reading and proves nothing; one two hours
+	 * old is past on the application's clock and still eight hours ahead of a moment bound the
+	 * wrong way.
+	 */
 	@Test
 	void afamilyMemberWhoseBindingHasRunOutIsNot() {
 		Long family = givenAFamilyMemberBoundUntil(
-				"it-family-expired", LocalDateTime.now(clock).minusDays(1));
+				"it-family-expired", LocalDateTime.now(clock).minusHours(2));
 
 		Incident raised = raiseFor(elder, "no answer at door");
 
@@ -408,25 +432,25 @@ class EscalationFlowIT {
 	// ---------------------------------------------------------------- the queue ---
 
 	/**
-	 * The manager's queue, against the database that actually has to produce it.
-	 *
-	 * <p>Two halves of this query only exist as SQL and cannot be proved anywhere else. The
-	 * finder is derived by Spring Data when the context starts, so a name that does not
-	 * parse fails here and nowhere earlier; and "nulls last" is not something MySQL writes -
-	 * ascending order puts nulls first, and Hibernate has to emulate the precedence the
-	 * adapter asks for. A fake repository sorting in Java would agree with the adapter no
-	 * matter what the database did, which is why the ordering is asserted here.
+	 * The queue's order is three tiers deep and written in JPQL, so this is the one place it
+	 * is checked against MySQL rather than against the in-memory fake: which tier comes
+	 * first, and that MySQL's nulls-first ascending sort does not push a deadline-less row
+	 * above one with a deadline inside the same tier.
 	 */
 	@Test
-	void theQueueOrdersByDeadlineAndLeavesClosedIncidentsOut() {
+	void theQueuePinsWhatNobodyIsAnswerableForAndThenOrdersByDeadline() {
 		givenTheElderWasHandledBefore(ben);
 		Incident routed = raiseFor(elder, "fell in the bathroom");
-		// Through the elder module's own entry point: nothing routes an SOS yet, so this
-		// one has no responder and no deadline. It is the row that has to sort last.
+		// Through the elder module's own entry point: nothing routes an SOS yet, so this one
+		// has nobody named on it and no deadline, and the scan will never move it.
 		Incident unrouted = incidents.createElderEmergency(
 				elder, alice, null, null, null, "SOS pressed");
+		// Written directly rather than walked there through four sweeps, which would also
+		// escalate every other test's leftovers. It is never swept - the scan only reads
+		// incidents still waiting to be taken over - so it does not need closing.
+		Long exhausted = givenAnIncidentTheChainRanOutOn();
 
-		PageSlice<Incident> queue = incidents.queue(null, null, null, 0, 20);
+		PageSlice<Incident> queue = incidents.queue(null, null, null, 0, 100);
 
 		List<Long> thisElders = queue.items().stream()
 				.filter(incident -> elder.equals(incident.elderId()))
@@ -436,12 +460,15 @@ class EscalationFlowIT {
 		// Other tests leave their own incidents behind, so only this elder's rows are read
 		// out of the queue. Their order within it is the institution-wide order.
 		assertThat(thisElders)
-				.as("the incident with a deadline first, the one with none after it, and the "
-						+ "call-out closed last week not at all")
-				.containsExactly(routed.id(), unrouted.id());
+				.as("the one nobody took on, then the one nobody was named on, then the one "
+						+ "with a deadline; the call-out closed last week not at all")
+				.containsExactly(exhausted, unrouted.id(), routed.id());
 		assertThat(queue.items())
 				.extracting(Incident::status)
 				.doesNotContain(Incident.Status.RESOLVED);
+		assertThat(queue.items().get(0).status())
+				.as("an incident the chain ran out on is pinned above the whole institution's queue")
+				.isEqualTo(Incident.Status.UNRESOLVED_ESCALATED);
 		// totalElements is deliberately not compared with the page: the whole institution's
 		// open queue is in there, and how much of it other tests leave behind is not this
 		// test's business.
@@ -453,6 +480,17 @@ class EscalationFlowIT {
 		incidents.claim(unrouted.id(), alice, "test");
 		incidents.resolve(unrouted.id(), alice, "raised only to check the queue's ordering",
 				"HANDLED_ON_SITE", "test");
+	}
+
+	/** An incident for this test's elder that went all the way up the chain unanswered. */
+	private Long givenAnIncidentTheChainRanOutOn() {
+		jdbc.update(
+				"insert into incident (elder_id, responder_user_id, source, category, severity,"
+						+ " status, description, respond_by, reported_at)"
+						+ " values (?, ?, 'CAREGIVER', 'FALL', 'HIGH', 'UNRESOLVED_ESCALATED',"
+						+ " 'nobody took it on', null, ?)",
+				elder, ben, LocalDateTime.now(clock).minusHours(2));
+		return jdbc.queryForObject("select last_insert_id()", Long.class);
 	}
 
 	// ----------------------------------------------------------------- the clock ---

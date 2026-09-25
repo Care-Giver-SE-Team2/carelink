@@ -8,6 +8,7 @@ import static org.mockito.Mockito.when;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 import org.junit.jupiter.api.Test;
 
@@ -118,6 +119,20 @@ class ElderRepositoryAdapterTest {
 
         verify(jpa)
                 .findAll();
+    }
+
+    @Test
+    void mapsTheScopedQueryWithoutIncludingUnrequestedProfiles() {
+        ElderJpaEntity entity = new ElderJpaEntity();
+        entity.setId(7L);
+        entity.setFullName("Bound elder");
+        Set<Long> elderIds = Set.of(7L, 99L);
+        when(jpa.findByIdInOrderByIdAsc(elderIds)).thenReturn(List.of(entity));
+
+        assertThat(adapter.findByIds(elderIds))
+                .extracting(Elder::id, Elder::fullName)
+                .containsExactly(org.assertj.core.groups.Tuple.tuple(7L, "Bound elder"));
+        verify(jpa).findByIdInOrderByIdAsc(elderIds);
     }
 
     @Test

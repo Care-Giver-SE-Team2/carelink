@@ -11,7 +11,7 @@ import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import sg.nus.carelink.careplan.application.VisitPlanReader;
-import sg.nus.carelink.profile.application.CaregiverDirectory;
+import sg.nus.carelink.profile.application.CaregiverWorkDirectory;
 import sg.nus.carelink.shared.audit.AccessAudit;
 import sg.nus.carelink.shared.error.BusinessRuleViolation;
 import sg.nus.carelink.shared.error.ResourceNotFound;
@@ -25,18 +25,18 @@ import sg.nus.carelink.visit.domain.repository.VisitTaskRepository;
 public class CaregiverWorkService {
     private final VisitRepository visits;
     private final VisitTaskRepository tasks;
-    private final CaregiverDirectory directory;
+    private final CaregiverWorkDirectory directory;
     private final VisitPlanReader plans;
     private final AccessAudit audit;
     private final Clock clock;
 
-    public CaregiverWorkService(VisitRepository visits, VisitTaskRepository tasks, CaregiverDirectory directory,
+    public CaregiverWorkService(VisitRepository visits, VisitTaskRepository tasks, CaregiverWorkDirectory directory,
             VisitPlanReader plans, AccessAudit audit, Clock clock) {
         this.visits = visits; this.tasks = tasks; this.directory = directory;
         this.plans = plans; this.audit = audit; this.clock = clock;
     }
 
-    public CaregiverDirectory.Profile profile(String username) { return directory.require(username); }
+    public CaregiverWorkDirectory.Profile profile(String username) { return directory.require(username); }
 
     public Schedule schedule(String username, LocalDate from, LocalDate to) {
         var caregiver = directory.require(username);
@@ -94,8 +94,8 @@ public class CaregiverWorkService {
     public record VisitSummary(Long id, Long elderId, String elderName, String serviceType,
             LocalDateTime scheduledStart, LocalDateTime scheduledEnd, String status, Integer version) {}
     public record Schedule(LocalDate dateFrom, LocalDate dateTo, String timeZone,
-            List<VisitSummary> upcomingVisits, List<CaregiverDirectory.CredentialAlert> certificationAlerts) {}
-    public record WorkPack(VisitSummary visit, CaregiverDirectory.ElderView elder, Long carePlanId,
+            List<VisitSummary> upcomingVisits, List<CaregiverWorkDirectory.CredentialAlert> certificationAlerts) {}
+    public record WorkPack(VisitSummary visit, CaregiverWorkDirectory.ElderView elder, Long carePlanId,
             Integer carePlanVersion, List<String> serviceInstructions, List<VisitTask> tasks,
             List<String> requiredEvidenceKinds) {}
     public static class InvalidDateRange extends RuntimeException {

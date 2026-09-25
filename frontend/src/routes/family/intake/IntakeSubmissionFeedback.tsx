@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { ApiError } from '../../../shared/api/client'
-import { FamilySignIn } from './FamilySignIn'
+import { FamilySignIn } from '../components/FamilySignIn'
 import styles from './IntakeForm.module.css'
 
 /**

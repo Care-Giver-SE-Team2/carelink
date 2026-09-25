@@ -172,35 +172,82 @@ paths:
           $ref: '#/components/responses/Unauthorized'
   /elders:
     get:
-      tags:
-      - Elders
+      tags: [Elders]
       summary: List elders
-      x-status: draft
-      description: 'Manager sees every elder. Family sees only the elders they are actively bound to; this is enforced server-side,
-        not by a client filter.
+      operationId: listElders
+      x-status: implemented
+      x-family-use-cases: [UC-FM02]
+      security:
+        - sessionCookie: []
+      description: >-
+        MANAGER callers receive every elder. FAMILY callers receive only elders linked to their
+        current family profile by an ACTIVE binding with FULL or READ_ONLY access. The family
+        account must currently be enabled and hold FAMILY. A binding is readable when expiresAt
+        is absent or strictly later than the current time in Asia/Singapore; pending, rejected,
+        revoked and expired bindings grant no access. Authorization is checked on every request.
 
-        '
-      parameters:
-      - $ref: '#/components/parameters/Page'
-      - $ref: '#/components/parameters/Size'
-      - name: sector
-        in: query
-        schema:
-          type: string
-      - name: search
-        in: query
-        description: Matches against name.
-        schema:
-          type: string
+        Both roles receive the same array of elder summaries. A family member with no readable
+        elders receives 200 with an empty array. This operation has no pagination, search or sector
+        filters. Identity comes from the authenticated session; no family ID or role parameter is
+        accepted. This read-only GET requires no CSRF header.
+
+        Validated requests reaching the FAMILY application query persist a READ record with
+        the actor app_user ID (when resolvable), resource and outcome: OK, including empty
+        results; DENIED for access refusal; or FAILED for lookup/query errors. Records
+        commit independently with server occurred_at in Asia/Singapore. Authentication 401,
+        method-role rejection 403 and MVC validation/conversion 400 rejected before the
+        FAMILY application query are outside this audit. Existing request logging is
+        unchanged. Audit storage failure returns 503 without protected data. Records
+        exclude response bodies, raw query strings, exception details and secrets. Reading
+        does not acknowledge notifications or incidents. The resource is ELDER with a null
+        collection ID. MANAGER reads retain their existing behavior and are outside this
+        family audit.
       responses:
         '200':
-          description: Page of elders.
+          description: Elder summaries visible to the current caller; an empty result is an empty array.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ElderPage'
+                type: array
+                items:
+                  $ref: '#/components/schemas/ElderListItemResponse'
+              examples:
+                elders:
+                  summary: Two readable elders, with and without a care plan
+                  value:
+                    - id: 101
+                      fullName: Tan Mei
+                      dateOfBirth: '1946-05-12'
+                      address: 12 Example Road
+                      sector: Central
+                      planStatus: published
+                      planVersion: 2
+                      nextVisitDate: '2026-09-24'
+                    - id: 102
+                      fullName: Lim Wei
+                      dateOfBirth: null
+                      address: null
+                      sector: null
+                      planStatus: none
+                      planVersion: null
+                      nextVisitDate: null
+                empty:
+                  summary: No readable elders
+                  value: []
         '401':
-          $ref: '#/components/responses/Unauthorized'
+          description: >-
+            No valid authenticated session. Shared security determines the response body;
+            clients must handle the HTTP status without requiring a JSON body.
+        '403':
+          description: >-
+            The caller lacks a permitted role, or the family account is disabled, no longer
+            holds FAMILY or has no family profile.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+        '503':
+          $ref: '#/components/responses/FamilyAuditUnavailable'
     post:
       tags:
       - Elders
@@ -790,49 +837,112 @@ paths:
     - $ref: '#/components/parameters/CaregiverId'
     get:
       tags:
-      - Caregivers
+        - Caregivers
       summary: Get a caregiver profile
       x-status: draft
+      x-family-status: implemented
       responses:
         '200':
           description: >-
-            Family response uses the explicitly listed family schema. Other roles retain the original response
-            schema; the server chooses by authenticated role, never by a client projection flag.
+            The implemented FAMILY response contains only FamilyCaregiverView fields. The
+            original Caregiver response is retained for other roles, whose implementation is
+            pending. The server selects the projection from the authenticated role.
           content:
             application/json:
               schema:
                 anyOf:
-                - $ref: '#/components/schemas/FamilyCaregiverView'
-                - $ref: '#/components/schemas/Caregiver'
+                  - $ref: '#/components/schemas/FamilyCaregiverView'
+                  - $ref: '#/components/schemas/Caregiver'
+              examples:
+                familyProfile:
+                  summary: Public profile of a caregiver with an authorized visit relationship
+                  value:
+                    id: 201
+                    fullName: Lim Jia Hui
+                    dialects:
+                      - Mandarin
+                      - Hokkien
+                noDialects:
+                  summary: Public profile with no recorded dialects
+                  value:
+                    id: 202
+                    fullName: Daniel Goh
+                    dialects: []
+        '400':
+          description: The caregiverId path value is not a signed 64-bit integer.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
         '401':
-          $ref: '#/components/responses/FamilyUnauthorized'
+          description: >-
+            No valid authenticated session. Shared security determines the response body;
+            clients must handle the HTTP status without requiring a JSON body.
         '403':
-          $ref: '#/components/responses/FamilyForbidden'
+          description: >-
+            The caller lacks FAMILY, the current family account/profile is unavailable, or
+            caregiverId has no visit relationship to a currently readable elder. This includes
+            unrelated and nonexistent integer IDs, including zero and negative IDs. The
+            relationship check precedes the profile lookup.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
         '404':
-          $ref: '#/components/responses/NotFound'
+          description: >-
+            The caregiver profile cannot be found after the family's visit relationship has
+            passed authorization. An ID without an authorized relationship returns 403 first.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+        '503':
+          $ref: '#/components/responses/FamilyAuditUnavailable'
       x-contract-status: specified
       x-family-use-cases:
-      - UC-FM02
+        - UC-FM02
       x-family-owner: Member 4 (FM01-FM05 behaviour); source data remains with its assigned owner.
       security:
-      - sessionCookie: []
+        - sessionCookie: []
       operationId: getCaregiver
       description: >-
-        Family callers may read the public profile of a caregiver assigned to a visit of an elder they can
-        currently access. Historical assigned visits also establish this relationship while the elder binding
-        remains valid. An arbitrary unrelated caregiver ID is forbidden. Return the FamilyCaregiverView only;
-        other roles retain their existing profile behaviour.
+        The implemented FAMILY detail reads the public profile of a caregiver assigned to a
+        current or historical visit of an elder the caller can currently access. The visit's
+        caregiverId must match; a visit_assignment replacement-history row alone grants no
+        access. This relationship is independent of the selected schedule week or visit status.
+        Historical visits remain eligible only while the elder binding remains readable.
 
+        Identity comes from the authenticated session; the account must currently be enabled,
+        hold FAMILY and have a family profile. Each request checks ACTIVE, unexpired bindings
+        with FULL or READ_ONLY scope. Expiry is evaluated in Asia/Singapore and access ends
+        exactly at expiresAt. Revocation or expiry takes effect on subsequent requests. The
+        client cannot select a family identity or response projection. This read-only GET
+        requires a valid session but no CSRF header.
 
-        Family callers are identified from the authenticated session, never a caller-supplied familyMemberId. For
-        family callers, care resources require an ACTIVE binding to their actual elder, with no revocation and no
-        elapsed expiresAt, and the applicable access scope at request time. Revocation/expiry takes effect on
-        subsequent reads and writes, including historical content. Reading a family care resource records the
-        caller, resource and server access time in the internal audit trail. Read access alone does not imply
-        explicit acknowledgement. FULL/READ_ONLY do not imply different clinical field sets: both may use the
-        family read projections below; an authorised notification recipient may record read/view/acknowledgement
-        under either scope because those commands record the recipient response, not a change to the elder care
-        record.
+        Example: GET /api/caregivers/201. The path value must fit a signed 64-bit integer;
+        malformed or overflowing values return 400. Authorization runs before the profile
+        lookup: no eligible visit relationship returns 403, including an unrelated or
+        nonexistent ID. Only a missing profile after successful authorization returns 404.
+
+        The response contains only id, fullName and dialects. Stored comma-separated dialects
+        become an array: trim each item and omit empty items while preserving order, spelling
+        and duplicates. Null or blank source values become []. No phone, user/account ID,
+        sector, internal status, performance or credential details are returned. An inactive
+        caregiver's public profile remains readable through an eligible historical visit.
+
+        Other-role profile contracts remain planned and their original response schema is
+        retained. Their implementation is pending; non-FAMILY callers currently receive 403.
+
+        Validated requests reaching the FAMILY application query persist a READ record with
+        the actor app_user ID (when resolvable), resource and outcome: OK, including empty
+        results; DENIED for access refusal; or FAILED for lookup/query errors. Records
+        commit independently with server occurred_at in Asia/Singapore. Authentication 401,
+        method-role rejection 403 and MVC validation/conversion 400 rejected before the
+        FAMILY application query are outside this audit. Existing request logging is
+        unchanged. Audit storage failure returns 503 without protected data. Records
+        exclude response bodies, raw query strings, exception details and secrets. Reading
+        does not acknowledge notifications or incidents. The resource is CAREGIVER,
+        identified by the requested caregiverId.
       x-family-response-schema:
         $ref: '#/components/schemas/FamilyCaregiverView'
     patch:
@@ -858,55 +968,165 @@ paths:
     - $ref: '#/components/parameters/CaregiverId'
     get:
       tags:
-      - Caregivers
+        - Caregivers
       summary: List a caregiver's certifications
       x-status: draft
+      x-family-status: implemented
       responses:
         '200':
           description: >-
-            Family response uses the explicitly listed family schema. Other roles retain the original response
-            schema; the server chooses by authenticated role, never by a client projection flag.
+            The implemented FAMILY response is an array of FamilyCredentialView, ordered by
+            credentialTypeId then id. An authorized caregiver with no public credentials returns
+            []. The original Credential array is retained for other roles, whose implementation
+            is pending. The server selects the projection from the authenticated role.
           content:
             application/json:
               schema:
                 anyOf:
-                - type: array
-                  items:
-                    $ref: '#/components/schemas/FamilyCredentialView'
-                - type: array
-                  items:
-                    $ref: '#/components/schemas/Credential'
+                  - type: array
+                    items:
+                      $ref: '#/components/schemas/FamilyCredentialView'
+                  - type: array
+                    items:
+                      $ref: '#/components/schemas/Credential'
+              examples:
+                publicCredentials:
+                  summary: Public credentials evaluated on 2026-09-28 in Asia/Singapore
+                  value:
+                    - id: 501
+                      caregiverId: 201
+                      credentialTypeId: 11
+                      credentialTypeName: Basic Care Skills
+                      issuingBody: Example Training Centre
+                      validFrom: '2026-01-01'
+                      expiryDate: '2027-01-01'
+                      status: PUBLISHED
+                    - id: 502
+                      caregiverId: 201
+                      credentialTypeId: 12
+                      credentialTypeName: First Aid
+                      issuingBody: Example Training Centre
+                      validFrom: '2025-10-01'
+                      expiryDate: '2026-09-28'
+                      status: EXPIRING
+                    - id: 503
+                      caregiverId: 201
+                      credentialTypeId: 13
+                      credentialTypeName: Safe Transfer
+                      issuingBody: null
+                      validFrom: '2025-01-01'
+                      expiryDate: '2026-09-27'
+                      status: EXPIRED
+                    - id: 504
+                      caregiverId: 201
+                      credentialTypeId: 14
+                      credentialTypeName: Medication Assistance
+                      issuingBody: Example Training Centre
+                      validFrom: '2026-01-01'
+                      expiryDate: '2027-01-01'
+                      status: REVOKED
+                    - id: 505
+                      caregiverId: 201
+                      credentialTypeId: 15
+                      credentialTypeName: Dementia Care
+                      issuingBody: Example Training Centre
+                      validFrom: '2026-10-01'
+                      expiryDate: '2027-10-01'
+                      status: PUBLISHED
+                    - id: 506
+                      caregiverId: 201
+                      credentialTypeId: 16
+                      credentialTypeName: Care Orientation
+                      issuingBody: null
+                      validFrom: null
+                      expiryDate: '9999-12-31'
+                      status: PUBLISHED
+                noPublicCredentials:
+                  summary: Authorized caregiver with no publicly visible credentials
+                  value: []
+        '400':
+          description: The caregiverId path value is not a signed 64-bit integer.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
         '401':
-          $ref: '#/components/responses/FamilyUnauthorized'
+          description: >-
+            No valid authenticated session. Shared security determines the response body;
+            clients must handle the HTTP status without requiring a JSON body.
         '403':
-          $ref: '#/components/responses/FamilyForbidden'
+          description: >-
+            The caller lacks FAMILY, the current family account/profile is unavailable, or
+            caregiverId has no visit relationship to a currently readable elder. This includes
+            unrelated and nonexistent integer IDs, including zero and negative IDs. The
+            relationship check precedes the caregiver and credential lookups.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
         '404':
-          $ref: '#/components/responses/FamilyNotFound'
+          description: >-
+            The caregiver profile cannot be found after the family's visit relationship has
+            passed authorization. An ID without an authorized relationship returns 403 first.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+        '503':
+          $ref: '#/components/responses/FamilyAuditUnavailable'
       x-contract-status: specified
       x-family-use-cases:
-      - UC-FM02
+        - UC-FM02
       x-family-owner: Member 4 (FM01-FM05 behaviour); source data remains with its assigned owner.
       security:
-      - sessionCookie: []
+        - sessionCookie: []
       operationId: listCaregiverCredentials
       description: >-
-        For FAMILY, require the same accessible-visit/caregiver relationship as the public profile. Return only
-        credentials approved for public display, ordered by credentialTypeId then id. Exclude SUBMITTED/REJECTED
-        material, certificate numbers and review metadata. A previously public credential may remain visible as
-        EXPIRING, EXPIRED or REVOKED; never present an expired/revoked credential as valid. An existing accessible
-        caregiver with no public credentials returns []. The original unfiltered credential array, including
-        unpublished items, is reserved for authorised non-family roles.
+        The implemented FAMILY query returns public credentials for a caregiver assigned to a
+        current or historical visit of an elder the caller can currently access. The visit's
+        caregiverId must match; a visit_assignment replacement-history row alone grants no
+        access. This relationship is independent of the selected schedule week or visit status.
+        An inactive caregiver remains readable through an eligible visit relationship.
 
+        Identity comes from the authenticated session; the account must currently be enabled,
+        hold FAMILY and have a family profile. Each request checks ACTIVE, unexpired bindings
+        with FULL or READ_ONLY scope. Binding expiry is evaluated in Asia/Singapore and access
+        ends exactly at expiresAt. Revocation or expiry takes effect on subsequent requests.
+        This read-only GET requires a valid session but no CSRF header. Example:
+        GET /api/caregivers/201/credentials. The path value must fit a signed 64-bit integer;
+        malformed or overflowing values return 400. Missing or unrelated integer IDs return
+        403 before resource lookup; only a missing caregiver after authorization returns 404.
 
-        Family callers are identified from the authenticated session, never a caller-supplied familyMemberId. For
-        family callers, care resources require an ACTIVE binding to their actual elder, with no revocation and no
-        elapsed expiresAt, and the applicable access scope at request time. Revocation/expiry takes effect on
-        subsequent reads and writes, including historical content. Reading a family care resource records the
-        caller, resource and server access time in the internal audit trail. Read access alone does not imply
-        explicit acknowledgement. FULL/READ_ONLY do not imply different clinical field sets: both may use the
-        family read projections below; an authorised notification recipient may record read/view/acknowledgement
-        under either scope because those commands record the recipient response, not a change to the elder care
-        record.
+        Include stored PUBLISHED, EXPIRING, EXPIRED and REVOKED credentials; exclude SUBMITTED
+        and REJECTED. Return the credential type name from the type catalogue, with ordering
+        by credentialTypeId then id. The eight family fields exclude certificate numbers,
+        reviewers, renewal links and internal timestamps. issuingBody and validFrom may be
+        null, but their keys remain present. No public credentials returns 200 with [].
+
+        Evaluate dates once per request using the server clock in Asia/Singapore. expiryDate
+        includes the whole stated date: stored PUBLISHED or EXPIRING becomes EXPIRED in the
+        response only when expiryDate is before today. Stored REVOKED and EXPIRED remain
+        unchanged even when their dates are in the future. Preserve other public statuses;
+        this query does not derive a 30-day EXPIRING threshold. expiryDate 9999-12-31 is the
+        permanent sentinel and remains in the response, for display as no expiry. A future
+        validFrom is retained with the public status; clients must show not yet effective,
+        rather than treating PUBLISHED or EXPIRING alone as proof of current validity.
+
+        Reading credentials does not update stored statuses, perform approval or run the
+        expiry scan. Other-role
+        contracts and their original response schema remain planned; non-FAMILY callers
+        currently receive 403.
+
+        Validated requests reaching the FAMILY application query persist a READ record with
+        the actor app_user ID (when resolvable), resource and outcome: OK, including empty
+        results; DENIED for access refusal; or FAILED for lookup/query errors. Records
+        commit independently with server occurred_at in Asia/Singapore. Authentication 401,
+        method-role rejection 403 and MVC validation/conversion 400 rejected before the
+        FAMILY application query are outside this audit. Existing request logging is
+        unchanged. Audit storage failure returns 503 without protected data. Records
+        exclude response bodies, raw query strings, exception details and secrets. Reading
+        does not acknowledge notifications or incidents. The resource is
+        CAREGIVER_CREDENTIALS, identified by the requested caregiverId.
       x-family-response-schema:
         type: array
         items:
@@ -1505,62 +1725,95 @@ paths:
       - Visits
       summary: List visits
       x-status: draft
+      x-family-status: implemented
       description: >-
-        Role-scoped: manager can filter freely, caregiver sees only their own, family and elder see only bound
-        elders'. Also serves UC-CG06 (historical records) with a past `dateTo`.
+        The implemented FAMILY list reads visits for elders currently accessible to the caller.
+        Identity comes from the authenticated session; the account must be enabled, hold FAMILY
+        and have a family profile. Each request requires an ACTIVE, unexpired elder binding with
+        FULL or READ_ONLY scope. Expiry is evaluated in Asia/Singapore and access ends exactly at
+        expiresAt. No familyMemberId or role parameter is accepted. This read-only GET requires
+        no CSRF header.
 
+        Omit elderId to include all currently readable elders. An explicitly inaccessible elderId
+        returns 403. A caregiverId filter requires a current or historical visit whose caregiverId
+        matches and whose elder is currently readable. This relationship check uses all readable
+        elders, independently of the requested date range or selected elder; a replacement-history
+        row alone grants no access. An unrelated caregiverId returns 403.
 
+        Provide dateFrom and dateTo together, or omit both to use the current Monday-to-Sunday
+        week in Asia/Singapore. Dates are inclusive: scheduledStart must be at or after dateFrom
+        00:00 and before the day after dateTo 00:00. Both dates must be within 1000-01-01 through
+        9999-12-30; a missing date, reversed range, malformed date, invalid status, nonpositive
+        resource ID or invalid pagination returns 400. Authorization and all date, status, elder
+        and caregiver filters apply before counting and pagination. Sort by scheduledStart then
+        id ascending. Page defaults to 0 and size to 20; page must be nonnegative and size 1-200.
+        No readable elders, no matching visits and pages beyond the last page return 200 with
+        items=[]. totalElements counts all authorized matches before pagination.
 
-        Family behaviour: query visits only for currently bound, authorised elders; an explicitly inaccessible
-        elderId or unrelated caregiverId is 403. An omitted elderId includes all currently accessible elders.
-        Provide dateFrom and dateTo together, or omit both to use the current Monday-to-Sunday week in
-        Asia/Singapore. Dates are inclusive local dates: filter scheduledStart from dateFrom 00:00 up to but
-        excluding the day after dateTo 00:00. A reversed range or one missing date is 400 for FAMILY. Sort by
-        scheduledStart ascending then id ascending, paginate after filtering, and return 200 with items=[] for no
-        visits. Null caregiverId means not assigned. Other roles keep their existing date-filter behaviour.
+        Example: GET /api/visits?elderId=101&dateFrom=2026-09-21&dateTo=2026-09-27&page=0&size=2.
+        Null caregiverId means unassigned; null serviceType means the source visit has no service
+        type. Timestamps include an explicit offset. All items share the server snapshot asOf
+        for this response.
 
+        Other-role contracts remain planned: managers can filter freely, caregivers see their
+        own visits, and elders see their own scope. UC-CG06 uses a past dateTo for historical
+        records. Their original response alternative is retained; their collection-query
+        implementation is pending and non-FAMILY callers currently receive 403.
 
-        Family callers are identified from the authenticated session, never a caller-supplied familyMemberId. For
-        family callers, care resources require an ACTIVE binding to their actual elder, with no revocation and no
-        elapsed expiresAt, and the applicable access scope at request time. Revocation/expiry takes effect on
-        subsequent reads and writes, including historical content. Reading a family care resource records the
-        caller, resource and server access time in the internal audit trail. Read access alone does not imply
-        explicit acknowledgement. FULL/READ_ONLY do not imply different clinical field sets: both may use the
-        family read projections below; an authorised notification recipient may record read/view/acknowledgement
-        under either scope because those commands record the recipient response, not a change to the elder care
-        record.
+        Validated requests reaching the FAMILY application query persist a READ record with
+        the actor app_user ID (when resolvable), resource and outcome: OK, including empty
+        results; DENIED for access refusal; or FAILED for lookup/query errors. Records
+        commit independently with server occurred_at in Asia/Singapore. Authentication 401,
+        method-role rejection 403 and MVC validation/conversion 400 rejected before the
+        FAMILY application query are outside this audit. Existing request logging is
+        unchanged. Audit storage failure returns 503 without protected data. Records
+        exclude response bodies, raw query strings, exception details and secrets. Reading
+        does not acknowledge notifications or incidents. The resource is VISIT with a null
+        collection ID. Audit detail contains only validated elder/caregiver IDs, resolved
+        inclusive dates, status, page and size.
       parameters:
       - $ref: '#/components/parameters/Page'
       - $ref: '#/components/parameters/Size'
       - name: elderId
         in: query
+        description: Optional readable elder ID. Omit to query all currently readable elders.
         schema:
           type: integer
           format: int64
+          minimum: 1
+        example: 101
       - name: caregiverId
         in: query
+        description: Optional caregiver ID with a visit relationship to a currently readable elder.
         schema:
           type: integer
           format: int64
+          minimum: 1
+        example: 201
       - name: dateFrom
         in: query
+        description: Inclusive Singapore start date, 1000-01-01 through 9999-12-30. Requires dateTo.
         schema:
           type: string
           format: date
+        example: '2026-09-21'
       - name: dateTo
         in: query
+        description: Inclusive Singapore end date, 1000-01-01 through 9999-12-30. Requires dateFrom.
         schema:
           type: string
           format: date
+        example: '2026-09-27'
       - name: status
         in: query
         schema:
           $ref: '#/components/schemas/VisitStatus'
+        example: SCHEDULED
       responses:
         '200':
           description: >-
-            Family response uses the explicitly listed family schema. Other roles retain the original response
-            schema; the server chooses by authenticated role, never by a client projection flag.
+            The implemented family list uses FamilyVisitPage. The original response alternative
+            is retained for other roles, whose collection-query implementation is pending.
           content:
             application/json:
               schema:
@@ -1578,12 +1831,68 @@ paths:
                       type: integer
                     totalElements:
                       type: integer
+              examples:
+                familyWeek:
+                  summary: First page with assigned and unassigned visits
+                  value:
+                    items:
+                      - id: 301
+                        elderId: 101
+                        caregiverId: 201
+                        serviceType: BATHING
+                        scheduledStart: '2026-09-24T09:00:00+08:00'
+                        scheduledEnd: '2026-09-24T10:00:00+08:00'
+                        checkedInAt: null
+                        checkedOutAt: null
+                        status: SCHEDULED
+                        asOf: '2026-09-23T10:00:00+08:00'
+                      - id: 302
+                        elderId: 101
+                        caregiverId: null
+                        serviceType: null
+                        scheduledStart: '2026-09-25T09:00:00+08:00'
+                        scheduledEnd: null
+                        checkedInAt: null
+                        checkedOutAt: null
+                        status: SCHEDULED
+                        asOf: '2026-09-23T10:00:00+08:00'
+                    page: 0
+                    size: 2
+                    totalElements: 3
+                empty:
+                  summary: No readable elders or no matching visits
+                  value:
+                    items: []
+                    page: 0
+                    size: 20
+                    totalElements: 0
+                beyondLastPage:
+                  summary: Requested page is past three authorized matches
+                  value:
+                    items: []
+                    page: 2
+                    size: 2
+                    totalElements: 3
         '400':
-          $ref: '#/components/responses/FamilyValidationError'
+          description: Invalid resource ID, date range, status or pagination.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
         '401':
-          $ref: '#/components/responses/FamilyUnauthorized'
+          description: >-
+            No valid authenticated session. Shared security determines the response body;
+            clients must handle the HTTP status without requiring a JSON body.
         '403':
-          $ref: '#/components/responses/FamilyForbidden'
+          description: >-
+            The caller lacks FAMILY, the current family account/profile is unavailable, an
+            explicit elderId is not readable, or caregiverId has no permitted visit relationship.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+        '503':
+          $ref: '#/components/responses/FamilyAuditUnavailable'
       x-contract-status: specified
       x-family-use-cases:
       - UC-FM02
@@ -2053,7 +2362,11 @@ paths:
       - Incidents
       summary: List incidents
       x-status: implemented
-      description: Manager's queue.
+      description: >-
+        Manager's queue, most urgent first. Incidents the escalation chain ran out on (UNRESOLVED_ESCALATED)
+        come first, as UC-MG05 3b pins them to the top; then incidents with nobody named on them, such as an
+        SOS that was never routed; then the rest. Within each tier the nearest respondBy comes first and
+        incidents without one after it, newest first.
       parameters:
       - $ref: '#/components/parameters/Page'
       - $ref: '#/components/parameters/Size'
@@ -2800,7 +3113,7 @@ paths:
       tags:
       - Reports
       summary: Generate periodic reports
-      x-status: draft
+      x-status: implemented
       description: 'UC-MG07. Run by the scheduler at the end of each period and by a manager on demand. One period of records
         becomes three audience-filtered artefacts in a single run — `FAMILY`, `REGULATOR` and `INTERNAL` share a skeleton
         but not a filtering rule. Unclosed visits in the period do not block generation: the report is marked `dataComplete:
@@ -2846,7 +3159,8 @@ paths:
       tags:
       - Reports
       summary: List generated reports
-      x-status: draft
+      x-status: implemented
+      x-implemented-roles: [MANAGER]
       parameters:
       - $ref: '#/components/parameters/Page'
       - $ref: '#/components/parameters/Size'
@@ -2994,7 +3308,8 @@ paths:
       tags:
       - Reports
       summary: Read a report online
-      x-status: draft
+      x-status: implemented
+      x-implemented-roles: [MANAGER]
       description: >-
         The report's sections, already filtered for its audience. Readable even when PDF export fails (5b). A
         family member can only read `FAMILY` reports of elders they are bound to. There is deliberately no DELETE
@@ -3066,7 +3381,7 @@ paths:
       tags:
       - Reports
       summary: Append a correction to an archived report
-      x-status: draft
+      x-status: implemented
       description: 'UC-MG07 business rule: an archived report is immutable, so a correction is a dated, signed note appended
         to it — the original text stays as it was generated.
 
@@ -3622,6 +3937,51 @@ components:
         type: integer
         format: int64
   schemas:
+    ElderListItemResponse:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - fullName
+        - dateOfBirth
+        - address
+        - sector
+        - planStatus
+        - planVersion
+        - nextVisitDate
+      properties:
+        id:
+          type: integer
+          format: int64
+          description: Elder profile ID.
+        fullName:
+          type: string
+        dateOfBirth:
+          type: string
+          format: date
+          nullable: true
+        address:
+          type: string
+          nullable: true
+        sector:
+          type: string
+          nullable: true
+        planStatus:
+          type: string
+          enum: [published, draft, none]
+          description: Latest care plan state; absent, superseded or stopped plans are shown as none.
+        planVersion:
+          type: integer
+          nullable: true
+          description: Latest plan version; null when planStatus is none.
+        nextVisitDate:
+          type: string
+          format: date
+          nullable: true
+          description: >-
+            Next date derived from the published care plan on or after today, or null if none.
+            This value does not establish that a dated visit record or caregiver assignment exists.
+
     LoginRequest:
       type: object
       required:
@@ -5962,13 +6322,19 @@ components:
           minLength: 1
         dialects:
           type: array
+          description: >-
+            Dialects from the source comma-separated string. Items are trimmed and empty
+            items omitted; order, spelling and duplicates are preserved. Null or blank
+            source values produce an empty array.
           items:
             type: string
-      description: 'Public profile only: no phone, private contact details, staff performance or internal availability state.'
+      description: >-
+        Public profile only: id, fullName and dialects. No phone, user/account ID, sector,
+        private contact details, staff performance, internal availability state or credentials.
       required:
-      - id
-      - fullName
-      - dialects
+        - id
+        - fullName
+        - dialects
     FamilyCredentialView:
       type: object
       additionalProperties: false
@@ -5987,6 +6353,7 @@ components:
           minimum: 1
         credentialTypeName:
           type: string
+          description: Name from the credential type catalogue.
         issuingBody:
           type: string
           nullable: true
@@ -5994,29 +6361,43 @@ components:
           type: string
           format: date
           nullable: true
+          description: >-
+            A future date means not yet effective, even when status is PUBLISHED or EXPIRING.
+            The query preserves this date and does not introduce another status enum.
         expiryDate:
           type: string
           format: date
-          description: 9999-12-31 denotes a permanent credential in the current data model; display as no expiry.
+          description: >-
+            Inclusive Singapore expiry date. 9999-12-31 denotes a permanent credential and
+            remains in the response; display as no expiry while still considering validFrom
+            and invalid statuses such as REVOKED or EXPIRED.
         status:
           type: string
           enum:
-          - PUBLISHED
-          - EXPIRING
-          - EXPIRED
-          - REVOKED
+            - PUBLISHED
+            - EXPIRING
+            - EXPIRED
+            - REVOKED
+          description: >-
+            Public display status. Stored PUBLISHED or EXPIRING is projected to EXPIRED when
+            expiryDate is before the server's Singapore date. Stored REVOKED and EXPIRED are
+            preserved. Other public statuses remain unchanged; no 30-day warning threshold
+            is derived here. Current validity also depends on validFrom and expiryDate.
       description: >-
-        Only credentials approved for public display. SUBMITTED and REJECTED records, certificate numbers and
-        reviewer details are excluded. Expired/revoked public credentials remain visibly invalid.
+        Public projection of credentials whose stored status is PUBLISHED, EXPIRING, EXPIRED
+        or REVOKED. SUBMITTED and REJECTED records, certificate numbers, reviewer details,
+        renewal links and internal timestamps are excluded. All eight keys are returned,
+        including nullable issuingBody and validFrom. The date-based status projection does
+        not change the stored credential.
       required:
-      - id
-      - caregiverId
-      - credentialTypeId
-      - credentialTypeName
-      - issuingBody
-      - validFrom
-      - expiryDate
-      - status
+        - id
+        - caregiverId
+        - credentialTypeId
+        - credentialTypeName
+        - issuingBody
+        - validFrom
+        - expiryDate
+        - status
     FamilyVisitView:
       type: object
       additionalProperties: false
@@ -6033,6 +6414,8 @@ components:
           nullable: true
         serviceType:
           type: string
+          nullable: true
+          description: Source visit service type; null when not recorded.
         scheduledStart:
           type: string
           format: date-time
@@ -6054,11 +6437,12 @@ components:
           type: string
           format: date-time
           description: >-
-            Server snapshot time for this read, not the last modification time. A failed refresh must not advance
-            it.
+            Server snapshot time for this read, shared by every item in the response; not the
+            last modification time. A failed refresh must not advance it.
       description: >-
-        Family service view. No absence record, internal state deadline, or care-plan implementation IDs. Null
-        caregiverId means unassigned.
+        Family service view. No absence record, internal state deadline, or care-plan implementation
+        IDs. Null caregiverId means unassigned. Timestamps are RFC 3339 values with an explicit
+        offset; visit times are interpreted in Asia/Singapore. Nullable source fields remain null.
       required:
       - id
       - elderId
@@ -6684,6 +7068,18 @@ components:
         application/problem+json:
           schema:
             $ref: '#/components/schemas/FamilyProblemDetail'
+    FamilyAuditUnavailable:
+      description: >-
+        The family access record could not be committed. After any query outcome, failure to
+        record access returns 503 instead of the result or original error, without protected data.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetail'
+          example:
+            title: Access recording unavailable
+            status: 503
+            detail: Access could not be recorded. Please retry later.
     FamilyServiceUnavailable:
       description: >-
         Report rendering is temporarily unavailable. The authorised online report remains readable; retrying

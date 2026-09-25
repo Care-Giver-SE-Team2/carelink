@@ -1,71 +1,84 @@
 package sg.nus.carelink.profile.application;
 
+import java.time.Clock;
 import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Set;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.security.access.AccessDeniedException;
+import java.util.Map;
+import java.util.Optional;
+import java.util.stream.Collectors;
+
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import sg.nus.carelink.identity.application.UserDirectory;
+
 import sg.nus.carelink.profile.domain.model.Credential;
+import sg.nus.carelink.profile.domain.model.CredentialType;
 import sg.nus.carelink.profile.domain.repository.CaregiverRepository;
 import sg.nus.carelink.profile.domain.repository.CredentialRepository;
 import sg.nus.carelink.profile.domain.repository.CredentialTypeRepository;
-import sg.nus.carelink.profile.domain.repository.ElderRepository;
 import sg.nus.carelink.shared.error.ResourceNotFound;
-import sg.nus.carelink.shared.security.Role;
 
+/**
+ * Projects stored caregiver profiles and credentials into public fields.
+ *
+ * @author Wang Zhili
+ */
 @Service
 @Transactional(readOnly = true)
-class CaregiverDirectoryService implements CaregiverDirectory {
-    private final UserDirectory users;
-    private final CaregiverRepository caregivers;
-    private final ElderRepository elders;
-    private final CredentialRepository credentials;
-    private final CredentialTypeRepository types;
-    private final int warningDays;
+public class CaregiverDirectoryService implements CaregiverDirectory {
 
-    CaregiverDirectoryService(UserDirectory users, CaregiverRepository caregivers, ElderRepository elders,
-            CredentialRepository credentials, CredentialTypeRepository types,
-            @Value("${carelink.caregiver.credential-warning-days:30}") int warningDays) {
-        this.users = users;
-        this.caregivers = caregivers;
-        this.elders = elders;
-        this.credentials = credentials;
-        this.types = types;
-        if (warningDays < 0) throw new IllegalArgumentException("Credential warning days must be non-negative");
-        this.warningDays = warningDays;
-    }
+	private final CaregiverRepository caregivers;
+	private final CredentialRepository credentials;
+	private final CredentialTypeRepository credentialTypes;
+	private final Clock clock;
 
-    public Profile require(String username) {
-        var user = users.findByUsername(username)
-                .filter(u -> u.enabled() && u.hasRole(Role.CAREGIVER))
-                .orElseThrow(() -> new AccessDeniedException("A caregiver account is required"));
-        var caregiver = caregivers.findByUserId(user.id())
-                .orElseThrow(() -> new ResourceNotFound("Caregiver profile for user", user.id()));
-        return new Profile(caregiver.id(), caregiver.userId(), caregiver.fullName(), caregiver.phone(),
-                caregiver.sector(), caregiver.dialects(), caregiver.status().name());
-    }
+	public CaregiverDirectoryService(CaregiverRepository caregivers, CredentialRepository credentials,
+			CredentialTypeRepository credentialTypes, Clock clock) {
+		this.caregivers = caregivers;
+		this.credentials = credentials;
+		this.credentialTypes = credentialTypes;
+		this.clock = clock;
+	}
 
-    public ElderView elder(Long elderId) {
-        var elder = elders.findById(elderId).orElseThrow(() -> new ResourceNotFound("Elder", elderId));
-        var dialects = elder.preferredDialects() == null ? List.<String>of()
-                : Arrays.stream(elder.preferredDialects().split(",")).map(String::trim).filter(s -> !s.isEmpty()).toList();
-        // No dedicated access/emergency notes exist: never substitute unrestricted medicalNotes.
-        return new ElderView(elder.id(), elder.fullName(), elder.address(), elder.sector(), dialects, null, null);
-    }
+	@Override
+	public List<CaregiverPublicCredential> listPublicCredentials(Long caregiverId) {
+		caregivers.findById(caregiverId).orElseThrow(() -> new ResourceNotFound("Caregiver", caregiverId));
+		LocalDate today = LocalDate.now(clock.withZone(ZoneId.of("Asia/Singapore")));
+		var publicCredentials = credentials.findByCaregiverId(caregiverId).stream()
+				.filter(credential -> credential.publicStatusOn(today).isPresent()).toList();
+		if (publicCredentials.isEmpty()) {
+			return List.of();
+		}
+		var typeIds = publicCredentials.stream().map(Credential::credentialTypeId).collect(Collectors.toSet());
+		var typeNames = credentialTypes.findByIds(typeIds).stream()
+				.collect(Collectors.toMap(CredentialType::id, CredentialType::name));
+		return publicCredentials.stream().map(credential -> publicCredential(credential, typeNames, today)).toList();
+	}
 
-    public List<CredentialAlert> alerts(Long caregiverId, LocalDate today) {
-        var eligible = Set.of(Credential.Status.PUBLISHED, Credential.Status.EXPIRING, Credential.Status.EXPIRED);
-        return credentials.findByCaregiverId(caregiverId).stream()
-                .filter(c -> eligible.contains(c.status()) && c.expiryDate() != null)
-                .filter(c -> !c.expiryDate().isAfter(today.plusDays(warningDays)))
-                .map(c -> new CredentialAlert(c.id(),
-                        types.findById(c.credentialTypeId()).map(t -> t.name()).orElse("Credential"),
-                        c.certificateNo(), c.expiryDate(), c.status().name(),
-                        c.expiryDate().isBefore(today) ? "EXPIRED" : "EXPIRING"))
-                .toList();
-    }
+	private static CaregiverPublicCredential publicCredential(Credential credential,
+			Map<Long, String> typeNames, LocalDate today) {
+		String typeName = typeNames.get(credential.credentialTypeId());
+		if (typeName == null) {
+			throw new IllegalStateException("Public credential type is unavailable");
+		}
+		return new CaregiverPublicCredential(credential.id(), credential.caregiverId(), credential.credentialTypeId(),
+				typeName, credential.issuingBody(), credential.validFrom(), credential.expiryDate(),
+				credential.publicStatusOn(today).orElseThrow().name());
+	}
+
+	@Override
+	public Optional<CaregiverPublicProfile> findPublicProfile(Long caregiverId) {
+		return caregivers.findById(caregiverId)
+				.map(caregiver -> new CaregiverPublicProfile(caregiver.id(), caregiver.fullName(),
+						dialectNames(caregiver.dialects())));
+	}
+
+	private static List<String> dialectNames(String storedDialects) {
+		if (storedDialects == null) {
+			return List.of();
+		}
+		return Arrays.stream(storedDialects.split(","))
+				.map(String::strip).filter(dialect -> !dialect.isEmpty()).toList();
+	}
 }

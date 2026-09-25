@@ -1,8 +1,10 @@
 package sg.nus.carelink.profile.application;
 
 import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -45,21 +47,40 @@ public class ProfileService {
 	 */
 	@Transactional(readOnly = true)
 	public List<ElderSummary> listElders() {
-		LocalDate today = LocalDate.now();
-		return elders.findAll().stream()
+		return summarize(elders.findAll(), LocalDate.now(ZoneId.systemDefault()));
+	}
+
+	/**
+	 * Lists selected elders with plan status and the next planned visit date.
+	 *
+	 * @param elderIds Elder IDs authorized by the calling use case
+	 * @param fromDate First date considered for the next planned visit
+	 * @return Elder summaries in ascending ID order, or an empty list
+	 * @author Wang Zhili
+	 */
+	@Transactional(readOnly = true)
+	public List<ElderSummary> listEldersByIds(Set<Long> elderIds, LocalDate fromDate) {
+		if (elderIds.isEmpty()) {
+			return List.of();
+		}
+		return summarize(elders.findByIds(elderIds), fromDate);
+	}
+
+	private List<ElderSummary> summarize(List<Elder> selectedElders, LocalDate fromDate) {
+		return selectedElders.stream()
 				.map(elder -> toSummary(
 						elder,
 						carePlans.findLatestByElderId(elder.id()).orElse(null),
-						carePlans.findNextVisitDate(elder.id(), today).orElse(null)))
+						carePlans.findNextVisitDate(elder.id(), fromDate).orElse(null)))
 				.toList();
 	}
 
 	private static ElderSummary toSummary(Elder elder, CarePlan latestPlan, LocalDate nextVisitDate) {
-		boolean noActivePlan = latestPlan == null
-				|| latestPlan.status() == CarePlan.Status.SUPERSEDED
-				|| latestPlan.status() == CarePlan.Status.STOPPED;
-		if (noActivePlan) {
+		if (latestPlan == null || latestPlan.status() == CarePlan.Status.SUPERSEDED) {
 			return new ElderSummary(elder, "none", null, null);
+		}
+		if (latestPlan.status() == CarePlan.Status.STOPPED) {
+			return new ElderSummary(elder, "stopped", latestPlan.version(), null);
 		}
 		String status = latestPlan.status() == CarePlan.Status.PUBLISHED ? "published" : "draft";
 		return new ElderSummary(elder, status, latestPlan.version(), nextVisitDate);

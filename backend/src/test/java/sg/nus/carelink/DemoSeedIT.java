@@ -100,6 +100,10 @@ class DemoSeedIT {
 		long bindingsBefore = count("elder_family_binding");
 		long incidentsBefore = count("incident");
 		long entriesBefore = count("incident_log");
+		long visitsBefore = count("visit");
+		long readingsBefore = count("vital_sign");
+		long evidenceBefore = count("visit_evidence");
+		long tasksBefore = count("visit_task");
 
 		loadSeed();
 
@@ -108,6 +112,27 @@ class DemoSeedIT {
 		assertThat(count("elder_family_binding")).isEqualTo(bindingsBefore);
 		assertThat(count("incident")).isEqualTo(incidentsBefore);
 		assertThat(count("incident_log")).isEqualTo(entriesBefore);
+		assertThat(count("visit")).isEqualTo(visitsBefore);
+		assertThat(count("vital_sign")).isEqualTo(readingsBefore);
+		assertThat(count("visit_evidence")).isEqualTo(evidenceBefore);
+		assertThat(count("visit_task")).isEqualTo(tasksBefore);
+	}
+
+	/**
+	 * UC-MG07's reports are made from visits and the readings taken on them. A seed with no
+	 * verified visit carrying readings would leave every report's vital-signs section saying
+	 * there were none, and the family's ranges could not be told from the regulator's readings.
+	 */
+	@Test
+	void aVerifiedVisitCarriesVitalSignsForTheReportsToSummarise() {
+		loadSeed();
+
+		Long verifiedWithReadings = jdbc.queryForObject(
+				"select count(distinct v.id) from visit v join vital_sign s on s.visit_id = v.id "
+						+ "where v.status = 'VERIFIED'",
+				Long.class);
+
+		assertThat(verifiedWithReadings).isPositive();
 	}
 
 	/**
