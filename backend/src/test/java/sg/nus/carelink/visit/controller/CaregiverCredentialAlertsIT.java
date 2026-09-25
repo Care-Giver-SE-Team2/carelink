@@ -10,6 +10,7 @@ import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
+import jakarta.persistence.EntityManager;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -43,6 +44,7 @@ class CaregiverCredentialAlertsIT {
     static final MySQLContainer MYSQL = new MySQLContainer("mysql:8.4").withCommand("--default-time-zone=+05:00");
     @Autowired MockMvc mvc;
     @Autowired JdbcTemplate jdbc;
+    @Autowired EntityManager entityManager;
     @Autowired CaregiverDirectory familyDirectory;
 
     @TestConfiguration(proxyBeanMethods = false)
@@ -95,6 +97,9 @@ class CaregiverCredentialAlertsIT {
                 .andExpect(jsonPath("$.certificationAlerts[0].renewalState").value("APPROVED_NOT_EFFECTIVE"))
                 .andExpect(jsonPath("$.certificationAlerts[0].renewalValidFrom").value("2026-10-02"));
         jdbc.update("update credential set valid_from=? where id=7303",TODAY);
+        // JDBC bypasses JPA's first-level cache in this test-wide transaction.
+        // Real HTTP requests have separate persistence contexts; emulate that boundary.
+        entityManager.clear();
         var publicBefore = familyDirectory.listPublicCredentials(7101L);
         schedule("credential-a",TODAY).andExpect(status().isOk()).andExpect(jsonPath("$.certificationAlerts").isEmpty());
         assertThat(familyDirectory.listPublicCredentials(7101L)).isEqualTo(publicBefore).hasSize(2);
