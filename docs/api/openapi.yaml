@@ -70,6 +70,13 @@ paths:
         Empty dates return an empty upcomingVisits array. Reminders are based on Singapore today,
         not the selected date range; default expiry warning horizon is 30 days.
         Reminders are ordered by expiryDate then id, independently of family credential ordering.
+        Renewal replacement is a caregiver-only read projection: a linked same-owner/type published
+        successor clears an old reminder only on or after its validFrom (null means no future-start
+        restriction). An already-expired effective successor replaces the ancestor but is itself warned.
+        Submitted, rejected, revoked and future-effective renewals do not clear old reminders.
+        Cycles, ambiguous branches, missing/cross-owner/type links and inconsistent dates require
+        manager review and never auto-clear reminders in the affected component. There are no writes
+        to stored statuses. This is not credential approval or rostering eligibility.
       parameters:
         - name: dateFrom
           in: query
@@ -1831,7 +1838,7 @@ components:
         version: {type: integer}
     CaregiverSchedule:
       type: object
-      required: [dateFrom, dateTo, timeZone, upcomingVisits, certificationAlerts]
+      required: [dateFrom, dateTo, timeZone, upcomingVisits, certificationAlerts, credentialAlertContext]
       properties:
         dateFrom: {type: string, format: date}
         dateTo: {type: string, format: date}
@@ -1843,7 +1850,7 @@ components:
           type: array
           items:
             type: object
-            required: [id, name, expiryDate, status, warning]
+            required: [id, name, expiryDate, status, warning, daysUntilExpiry, renewalState, renewalValidFrom]
             properties:
               id: {type: integer, format: int64}
               name: {type: string}
@@ -1851,6 +1858,16 @@ components:
               expiryDate: {type: string, format: date}
               status: {type: string, enum: [PUBLISHED, EXPIRING, EXPIRED]}
               warning: {type: string, enum: [EXPIRED, EXPIRING]}
+              daysUntilExpiry: {type: integer, format: int64, description: Signed calendar days from the server assessment date; zero means valid through today.}
+              renewalState: {type: string, enum: [NONE, PENDING_REVIEW, REJECTED, APPROVED_NOT_EFFECTIVE, REVOKED, CHECK_REQUIRED]}
+              renewalValidFrom: {type: string, format: date, nullable: true, description: Present only for an approved future-effective renewal.}
+        credentialAlertContext:
+          type: object
+          required: [asOfDate, warningDays, reviewRequired]
+          properties:
+            asOfDate: {type: string, format: date, description: Current server date in Asia/Singapore; independent of the selected roster dates.}
+            warningDays: {type: integer, minimum: 0, description: Inclusive configurable expiry warning horizon.}
+            reviewRequired: {type: boolean, description: Generic data-review notice without foreign credential details. An empty reminder list is not a compliance assertion.}
     CaregiverWorkPack:
       type: object
       required: [visit, elder, carePlanId, carePlanVersion, serviceInstructions, tasks, requiredEvidenceKinds]
