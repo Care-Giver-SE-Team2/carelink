@@ -34,12 +34,16 @@ class CaregiverWorkControllerTest {
     @Test
     void scheduleBindsBothDatesAndSerializesTheExistingShape() throws Exception {
         when(service.schedule("demo-a", day, day.plusDays(6))).thenReturn(new CaregiverWorkService.Schedule(
-                day, day.plusDays(6), "Asia/Singapore", List.of(), List.of()));
+                day, day.plusDays(6), "Asia/Singapore", List.of(), List.of(),
+                new CaregiverWorkDirectory.CredentialAlertContext(day,30,false)));
         mvc.perform(get("/api/caregivers/me/schedule").principal(() -> "demo-a")
                 .param("dateFrom", day.toString()).param("dateTo", day.plusDays(6).toString()))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.timeZone").value("Asia/Singapore"))
                 .andExpect(jsonPath("$.upcomingVisits").isEmpty())
-                .andExpect(jsonPath("$.certificationAlerts").isEmpty());
+                .andExpect(jsonPath("$.certificationAlerts").isEmpty())
+                .andExpect(jsonPath("$.credentialAlertContext.asOfDate").value("2026-09-25"))
+                .andExpect(jsonPath("$.credentialAlertContext.warningDays").value(30))
+                .andExpect(jsonPath("$.credentialAlertContext.reviewRequired").value(false));
         verify(service).schedule("demo-a", day, day.plusDays(6));
     }
 

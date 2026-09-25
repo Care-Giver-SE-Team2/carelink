@@ -6,6 +6,7 @@ import { useCaregiverQuery } from '../../features/caregiver/useCaregiverQuery'
 import { QueryError } from './components'
 import { addDays, dateLabel, titleCase, todayInSingapore, visitTime } from './format'
 import styles from './Caregiver.module.css'
+import CredentialReminders from './CredentialReminders'
 
 export default function SchedulePage() {
   const [params, setParams] = useSearchParams()
@@ -33,11 +34,7 @@ export default function SchedulePage() {
         <h2>{visit.elderName}</h2><p className={styles.muted}>{titleCase(visit.serviceType)} · Visit #{visit.id}</p>
         <Link className={styles.linkButton} to={'/caregiver/visits/' + visit.id + '?' + query}>View work pack →</Link>
       </article>)}
-      <h2 className={styles.sectionTitle}>Credential reminders</h2>
-      {result.data.certificationAlerts.length === 0 ? <p className={styles.muted}>No credential expiry reminders.</p> : result.data.certificationAlerts.map(alert => <div key={alert.id} className={styles.alert + (alert.warning === 'EXPIRED' ? ' ' + styles.expired : '')}>
-        <strong>{alert.name} · {alert.warning === 'EXPIRED' ? 'Expired' : 'Expiring soon'}</strong>
-        <p>{dateLabel(alert.expiryDate)}{alert.certificateNo ? ' · ' + alert.certificateNo : ''}</p><p>Recorded status: {titleCase(alert.status)}. Contact your manager about renewal.</p>
-      </div>)}
+      <CredentialReminders alerts={result.data.certificationAlerts} context={result.data.credentialAlertContext} />
     </>}
   </div>
 }
