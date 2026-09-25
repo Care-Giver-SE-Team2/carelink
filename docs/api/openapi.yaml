@@ -65,6 +65,9 @@ paths:
       security: [{sessionCookie: []}]
       description: >-
         CAREGIVER only. Uses visit.caregiver_id (current assignment), not assignment history.
+        Includes CANCELLED summaries for the current assignee; their work packs are unavailable.
+        Reassignment or unassignment removes the visit from the former caregiver's next query.
+        Rescheduling moves it according to the new scheduledStart and the selected date range.
         Ordered by scheduledStart then id. Dates are inclusive Singapore calendar dates.
         Omit both for Singapore today through today+6; otherwise supply both, at most 31 days.
         Empty dates return an empty upcomingVisits array. Reminders are based on Singapore today,
@@ -104,6 +107,9 @@ paths:
       security: [{sessionCookie: []}]
       description: >-
         CAREGIVER only and visit.caregiver_id must equal the session caregiver profile id.
+        Ownership is checked before cancellation. A cancelled visit returns 409 with code
+        VISIT_CANCELLED to its current assignee, without elder details, tasks or plan contents.
+        Other caregivers still receive 403 without learning the cancellation state.
         Reads exactly visit.care_plan_id, including a superseded published version, never the
         elder's latest plan. Required evidence comes only from the assigned visit/task plan
         nodes and excludes NONE. Elder medicalNotes and family details are not exposed.
@@ -125,7 +131,11 @@ paths:
         '401': {description: No authenticated session.}
         '403': {$ref: '#/components/responses/Forbidden'}
         '404': {$ref: '#/components/responses/NotFound'}
-        '409': {description: Visit references an unpublished/wrong-elder plan or nodes outside the bound plan.}
+        '409':
+          description: VISIT_CANCELLED, or a visit references an unpublished/wrong-elder plan or nodes outside the bound plan.
+          content:
+            application/problem+json:
+              schema: {$ref: '#/components/schemas/ProblemDetail'}
 
   /auth/csrf:
     get:

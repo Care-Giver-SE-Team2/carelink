@@ -73,6 +73,26 @@ class CaregiverWorkServiceTest {
         when(visits.findById(1L)).thenReturn(Optional.of(visit(null)));
         assertThatThrownBy(() -> service.workPack("a",1L)).isInstanceOf(AccessDeniedException.class);
     }
+    @Test void cancellationIsDeniedAndAuditedBeforeProtectedDataIsRead() {
+        var cancelled = mock(Visit.class);
+        when(cancelled.caregiverId()).thenReturn(2L);
+        when(cancelled.status()).thenReturn(Visit.Status.CANCELLED);
+        when(visits.findById(1L)).thenReturn(Optional.of(cancelled));
+        assertThatThrownBy(() -> service.workPack("a",1L)).isInstanceOfSatisfying(BusinessRuleViolation.class,
+                ex -> assertThat(ex.code()).isEqualTo("VISIT_CANCELLED"));
+        verify(audit).workPack(20L,1L,"DENIED");
+        verifyNoMoreInteractions(audit);
+        verifyNoInteractions(plans,tasks);
+        verify(directory,never()).elder(any());
+    }
+    @Test void foreignCancelledVisitDoesNotDiscloseCancellation() {
+        var cancelled = mock(Visit.class);
+        when(cancelled.caregiverId()).thenReturn(9L);
+        when(visits.findById(1L)).thenReturn(Optional.of(cancelled));
+        assertThatThrownBy(() -> service.workPack("a",1L)).isInstanceOf(AccessDeniedException.class);
+        verify(cancelled,never()).status();
+        verifyNoInteractions(plans,tasks);
+    }
     @Test void missingVisitIs404AndAudited() {
         assertThatThrownBy(() -> service.workPack("a",999L)).isInstanceOf(ResourceNotFound.class);
         verify(audit).workPack(20L,999L,"FAILED");

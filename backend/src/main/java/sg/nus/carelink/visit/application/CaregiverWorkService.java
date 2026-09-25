@@ -63,6 +63,10 @@ public class CaregiverWorkService {
             audit.workPack(caregiver.userId(), visitId, "DENIED");
             throw new AccessDeniedException("This visit is not assigned to you");
         }
+        if (visit.status() == Visit.Status.CANCELLED) {
+            audit.workPack(caregiver.userId(), visitId, "DENIED");
+            throw new BusinessRuleViolation("VISIT_CANCELLED", "This visit has been cancelled. Return to your schedule.");
+        }
         try {
             var elder = directory.elder(visit.elderId());
             var snapshot = visit.carePlanId() == null ? null : plans.read(visit.carePlanId(), visit.elderId());
