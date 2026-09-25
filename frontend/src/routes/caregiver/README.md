@@ -28,9 +28,10 @@
 
 ## 现阶段
 
-首个只读切片已接真实后端：现有登录 → 我的班表 → 已分配 Visit 工作包。
+三个只读切片已连接真实后端：登录 → 我的班表 → 已分配 Visit 工作包、续证资质提醒、班表变化与取消保护。
 仅护理员本人可读；不包含签到、任务提交、证据上传和签退。
 完整启动、演示账号与人工验收见仓库 `docs/caregiver/slice-1-demo.md`。
+续证场景见 `docs/caregiver/slice-2-credential-alerts.md`；统一 CG-01 验收及变化演示见 `docs/caregiver/slice-3-schedule-changes.md`。
 不要在页面中写死演示数据；演示数据通过独立 SQL 加入本地数据库。
 
 ## 本地运行

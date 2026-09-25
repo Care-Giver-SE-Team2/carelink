@@ -2,7 +2,7 @@ import { useCallback } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
 import { getWorkPack } from '../../features/caregiver/api'
 import { useCaregiverQuery } from '../../features/caregiver/useCaregiverQuery'
-import { QueryError } from './components'
+import { LastFetched, QueryError } from './components'
 import { titleCase, visitTime } from './format'
 import styles from './Caregiver.module.css'
 
@@ -13,19 +13,20 @@ export default function WorkPackPage() {
   for (const name of ['dateFrom', 'dateTo']) if (params.has(name)) backParams.set(name, params.get(name)!)
   const back = '/caregiver' + (backParams.size ? '?' + backParams.toString() : '')
   return <div className={styles.page}><Link className={styles.back} to={back}>← My schedule</Link>
-    {!/^[1-9]\d*$/.test(visitId) ? <div role="alert" className={styles.error}>Visit not found</div> : <WorkPack id={visitId} />}
+    {!/^[1-9]\d*$/.test(visitId) ? <div role="alert" className={styles.error}>Visit not found</div> : <WorkPack id={visitId} back={back} />}
   </div>
 }
-function WorkPack({ id }: { id: string }) {
+function WorkPack({ id, back }: { id: string; back: string }) {
   const load = useCallback((signal: AbortSignal) => getWorkPack(id, signal), [id])
-  const { result, reload } = useCaregiverQuery(id, load)
+  const { result, reload } = useCaregiverQuery(id, load, true)
   if (result.status === 'loading') return <p role="status">Loading assigned work pack…</p>
-  if (result.status === 'error') return <QueryError error={result.error} retry={reload} />
+  if (result.status === 'error') return <QueryError error={result.error} retry={reload} back={back} />
   const pack = result.data
   return <>
     <p className={styles.eyebrow}>Assigned visit · #{pack.visit.id}</p>
     <div className={styles.heading}><div><h1>{pack.elder.preferredName}</h1><p className={styles.muted}>{titleCase(pack.visit.serviceType)}</p></div><button className={styles.button} onClick={reload}>Refresh</button></div>
     <div className={styles.readOnly}>Read-only work pack. Review your assigned care instructions. Check-in and task submission will be available in the next delivery.</div>
+    <LastFetched at={result.receivedAt} />
     <section className={styles.card} aria-label="Visit details"><div className={styles.cardTop}><strong>Visit details</strong><span className={styles.badge}>{titleCase(pack.visit.status)}</span></div>
       <dl className={styles.details}>
         <div><dt>Starts · Singapore time</dt><dd>{visitTime(pack.visit.scheduledStart)}</dd></div>
