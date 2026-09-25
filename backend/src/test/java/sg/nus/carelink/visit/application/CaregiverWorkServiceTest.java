@@ -27,6 +27,8 @@ class CaregiverWorkServiceTest {
 
     @BeforeEach void profile() {
         when(directory.require("a")).thenReturn(new CaregiverWorkDirectory.Profile(2L,20L,"A",null,null,null,"AVAILABLE"));
+        when(directory.alerts(2L,day)).thenReturn(new CaregiverWorkDirectory.CredentialAlerts(
+            List.of(), new CaregiverWorkDirectory.CredentialAlertContext(day,30,false)));
     }
     Visit visit(Long caregiver) {
         return new Visit(1L,3L,caregiver,11L,null,"CARE",day.atTime(9,0),day.atTime(10,0),
@@ -38,6 +40,7 @@ class CaregiverWorkServiceTest {
         assertThat(result.dateFrom()).isEqualTo(day);
         assertThat(result.dateTo()).isEqualTo(day.plusDays(6));
         assertThat(result.timeZone()).isEqualTo("Asia/Singapore");
+        assertThat(result.credentialAlertContext().asOfDate()).isEqualTo(day);
         verify(visits).findAssigned(2L,day.atStartOfDay(),day.plusDays(7).atStartOfDay());
         verify(directory).alerts(2L,day);
     }
@@ -50,6 +53,14 @@ class CaregiverWorkServiceTest {
     @Test void accepts31InclusiveDays() {
         service.schedule("a",day,day.plusDays(30));
         verify(visits).findAssigned(2L,day.atStartOfDay(),day.plusDays(31).atStartOfDay());
+    }
+
+    @Test void selectingAPastRosterDoesNotBackdateCredentialAssessment() {
+        var past = day.minusMonths(2);
+        var result = service.schedule("a",past,past);
+        verify(directory).alerts(2L,day);
+        assertThat(result.credentialAlertContext().asOfDate()).isEqualTo(day);
+        assertThat(result.dateFrom()).isEqualTo(past);
     }
     @Test void otherCaregiverIsDeniedBeforeAnyClinicalDataIsRead() {
         when(visits.findById(1L)).thenReturn(Optional.of(visit(9L)));

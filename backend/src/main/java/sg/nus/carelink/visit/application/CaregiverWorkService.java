@@ -48,7 +48,8 @@ public class CaregiverWorkService {
         }
         var rows = visits.findAssigned(caregiver.id(), from.atStartOfDay(), to.plusDays(1).atStartOfDay()).stream()
                 .map(v -> summary(v, directory.elder(v.elderId()).preferredName())).toList();
-        return new Schedule(from, to, "Asia/Singapore", rows, directory.alerts(caregiver.id(), today));
+        var alerts = directory.alerts(caregiver.id(), today);
+        return new Schedule(from, to, "Asia/Singapore", rows, alerts.items(), alerts.context());
     }
 
     public WorkPack workPack(String username, Long visitId) {
@@ -94,7 +95,8 @@ public class CaregiverWorkService {
     public record VisitSummary(Long id, Long elderId, String elderName, String serviceType,
             LocalDateTime scheduledStart, LocalDateTime scheduledEnd, String status, Integer version) {}
     public record Schedule(LocalDate dateFrom, LocalDate dateTo, String timeZone,
-            List<VisitSummary> upcomingVisits, List<CaregiverWorkDirectory.CredentialAlert> certificationAlerts) {}
+            List<VisitSummary> upcomingVisits, List<CaregiverWorkDirectory.CredentialAlert> certificationAlerts,
+            CaregiverWorkDirectory.CredentialAlertContext credentialAlertContext) {}
     public record WorkPack(VisitSummary visit, CaregiverWorkDirectory.ElderView elder, Long carePlanId,
             Integer carePlanVersion, List<String> serviceInstructions, List<VisitTask> tasks,
             List<String> requiredEvidenceKinds) {}

@@ -2,15 +2,15 @@ package sg.nus.carelink.profile.application;
 
 import java.time.LocalDate;
 import java.util.Arrays;
-import java.util.Comparator;
 import java.util.List;
-import java.util.Set;
+import java.util.stream.Collectors;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import sg.nus.carelink.identity.application.UserDirectory;
-import sg.nus.carelink.profile.domain.model.Credential;
+import sg.nus.carelink.profile.domain.model.CredentialType;
+import sg.nus.carelink.profile.domain.service.CaregiverCredentialAlertPolicy;
 import sg.nus.carelink.profile.domain.repository.CaregiverRepository;
 import sg.nus.carelink.profile.domain.repository.CredentialRepository;
 import sg.nus.carelink.profile.domain.repository.CredentialTypeRepository;
@@ -58,17 +58,18 @@ class CaregiverWorkDirectoryService implements CaregiverWorkDirectory {
         return new ElderView(elder.id(), elder.fullName(), elder.address(), elder.sector(), dialects, null, null);
     }
 
-    public List<CredentialAlert> alerts(Long caregiverId, LocalDate today) {
-        var eligible = Set.of(Credential.Status.PUBLISHED, Credential.Status.EXPIRING, Credential.Status.EXPIRED);
-        return credentials.findByCaregiverId(caregiverId).stream()
-                .filter(c -> eligible.contains(c.status()) && c.expiryDate() != null)
-                .filter(c -> !c.expiryDate().isAfter(today.plusDays(warningDays)))
-                // The shared repository retains the family-facing type/id order.
-                .sorted(Comparator.comparing(Credential::expiryDate).thenComparing(Credential::id))
-                .map(c -> new CredentialAlert(c.id(),
-                        types.findById(c.credentialTypeId()).map(t -> t.name()).orElse("Credential"),
-                        c.certificateNo(), c.expiryDate(), c.status().name(),
-                        c.expiryDate().isBefore(today) ? "EXPIRED" : "EXPIRING"))
-                .toList();
+    public CredentialAlerts alerts(Long caregiverId, LocalDate today) {
+        var evaluation = new CaregiverCredentialAlertPolicy().evaluate(
+                caregiverId, credentials.findByCaregiverId(caregiverId), today, warningDays);
+        var typeIds = evaluation.alerts().stream().map(a -> a.credential().credentialTypeId()).collect(Collectors.toSet());
+        var typeNames = types.findByIds(typeIds).stream().collect(Collectors.toMap(CredentialType::id, CredentialType::name));
+        boolean missingType = !typeNames.keySet().containsAll(typeIds);
+        var alerts = evaluation.alerts().stream().map(a -> {
+            var c = a.credential();
+            return new CredentialAlert(c.id(), typeNames.getOrDefault(c.credentialTypeId(), "Credential"),
+                    c.certificateNo(), c.expiryDate(), c.status().name(), a.warning(), a.daysUntilExpiry(),
+                    a.renewalState().name(), a.renewalValidFrom());
+        }).toList();
+        return new CredentialAlerts(alerts, new CredentialAlertContext(today, warningDays, evaluation.reviewRequired() || missingType));
     }
 }
