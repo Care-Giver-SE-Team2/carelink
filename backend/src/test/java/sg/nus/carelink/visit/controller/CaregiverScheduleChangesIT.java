@@ -52,7 +52,7 @@ class CaregiverScheduleChangesIT {
         jdbc.update("insert into user_role(user_id,role) values (?,'CAREGIVER'),(?,'CAREGIVER')",id,id+1);
         jdbc.update("insert into caregiver(id,user_id,full_name,status) values (?,?,'A','AVAILABLE'),(?,?,'B','AVAILABLE')",id,id,id+1,id+1);
         jdbc.update("insert into elder(id,full_name,address) values (?,'Change demo elder','PRIVATE-CHANGE-ADDRESS')",id);
-        jdbc.update("insert into care_plan(id,elder_id,version,status) values (?,?,1,'SUPERSEDED'),(?,?,2,'PUBLISHED')",id,id,id+1,id);
+        jdbc.update("insert into care_plan(id,elder_id,version,status,published_at) values (?,?,1,'SUPERSEDED',now()),(?,?,2,'PUBLISHED',now())",id,id,id+1,id);
         jdbc.update("insert into care_plan_node(id,care_plan_id,name,evidence_type) values (?,?,'Assigned v1 task','CHECKLIST')",id,id);
         jdbc.update("insert into visit(id,elder_id,caregiver_id,care_plan_id,care_plan_node_id,service_type,scheduled_start,scheduled_end) values (?,?,?,?,?,'CHANGE_DEMO',?,?)",
                 id,id,id,id,id,DAY.atTime(9,0),DAY.atTime(10,0));
@@ -134,8 +134,9 @@ class CaregiverScheduleChangesIT {
         pack(a).andExpect(status().isOk()).andExpect(jsonPath("$.visit.status").value(state));
     }
 
-    @Test void demoSeedIsRepeatableAndDoesNotOverwriteExistingVisits() {
+    @Test void demoSeedIsRepeatableAndDoesNotOverwriteExistingVisits() throws Exception {
         jdbc.update("insert into app_user(username,password_hash,display_name) values ('demo-cg-a','unused','Demo A'),('demo-cg-b','unused','Demo B')");
+        jdbc.update("insert into user_role(user_id,role) select id,'CAREGIVER' from app_user where username in ('demo-cg-a','demo-cg-b')");
         jdbc.update("insert into caregiver(user_id,full_name,status) select id,display_name,'AVAILABLE' from app_user where username in ('demo-cg-a','demo-cg-b')");
         var before = jdbc.queryForMap("select * from visit where id=?",id);
         loadDemo();
@@ -145,6 +146,10 @@ class CaregiverScheduleChangesIT {
         assertThat(jdbc.queryForList("select * from visit where service_type in ('DEMO3_CHANGE','DEMO3_CONTROL') order by id")).isEqualTo(first);
         assertThat(jdbc.queryForMap("select * from visit where id=?",id)).isEqualTo(before);
         assertThat(jdbc.queryForObject("select count(*) from visit_task t join visit v on v.id=t.visit_id where v.service_type in ('DEMO3_CHANGE','DEMO3_CONTROL')",Long.class)).isEqualTo(2);
+        long demoVisit = jdbc.queryForObject("select id from visit where service_type='DEMO3_CHANGE'",Long.class);
+        mvc.perform(get("/api/visits/"+demoVisit+"/work-pack").with(user("demo-cg-a").roles("CAREGIVER")))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.carePlanVersion").value(1))
+                .andExpect(jsonPath("$.tasks.length()").value(1));
     }
 
     private void loadDemo() {

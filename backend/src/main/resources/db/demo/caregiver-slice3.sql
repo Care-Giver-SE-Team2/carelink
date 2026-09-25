@@ -7,11 +7,11 @@ INSERT INTO elder(full_name,address,sector,preferred_dialects)
  SELECT 'Demo3 Elder Lin','30 Fictional Demo Road','North','English'
  WHERE NOT EXISTS (SELECT 1 FROM elder WHERE full_name='Demo3 Elder Lin');
 SET @elder := (SELECT MIN(id) FROM elder WHERE full_name='Demo3 Elder Lin');
-INSERT INTO care_plan(elder_id,version,status,start_date)
- SELECT @elder,1,'SUPERSEDED',CURRENT_DATE() WHERE NOT EXISTS (SELECT 1 FROM care_plan WHERE elder_id=@elder AND version=1);
+INSERT INTO care_plan(elder_id,version,status,start_date,published_at)
+ SELECT @elder,1,'SUPERSEDED',CURRENT_DATE(),NOW() WHERE NOT EXISTS (SELECT 1 FROM care_plan WHERE elder_id=@elder AND version=1);
 SET @plan := (SELECT id FROM care_plan WHERE elder_id=@elder AND version=1);
-INSERT INTO care_plan(elder_id,version,status,start_date,supersedes_plan_id)
- SELECT @elder,2,'PUBLISHED',CURRENT_DATE(),@plan WHERE NOT EXISTS (SELECT 1 FROM care_plan WHERE elder_id=@elder AND version=2);
+INSERT INTO care_plan(elder_id,version,status,start_date,supersedes_plan_id,published_at)
+ SELECT @elder,2,'PUBLISHED',CURRENT_DATE(),@plan,NOW() WHERE NOT EXISTS (SELECT 1 FROM care_plan WHERE elder_id=@elder AND version=2);
 INSERT INTO care_plan_node(care_plan_id,name,evidence_type,display_order)
  SELECT @plan,'Demo3 assigned version 1 checklist','CHECKLIST',1
  WHERE NOT EXISTS (SELECT 1 FROM care_plan_node WHERE care_plan_id=@plan AND display_order=1);
