@@ -1,0 +1,18 @@
+import { api } from '../../shared/api/client'
+
+export type CaregiverProfile = { id: number; userId: number; fullName: string; phone: string | null; sector: string | null; dialects: string | null; status: string }
+export type VisitSummary = { id: number; elderId: number; elderName: string; serviceType: string | null; scheduledStart: string; scheduledEnd: string | null; status: string; version: number }
+export type Schedule = {
+  dateFrom: string; dateTo: string; timeZone: string; upcomingVisits: VisitSummary[]
+  certificationAlerts: { id: number; name: string; certificateNo: string | null; expiryDate: string; status: string; warning: 'EXPIRED' | 'EXPIRING' }[]
+}
+export type WorkPack = {
+  visit: VisitSummary
+  elder: { elderId: number; preferredName: string; serviceAddress: string | null; postalSector: string | null; languageNeeds: string[]; accessNotes: string | null; emergencyNotes: string | null }
+  carePlanId: number | null; carePlanVersion: number | null; serviceInstructions: string[]
+  tasks: { id: number; name: string; status: string; outcome: string | null; caregiverNote: string | null }[]
+  requiredEvidenceKinds: string[]
+}
+export function getMyProfile(signal?: AbortSignal) { return api<CaregiverProfile>('/caregivers/me', { signal }) }
+export function getMySchedule(query: string, signal?: AbortSignal) { return api<Schedule>('/caregivers/me/schedule' + (query ? '?' + query : ''), { signal }) }
+export function getWorkPack(id: string, signal?: AbortSignal) { return api<WorkPack>('/visits/' + encodeURIComponent(id) + '/work-pack', { signal }) }

@@ -63,6 +63,7 @@ class SecurityConfig {
 						.requestMatchers(
 								"/",
 								"/index.html",
+								"/caregiver", "/caregiver/", "/caregiver/visits/*",
 								"/favicon.ico",
 								"/assets/**",
 								"/vite.svg"

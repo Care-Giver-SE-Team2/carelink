@@ -10,6 +10,7 @@ import sg.nus.carelink.visit.domain.model.VisitTask;
  * the use cases need them; identity.domain.repository.AppUserRepository is the template.
  */
 public interface VisitTaskRepository {
+	java.util.List<VisitTask> findByVisitId(Long visitId);
 
 	Optional<VisitTask> findById(Long id);
 

@@ -4,6 +4,8 @@ info:
   title: CareLink API
   version: 0.0.1
   description: >-
+    Caregiver slice 1 is implemented for GET /caregivers/me, GET /caregivers/me/schedule,
+    and GET /visits/{visitId}/work-pack; these definitions supersede the matching draft operations.
     Includes the existing Auth contract and the specified FM01-FM05 family contracts. Family
     operations remain x-status: draft until implemented; inclusion in Final does not imply a working
     backend. Shared paths retain their non-family response alternatives. The family owner supplies
@@ -37,6 +39,87 @@ tags:
     description: The current user's notification inbox and notification read state.
 
 paths:
+  /caregivers/me:
+    get:
+      tags: [Caregivers]
+      operationId: getCurrentCaregiver
+      summary: Read the caregiver profile linked to the session account
+      x-status: implemented
+      security: [{sessionCookie: []}]
+      responses:
+        '200':
+          description: Current caregiver profile; no caller-supplied caregiver id.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/CaregiverSelfProfile'}
+        '401': {description: No authenticated session.}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {$ref: '#/components/responses/NotFound'}
+
+  /caregivers/me/schedule:
+    get:
+      tags: [Caregivers]
+      operationId: getCurrentCaregiverSchedule
+      summary: Assigned visits and credential expiry reminders
+      x-status: implemented
+      security: [{sessionCookie: []}]
+      description: >-
+        CAREGIVER only. Uses visit.caregiver_id (current assignment), not assignment history.
+        Ordered by scheduledStart then id. Dates are inclusive Singapore calendar dates.
+        Omit both for Singapore today through today+6; otherwise supply both, at most 31 days.
+        Empty dates return an empty upcomingVisits array. Reminders are based on Singapore today,
+        not the selected date range; default expiry warning horizon is 30 days.
+        Reminders are ordered by expiryDate then id, independently of family credential ordering.
+      parameters:
+        - name: dateFrom
+          in: query
+          schema: {type: string, format: date}
+        - name: dateTo
+          in: query
+          schema: {type: string, format: date}
+      responses:
+        '200':
+          description: Schedule for the session caregiver.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/CaregiverSchedule'}
+        '400': {description: Invalid, partial, reversed or over-31-day date range.}
+        '401': {description: No authenticated session.}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {$ref: '#/components/responses/NotFound'}
+
+  /visits/{visitId}/work-pack:
+    get:
+      tags: [Visits]
+      operationId: getAssignedVisitWorkPack
+      summary: Read-only work pack for the currently assigned caregiver
+      x-status: implemented
+      security: [{sessionCookie: []}]
+      description: >-
+        CAREGIVER only and visit.caregiver_id must equal the session caregiver profile id.
+        Reads exactly visit.care_plan_id, including a superseded published version, never the
+        elder's latest plan. Required evidence comes only from the assigned visit/task plan
+        nodes and excludes NONE. Elder medicalNotes and family details are not exposed.
+        Access/emergency notes are null until dedicated safe fields exist. Successful,
+        missing and denied visit reads are audited independently of the read transaction.
+        Local date-times in this read model are Singapore wall-clock values without an offset.
+      parameters:
+        - name: visitId
+          in: path
+          required: true
+          schema: {type: integer, format: int64}
+      responses:
+        '200':
+          description: Read-only assigned work pack.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/CaregiverWorkPack'}
+        '400': {description: Invalid visit id format.}
+        '401': {description: No authenticated session.}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '409': {description: Visit references an unpublished/wrong-elder plan or nodes outside the bound plan.}
+
   /auth/csrf:
     get:
       tags: [Auth]
@@ -1723,6 +1806,94 @@ paths:
 
 components:
   schemas:
+    CaregiverSelfProfile:
+      type: object
+      required: [id, userId, fullName, status]
+      properties:
+        id: {type: integer, format: int64}
+        userId: {type: integer, format: int64}
+        fullName: {type: string}
+        phone: {type: string, nullable: true}
+        sector: {type: string, nullable: true}
+        dialects: {type: string, nullable: true}
+        status: {type: string, enum: [ONBOARDING, AVAILABLE, BUSY, INACTIVE]}
+    CaregiverAssignedVisit:
+      type: object
+      required: [id, elderId, elderName, scheduledStart, status, version]
+      properties:
+        id: {type: integer, format: int64}
+        elderId: {type: integer, format: int64}
+        elderName: {type: string}
+        serviceType: {type: string, nullable: true}
+        scheduledStart: {type: string, description: Singapore local date-time, example: '2026-09-24T09:00:00'}
+        scheduledEnd: {type: string, nullable: true, description: Singapore local date-time}
+        status: {type: string, enum: [SCHEDULED, ARRIVED, IN_PROGRESS, COMPLETED, VERIFIED, AUTO_CLOSED, EXCEPTION, CANCELLED]}
+        version: {type: integer}
+    CaregiverSchedule:
+      type: object
+      required: [dateFrom, dateTo, timeZone, upcomingVisits, certificationAlerts]
+      properties:
+        dateFrom: {type: string, format: date}
+        dateTo: {type: string, format: date}
+        timeZone: {type: string, enum: [Asia/Singapore]}
+        upcomingVisits:
+          type: array
+          items: {$ref: '#/components/schemas/CaregiverAssignedVisit'}
+        certificationAlerts:
+          type: array
+          items:
+            type: object
+            required: [id, name, expiryDate, status, warning]
+            properties:
+              id: {type: integer, format: int64}
+              name: {type: string}
+              certificateNo: {type: string, nullable: true}
+              expiryDate: {type: string, format: date}
+              status: {type: string, enum: [PUBLISHED, EXPIRING, EXPIRED]}
+              warning: {type: string, enum: [EXPIRED, EXPIRING]}
+    CaregiverWorkPack:
+      type: object
+      required: [visit, elder, carePlanId, carePlanVersion, serviceInstructions, tasks, requiredEvidenceKinds]
+      properties:
+        visit: {$ref: '#/components/schemas/CaregiverAssignedVisit'}
+        elder:
+          type: object
+          required: [elderId, preferredName, languageNeeds]
+          properties:
+            elderId: {type: integer, format: int64}
+            preferredName: {type: string}
+            serviceAddress: {type: string, nullable: true}
+            postalSector: {type: string, nullable: true}
+            languageNeeds:
+              type: array
+              items: {type: string}
+            accessNotes: {type: string, nullable: true}
+            emergencyNotes: {type: string, nullable: true}
+        carePlanId: {type: integer, format: int64, nullable: true}
+        carePlanVersion: {type: integer, nullable: true}
+        serviceInstructions:
+          type: array
+          description: Names/instructions of the plan nodes assigned to this visit, not the full care plan.
+          items: {type: string}
+        tasks:
+          type: array
+          items: {$ref: '#/components/schemas/CaregiverExecutionTask'}
+        requiredEvidenceKinds:
+          type: array
+          uniqueItems: true
+          items: {type: string, enum: [CHECKLIST, PHOTO, READING]}
+    CaregiverExecutionTask:
+      type: object
+      required: [id, visitId, name, status]
+      properties:
+        id: {type: integer, format: int64}
+        visitId: {type: integer, format: int64}
+        carePlanNodeId: {type: integer, format: int64, nullable: true}
+        name: {type: string}
+        status: {type: string, enum: [PENDING, DONE, SKIPPED, REFUSED]}
+        outcome: {type: string, nullable: true}
+        caregiverNote: {type: string, nullable: true}
+        completedAt: {type: string, nullable: true, description: Singapore local date-time}
     ElderListItemResponse:
       type: object
       additionalProperties: false

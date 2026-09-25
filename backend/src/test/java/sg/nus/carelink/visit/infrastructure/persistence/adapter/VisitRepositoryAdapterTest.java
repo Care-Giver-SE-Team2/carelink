@@ -141,4 +141,19 @@ class VisitRepositoryAdapterTest {
         assertThat(saved)
                 .isNotNull();
     }
+
+    @Test
+    void findsAssignedVisitsWithoutChangingTheElderConfirmationQuery() {
+        var from = java.time.LocalDate.of(2026, 9, 24).atStartOfDay();
+        var until = from.plusDays(7);
+        var entity = new VisitJpaEntity();
+        entity.setId(9L);
+        entity.setCaregiverId(2L);
+        when(jpa.findByCaregiverIdAndScheduledStartGreaterThanEqualAndScheduledStartLessThanOrderByScheduledStartAscIdAsc(
+                2L, from, until)).thenReturn(List.of(entity));
+
+        assertThat(adapter.findAssigned(2L, from, until)).extracting(Visit::id).containsExactly(9L);
+        verify(jpa).findByCaregiverIdAndScheduledStartGreaterThanEqualAndScheduledStartLessThanOrderByScheduledStartAscIdAsc(
+                2L, from, until);
+    }
 }

@@ -26,6 +26,12 @@ class VisitRepositoryAdapter
     }
 
     @Override
+    public List<Visit> findAssigned(Long caregiverId, java.time.LocalDateTime from, java.time.LocalDateTime until) {
+        return jpa.findByCaregiverIdAndScheduledStartGreaterThanEqualAndScheduledStartLessThanOrderByScheduledStartAscIdAsc(
+                caregiverId, from, until).stream().map(VisitMapper::toDomain).toList();
+    }
+
+    @Override
     public Optional<Visit> findById(Long id) {
         return jpa.findById(id)
                 .map(VisitMapper::toDomain);

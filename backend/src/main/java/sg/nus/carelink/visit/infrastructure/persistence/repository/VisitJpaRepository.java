@@ -18,6 +18,9 @@ public interface VisitJpaRepository
         extends JpaRepository<VisitJpaEntity, Long>,
                 JpaSpecificationExecutor<VisitJpaEntity> {
 
+    List<VisitJpaEntity> findByCaregiverIdAndScheduledStartGreaterThanEqualAndScheduledStartLessThanOrderByScheduledStartAscIdAsc(
+            Long caregiverId, java.time.LocalDateTime from, java.time.LocalDateTime until);
+
     /**
      * EL01: finds completed visits for an elder, with the most recent
      * scheduled visit first.

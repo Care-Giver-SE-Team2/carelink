@@ -9,6 +9,7 @@ import sg.nus.carelink.visit.domain.model.Visit;
  * Port for visit persistence.
  */
 public interface VisitRepository {
+	java.util.List<Visit> findAssigned(Long caregiverId, java.time.LocalDateTime from, java.time.LocalDateTime until);
 
     Optional<Visit> findById(Long id);
 

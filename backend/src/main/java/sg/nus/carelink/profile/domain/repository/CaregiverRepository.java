@@ -11,6 +11,8 @@ import sg.nus.carelink.profile.domain.model.Caregiver;
  */
 public interface CaregiverRepository {
 
+	Optional<Caregiver> findByUserId(Long userId);
+
 	Optional<Caregiver> findById(Long id);
 
 	Caregiver save(Caregiver caregiver);
