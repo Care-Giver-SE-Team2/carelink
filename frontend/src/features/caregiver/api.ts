@@ -2,9 +2,16 @@ import { api } from '../../shared/api/client'
 
 export type CaregiverProfile = { id: number; userId: number; fullName: string; phone: string | null; sector: string | null; dialects: string | null; status: string }
 export type VisitSummary = { id: number; elderId: number; elderName: string; serviceType: string | null; scheduledStart: string; scheduledEnd: string | null; status: string; version: number }
+export type RenewalState = 'NONE' | 'PENDING_REVIEW' | 'REJECTED' | 'APPROVED_NOT_EFFECTIVE' | 'REVOKED' | 'CHECK_REQUIRED'
+export type CredentialAlert = {
+  id: number; name: string; certificateNo: string | null; expiryDate: string; status: string; warning: 'EXPIRED' | 'EXPIRING'
+  daysUntilExpiry?: number; renewalState?: RenewalState; renewalValidFrom?: string | null
+}
+export type CredentialAlertContext = { asOfDate: string; warningDays: number; reviewRequired: boolean }
 export type Schedule = {
   dateFrom: string; dateTo: string; timeZone: string; upcomingVisits: VisitSummary[]
-  certificationAlerts: { id: number; name: string; certificateNo: string | null; expiryDate: string; status: string; warning: 'EXPIRED' | 'EXPIRING' }[]
+  certificationAlerts: CredentialAlert[]
+  credentialAlertContext?: CredentialAlertContext
 }
 export type WorkPack = {
   visit: VisitSummary

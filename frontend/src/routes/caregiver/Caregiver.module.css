@@ -18,7 +18,7 @@
 .time { color: #275f52; font-size: 14px; font-weight: 700; }
 .badge { display: inline-block; font-size: 11px; font-weight: 700; letter-spacing: .03em; padding: 5px 9px; border-radius: 20px; background: #e9f3ec; color: #22583d; }
 .card .linkButton { margin-top: 14px; background: #1c594b; color: white; border-color: #1c594b; }
-.alert { background: #fff9ed; border: 1px solid #ecd8ae; border-radius: 10px; padding: 14px 16px; margin: 10px 0; color: #714f1f; }
+.alert { background: #fff9ed; border: 1px solid #ecd8ae; border-radius: 10px; padding: 14px 16px; margin: 10px 0; color: #714f1f; overflow-wrap: anywhere; }
 .expired { background: #fff1ee; border-color: #edc4b8; color: #8c3425; }
 .alert p { margin: 4px 0 0; line-height: 1.5; font-size: 14px; }
 .empty { border: 1px dashed #bdcec4; border-radius: 12px; text-align: center; padding: 36px 18px; color: #526b68; background: #f8faf7; }
