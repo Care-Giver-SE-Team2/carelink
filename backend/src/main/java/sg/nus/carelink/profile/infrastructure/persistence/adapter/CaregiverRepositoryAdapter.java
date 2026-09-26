@@ -1,6 +1,8 @@
 package sg.nus.carelink.profile.infrastructure.persistence.adapter;
 
+import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 import org.springframework.stereotype.Repository;
 
@@ -29,6 +31,16 @@ class CaregiverRepositoryAdapter implements CaregiverRepository {
 	@Override
 	public Optional<Caregiver> findById(Long id) {
 		return jpa.findById(id).map(CaregiverMapper::toDomain);
+	}
+
+	@Override
+	public List<Caregiver> findAll() {
+		return jpa.findAllByOrderByFullNameAsc().stream().map(CaregiverMapper::toDomain).toList();
+	}
+
+	@Override
+	public List<Caregiver> findByIds(Set<Long> ids) {
+		return jpa.findByIdIn(ids).stream().map(CaregiverMapper::toDomain).toList();
 	}
 
 	@Override

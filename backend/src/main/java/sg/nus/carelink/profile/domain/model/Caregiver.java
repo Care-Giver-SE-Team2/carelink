@@ -22,6 +22,15 @@ public record Caregiver(
 		LocalDateTime createdAt,
 		LocalDateTime updatedAt) {
 
+	/**
+	 * Whether a manager may name this caregiver as an elder's primary caregiver. ONBOARDING
+	 * caregivers have no published credential yet and INACTIVE ones have left, so neither can
+	 * take on an elder; BUSY only describes today's load and does not block.
+	 */
+	public boolean isAssignable() {
+		return status == Status.AVAILABLE || status == Status.BUSY;
+	}
+
 	public enum Status {
 		ONBOARDING, AVAILABLE, BUSY, INACTIVE
 	}

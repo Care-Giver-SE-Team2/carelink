@@ -14,11 +14,13 @@ import {
 import { useElders } from '../lib/useElders'
 import { formatDate, formatNextVisit } from '../lib/nextVisit'
 import { fetchCarePlanNodes, fetchLatestCarePlan } from '../../../shared/api/careplan'
+import { removePrimaryCaregiver } from '../../../shared/api/profile'
 import {
   Avatar,
   Badge,
   BodyText,
   Button,
+  Callout,
   Card,
   Eyebrow,
   IdentityHeader,
@@ -32,7 +34,6 @@ import {
   SidePanel,
   SplitLayout,
 } from '../../../shared/components/ui'
-import { getAssignment, removeAssignment } from '../data/caregivers'
 import { CaregiverPickerModal } from '../components/CaregiverPickerModal'
 import { EmptyAssignSlot } from '../components/EmptyAssignSlot'
 import { RemoveCaregiverDialog } from '../components/RemoveCaregiverDialog'
@@ -86,6 +87,7 @@ export default function Elders() {
   const [assignTarget, setAssignTarget] = useState<ElderRow | null>(null)
   const [removeTarget, setRemoveTarget] = useState<ElderRow | null>(null)
   const [stopTarget, setStopTarget] = useState<ElderRow | null>(null)
+  const [removeError, setRemoveError] = useState<string | null>(null)
 
   useEffect(() => {
     const id = setTimeout(() => setDebouncedQuery(query), SEARCH_DEBOUNCE_MS)
@@ -114,8 +116,7 @@ export default function Elders() {
       sorted.sort((a, b) => PLAN_STATUS_RANK[a.planStatus] - PLAN_STATUS_RANK[b.planStatus])
     // Elders needing attention float to the top, regardless of the chosen sort — each stable
     // sort only reorders across its own boundary, so the chosen order still holds within a group.
-    // No care plan outranks no caregiver (primaryCaregiver is always null today — rostering isn't
-    // wired up yet — so this pass is a no-op for now, but stays correct once it is).
+    // No care plan outranks no caregiver.
     sorted.sort((a, b) => (a.primaryCaregiver ? 1 : 0) - (b.primaryCaregiver ? 1 : 0))
     sorted.sort((a, b) => (a.planStatus === 'none' ? 0 : 1) - (b.planStatus === 'none' ? 0 : 1))
     // A stopped plan is history, not something to act on, so those elders sink to the bottom.
@@ -129,7 +130,6 @@ export default function Elders() {
   )
 
   const selected: ElderRow | undefined = selectedId ? elders.find((e) => e.id === selectedId) : undefined
-  const selectedAssignment = selected ? getAssignment(selected.id) : undefined
 
   const { data: selectedLatestPlan } = useQuery({
     queryKey: ['carePlan', 'latest', selected?.id],
@@ -356,7 +356,7 @@ export default function Elders() {
             key="caregiver"
             name={selected.primaryCaregiver}
             role="Primary caregiver"
-            meta={selectedAssignment ? `since ${selectedAssignment.since}` : undefined}
+            meta={selected.primaryCaregiverSince ? `since ${formatDate(selected.primaryCaregiverSince)}` : undefined}
             actions={
               <>
                 <Button onClick={() => setAssignTarget(selected)}>Change</Button>
@@ -376,6 +376,11 @@ export default function Elders() {
               onAction={() => setAssignTarget(selected)}
             />
           )
+        ),
+        removeError && (
+          <Callout key="removeError" tone="danger" role="alert">
+            {removeError}
+          </Callout>
         ),
         <Card key="family" title="Family contacts">
           <MetaText>No family contacts on file yet.</MetaText>
@@ -424,10 +429,18 @@ export default function Elders() {
           caregiverName={removeTarget.primaryCaregiver}
           elderName={removeTarget.name}
           onCancel={() => setRemoveTarget(null)}
-          onConfirm={() => {
-            removeAssignment(removeTarget.id)
-            queryClient.invalidateQueries({ queryKey: ['elders'] })
+          onConfirm={async () => {
+            const target = removeTarget
             setRemoveTarget(null)
+            setRemoveError(null)
+            try {
+              await removePrimaryCaregiver(target.id)
+              queryClient.invalidateQueries({ queryKey: ['elders'] })
+            } catch (e) {
+              setRemoveError(
+                `Could not remove ${target.primaryCaregiver} from ${target.name}${e instanceof Error ? `: ${e.message}` : ''}.`,
+              )
+            }
           }}
         />
       )}

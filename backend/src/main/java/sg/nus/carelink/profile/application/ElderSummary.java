@@ -11,6 +11,16 @@ import sg.nus.carelink.profile.domain.model.Elder;
  * ended early and has no newer version replacing it yet); planVersion is null exactly when
  * planStatus is "none". nextVisitDate is null unless planStatus
  * is "published" and the plan has at least one scheduled visit on or after today.
+ * primaryCaregiver is null while the elder has none assigned.
  */
-public record ElderSummary(Elder elder, String planStatus, Integer planVersion, LocalDate nextVisitDate) {
+public record ElderSummary(
+		Elder elder,
+		String planStatus,
+		Integer planVersion,
+		LocalDate nextVisitDate,
+		PrimaryCaregiverSummary primaryCaregiver) {
+
+	public ElderSummary(Elder elder, String planStatus, Integer planVersion, LocalDate nextVisitDate) {
+		this(elder, planStatus, planVersion, nextVisitDate, null);
+	}
 }

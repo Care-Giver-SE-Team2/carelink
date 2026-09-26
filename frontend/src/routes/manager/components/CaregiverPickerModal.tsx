@@ -1,15 +1,11 @@
 import { useState } from 'react'
 import type { ElderRow } from '../data/elders'
-import {
-  CAREGIVERS,
-  assignCaregiver,
-  getAssignment,
-  maxHoursPerDay,
-  priorVisitCount,
-  removeAssignment,
-} from '../data/caregivers'
+import { useCaregivers } from '../lib/useCaregivers'
+import { formatDate } from '../lib/nextVisit'
+import { assignPrimaryCaregiver, removePrimaryCaregiver } from '../../../shared/api/profile'
+import type { CaregiverOption } from '../../../shared/api/profile'
 import { RemoveCaregiverDialog } from './RemoveCaregiverDialog'
-import { Avatar, Button, Eyebrow, ListRow, Modal, SearchField } from '../../../shared/components/ui'
+import { Avatar, Button, Callout, Eyebrow, ListRow, MetaText, Modal, SearchField } from '../../../shared/components/ui'
 import styles from './CaregiverPickerModal.module.css'
 
 type Props = {
@@ -19,28 +15,99 @@ type Props = {
   onClose: () => void
 }
 
-/** An expired certification blocks assignment (safety); a sector mismatch is shown but doesn't. */
+const INELIGIBLE_REASON: Partial<Record<CaregiverOption['status'], string>> = {
+  ONBOARDING: 'onboarding',
+  INACTIVE: 'inactive',
+}
+
+function errorText(error: unknown): string {
+  return error instanceof Error ? error.message : 'Something went wrong'
+}
+
+/** An onboarding or inactive caregiver can't be assigned; a sector mismatch is shown but doesn't block. */
 export function CaregiverPickerModal({ elder, onAssign, onRemove, onClose }: Props) {
   const [query, setQuery] = useState('')
   const [confirmingRemove, setConfirmingRemove] = useState(false)
-
-  const assignment = getAssignment(elder.id)
-  const currentCaregiver = assignment
-    ? CAREGIVERS.find((c) => c.id === assignment.caregiverId)
-    : undefined
+  const [saving, setSaving] = useState(false)
+  const [saveError, setSaveError] = useState<string | null>(null)
+  const { data: caregivers = [], isLoading, isError, error } = useCaregivers()
 
   const q = query.trim().toLowerCase()
-  const visibleCaregivers = q ? CAREGIVERS.filter((c) => c.name.toLowerCase().includes(q)) : CAREGIVERS
+  const visibleCaregivers = q ? caregivers.filter((c) => c.fullName.toLowerCase().includes(q)) : caregivers
 
-  function handleAssign(caregiverId: string) {
-    assignCaregiver(elder.id, caregiverId)
-    onAssign(caregiverId)
+  async function handleAssign(caregiverId: number) {
+    setSaving(true)
+    setSaveError(null)
+    try {
+      await assignPrimaryCaregiver(elder.id, caregiverId)
+      onAssign(String(caregiverId))
+    } catch (e) {
+      setSaveError(`Could not assign caregiver: ${errorText(e)}`)
+    } finally {
+      setSaving(false)
+    }
   }
 
-  function handleConfirmRemove() {
-    removeAssignment(elder.id)
+  async function handleConfirmRemove() {
     setConfirmingRemove(false)
-    onRemove()
+    setSaving(true)
+    setSaveError(null)
+    try {
+      await removePrimaryCaregiver(elder.id)
+      onRemove()
+    } catch (e) {
+      setSaveError(`Could not remove caregiver: ${errorText(e)}`)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  let list
+  if (isLoading) {
+    list = <MetaText>Loading caregivers…</MetaText>
+  } else if (isError) {
+    list = <MetaText>Could not load caregivers: {errorText(error)}</MetaText>
+  } else {
+    list = (
+      <div role="listbox" aria-label="Caregivers" className={styles.list}>
+        {visibleCaregivers.map((c) => {
+          const isCurrent = String(c.id) === elder.primaryCaregiverId
+          const outsideSector = elder.sector !== '' && c.sector !== elder.sector
+          const metaParts = [
+            c.sector,
+            outsideSector ? 'outside sector' : null,
+            INELIGIBLE_REASON[c.status] ?? (c.status === 'BUSY' ? 'busy today' : null),
+          ].filter(Boolean)
+
+          return (
+            <ListRow
+              key={c.id}
+              selected={isCurrent}
+              dimmed={!c.assignable && !isCurrent}
+              leading={<Avatar size={32} />}
+              title={c.fullName}
+              meta={metaParts.join(' · ')}
+              trailing={
+                isCurrent ? (
+                  <>
+                    <Eyebrow>Current</Eyebrow>
+                    <Button variant="dangerOutline" disabled={saving} onClick={() => setConfirmingRemove(true)}>
+                      Remove
+                    </Button>
+                  </>
+                ) : (
+                  c.assignable && (
+                    <Button disabled={saving} onClick={() => handleAssign(c.id)}>
+                      Assign
+                    </Button>
+                  )
+                )
+              }
+            />
+          )
+        })}
+      </div>
+    )
   }
 
   return (
@@ -50,8 +117,10 @@ export function CaregiverPickerModal({ elder, onAssign, onRemove, onClose }: Pro
         eyebrowTone="accent"
         title={`${elder.name} · sector ${elder.sector || '—'}`}
         meta={
-          currentCaregiver && assignment
-            ? `Currently ${currentCaregiver.name} · since ${assignment.since}`
+          elder.primaryCaregiver
+            ? `Currently ${elder.primaryCaregiver}${
+                elder.primaryCaregiverSince ? ` · since ${formatDate(elder.primaryCaregiverSince)}` : ''
+              }`
             : 'Currently unassigned'
         }
         width={460}
@@ -62,56 +131,18 @@ export function CaregiverPickerModal({ elder, onAssign, onRemove, onClose }: Pro
           </Button>
         }
       >
+        {saveError && (
+          <Callout tone="danger" role="alert">
+            {saveError}
+          </Callout>
+        )}
         <SearchField placeholder="Search caregivers…" value={query} onChange={setQuery} />
-
-        <div role="listbox" aria-label="Caregivers" className={styles.list}>
-          {visibleCaregivers.map((c) => {
-            const isCurrent = c.id === assignment?.caregiverId
-            const outsideSector = elder.sector !== '' && c.sector !== elder.sector
-            const ineligible = !c.firstAidValid
-
-            const metaParts = ineligible
-              ? [c.sector, outsideSector ? 'outside sector' : null, 'first aid expired'].filter(Boolean)
-              : [
-                  c.sector,
-                  'first aid valid',
-                  outsideSector ? 'outside sector' : null,
-                  (() => {
-                    const visits = priorVisitCount(elder.id, c.id)
-                    return visits > 0 ? `${visits} prior visit${visits === 1 ? '' : 's'}` : null
-                  })(),
-                  `${c.workloadHoursToday.toFixed(1)} / ${maxHoursPerDay().toFixed(1)} h today`,
-                ].filter(Boolean)
-
-            return (
-              <ListRow
-                key={c.id}
-                selected={isCurrent}
-                dimmed={ineligible && !isCurrent}
-                leading={<Avatar size={32} />}
-                title={c.name}
-                meta={metaParts.join(' · ')}
-                trailing={
-                  isCurrent ? (
-                    <>
-                      <Eyebrow>Current</Eyebrow>
-                      <Button variant="dangerOutline" onClick={() => setConfirmingRemove(true)}>
-                        Remove
-                      </Button>
-                    </>
-                  ) : (
-                    !ineligible && <Button onClick={() => handleAssign(c.id)}>Assign</Button>
-                  )
-                }
-              />
-            )
-          })}
-        </div>
+        {list}
       </Modal>
 
-      {confirmingRemove && currentCaregiver && (
+      {confirmingRemove && elder.primaryCaregiver && (
         <RemoveCaregiverDialog
-          caregiverName={currentCaregiver.name}
+          caregiverName={elder.primaryCaregiver}
           elderName={elder.name}
           onCancel={() => setConfirmingRemove(false)}
           onConfirm={handleConfirmRemove}
