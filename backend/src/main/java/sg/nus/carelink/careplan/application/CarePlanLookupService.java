@@ -2,7 +2,6 @@ package sg.nus.carelink.careplan.application;
 
 import java.time.DayOfWeek;
 import java.time.LocalDate;
-import java.util.EnumSet;
 import java.util.Optional;
 import java.util.Set;
 
@@ -11,6 +10,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import sg.nus.carelink.careplan.domain.model.CarePlan;
 import sg.nus.carelink.careplan.domain.model.CarePlanNode;
+import sg.nus.carelink.careplan.domain.model.ScheduleDays;
 import sg.nus.carelink.careplan.domain.repository.CarePlanNodeRepository;
 import sg.nus.carelink.careplan.domain.repository.CarePlanRepository;
 
@@ -39,7 +39,7 @@ class CarePlanLookupService implements CarePlanLookup {
 		}
 		Set<DayOfWeek> scheduledDays = carePlanNodes.findByCarePlanId(plan.id()).stream()
 				.map(CarePlanNode::scheduleDays)
-				.flatMap(days -> daysOf(days).stream())
+				.flatMap(days -> ScheduleDays.decode(days).stream())
 				.collect(java.util.stream.Collectors.toSet());
 		if (scheduledDays.isEmpty()) {
 			return Optional.empty();
@@ -54,32 +54,4 @@ class CarePlanLookupService implements CarePlanLookup {
 		return Optional.empty();
 	}
 
-	private static final Set<DayOfWeek> ALL_DAYS = EnumSet.allOf(DayOfWeek.class);
-
-	private static Set<DayOfWeek> daysOf(String scheduleDays) {
-		if (scheduleDays == null || scheduleDays.isBlank()) {
-			return Set.of();
-		}
-		if ("DAILY".equals(scheduleDays)) {
-			return ALL_DAYS;
-		}
-		Set<DayOfWeek> days = EnumSet.noneOf(DayOfWeek.class);
-		for (String code : scheduleDays.split(",")) {
-			days.add(parseDay(code));
-		}
-		return days;
-	}
-
-	private static DayOfWeek parseDay(String code) {
-		return switch (code) {
-			case "MON" -> DayOfWeek.MONDAY;
-			case "TUE" -> DayOfWeek.TUESDAY;
-			case "WED" -> DayOfWeek.WEDNESDAY;
-			case "THU" -> DayOfWeek.THURSDAY;
-			case "FRI" -> DayOfWeek.FRIDAY;
-			case "SAT" -> DayOfWeek.SATURDAY;
-			case "SUN" -> DayOfWeek.SUNDAY;
-			default -> throw new IllegalArgumentException("Unknown schedule day: " + code);
-		};
-	}
 }

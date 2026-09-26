@@ -2,16 +2,18 @@ package sg.nus.carelink.careplan.application;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.DayOfWeek;
 import java.time.LocalDate;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.Optional;
-import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import sg.nus.carelink.careplan.domain.model.CarePlan;
 import sg.nus.carelink.careplan.domain.model.CarePlanNode;
+import sg.nus.carelink.careplan.domain.model.ScheduleDays;
 import sg.nus.carelink.careplan.domain.repository.CarePlanNodeRepository;
 import sg.nus.carelink.careplan.domain.repository.CarePlanRepository;
 import sg.nus.carelink.shared.error.BusinessRuleViolation;
@@ -110,12 +112,11 @@ public class CarePlanService {
 	}
 
 	private static String scheduleDaysOf(List<VisitInput> visits) {
-		if (visits.size() == 7) {
-			return "DAILY";
+		EnumSet<DayOfWeek> days = EnumSet.noneOf(DayOfWeek.class);
+		for (VisitInput visit : visits) {
+			days.add(ScheduleDays.dayOf(visit.day()));
 		}
-		return visits.stream()
-				.map(v -> v.day().substring(0, Math.min(3, v.day().length())).toUpperCase())
-				.collect(Collectors.joining(","));
+		return ScheduleDays.encode(days);
 	}
 
 	private static BigDecimal minutesToHours(int minutes) {
