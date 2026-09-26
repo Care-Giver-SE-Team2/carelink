@@ -1,0 +1,38 @@
+.row {
+  display: grid;
+  padding: 0 20px;
+}
+
+.headerRow {
+  border-bottom: 1px solid var(--text);
+}
+
+.headerCell {
+  padding: 8px 0;
+}
+
+.bodyRow {
+  align-items: center;
+  border-bottom: 1px solid var(--border-light);
+}
+
+/* A fixed 20px line box, so a row's height doesn't depend on the page's body type. */
+.cell {
+  min-width: 0;
+  padding: 11px 0;
+  line-height: 20px;
+}
+
+.danger {
+  background: var(--danger-tint);
+}
+
+.info {
+  background: var(--accent-tint);
+}
+
+.note {
+  padding: 14px 20px;
+  font: 400 11px/1 var(--font-mono);
+  color: var(--text-faint);
+}

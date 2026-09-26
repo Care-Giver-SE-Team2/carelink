@@ -38,6 +38,10 @@
   color: var(--text-faint);
 }
 
+.eyebrow.wide {
+  letter-spacing: 0.1em;
+}
+
 .eyebrow.danger {
   color: var(--danger);
 }

@@ -1,0 +1,30 @@
+.strip {
+  display: flex;
+  margin: 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.cell {
+  flex: 1;
+  min-width: 0;
+  padding: 16px 20px;
+  border-right: 1px solid var(--border);
+}
+
+.cell:last-child {
+  border-right: none;
+}
+
+.value {
+  margin: 8px 0 0;
+  font: 500 30px/1.1 var(--font-mono);
+  color: var(--text);
+}
+
+.info {
+  color: var(--accent);
+}
+
+.danger {
+  color: var(--danger);
+}

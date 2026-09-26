@@ -36,7 +36,44 @@ export function Badge({
   )
 }
 
-/** Neutral outlined label, e.g. a required certification ("FIRST AID"). */
-export function Tag({ children }: { children: ReactNode }) {
-  return <span className={styles.tag}>{children}</span>
+export type TagTone = 'ink' | 'danger' | 'muted' | 'accent'
+
+/**
+ * Outlined label, e.g. a required certification ("FIRST AID"). `solid` fills it in the
+ * tone's colour ("SEV 1", "MODEL"); `compact` is the tighter, tracked size used for
+ * severity, role and source labels.
+ */
+export function Tag({
+  children,
+  tone = 'ink',
+  solid = false,
+  compact = false,
+  className,
+}: {
+  children: ReactNode
+  tone?: TagTone
+  solid?: boolean
+  compact?: boolean
+  className?: string
+}) {
+  return (
+    <span className={cx(styles.tag, styles[`tag_${tone}`], solid && styles.solid, compact && styles.tagCompact, className)}>
+      {children}
+    </span>
+  )
+}
+
+export type VisitState = 'closed' | 'in_visit' | 'no_checkin' | 'scheduled' | 'needs_cover'
+
+const VISIT_LABELS: Record<VisitState, string> = {
+  closed: 'CLOSED',
+  in_visit: 'IN VISIT',
+  no_checkin: 'NO CHECK-IN',
+  scheduled: 'SCHEDULED',
+  needs_cover: 'NEEDS COVER',
+}
+
+/** Where one visit stands today — the Badge look, keyed by visit state instead of plan status. */
+export function VisitStateBadge({ state, className }: { state: VisitState; className?: string }) {
+  return <span className={cx(styles.badge, styles.visit, styles[`visit_${state}`], className)}>{VISIT_LABELS[state]}</span>
 }

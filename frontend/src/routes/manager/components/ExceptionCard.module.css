@@ -1,0 +1,62 @@
+.card {
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--border-light);
+}
+
+.sev1 {
+  background: var(--danger-tint);
+}
+
+.top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.idGroup {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.id {
+  font: 400 10px/1 var(--font-mono);
+  color: var(--text-faint);
+}
+
+.countdown {
+  font: 600 13px/1 var(--font-mono);
+  color: var(--text);
+}
+
+.sev1 .countdown {
+  color: var(--danger);
+}
+
+.title {
+  margin: 9px 0 0;
+  font: 600 14px/1.35 var(--font);
+  color: var(--text);
+}
+
+.description {
+  margin: 4px 0 0;
+  font: 400 12px/1.5 var(--font);
+  color: var(--text-tertiary);
+}
+
+.meta {
+  margin: 8px 0 0;
+  font: 400 11px/1 var(--font-mono);
+  color: var(--text-muted);
+}
+
+.description + .meta {
+  margin-top: 10px;
+}
+
+.actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+}

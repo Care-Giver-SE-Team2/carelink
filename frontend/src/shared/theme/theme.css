@@ -49,6 +49,12 @@
   --backdrop: rgba(20, 20, 18, 0.45);
   --shadow-modal: 0 12px 32px rgba(0, 0, 0, 0.12);
 
+  /* Today board handoff additions. Its row tints reuse --danger-tint/--accent-tint and
+     its nav divider reuses --border; these are the values it adds on top. */
+  --border-neutral: #cccccc; /* Neutral outline badge (SCHEDULED) */
+  --rail: #d8d8d8;           /* Timeline connector */
+  --node-pending: #b8b8b8;   /* Timeline pending node outline */
+
   --size-body: 15px;
   --size-heading: 22px;
   --radius: 0;           /* no rounded corners anywhere in the standard theme */

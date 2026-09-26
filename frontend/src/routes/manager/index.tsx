@@ -10,6 +10,7 @@ import Caregivers from './pages/Caregivers'
 import Certifications from './pages/Certifications'
 import Reports from './pages/Reports'
 import ReportDetail from './pages/reports/ReportDetail'
+import Quality from './pages/Quality'
 
 /**
  * Keys CarePlan by elderId so navigating between two elders' plans (e.g. via
@@ -22,7 +23,7 @@ function CarePlanRoute() {
 }
 
 /**
- * Manager console (主管台) — routes for the seven sidebar screens.
+ * Manager console (主管台) — routes for the eight sidebar screens.
  *
  * Each page owns its content and renders itself inside ManagerShell; this
  * file only maps sidebar paths to pages. See README.md in this folder for the
@@ -41,6 +42,7 @@ export default function ManagerHome() {
       <Route path="certifications" element={<Certifications />} />
       <Route path="reports" element={<Reports />} />
       <Route path="reports/:id" element={<ReportDetail />} />
+      <Route path="quality" element={<Quality />} />
     </Routes>
   )
 }
