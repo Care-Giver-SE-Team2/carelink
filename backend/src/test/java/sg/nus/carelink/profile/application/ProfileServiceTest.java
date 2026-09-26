@@ -11,7 +11,9 @@ import java.util.List;
 import org.junit.jupiter.api.Test;
 
 import sg.nus.carelink.careplan.domain.model.CarePlan;
+import sg.nus.carelink.profile.domain.model.Caregiver;
 import sg.nus.carelink.profile.domain.model.Elder;
+import sg.nus.carelink.profile.domain.model.PrimaryCaregiverAssignment;
 import sg.nus.carelink.shared.error.ResourceNotFound;
 
 class ProfileServiceTest {
@@ -20,7 +22,13 @@ class ProfileServiceTest {
 
         private final FakeCarePlanLookup carePlans = new FakeCarePlanLookup();
 
-        private final ProfileService service = new ProfileService(repository, carePlans);
+        private final InMemoryPrimaryCaregiverAssignmentRepository primaryCaregivers =
+                        new InMemoryPrimaryCaregiverAssignmentRepository();
+
+        private final InMemoryCaregiverRepository caregivers = new InMemoryCaregiverRepository();
+
+        private final ProfileService service =
+                        new ProfileService(repository, carePlans, primaryCaregivers, caregivers);
 
         @Test
         void findsWhatWasSaved() {
@@ -66,6 +74,22 @@ class ProfileServiceTest {
 
                 assertThat(summaries)
                                 .containsExactly(new ElderSummary(saved, "none", null, null));
+        }
+
+        @Test
+        void listsTheAssignedPrimaryCaregiverAndLeavesOthersNull() {
+                Elder assigned = saveElder(1L);
+                Elder unassigned = saveElder(2L);
+                Caregiver aisyah = caregivers.save("Aisyah N.", Caregiver.Status.AVAILABLE);
+                LocalDateTime since = LocalDateTime.of(2026, 9, 20, 9, 0);
+                primaryCaregivers.save(new PrimaryCaregiverAssignment(assigned.id(), aisyah.id(), since));
+
+                List<ElderSummary> summaries = service.listElders();
+
+                assertThat(summaries).containsExactlyInAnyOrder(
+                                new ElderSummary(assigned, "none", null, null,
+                                                new PrimaryCaregiverSummary(aisyah.id(), "Aisyah N.", since)),
+                                new ElderSummary(unassigned, "none", null, null));
         }
 
         @Test

@@ -45,7 +45,8 @@ class FamilyElderQueryServiceTest {
 	private final InMemoryElderRepository elders = spy(new InMemoryElderRepository());
 	private final CarePlanLookup carePlans = mock(CarePlanLookup.class);
 	private final FamilyElderQueryService service = new FamilyElderQueryService(
-			access, new ProfileService(elders, carePlans),
+			access, new ProfileService(elders, carePlans,
+					new InMemoryPrimaryCaregiverAssignmentRepository(), new InMemoryCaregiverRepository()),
 			Clock.fixed(Instant.parse("2026-09-22T16:30:00Z"), ZoneOffset.UTC), audit);
 
 	@BeforeEach

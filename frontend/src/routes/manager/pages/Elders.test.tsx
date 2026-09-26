@@ -1,4 +1,4 @@
-import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
@@ -15,10 +15,12 @@ afterEach(() => {
   vi.useRealTimers()
 })
 
+const unassigned = { primaryCaregiverId: null, primaryCaregiverName: null, primaryCaregiverAssignedAt: null }
+
 const elders: ElderListItem[] = [
-  { id: 1, fullName: 'Chan Bee Choo', dateOfBirth: '1943-01-01', address: 'Bishan St 23', sector: 'S31', planStatus: 'published', planVersion: 4, nextVisitDate: null },
-  { id: 2, fullName: 'Goh Bee Lian', dateOfBirth: '1938-01-01', address: 'Bishan St 11', sector: 'S31', planStatus: 'none', planVersion: null, nextVisitDate: null },
-  { id: 3, fullName: 'Kamala Devi Rajan', dateOfBirth: '1950-01-01', address: 'Toa Payoh Lor 4', sector: 'S34', planStatus: 'draft', planVersion: 5, nextVisitDate: null },
+  { id: 1, fullName: 'Chan Bee Choo', dateOfBirth: '1943-01-01', address: 'Bishan St 23', sector: 'S31', planStatus: 'published', planVersion: 4, nextVisitDate: null, ...unassigned },
+  { id: 2, fullName: 'Goh Bee Lian', dateOfBirth: '1938-01-01', address: 'Bishan St 11', sector: 'S31', planStatus: 'none', planVersion: null, nextVisitDate: null, ...unassigned },
+  { id: 3, fullName: 'Kamala Devi Rajan', dateOfBirth: '1950-01-01', address: 'Toa Payoh Lor 4', sector: 'S34', planStatus: 'draft', planVersion: 5, nextVisitDate: null, ...unassigned },
 ]
 
 beforeEach(() => {
@@ -76,4 +78,51 @@ it('filters by name after the search debounce', async () => {
   act(() => vi.advanceTimersByTime(200))
   expect(screen.queryByRole('option', { name: /Kamala/ })).not.toBeInTheDocument()
   expect(screen.getByText('2 of 3 shown · matching "bee"')).toBeInTheDocument()
+})
+
+const caregivers: profileApi.CaregiverOption[] = [
+  { id: 3, fullName: 'Aisyah N.', sector: 'S31', status: 'AVAILABLE', assignable: true },
+  { id: 4, fullName: 'New Hire', sector: 'S31', status: 'ONBOARDING', assignable: false },
+]
+
+it('assigns a primary caregiver through the API and shows it from the refreshed elder list', async () => {
+  vi.spyOn(profileApi, 'fetchCaregivers').mockResolvedValue(caregivers)
+  const assign = vi
+    .spyOn(profileApi, 'assignPrimaryCaregiver')
+    .mockResolvedValue({ caregiverId: 3, fullName: 'Aisyah N.', assignedAt: '2026-09-26T10:30:00' })
+  renderElders()
+
+  fireEvent.click(await screen.findByRole('option', { name: /Chan Bee Choo/ }))
+  vi.mocked(profileApi.fetchElderList).mockResolvedValue([
+    { ...elders[0], primaryCaregiverId: 3, primaryCaregiverName: 'Aisyah N.', primaryCaregiverAssignedAt: '2026-09-26T10:30:00' },
+    ...elders.slice(1),
+  ])
+  fireEvent.click(screen.getByRole('button', { name: 'Assign caregiver' }))
+
+  const picker = await screen.findByRole('listbox', { name: 'Caregivers' })
+  const newHire = within(picker).getByRole('option', { name: /New Hire/ })
+  expect(within(newHire).queryByRole('button', { name: 'Assign' })).not.toBeInTheDocument()
+  fireEvent.click(within(within(picker).getByRole('option', { name: /Aisyah N\./ })).getByRole('button', { name: 'Assign' }))
+
+  expect(assign).toHaveBeenCalledWith('1', 3)
+  expect(await screen.findByText(/^since 26 Sept? 2026$/)).toBeInTheDocument()
+  expect(screen.queryByRole('listbox', { name: 'Caregivers' })).not.toBeInTheDocument()
+})
+
+it('removes the primary caregiver through the API', async () => {
+  vi.mocked(profileApi.fetchElderList).mockResolvedValue([
+    { ...elders[0], primaryCaregiverId: 3, primaryCaregiverName: 'Aisyah N.', primaryCaregiverAssignedAt: '2026-09-20T09:00:00' },
+    ...elders.slice(1),
+  ])
+  const remove = vi.spyOn(profileApi, 'removePrimaryCaregiver').mockResolvedValue(undefined)
+  renderElders()
+
+  fireEvent.click(await screen.findByRole('option', { name: /Chan Bee Choo/ }))
+  expect(screen.getByText(/^since 20 Sept? 2026$/)).toBeInTheDocument()
+  vi.mocked(profileApi.fetchElderList).mockResolvedValue(elders)
+  fireEvent.click(screen.getByRole('button', { name: 'Remove' }))
+  fireEvent.click(await screen.findByRole('button', { name: 'Remove caregiver' }))
+
+  expect(remove).toHaveBeenCalledWith('1')
+  expect(await screen.findByRole('button', { name: 'Assign caregiver' })).toBeInTheDocument()
 })

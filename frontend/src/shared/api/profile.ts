@@ -24,7 +24,10 @@ export function fetchElder(id: string): Promise<ElderResponse> {
   return api<ElderResponse>(`/elders/${id}`)
 }
 
-/** Row shape for GET /api/elders — profile.controller.dto.ElderListItemResponse. */
+/**
+ * Row shape for GET /api/elders — profile.controller.dto.ElderListItemResponse. The three
+ * primaryCaregiver fields are all null while the elder has no primary caregiver.
+ */
 export type ElderListItem = {
   id: number
   fullName: string
@@ -34,6 +37,9 @@ export type ElderListItem = {
   planStatus: 'published' | 'draft' | 'stopped' | 'none'
   planVersion: number | null
   nextVisitDate: string | null
+  primaryCaregiverId: number | null
+  primaryCaregiverName: string | null
+  primaryCaregiverAssignedAt: string | null
 }
 
 /**
@@ -44,4 +50,39 @@ export type ElderListItem = {
  */
 export function fetchElderList(signal?: AbortSignal): Promise<ElderListItem[]> {
   return api<ElderListItem[]>('/elders', { signal })
+}
+
+/** One row of GET /api/caregivers — profile.controller.dto.CaregiverOptionResponse. */
+export type CaregiverOption = {
+  id: number
+  fullName: string
+  sector: string | null
+  status: 'ONBOARDING' | 'AVAILABLE' | 'BUSY' | 'INACTIVE'
+  /** Server-side Caregiver.isAssignable(): false for onboarding or inactive caregivers. */
+  assignable: boolean
+}
+
+/** Every caregiver, by name, for the manager's picker (manager only). */
+export function fetchCaregivers(): Promise<CaregiverOption[]> {
+  return api<CaregiverOption[]>('/caregivers')
+}
+
+/** PUT /api/elders/{elderId}/primary-caregiver response — profile.controller.dto.PrimaryCaregiverResponse. */
+export type PrimaryCaregiverResponse = {
+  caregiverId: number
+  fullName: string
+  assignedAt: string
+}
+
+/** Names the caregiver as the elder's primary caregiver, replacing any existing one. */
+export function assignPrimaryCaregiver(elderId: string, caregiverId: number): Promise<PrimaryCaregiverResponse> {
+  return api<PrimaryCaregiverResponse>(`/elders/${elderId}/primary-caregiver`, {
+    method: 'PUT',
+    body: JSON.stringify({ caregiverId }),
+  })
+}
+
+/** Removes the elder's primary caregiver; succeeds even if none is assigned. */
+export function removePrimaryCaregiver(elderId: string): Promise<void> {
+  return api<void>(`/elders/${elderId}/primary-caregiver`, { method: 'DELETE' })
 }

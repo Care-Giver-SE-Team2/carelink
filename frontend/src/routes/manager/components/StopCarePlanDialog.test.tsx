@@ -27,6 +27,8 @@ const elder: ElderRow = {
   planStatus: 'published',
   planVersion: 2,
   primaryCaregiver: null,
+  primaryCaregiverId: null,
+  primaryCaregiverSince: null,
   nextVisitAt: null,
 }
 
