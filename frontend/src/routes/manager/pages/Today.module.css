@@ -1,0 +1,17 @@
+.board {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 420px;
+}
+
+.roster {
+  min-width: 0;
+  border-right: 1px solid var(--border);
+}
+
+.banner {
+  padding: 0 20px 12px;
+}
+
+.note {
+  padding: 18px 20px;
+}

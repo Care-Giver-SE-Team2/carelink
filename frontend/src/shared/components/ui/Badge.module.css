@@ -40,8 +40,68 @@
 
 .tag {
   display: inline-block;
+  flex: none;
   padding: 4px 7px;
-  border: 1px solid var(--text);
+  border: 1px solid var(--tag-color);
+  color: var(--tag-color);
   font: 500 9.5px/1 var(--font-mono);
   white-space: nowrap;
+}
+
+.tag_ink {
+  --tag-color: var(--text);
+}
+
+.tag_danger {
+  --tag-color: var(--danger);
+}
+
+.tag_muted {
+  --tag-color: var(--text-muted);
+}
+
+.tag_accent {
+  --tag-color: var(--accent);
+}
+
+.tag.solid {
+  background: var(--tag-color);
+  color: var(--bg);
+}
+
+.tagCompact {
+  padding: 3px 6px;
+  font-size: 9px;
+  letter-spacing: 0.08em;
+}
+
+.visit {
+  padding: 3px 7px;
+}
+
+.visit_closed {
+  border-color: var(--success);
+  color: var(--success);
+}
+
+.visit_in_visit {
+  border-color: var(--text);
+  background: var(--text);
+  color: var(--bg);
+}
+
+.visit_no_checkin {
+  border-color: var(--danger);
+  background: var(--danger);
+  color: var(--bg);
+}
+
+.visit_scheduled {
+  border-color: var(--border-neutral);
+  color: var(--text-muted);
+}
+
+.visit_needs_cover {
+  border-color: var(--accent);
+  color: var(--accent);
 }

@@ -49,15 +49,17 @@ export function MetaText({
 /**
  * Small uppercase label over a section or field. `danger`/`accent` signal the tone of
  * what follows (e.g. a destructive dialog). Renders a <label> when given `htmlFor`.
+ * `wide` is the looser tracking used for table headers and KPI labels.
  */
 export function Eyebrow({
   children,
   className,
   id,
   tone = 'default',
+  wide = false,
   htmlFor,
-}: TextProps & { tone?: 'default' | 'danger' | 'accent'; htmlFor?: string }) {
-  const classes = cx(styles.eyebrow, tone !== 'default' && styles[tone], className)
+}: TextProps & { tone?: 'default' | 'danger' | 'accent'; wide?: boolean; htmlFor?: string }) {
+  const classes = cx(styles.eyebrow, tone !== 'default' && styles[tone], wide && styles.wide, className)
   if (htmlFor) {
     return (
       <label id={id} htmlFor={htmlFor} className={classes}>

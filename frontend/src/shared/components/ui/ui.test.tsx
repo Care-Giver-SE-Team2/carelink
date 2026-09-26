@@ -2,7 +2,20 @@ import { cleanup, fireEvent, render, screen, within } from '@testing-library/rea
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import { Badge, Button, ConfirmDialog, NumberInput, PlanTreeView, Select } from './index'
+import { MemoryRouter } from 'react-router-dom'
+import {
+  AppHeader,
+  Badge,
+  Button,
+  ConfirmDialog,
+  DataTable,
+  NavSidebar,
+  NumberInput,
+  PlanTreeView,
+  Select,
+  Timeline,
+  VisitStateBadge,
+} from './index'
 import type { PlanTreeItem } from './index'
 
 afterEach(cleanup)
@@ -32,6 +45,126 @@ describe('Badge', () => {
     )
     expect(screen.getByText('PUBLISHED v4')).toBeInTheDocument()
     expect(screen.getByText('NO PLAN YET')).toBeInTheDocument()
+  })
+})
+
+describe('VisitStateBadge', () => {
+  it('labels each visit state', () => {
+    render(
+      <>
+        <VisitStateBadge state="in_visit" />
+        <VisitStateBadge state="no_checkin" />
+        <VisitStateBadge state="needs_cover" />
+      </>,
+    )
+    expect(screen.getByText('IN VISIT')).toBeInTheDocument()
+    expect(screen.getByText('NO CHECK-IN')).toBeInTheDocument()
+    expect(screen.getByText('NEEDS COVER')).toBeInTheDocument()
+  })
+})
+
+describe('AppHeader', () => {
+  it('shows the user and role, and logs out', async () => {
+    const onLogout = vi.fn()
+    render(<AppHeader user={{ name: 'Tan Mei Ling', roleLabel: 'CARE MGR' }} onLogout={onLogout} />)
+    expect(screen.getByText('CareLink')).toBeInTheDocument()
+    expect(screen.getByText(/^Today · [A-Z][a-z]{2} \d{1,2} [A-Z][a-z]{2} \d{4} · \d{2}:\d{2}$/)).toBeInTheDocument()
+    expect(screen.getByText('Tan Mei Ling')).toBeInTheDocument()
+    expect(screen.getByText('CARE MGR')).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: 'Log out' }))
+    expect(onLogout).toHaveBeenCalledTimes(1)
+  })
+
+  it('lets a page replace the clock and the user block', () => {
+    render(<AppHeader contextLine="Elders / care plan" trailing={<span>DRAFT</span>} user={{ name: 'Tan Mei Ling', roleLabel: 'CARE MGR' }} onLogout={() => {}} />)
+    expect(screen.getByText('Elders / care plan')).toBeInTheDocument()
+    expect(screen.getByText('DRAFT')).toBeInTheDocument()
+    expect(screen.queryByText('Tan Mei Ling')).not.toBeInTheDocument()
+  })
+})
+
+describe('NavSidebar', () => {
+  it('marks the current route active and shows counts', () => {
+    render(
+      <MemoryRouter initialEntries={['/app/elders']}>
+        <NavSidebar
+          items={[
+            { label: 'Today', href: '/app', end: true },
+            { label: 'Exceptions', href: '/app/exceptions', count: 4, countTone: 'danger' },
+            { label: 'Elders', href: '/app/elders' },
+          ]}
+        />
+      </MemoryRouter>,
+    )
+    expect(screen.getByRole('link', { name: /Elders/ })).toHaveAttribute('aria-current', 'page')
+    expect(screen.getByRole('link', { name: /Today/ })).not.toHaveAttribute('aria-current')
+    expect(within(screen.getByRole('link', { name: /Exceptions/ })).getByText('4')).toBeInTheDocument()
+  })
+
+  it('hides a count of zero', () => {
+    render(
+      <MemoryRouter>
+        <NavSidebar items={[{ label: 'Exceptions', href: '/app/exceptions', count: 0, countTone: 'danger' }]} />
+      </MemoryRouter>,
+    )
+    expect(screen.getByRole('link', { name: 'Exceptions' })).toHaveTextContent(/^EExceptions$/)
+  })
+})
+
+describe('DataTable', () => {
+  type Row = { id: string; name: string; late: boolean }
+  const rows: Row[] = [
+    { id: 'a', name: 'Lim Ah Kow', late: false },
+    { id: 'b', name: 'Mohd Yusof', late: true },
+  ]
+
+  it('renders headers, cells, a tinted row and the footer', () => {
+    render(
+      <DataTable
+        label="Visits"
+        columns={[
+          { key: 'name', label: 'Elder', width: '1fr' },
+          { key: 'late', label: 'State', width: '100px', render: (r) => (r.late ? 'LATE' : 'OK') },
+        ]}
+        rows={rows}
+        rowKey={(r) => r.id}
+        rowTone={(r) => (r.late ? 'danger' : null)}
+        footer="2 visits"
+      />,
+    )
+    const table = screen.getByRole('table', { name: 'Visits' })
+    expect(within(table).getAllByRole('columnheader').map((h) => h.textContent)).toEqual(['Elder', 'State'])
+    const [, first, second] = within(table).getAllByRole('row')
+    expect(within(first).getByText('Lim Ah Kow')).toBeInTheDocument()
+    expect(within(second).getByText('LATE')).toBeInTheDocument()
+    expect(second.className).not.toBe(first.className)
+    expect(screen.getByText('2 visits')).toBeInTheDocument()
+  })
+
+  it('shows the empty note when there are no rows', () => {
+    render(<DataTable label="Visits" columns={[]} rows={[]} rowKey={() => ''} empty="No visits today." />)
+    expect(screen.getByText('No visits today.')).toBeInTheDocument()
+  })
+})
+
+describe('Timeline', () => {
+  it('lists the steps in order with their notes and the footnote', () => {
+    render(
+      <Timeline
+        steps={[
+          { label: 'Reported', sub: '09:12', state: 'done' },
+          { label: 'Notified', sub: 'unacknowledged', state: 'active' },
+          { label: 'Supervisor', state: 'pending' },
+        ]}
+        footnote="Assembled at run time."
+      />,
+    )
+    expect(screen.getAllByRole('listitem').map((li) => li.textContent)).toEqual([
+      'Reported09:12',
+      'Notifiedunacknowledged',
+      'Supervisor',
+    ])
+    expect(screen.getByText('Assembled at run time.')).toBeInTheDocument()
   })
 })
 

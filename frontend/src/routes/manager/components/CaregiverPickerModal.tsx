@@ -8,8 +8,20 @@ import { RemoveCaregiverDialog } from './RemoveCaregiverDialog'
 import { Avatar, Button, Callout, Eyebrow, ListRow, MetaText, Modal, SearchField } from '../../../shared/components/ui'
 import styles from './CaregiverPickerModal.module.css'
 
+/** Whose caregiver is being picked, and who holds it now. */
+type PickerSubject = Pick<
+  ElderRow,
+  'id' | 'name' | 'sector' | 'primaryCaregiver' | 'primaryCaregiverId' | 'primaryCaregiverSince'
+>
+
 type Props = {
-  elder: ElderRow
+  elder: PickerSubject
+  eyebrow?: string
+  /**
+   * Saves the pick. Defaults to making them the elder's primary caregiver; pass this to
+   * reuse the picker for something else, such as covering one visit.
+   */
+  assign?: (caregiver: CaregiverOption) => Promise<void>
   onAssign: (caregiverId: string) => void
   onRemove: () => void
   onClose: () => void
@@ -25,7 +37,7 @@ function errorText(error: unknown): string {
 }
 
 /** An onboarding or inactive caregiver can't be assigned; a sector mismatch is shown but doesn't block. */
-export function CaregiverPickerModal({ elder, onAssign, onRemove, onClose }: Props) {
+export function CaregiverPickerModal({ elder, eyebrow = 'Assign caregiver', assign, onAssign, onRemove, onClose }: Props) {
   const [query, setQuery] = useState('')
   const [confirmingRemove, setConfirmingRemove] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -35,12 +47,12 @@ export function CaregiverPickerModal({ elder, onAssign, onRemove, onClose }: Pro
   const q = query.trim().toLowerCase()
   const visibleCaregivers = q ? caregivers.filter((c) => c.fullName.toLowerCase().includes(q)) : caregivers
 
-  async function handleAssign(caregiverId: number) {
+  async function handleAssign(caregiver: CaregiverOption) {
     setSaving(true)
     setSaveError(null)
     try {
-      await assignPrimaryCaregiver(elder.id, caregiverId)
-      onAssign(String(caregiverId))
+      await (assign ? assign(caregiver) : assignPrimaryCaregiver(elder.id, caregiver.id))
+      onAssign(String(caregiver.id))
     } catch (e) {
       setSaveError(`Could not assign caregiver: ${errorText(e)}`)
     } finally {
@@ -97,7 +109,7 @@ export function CaregiverPickerModal({ elder, onAssign, onRemove, onClose }: Pro
                   </>
                 ) : (
                   c.assignable && (
-                    <Button disabled={saving} onClick={() => handleAssign(c.id)}>
+                    <Button disabled={saving} onClick={() => handleAssign(c)}>
                       Assign
                     </Button>
                   )
@@ -113,7 +125,7 @@ export function CaregiverPickerModal({ elder, onAssign, onRemove, onClose }: Pro
   return (
     <>
       <Modal
-        eyebrow="Assign caregiver"
+        eyebrow={eyebrow}
         eyebrowTone="accent"
         title={`${elder.name} · sector ${elder.sector || '—'}`}
         meta={
