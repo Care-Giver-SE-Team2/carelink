@@ -1,5 +1,8 @@
 import type { DayVisit, EvidenceType, PlanNode, SubPlanNode, TaskNode } from '../data/carePlans'
 import type { CarePlanNodeResponse } from '../../../shared/api/careplan'
+import type { PlanTreeItem, PlanTreeTask } from '../../../shared/components/ui'
+import { WEEKDAYS, emptyDaySchedule } from '../components/weekdays'
+import type { DayScheduleValue } from '../components/weekdays'
 
 /** Bottom-up weekly effort in hours: a sub-plan is the sum of its tasks. */
 export function weeklyHours(node: PlanNode): number {
@@ -142,4 +145,56 @@ export function fromCarePlanNodeResponses(nodes: CarePlanNodeResponse[]): PlanNo
     group.children.push(task)
   }
   return result
+}
+
+function toPlanTreeTask(task: TaskNode): PlanTreeTask {
+  const perVisit = perVisitDisplay(task.visits)
+  return {
+    kind: 'task',
+    id: task.id,
+    label: `${task.name} · ${scheduleLabel(task.visits)}`,
+    perVisit: perVisit.text,
+    perVisitDetail: perVisit.tooltip,
+    weekly: formatHoursFixed(weeklyHours(task)),
+  }
+}
+
+/** The editable tree -> PlanTree's display rows, with every figure formatted. */
+export function toPlanTreeItems(tree: PlanNode[]): PlanTreeItem[] {
+  return tree.map((node) =>
+    node.type === 'task'
+      ? toPlanTreeTask(node)
+      : {
+          kind: 'subplan',
+          id: node.id,
+          name: node.name,
+          weekly: formatHoursFixed(weeklyHours(node)),
+          tasks: node.children.map(toPlanTreeTask),
+        },
+  )
+}
+
+/** A task's visits -> the DaySchedule editor's value. Start times aren't stored on a visit yet,
+ * so every day opens at the editor's default. */
+export function dayScheduleFromVisits(visits: DayVisit[]): DayScheduleValue {
+  const schedule = emptyDaySchedule()
+  for (const visit of visits) {
+    const day = WEEKDAYS.find((d) => d.short === visit.day)
+    if (day) schedule[day.key] = { ...schedule[day.key], active: true, minutes: visit.minutes }
+  }
+  return schedule
+}
+
+/** The DaySchedule editor's active days -> visits, in weekday order. */
+export function visitsFromDaySchedule(schedule: DayScheduleValue): DayVisit[] {
+  return WEEKDAYS.filter((d) => schedule[d.key].active).map((d) => ({
+    day: d.short,
+    minutes: schedule[d.key].minutes ?? 0,
+  }))
+}
+
+/** A schedule can be saved once at least one day is on and every day that's on has a duration. */
+export function isScheduleComplete(schedule: DayScheduleValue): boolean {
+  const active = WEEKDAYS.filter((d) => schedule[d.key].active)
+  return active.length > 0 && active.every((d) => (schedule[d.key].minutes ?? 0) > 0)
 }

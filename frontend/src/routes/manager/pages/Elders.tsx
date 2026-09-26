@@ -1,4 +1,5 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import type { KeyboardEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { ManagerShell } from '../components/ManagerShell'
@@ -13,67 +14,95 @@ import {
 import { useElders } from '../lib/useElders'
 import { formatDate, formatNextVisit } from '../lib/nextVisit'
 import { fetchCarePlanNodes, fetchLatestCarePlan } from '../../../shared/api/careplan'
+import {
+  Avatar,
+  Badge,
+  BodyText,
+  Button,
+  Card,
+  Eyebrow,
+  IdentityHeader,
+  KeyValueList,
+  ListRow,
+  MetaText,
+  PageHeader,
+  PersonCard,
+  SearchField,
+  Select,
+  SidePanel,
+  SplitLayout,
+} from '../../../shared/components/ui'
 import { getAssignment, removeAssignment } from '../data/caregivers'
-import { AssignCaregiverModal } from './AssignCaregiverModal'
-import { RemoveCaregiverModal } from '../components/RemoveCaregiverModal'
-import { StopCarePlanModal } from '../components/StopCarePlanModal'
+import { CaregiverPickerModal } from '../components/CaregiverPickerModal'
+import { EmptyAssignSlot } from '../components/EmptyAssignSlot'
+import { RemoveCaregiverDialog } from '../components/RemoveCaregiverDialog'
+import { StopCarePlanButton } from '../components/StopCarePlanButton'
+import { StopCarePlanDialog } from '../components/StopCarePlanDialog'
 import styles from './Elders.module.css'
 
 type PlanFilter = 'all' | PlanStatus
 type SortOrder = 'name' | 'name-desc' | 'next-visit' | 'plan-status'
 
-const PLAN_FILTER_LABELS: Record<PlanFilter, string> = {
-  all: 'any',
-  published: 'published',
-  draft: 'draft',
-  stopped: 'stopped',
-  none: 'none',
-}
+const PLAN_FILTER_OPTIONS: { value: PlanFilter; label: string }[] = [
+  { value: 'all', label: 'any' },
+  { value: 'published', label: 'published' },
+  { value: 'draft', label: 'draft' },
+  { value: 'none', label: 'none' },
+]
 
-const SORT_LABELS: Record<SortOrder, string> = {
-  name: 'A–Z',
-  'name-desc': 'Z–A',
-  'next-visit': 'next visit',
-  'plan-status': 'plan status',
-}
+const SORT_OPTIONS: { value: SortOrder; label: string }[] = [
+  { value: 'name', label: 'A–Z' },
+  { value: 'name-desc', label: 'Z–A' },
+  { value: 'next-visit', label: 'next visit' },
+  { value: 'plan-status', label: 'plan status' },
+]
 
 const PLAN_STATUS_RANK: Record<PlanStatus, number> = { none: 0, draft: 1, published: 2, stopped: 3 }
+
+const SEARCH_DEBOUNCE_MS = 200
 
 /** nextVisitAt is an ISO "yyyy-MM-dd" string, so lexical order is chronological order. */
 function nextVisitRank(value: string | null): string {
   return value ?? '9999-99-99'
 }
 
-function planBadgeLabel(status: PlanStatus, version: number | null): string {
-  if (status === 'published') return `PUBLISHED v${version}`
-  if (status === 'draft') return `DRAFT v${version}`
-  if (status === 'stopped') return `STOPPED v${version}`
-  return 'NO PLAN YET'
+function rowDomId(elderId: string): string {
+  return `elder-row-${elderId}`
 }
 
+/**
+ * Elders index — UC-MG01's entry point. The manager finds an elder, previews their plan in
+ * the rail, and opens it (or creates one). ↑/↓ move the selection, Enter opens the plan.
+ */
 export default function Elders() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const [query, setQuery] = useState('')
+  const [debouncedQuery, setDebouncedQuery] = useState('')
   const [sector, setSector] = useState('all')
   const [planFilter, setPlanFilter] = useState<PlanFilter>('all')
   const [sort, setSort] = useState<SortOrder>('name')
   const [selectedId, setSelectedId] = useState<string | null>(null)
-  const [hoveredId, setHoveredId] = useState<string | null>(null)
   const [assignTarget, setAssignTarget] = useState<ElderRow | null>(null)
   const [removeTarget, setRemoveTarget] = useState<ElderRow | null>(null)
   const [stopTarget, setStopTarget] = useState<ElderRow | null>(null)
 
+  useEffect(() => {
+    const id = setTimeout(() => setDebouncedQuery(query), SEARCH_DEBOUNCE_MS)
+    return () => clearTimeout(id)
+  }, [query])
+
   const { data: elders = [], isLoading, isError, error } = useElders()
 
   const sectors = useMemo(() => Array.from(new Set(elders.map((e) => e.sector))).sort(), [elders])
+  const q = debouncedQuery.trim()
 
   const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase()
+    const needle = q.toLowerCase()
     const rows = elders.filter((e) => {
       if (sector !== 'all' && e.sector !== sector) return false
       if (planFilter !== 'all' && e.planStatus !== planFilter) return false
-      if (q && !e.name.toLowerCase().includes(q) && !e.id.toLowerCase().includes(q)) return false
+      if (needle && !e.name.toLowerCase().includes(needle) && !e.id.toLowerCase().includes(needle)) return false
       return true
     })
     const sorted = [...rows]
@@ -92,16 +121,14 @@ export default function Elders() {
     // A stopped plan is history, not something to act on, so those elders sink to the bottom.
     sorted.sort((a, b) => (a.planStatus === 'stopped' ? 1 : 0) - (b.planStatus === 'stopped' ? 1 : 0))
     return sorted
-  }, [elders, query, sector, planFilter, sort])
+  }, [elders, q, sector, planFilter, sort])
 
   const eldersWithoutPublishedPlan = useMemo(
     () => elders.filter((e) => e.planStatus !== 'published').length,
     [elders],
   )
 
-  const selected: ElderRow | undefined = selectedId
-    ? elders.find((e) => e.id === selectedId)
-    : undefined
+  const selected: ElderRow | undefined = selectedId ? elders.find((e) => e.id === selectedId) : undefined
   const selectedAssignment = selected ? getAssignment(selected.id) : undefined
 
   const { data: selectedLatestPlan } = useQuery({
@@ -123,289 +150,262 @@ export default function Elders() {
 
   function clearFilters() {
     setQuery('')
+    setDebouncedQuery('')
     setSector('all')
     setPlanFilter('all')
   }
 
-  return (
-    <ManagerShell>
-      <div className={styles.layout}>
-        <div className={styles.mainColumn}>
-          <div className={styles.topBar}>
-            <div className={styles.titleRow}>
-              <div>
-                <h1 className={styles.title}>Elders</h1>
-                <p className={styles.subtitle}>
-                  {elders.length} elders · {eldersWithoutPublishedPlan} without a published plan
-                </p>
-              </div>
-              <button className={styles.addElderBtn}>Add elder</button>
-            </div>
+  function openCarePlan(elder: ElderRow) {
+    navigate(`/manager/elders/${elder.id}`)
+  }
 
-            <div className={styles.filtersRow}>
-              <div className={styles.searchBox}>
-                <svg width="13" height="13" viewBox="0 0 15 15">
-                  <circle cx="6.6" cy="6.6" r="4.8" fill="none" stroke="#9a9a9a" strokeWidth="1.4" />
-                  <path d="M10.2 10.2l3 3" stroke="#9a9a9a" strokeWidth="1.4" strokeLinecap="round" />
-                </svg>
-                <input
-                  className={styles.searchInput}
-                  placeholder="Search elders by name or ID"
-                  value={query}
-                  onChange={(e) => setQuery(e.target.value)}
-                />
-              </div>
+  function handleListKeyDown(e: KeyboardEvent<HTMLDivElement>) {
+    if (filtered.length === 0) return
+    const index = filtered.findIndex((row) => row.id === selectedId)
+    let next: ElderRow | undefined
+    if (e.key === 'ArrowDown') next = filtered[Math.min(index + 1, filtered.length - 1)]
+    else if (e.key === 'ArrowUp') next = filtered[Math.max(index - 1, 0)]
+    else if (e.key === 'Enter' && selected) {
+      e.preventDefault()
+      openCarePlan(selected)
+      return
+    }
+    if (!next) return
+    e.preventDefault()
+    setSelectedId(next.id)
+    document.getElementById(rowDomId(next.id))?.scrollIntoView?.({ block: 'nearest' })
+  }
 
-              <div className={styles.dropdown}>
-                <span className={styles.dropdownLabel}>
-                  sector: {sector === 'all' ? 'all' : sector}
-                </span>
-                <span className={styles.dropdownCaret}>▾</span>
-                <select
-                  className={styles.dropdownSelect}
-                  value={sector}
-                  onChange={(e) => setSector(e.target.value)}
-                  aria-label="Filter by sector"
-                >
-                  <option value="all">all</option>
-                  {sectors.map((s) => (
-                    <option key={s} value={s}>
-                      {s}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className={styles.dropdown}>
-                <span className={styles.dropdownLabel}>plan: {PLAN_FILTER_LABELS[planFilter]}</span>
-                <span className={styles.dropdownCaret}>▾</span>
-                <select
-                  className={styles.dropdownSelect}
-                  value={planFilter}
-                  onChange={(e) => setPlanFilter(e.target.value as PlanFilter)}
-                  aria-label="Filter by plan status"
-                >
-                  <option value="all">any</option>
-                  <option value="published">published</option>
-                  <option value="draft">draft</option>
-                  <option value="none">none</option>
-                </select>
-              </div>
-
-              <div className={styles.dropdown}>
-                <span className={styles.dropdownLabel}>{SORT_LABELS[sort]}</span>
-                <span className={styles.dropdownCaret}>▾</span>
-                <select
-                  className={styles.dropdownSelect}
-                  value={sort}
-                  onChange={(e) => setSort(e.target.value as SortOrder)}
-                  aria-label="Sort order"
-                >
-                  <option value="name">A–Z</option>
-                  <option value="name-desc">Z–A</option>
-                  <option value="next-visit">next visit</option>
-                  <option value="plan-status">plan status</option>
-                </select>
-              </div>
-            </div>
-          </div>
-
-          <div className={styles.table}>
-            <div className={styles.tableHeaderRow}>
-              <span>Elder</span>
-              <span>Sector</span>
-              <span>Care plan</span>
-              <span>Primary caregiver</span>
-              <span className={styles.alignRight}>Next visit</span>
-            </div>
-
-            {isLoading ? (
-              <div className={styles.emptyState}>Loading elders…</div>
-            ) : isError ? (
-              <div className={styles.emptyState}>
-                Could not load elders{error instanceof Error ? `: ${error.message}` : ''}.
-              </div>
-            ) : filtered.length === 0 ? (
-              <div className={styles.emptyState}>
-                {query.trim()
-                  ? `No elders match "${query.trim()}"${sector !== 'all' ? ` in sector ${sector}` : ''}.`
-                  : 'No elders match these filters.'}{' '}
-                <button className={styles.clearLink} onClick={clearFilters}>
-                  Clear filters
-                </button>
-              </div>
-            ) : (
-              filtered.map((e) => {
-                const isSelected = e.id === selectedId
-                const isHovered = e.id === hoveredId && !isSelected
-                return (
-                  <div
-                    key={e.id}
-                    className={[
-                      styles.row,
-                      e.planStatus === 'none' && styles.noPlan,
-                      isHovered && styles.hovered,
-                      isSelected && styles.selected,
-                    ]
-                      .filter(Boolean)
-                      .join(' ')}
-                    onMouseEnter={() => setHoveredId(e.id)}
-                    onMouseLeave={() => setHoveredId(null)}
-                    onClick={() => setSelectedId(e.id)}
-                  >
-                    <div className={styles.rowAvatarWrap}>
-                      <div className={[styles.rowAvatar, isSelected && styles.selected].filter(Boolean).join(' ')} />
-                      <div>
-                        <div className={styles.rowName}>{e.name}</div>
-                        <div className={[styles.rowMeta, isSelected && styles.selected].filter(Boolean).join(' ')}>
-                          {e.age} y.o. — {e.street}
-                        </div>
-                      </div>
-                    </div>
-                    <span className={[styles.rowSector, isSelected && styles.selected].filter(Boolean).join(' ')}>
-                      {e.sector}
-                    </span>
-                    <span className={[styles.badge, styles[e.planStatus]].filter(Boolean).join(' ')}>
-                      {planBadgeLabel(e.planStatus, e.planVersion)}
-                    </span>
-                    <span
-                      className={[styles.rowCaregiver, !e.primaryCaregiver && styles.unassigned]
-                        .filter(Boolean)
-                        .join(' ')}
-                    >
-                      {e.primaryCaregiver ?? 'unassigned'}
-                    </span>
-                    <span
-                      className={[styles.rowNextVisit, !e.nextVisitAt && styles.unassigned]
-                        .filter(Boolean)
-                        .join(' ')}
-                    >
-                      {formatNextVisit(e.nextVisitAt) ?? '—'}
-                    </span>
-                  </div>
-                )
-              })
-            )}
-          </div>
-
-          <div className={styles.tableFooter}>
-            {filtered.length} of {elders.length} shown{query.trim() ? ` · matching "${query.trim()}"` : ''}
-          </div>
+  const header = (
+    <PageHeader
+      title="Elders"
+      meta={`${elders.length} elders · ${eldersWithoutPublishedPlan} without a published plan`}
+      actions={
+        <Button variant="primary" size="md">
+          Add elder
+        </Button>
+      }
+      toolbar={
+        <div className={styles.filters}>
+          <SearchField
+            className={styles.search}
+            placeholder="Search elders by name or ID"
+            value={query}
+            onChange={setQuery}
+          />
+          <Select
+            variant="filter"
+            prefix="sector"
+            aria-label="Filter by sector"
+            value={sector}
+            onChange={setSector}
+            options={[{ value: 'all', label: 'all' }, ...sectors.map((s) => ({ value: s, label: s }))]}
+          />
+          <Select
+            variant="filter"
+            prefix="plan"
+            aria-label="Filter by plan status"
+            value={planFilter}
+            onChange={(v) => setPlanFilter(v as PlanFilter)}
+            options={PLAN_FILTER_OPTIONS}
+          />
+          <Select
+            variant="filter"
+            aria-label="Sort order"
+            value={sort}
+            onChange={(v) => setSort(v as SortOrder)}
+            options={SORT_OPTIONS}
+          />
         </div>
+      }
+    />
+  )
 
-        <div className={styles.rail}>
-          <div className={styles.railEyebrow}>Selected</div>
+  let body
+  if (isLoading) {
+    body = <MetaText className={styles.empty}>Loading elders…</MetaText>
+  } else if (isError) {
+    body = (
+      <MetaText className={styles.empty}>
+        Could not load elders{error instanceof Error ? `: ${error.message}` : ''}.
+      </MetaText>
+    )
+  } else if (filtered.length === 0) {
+    body = (
+      <div className={styles.empty}>
+        <MetaText>
+          {q
+            ? `No elders match "${q}"${sector !== 'all' ? ` in sector ${sector}` : ''}.`
+            : 'No elders match these filters.'}
+        </MetaText>
+        <Button variant="ghost" onClick={clearFilters}>
+          Clear filters
+        </Button>
+      </div>
+    )
+  } else {
+    body = filtered.map((e) => (
+      <ListRow
+        key={e.id}
+        id={rowDomId(e.id)}
+        selected={e.id === selectedId}
+        onClick={() => setSelectedId(e.id)}
+        leading={<Avatar size={34} />}
+        title={e.name}
+        meta={`${e.age} y.o. · ${e.street || 'no address on file'}`}
+        cells={[
+          <MetaText key="sector" as="span">
+            {e.sector}
+          </MetaText>,
+          <span key="plan" className={styles.badgeCell}>
+            <Badge status={e.planStatus} version={e.planVersion} />
+          </span>,
+          <span key="caregiver" className={styles.optional}>
+            {e.primaryCaregiver ? (
+              <BodyText>{e.primaryCaregiver}</BodyText>
+            ) : (
+              <MetaText tone="faint" as="span">
+                unassigned
+              </MetaText>
+            )}
+          </span>,
+          <MetaText key="next" as="span" tone={e.nextVisitAt ? 'default' : 'faint'} className={styles.nextVisit}>
+            {formatNextVisit(e.nextVisitAt) ?? '—'}
+          </MetaText>,
+        ]}
+      />
+    ))
+  }
 
-          {!selected ? (
-            <p className={styles.railEmpty}>Select an elder to preview their care plan.</p>
-          ) : (
-            <>
-              <div className={styles.selectedHeader}>
-                <div className={styles.avatarLg} />
-                <div>
-                  <div className={styles.selectedName}>{selected.name}</div>
-                  <div className={styles.selectedMeta}>
-                    {selected.age} y.o. — {selected.street || 'no address on file'}
-                  </div>
-                </div>
-              </div>
-
-              <div className={`${styles.card} ${styles.first}`}>
-                {selected.planStatus === 'none' || !selectedLatestPlan ? (
-                  <p className={styles.cardMuted}>No plan published yet.</p>
-                ) : (
-                  <>
-                    <div className={styles.cardHeaderRow}>
-                      <span className={styles.cardTitle}>Care plan v{selectedLatestPlan.version}</span>
-                      <span className={[styles.planStatusBadge, styles[selected.planStatus]].join(' ')}>
-                        {selected.planStatus.toUpperCase()}
-                      </span>
-                    </div>
-                    <div className={styles.statList}>
-                      <div className={styles.statRow}>
-                        <span>visits per week</span>
-                        <span className={styles.statValue}>{visitsPerWeekOfTree(selectedTree)}</span>
-                      </div>
-                      <div className={styles.statRow}>
-                        <span>effort per week</span>
-                        <span className={styles.statValue}>
-                          {formatHoursMinutes(weeklyHoursOfTree(selectedTree))}
-                        </span>
-                      </div>
-                      <div className={styles.statRow}>
-                        <span>tasks</span>
-                        <span className={styles.statValue}>
-                          {countTree(selectedTree).tasks} in {countTree(selectedTree).subPlans} sub-plans
-                        </span>
-                      </div>
-                      <div className={styles.statRow}>
-                        <span>last edited</span>
-                        <span className={styles.statValue}>{formatDate(selectedLatestPlan.updatedAt)}</span>
-                      </div>
-                    </div>
-                  </>
-                )}
-              </div>
-
-              <div className={styles.card}>
-                <span className={styles.cardTitle}>Family contacts</span>
-                <div className={styles.contactList}>
-                  <p className={styles.cardMuted}>No family contacts on file yet.</p>
-                </div>
-              </div>
-
-              {selected.primaryCaregiver && (
-                <div className={styles.card}>
-                  <div className={styles.cardHeaderRow}>
-                    <span className={styles.cardTitle}>Primary caregiver</span>
-                    <div className={styles.cardHeaderActions}>
-                      <button className={styles.cardLink} onClick={() => setAssignTarget(selected)}>
-                        Assign…
-                      </button>
-                      <button className={styles.cardLinkDanger} onClick={() => setRemoveTarget(selected)}>
-                        Remove
-                      </button>
-                    </div>
-                  </div>
-                  <div className={styles.caregiverRow}>
-                    <div className={styles.caregiverAvatarSm} />
-                    <div className={styles.caregiverName}>
-                      {selected.primaryCaregiver}
-                      {selectedAssignment && (
-                        <span className={styles.caregiverSince}> · since {selectedAssignment.since}</span>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              <div className={styles.actions}>
-                <button
-                  className={styles.primaryBtn}
-                  onClick={() => navigate(`/manager/elders/${selected.id}`)}
-                >
-                  {selected.planStatus === 'none' ? 'Create care plan' : 'Open care plan'}
-                </button>
-                <button className={styles.secondaryBtn}>View visit history</button>
-                {!selected.primaryCaregiver && selected.planStatus !== 'none' && selected.planStatus !== 'stopped' && (
-                  <button className={styles.assignCaregiverBtn} onClick={() => setAssignTarget(selected)}>
-                    Assign caregiver
-                  </button>
-                )}
-              </div>
-
-              {selected.planStatus === 'published' && (
-                <button className={styles.dangerBtn} onClick={() => setStopTarget(selected)}>
-                  Stop care plan
-                </button>
-              )}
-            </>
-          )}
+  const main = (
+    <>
+      {header}
+      <div className={styles.table}>
+        <div className={styles.rows}>
+          <div className={styles.headerRow} aria-hidden="true">
+            <Eyebrow>Elder</Eyebrow>
+            <Eyebrow>Sector</Eyebrow>
+            <Eyebrow>Care plan</Eyebrow>
+            <Eyebrow className={styles.optional}>Primary caregiver</Eyebrow>
+            <Eyebrow className={styles.nextVisit}>Next visit</Eyebrow>
+          </div>
+          <div
+            role="listbox"
+            aria-label="Elders"
+            tabIndex={0}
+            className={styles.listbox}
+            aria-activedescendant={selected ? rowDomId(selected.id) : undefined}
+            onKeyDown={handleListKeyDown}
+          >
+            {body}
+          </div>
         </div>
       </div>
+      <MetaText tone="faint" className={styles.footer}>
+        {filtered.length} of {elders.length} shown{q ? ` · matching "${q}"` : ''}
+      </MetaText>
+    </>
+  )
+
+  const rail = !selected ? (
+    <SidePanel
+      label="Selected elder"
+      sections={[
+        <div key="empty" className={styles.railGroup}>
+          <Eyebrow>Selected</Eyebrow>
+          <MetaText tone="faint">Select an elder to preview their care plan.</MetaText>
+        </div>,
+      ]}
+    />
+  ) : (
+    <SidePanel
+      label="Selected elder"
+      sections={[
+        <div key="identity" className={styles.railGroup}>
+          <Eyebrow>Selected</Eyebrow>
+          <IdentityHeader
+            name={selected.name}
+            meta={`${selected.age} y.o. · ${selected.street || 'no address on file'}`}
+          />
+        </div>,
+        selected.planStatus === 'none' || !selectedLatestPlan ? (
+          <Card key="plan">
+            <MetaText>No plan published yet.</MetaText>
+          </Card>
+        ) : (
+          <Card
+            key="plan"
+            title={`Care plan v${selectedLatestPlan.version}`}
+            trailing={<Badge status={selected.planStatus} />}
+          >
+            <KeyValueList
+              items={[
+                { label: 'visits per week', value: visitsPerWeekOfTree(selectedTree) },
+                { label: 'effort per week', value: formatHoursMinutes(weeklyHoursOfTree(selectedTree)) },
+                {
+                  label: 'tasks',
+                  value: `${countTree(selectedTree).tasks} in ${countTree(selectedTree).subPlans} sub-plans`,
+                },
+                { label: 'last edited', value: formatDate(selectedLatestPlan.updatedAt) },
+              ]}
+            />
+          </Card>
+        ),
+        selected.primaryCaregiver ? (
+          <PersonCard
+            key="caregiver"
+            name={selected.primaryCaregiver}
+            role="Primary caregiver"
+            meta={selectedAssignment ? `since ${selectedAssignment.since}` : undefined}
+            actions={
+              <>
+                <Button onClick={() => setAssignTarget(selected)}>Change</Button>
+                <Button variant="dangerOutline" onClick={() => setRemoveTarget(selected)}>
+                  Remove
+                </Button>
+              </>
+            }
+          />
+        ) : (
+          selected.planStatus !== 'none' &&
+          selected.planStatus !== 'stopped' && (
+            <EmptyAssignSlot
+              key="caregiver"
+              message="No primary caregiver"
+              actionLabel="Assign caregiver"
+              onAction={() => setAssignTarget(selected)}
+            />
+          )
+        ),
+        <Card key="family" title="Family contacts">
+          <MetaText>No family contacts on file yet.</MetaText>
+        </Card>,
+        <div key="actions" className={styles.railActions}>
+          <Button block variant="primary" onClick={() => openCarePlan(selected)}>
+            {selected.planStatus === 'none' ? 'Create care plan' : 'Open care plan'}
+          </Button>
+          <Button block variant="secondary">
+            View visit history
+          </Button>
+        </div>,
+      ]}
+      footer={
+        <>
+          {selected.planStatus === 'published' && (
+            <StopCarePlanButton onClick={() => setStopTarget(selected)} />
+          )}
+          <MetaText tone="faint">Opening a record is written to the audit log with your name and the time.</MetaText>
+        </>
+      }
+    />
+  )
+
+  return (
+    <ManagerShell>
+      <SplitLayout main={main} rail={rail} />
 
       {assignTarget && (
-        <AssignCaregiverModal
+        <CaregiverPickerModal
           elder={assignTarget}
           onClose={() => setAssignTarget(null)}
           onAssign={() => {
@@ -420,7 +420,7 @@ export default function Elders() {
       )}
 
       {removeTarget && removeTarget.primaryCaregiver && (
-        <RemoveCaregiverModal
+        <RemoveCaregiverDialog
           caregiverName={removeTarget.primaryCaregiver}
           elderName={removeTarget.name}
           onCancel={() => setRemoveTarget(null)}
@@ -433,7 +433,7 @@ export default function Elders() {
       )}
 
       {stopTarget && (
-        <StopCarePlanModal
+        <StopCarePlanDialog
           elder={stopTarget}
           onClose={() => setStopTarget(null)}
           onStopped={() => {

@@ -1,0 +1,47 @@
+.badge {
+  display: inline-block;
+  flex: none;
+  padding: 4px 6px;
+  border: 1px solid;
+  font: 500 9px/1 var(--font-mono);
+  letter-spacing: 0.08em;
+  white-space: nowrap;
+}
+
+.compact {
+  padding: 3px 5px;
+}
+
+.published {
+  border-color: var(--success);
+  color: var(--success);
+}
+
+.draft {
+  border-color: var(--warning);
+  color: var(--warning-text);
+}
+
+.scheduled {
+  border-color: var(--link);
+  color: var(--link);
+}
+
+.archived {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.stopped,
+.none {
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
+.tag {
+  display: inline-block;
+  padding: 4px 7px;
+  border: 1px solid var(--text);
+  font: 500 9.5px/1 var(--font-mono);
+  white-space: nowrap;
+}

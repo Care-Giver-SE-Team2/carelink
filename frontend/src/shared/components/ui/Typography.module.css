@@ -1,0 +1,47 @@
+.pageTitle {
+  margin: 0;
+  font: 600 19px/1.1 var(--font);
+  letter-spacing: -0.015em;
+  color: var(--text);
+}
+
+.rowTitle {
+  font: 600 12.5px/1.2 var(--font);
+  color: var(--text);
+}
+
+.body {
+  margin: 0;
+  font: 400 12px/1.5 var(--font);
+  color: var(--text-secondary);
+}
+
+.meta {
+  margin: 0;
+  font: 400 11.5px/1.5 var(--font-mono);
+  color: var(--text-muted);
+}
+
+.meta.faint {
+  color: var(--text-faint);
+}
+
+.meta.danger {
+  color: var(--danger);
+}
+
+.eyebrow {
+  display: block;
+  font: 500 9px/1 var(--font-mono);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+
+.eyebrow.danger {
+  color: var(--danger);
+}
+
+.eyebrow.accent {
+  color: var(--accent);
+}

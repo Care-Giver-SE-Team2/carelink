@@ -1,527 +1,81 @@
-/* ---- status badge ---- */
+/* Placement only — every visual comes from shared/components/ui. */
 
-.badge {
-  font: 500 10px/1 var(--font-mono);
-  letter-spacing: 0.06em;
-  padding: 4px 6px;
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.search {
+  flex: 1 1 220px;
+}
+
+.table {
+  container-type: inline-size;
+}
+
+/* Column template shared by the header row and every ListRow below it. */
+.rows {
+  --list-row-columns: minmax(0, 1fr) 84px 132px 108px 96px;
+}
+
+.headerRow {
+  display: grid;
+  grid-template-columns: var(--list-row-columns);
+  gap: 12px;
+  padding: 10px 20px;
+  border-bottom: 1px solid var(--border);
+}
+
+.listbox:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+.badgeCell {
   justify-self: start;
 }
 
-.badge.none {
-  border: 1px solid var(--danger);
-  color: var(--danger);
-}
-
-.badge.draft {
-  border: 1px solid var(--warning);
-  color: var(--warning-text);
-}
-
-.badge.published {
-  border: 1px solid var(--success);
-  color: var(--success);
-}
-
-.badge.stopped {
-  border: 1px solid var(--text-faint);
-  color: var(--text-muted);
-}
-
-/* ---- filter dropdown ---- */
-
-.dropdown {
-  position: relative;
-  border: 1px solid var(--filter-border);
-  padding: 9px 26px 9px 12px;
-  display: flex;
-  align-items: center;
-  gap: 7px;
-}
-
-.dropdownSelect {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  opacity: 0;
-  cursor: pointer;
-  border: none;
-  min-height: auto;
-}
-
-.dropdownLabel {
-  font: 500 11.5px/1 var(--font-mono);
-  color: var(--text-secondary);
-}
-
-.dropdownCaret {
-  color: var(--text-faint);
-  pointer-events: none;
-}
-
-.headerNote {
-  font: 400 11px/1 var(--font-mono);
-  color: var(--text-muted);
-}
-
-/* ---- layout ---- */
-
-.layout {
-  display: grid;
-  grid-template-columns: 1fr 340px;
-  min-height: 100%;
-}
-
-.mainColumn {
-  border-right: 1px solid var(--border);
-}
-
-/* Below 1000px the rail can no longer sit beside the table at a readable
-   width, so it moves below the main column (handoff: "moves the rail below
-   content below 1000px"). */
-@media (max-width: 1000px) {
-  .layout {
-    grid-template-columns: 1fr;
-  }
-
-  .mainColumn {
-    border-right: none;
-    border-bottom: 1px solid var(--border);
-  }
-}
-
-.topBar {
-  padding: 18px 20px 14px;
-  border-bottom: 1px solid var(--border);
-}
-
-.titleRow {
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-}
-
-.addElderBtn {
-  border: 1px solid var(--text);
-  background: var(--text);
-  color: var(--bg);
-  padding: 9px 14px;
-  font: 600 12px/1 var(--font);
-  min-height: auto;
-}
-
-.title {
-  font: 700 19px/1.1 var(--font);
-  letter-spacing: -0.02em;
-}
-
-.subtitle {
-  margin-top: 6px;
-  font: 400 11px/1 var(--font-mono);
-  color: var(--text-muted);
-}
-
-.filtersRow {
-  margin-top: 14px;
-  display: flex;
-  gap: 8px;
-  align-items: center;
-}
-
-.searchBox {
-  flex: 1;
-  border: 1px solid var(--text);
-  padding: 9px 11px;
-  display: flex;
-  align-items: center;
-  gap: 9px;
-}
-
-.searchInput {
-  flex: 1;
-  border: none;
-  outline: none;
-  padding: 0;
-  min-height: auto;
-  font: 400 12.5px/1 var(--font);
-  color: var(--text);
-}
-
-/* ---- table ---- */
-
-.table {
-  outline: none;
-}
-
-.tableHeaderRow {
-  display: grid;
-  grid-template-columns: 1fr 84px 132px 108px 96px;
-  padding: 10px 20px;
-  border-bottom: 1px solid var(--border);
-  font: 500 10px/1 var(--font-mono);
-  letter-spacing: 0.08em;
-  color: var(--text-faint);
-  text-transform: uppercase;
-}
-
-.alignRight {
+.nextVisit {
   text-align: right;
 }
 
-.emptyState {
-  padding: 48px 20px;
-  text-align: center;
-  font: 400 11.5px/1.5 var(--font-mono);
-  color: var(--text-muted);
+/* When the list gets narrow, Primary caregiver and Next visit drop first. */
+@container (max-width: 760px) {
+  .rows {
+    --list-row-columns: minmax(0, 1fr) 84px 132px;
+  }
+
+  .optional,
+  .nextVisit {
+    display: none;
+  }
 }
 
-.clearLink {
-  color: var(--accent);
-}
-
-.row {
-  display: grid;
-  grid-template-columns: 1fr 84px 132px 108px 96px;
+.empty {
+  display: flex;
+  flex-direction: column;
   align-items: center;
-  padding: 13px 20px;
+  gap: 10px;
+  padding: 28px 20px;
   border-bottom: 1px solid var(--border-light);
-  background: transparent;
-  color: var(--text);
-  cursor: pointer;
+  text-align: center;
 }
 
-.row.hovered {
-  background: var(--surface-3);
-}
-
-/* No plan published yet — the row that most needs the manager's attention. */
-.row.noPlan {
-  background: #fdf6f5;
-}
-
-.row.selected {
-  background: #dbe2ec;
-  border-left: 3px solid #3d5a80;
-}
-
-.rowAvatarWrap {
-  display: flex;
-  gap: 12px;
-  align-items: center;
-}
-
-.rowAvatar {
-  width: 34px;
-  height: 34px;
-  flex: none;
-  background: repeating-linear-gradient(45deg, #f0f0ee 0 6px, #e4e4e0 6px 12px);
-  border: 1px solid #d8d8d4;
-}
-
-.rowAvatar.selected {
-  background: repeating-linear-gradient(45deg, #b3c0d1 0 6px, #a3b2c6 6px 12px);
-  border-color: #8fa0b8;
-}
-
-.rowName {
-  font: 600 13.5px/1.2 var(--font);
-}
-
-.rowMeta {
-  margin-top: 4px;
-  font: 400 10.5px/1 var(--font-mono);
-  color: var(--text-faint);
-}
-
-.rowMeta.selected {
-  color: #3d5a80;
-}
-
-.rowSector {
-  font: 400 11.5px/1 var(--font-mono);
-  color: var(--text-muted);
-}
-
-.rowSector.selected {
-  color: #2d4a70;
-}
-
-.rowCaregiver {
-  font: 400 11.5px/1 var(--font);
-  color: var(--text-secondary);
-}
-
-.rowCaregiver.unassigned {
-  color: var(--danger);
-}
-
-.rowNextVisit {
-  font: 400 11.5px/1 var(--font-mono);
-  text-align: right;
-  color: var(--text-secondary);
-}
-
-.rowNextVisit.unassigned {
-  color: var(--text-faint);
-}
-
-.tableFooter {
+.footer {
   padding: 14px 20px;
-  font: 400 11px/1 var(--font-mono);
-  color: var(--text-faint);
 }
 
-/* ---- right rail ---- */
-
-.rail {
-  padding: 18px 20px 24px;
+.railGroup {
   display: flex;
   flex-direction: column;
-}
-
-.railEyebrow {
-  font: 500 10px/1 var(--font-mono);
-  letter-spacing: 0.1em;
-  color: var(--text-faint);
-  text-transform: uppercase;
-}
-
-.railEmpty {
-  margin-top: 14px;
-  font: 400 11.5px/1 var(--font-mono);
-  color: var(--text-faint);
-}
-
-.selectedHeader {
-  margin-top: 14px;
-  display: flex;
-  gap: 13px;
-  align-items: flex-start;
-}
-
-.avatarLg {
-  width: 56px;
-  height: 56px;
-  flex: none;
-  background: repeating-linear-gradient(45deg, #f0f0ee 0 6px, #e4e4e0 6px 12px);
-  border: 1px solid #d8d8d4;
-}
-
-.selectedName {
-  font: 700 17px/1.15 var(--font);
-  letter-spacing: -0.02em;
-}
-
-.selectedMeta {
-  margin-top: 5px;
-  font: 400 11px/1.5 var(--font-mono);
-  color: var(--text-muted);
-}
-
-.card {
-  margin-top: 12px;
-  border: 1px solid var(--border);
-  padding: 13px;
-}
-
-.card.first {
-  margin-top: 18px;
-}
-
-.cardMuted {
-  font: 400 11.5px/1.5 var(--font-mono);
-  color: var(--text-muted);
-}
-
-.cardHeaderRow {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-}
-
-.cardTitle {
-  font: 600 12.5px/1 var(--font);
-}
-
-.planStatusBadge {
-  font: 500 9px/1 var(--font-mono);
-  letter-spacing: 0.08em;
-  padding: 4px 6px;
-}
-
-.planStatusBadge.draft {
-  border: 1px solid var(--warning);
-  color: var(--warning-text);
-}
-
-.planStatusBadge.published {
-  border: 1px solid var(--success);
-  color: var(--success);
-}
-
-.planStatusBadge.stopped {
-  border: 1px solid var(--text-faint);
-  color: var(--text-muted);
-}
-
-.statList {
-  margin-top: 11px;
-  display: flex;
-  flex-direction: column;
-  gap: 7px;
-  font: 400 11.5px/1.5 var(--font-mono);
-  color: var(--text-secondary);
-}
-
-.statRow {
-  display: flex;
-  justify-content: space-between;
-}
-
-.statValue {
-  color: var(--text);
-}
-
-.contactList {
-  margin-top: 11px;
-  display: flex;
-  flex-direction: column;
-  gap: 9px;
-}
-
-.contactRow {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  font: 400 11.5px/1.4 var(--font-mono);
-  color: var(--text-secondary);
-}
-
-.contactName {
-  color: var(--text);
-}
-
-.cardHeaderActions {
-  display: flex;
-  align-items: center;
   gap: 14px;
 }
 
-.cardLink {
-  min-height: auto;
-  padding: 0;
-  border: none;
-  background: none;
-  font: 500 11px/1 var(--font);
-  color: var(--accent);
-}
-
-.cardLink:hover {
-  color: var(--accent-hover);
-}
-
-.cardLinkDanger {
-  min-height: auto;
-  padding: 0;
-  border: none;
-  background: none;
-  font: 500 11px/1 var(--font);
-  color: var(--danger);
-}
-
-.cardLinkDanger:hover {
-  text-decoration: underline;
-}
-
-.caregiverRow {
-  margin-top: 9px;
-  display: flex;
-  align-items: center;
-  gap: 9px;
-}
-
-.caregiverAvatarSm {
-  width: 26px;
-  height: 26px;
-  flex: none;
-  background: repeating-linear-gradient(45deg, #f0f0ee 0 6px, #e4e4e0 6px 12px);
-  border: 1px solid #d8d8d4;
-}
-
-.caregiverName {
-  font: 400 11.5px/1.4 var(--font-mono);
-  color: var(--text-secondary);
-}
-
-.caregiverSince {
-  color: var(--text-faint);
-}
-
-.assignCaregiverBtn {
-  border: 1px solid var(--accent);
-  background: var(--bg);
-  color: var(--accent);
-  padding: 13px 0;
-  text-align: center;
-  font: 600 13px/1 var(--font);
-  min-height: auto;
-}
-
-.assignCaregiverBtn:hover {
-  background: var(--accent-tint);
-}
-
-.exceptionBanner {
-  margin-top: 12px;
-  border: 1px solid #f0d8d4;
-  background: #fdf6f5;
-  padding: 13px;
-  font: 400 11px/1.6 var(--font-mono);
-  color: #8c3a2c;
-}
-
-.readOnlyBanner {
-  margin-bottom: 14px;
-  border: 1px solid var(--filter-border);
-  background: var(--surface-2);
-  padding: 11px 13px;
-  font: 400 11px/1.6 var(--font-mono);
-  color: var(--text-muted);
-}
-
-.actions {
-  margin-top: 20px;
+.railActions {
   display: flex;
   flex-direction: column;
   gap: 8px;
-}
-
-.primaryBtn {
-  border: 1px solid var(--text);
-  background: var(--text);
-  color: var(--bg);
-  padding: 13px 0;
-  text-align: center;
-  font: 600 13px/1 var(--font);
-  min-height: auto;
-}
-
-.secondaryBtn {
-  border: 1px solid var(--text);
-  background: var(--bg);
-  padding: 12px 0;
-  text-align: center;
-  font: 600 12.5px/1 var(--font);
-  min-height: auto;
-}
-
-.dangerBtn {
-  margin-top: auto;
-  border: 1px solid var(--danger);
-  background: var(--bg);
-  color: var(--danger);
-  padding: 12px 0;
-  text-align: center;
-  font: 600 12.5px/1 var(--font);
-  min-height: auto;
+  margin-top: 2px;
 }

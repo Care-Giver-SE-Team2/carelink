@@ -1,0 +1,92 @@
+.header {
+  padding: 18px 20px 14px;
+  border-bottom: 1px solid var(--border);
+}
+
+.headerRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px 16px;
+}
+
+.back {
+  margin-bottom: 10px;
+}
+
+.headerMeta {
+  margin-top: 6px;
+}
+
+.headerExtras {
+  margin-top: 9px;
+}
+
+.headerActions {
+  display: flex;
+  gap: 8px;
+}
+
+.toolbar {
+  margin-top: 14px;
+}
+
+.backLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font: 500 11px/1 var(--font);
+  color: var(--text-secondary);
+  text-decoration: none;
+}
+
+.backLink:hover {
+  color: var(--text);
+}
+
+.split {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 340px;
+  min-height: 100%;
+}
+
+.splitMain {
+  min-width: 0;
+  border-right: 1px solid var(--border);
+}
+
+/* Below 1000px the rail can no longer sit beside the main column at a readable
+   width, so it stacks underneath as a full-width block. */
+@media (max-width: 1000px) {
+  .split {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .splitMain {
+    border-right: none;
+    border-bottom: 1px solid var(--border);
+  }
+}
+
+.panel {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+  padding: 18px 20px 24px;
+}
+
+.panelSections {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.panelFooter {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: auto;
+  padding-top: 24px;
+}

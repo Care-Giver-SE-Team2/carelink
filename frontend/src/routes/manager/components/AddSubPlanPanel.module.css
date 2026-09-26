@@ -1,0 +1,25 @@
+.panel {
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--border-light);
+  background: var(--row-tint);
+}
+
+.panelBody {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin-top: 12px;
+}
+
+.panelActions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
