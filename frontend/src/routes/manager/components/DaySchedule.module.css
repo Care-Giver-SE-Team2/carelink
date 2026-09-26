@@ -1,0 +1,26 @@
+.schedule {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  width: 280px;
+  max-width: 100%;
+  border: 1px solid var(--border-light);
+  background: var(--bg);
+}
+
+.row {
+  display: grid;
+  grid-template-columns: 28px 62px 1fr;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 12px;
+}
+
+.row:nth-child(odd) {
+  background: var(--row-tint);
+}
+
+.minutes {
+  justify-self: end;
+}

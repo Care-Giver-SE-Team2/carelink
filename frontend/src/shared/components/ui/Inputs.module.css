@@ -1,0 +1,113 @@
+/* `min-height`/`border-radius` reset the global control rules in shared/theme/theme.css. */
+.input {
+  max-width: 100%;
+  box-sizing: border-box;
+  min-height: auto;
+  margin: 0;
+  border: 1px solid var(--text);
+  border-radius: 0;
+  background: var(--bg);
+  color: var(--text);
+}
+
+.input::placeholder {
+  color: var(--text-faint);
+}
+
+.input:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.input:disabled {
+  border-color: var(--border-light);
+  background: var(--bg-disabled);
+  color: var(--text-disabled);
+}
+
+.input:disabled::placeholder {
+  color: var(--text-disabled);
+}
+
+.text {
+  padding: 8px 10px;
+  font: 400 12px/1.2 var(--font);
+}
+
+.date {
+  padding: 4px 7px;
+  font: 500 11.5px/1.2 var(--font);
+}
+
+.time {
+  width: 62px;
+  padding: 5px 6px;
+  font: 500 11px/1 var(--font-mono);
+  text-align: center;
+}
+
+.number {
+  width: 38px;
+  padding: 5px 6px;
+  font: 500 12px/1 var(--font-mono);
+  text-align: right;
+}
+
+.numberWrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.suffix {
+  font: 400 11px/1 var(--font);
+  color: var(--text-faint);
+}
+
+.suffix.disabled {
+  color: var(--line);
+}
+
+.search {
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 9px 11px;
+  border: 1px solid var(--text);
+  background: var(--bg);
+  color: var(--text-faint);
+}
+
+.search:focus-within {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.searchInput {
+  flex: 1;
+  min-width: 0;
+  min-height: auto;
+  padding: 0;
+  border: none;
+  outline: none;
+  background: transparent;
+  font: 400 12.5px/1 var(--font);
+  color: var(--text);
+}
+
+.searchInput::placeholder {
+  color: var(--text-faint);
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.field.inline {
+  flex-direction: row;
+  align-items: center;
+  gap: 6px;
+}

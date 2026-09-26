@@ -36,6 +36,19 @@
   --surface-3: #faf9f7;    /* Row hover */
   --filter-border: #cfcec9; /* Inert dropdown borders */
 
+  /* Component library tokens (shared/components/ui) — the values the care plan
+     authoring handoff's components.md adds on top of the palette above. */
+  --line: #d5d5d0;          /* Outline buttons, icon buttons, modal border */
+  --row-tint: #fbfbf5;      /* Selected list row, task rows, creation panel */
+  --bg-disabled: #fafafa;
+  --text-disabled: #c5c5c0;
+  --canvas: #e8e8e4;        /* Backdrop behind cards */
+  --link: #2d4a70;          /* Links, scheduled badge */
+  --danger-text: #a13f30;   /* Danger callout text */
+  --danger-callout: #fbf1ef; /* Danger callout background */
+  --backdrop: rgba(20, 20, 18, 0.45);
+  --shadow-modal: 0 12px 32px rgba(0, 0, 0, 0.12);
+
   --size-body: 15px;
   --size-heading: 22px;
   --radius: 0;           /* no rounded corners anywhere in the standard theme */

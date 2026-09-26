@@ -3,17 +3,17 @@ import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { afterEach, expect, it, vi } from 'vitest'
 
-import { StopCarePlanModal } from './StopCarePlanModal'
+import { StopCarePlanDialog } from './StopCarePlanDialog'
 import type { ElderRow } from '../data/elders'
 import * as carePlanApi from '../../../shared/api/careplan'
 
 afterEach(cleanup)
 
-function renderModal(props: Parameters<typeof StopCarePlanModal>[0]) {
+function renderModal(props: Parameters<typeof StopCarePlanDialog>[0]) {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   return render(
     <QueryClientProvider client={queryClient}>
-      <StopCarePlanModal {...props} />
+      <StopCarePlanDialog {...props} />
     </QueryClientProvider>,
   )
 }

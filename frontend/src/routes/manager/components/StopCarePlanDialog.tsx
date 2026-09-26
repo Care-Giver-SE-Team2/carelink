@@ -2,8 +2,7 @@ import { useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { fetchLatestCarePlan, stopCarePlan } from '../../../shared/api/careplan'
 import type { CarePlanResponse } from '../../../shared/api/careplan'
-import modalStyles from './ConfirmModal.module.css'
-import styles from '../pages/CarePlan.module.css'
+import { BodyText, Callout, ConfirmDialog, DateInput, Field, TextInput } from '../../../shared/components/ui'
 
 /** Local-date "yyyy-MM-dd", matching what a <input type="date"> and java.time.LocalDate both expect. */
 function todayIso(): string {
@@ -21,7 +20,7 @@ type Props = {
  * has the plan loaded) — the query key matches CarePlan.tsx's own `latestPlan` query, so opening
  * this from there reuses its cache instead of refetching.
  */
-export function StopCarePlanModal({ elder, onClose, onStopped }: Props) {
+export function StopCarePlanDialog({ elder, onClose, onStopped }: Props) {
   const queryClient = useQueryClient()
   const { data: latestPlan, isLoading } = useQuery({
     queryKey: ['carePlan', 'latest', elder.id],
@@ -52,48 +51,43 @@ export function StopCarePlanModal({ elder, onClose, onStopped }: Props) {
   }
 
   return (
-    <div className={modalStyles.modalOverlay} onClick={onClose}>
-      <div className={modalStyles.modalBox} onClick={(e) => e.stopPropagation()}>
-        <div className={`${modalStyles.modalEyebrow} ${modalStyles.danger}`}>Stop care plan</div>
-        <div className={modalStyles.modalTitle}>Stop the care plan for {elder.name}?</div>
-        <p className={modalStyles.modalBodyProse}>
-          The plan itself and its history are kept — this doesn't delete anything, and you can
-          create a new plan later.
-        </p>
-        <div className={styles.stepLabel}>Effective from</div>
-        <input
-          className={styles.nameInput}
-          type="date"
-          value={effectiveDate}
-          onChange={(e) => setEffectiveDate(e.target.value)}
-          disabled={isLoading}
-        />
-        <div className={styles.stepLabel}>Reason (required)</div>
-        <textarea
-          className={styles.stopReasonInput}
-          value={reason}
-          onChange={(e) => setReason(e.target.value)}
-          placeholder="Why is this plan stopping?"
-          disabled={isLoading}
-        />
-        {error && <p className={modalStyles.modalBodyProse}>{error}</p>}
-        <div className={modalStyles.modalActions}>
-          <button
-            className={`${modalStyles.modalBtn} ${modalStyles.secondary}`}
-            disabled={stopping}
-            onClick={onClose}
-          >
-            Cancel
-          </button>
-          <button
-            className={`${modalStyles.modalBtn} ${modalStyles.danger}`}
-            disabled={stopping || isLoading || !reason.trim() || !effectiveDate || carePlanId === null}
-            onClick={handleStop}
-          >
-            {stopping ? 'Stopping…' : 'Stop care plan'}
-          </button>
-        </div>
-      </div>
-    </div>
+    <ConfirmDialog
+      tone="danger"
+      eyebrow="Stop care plan"
+      title={`Stop the care plan for ${elder.name}?`}
+      meta={latestPlan ? `v${latestPlan.version}` : undefined}
+      confirmLabel={stopping ? 'Stopping…' : 'Stop care plan'}
+      busy={stopping}
+      confirmDisabled={isLoading || !reason.trim() || !effectiveDate || carePlanId === null}
+      onConfirm={handleStop}
+      onCancel={onClose}
+    >
+      <BodyText>
+        The plan itself and its history are kept — this doesn't delete anything, and you can create a new plan
+        later.
+      </BodyText>
+      <Field label="Effective from">
+        {(id) => (
+          <DateInput id={id} width="100%" value={effectiveDate} onChange={setEffectiveDate} disabled={isLoading} />
+        )}
+      </Field>
+      <Field label="Reason (required)">
+        {(id) => (
+          <TextInput
+            id={id}
+            width="100%"
+            value={reason}
+            onChange={setReason}
+            placeholder="Why is this plan stopping?"
+            disabled={isLoading}
+          />
+        )}
+      </Field>
+      {error && (
+        <Callout tone="danger" role="alert">
+          {error}
+        </Callout>
+      )}
+    </ConfirmDialog>
   )
 }

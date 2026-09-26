@@ -1,0 +1,58 @@
+.row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 20px;
+  border-bottom: 1px solid var(--border-light);
+  background: var(--bg);
+}
+
+/* Table-like rows: the list container sets --list-row-columns (and may redefine it in
+   a container query to drop columns when the list gets narrow). */
+.row.columns {
+  display: grid;
+  grid-template-columns: var(--list-row-columns);
+}
+
+.row.clickable {
+  cursor: pointer;
+}
+
+.row.clickable:hover {
+  background: var(--surface-3);
+}
+
+.row.selected,
+.row.selected:hover {
+  background: var(--row-tint);
+  box-shadow: inset 3px 0 0 var(--text);
+}
+
+.identity {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.text {
+  min-width: 0;
+}
+
+.meta {
+  margin-top: 4px;
+  font: 400 11px/1.3 var(--font-mono);
+  color: var(--text-muted);
+}
+
+.row.dimmed .title {
+  color: var(--text-faint);
+}
+
+.trailing {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: none;
+}

@@ -1,0 +1,94 @@
+/* `min-height`/`border-radius` reset the global button rule in shared/theme/theme.css. */
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: auto;
+  border: 1px solid;
+  border-radius: 0;
+  font-family: var(--font);
+  line-height: 1;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.sm {
+  padding: 7px 12px;
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.md {
+  padding: 8px 14px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.block {
+  width: 100%;
+  padding: 12px 0;
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
+.primary {
+  background: var(--text);
+  border-color: var(--text);
+  color: var(--bg);
+}
+
+.primary:hover:not(:disabled) {
+  background: var(--text-secondary);
+  border-color: var(--text-secondary);
+}
+
+.secondary {
+  background: var(--bg);
+  border-color: var(--text);
+  color: var(--text);
+}
+
+.ghost {
+  background: var(--bg);
+  border-color: var(--line);
+  color: var(--text-secondary);
+}
+
+.secondary:hover:not(:disabled),
+.ghost:hover:not(:disabled) {
+  background: var(--bg-hover);
+}
+
+.danger {
+  background: var(--danger);
+  border-color: var(--danger);
+  color: var(--bg);
+}
+
+.danger:hover:not(:disabled) {
+  background: var(--danger-text);
+  border-color: var(--danger-text);
+}
+
+.dangerOutline {
+  background: var(--bg);
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
+.dangerOutline:hover:not(:disabled) {
+  background: var(--danger-callout);
+}
+
+.button:disabled {
+  background: var(--bg-disabled);
+  border-color: var(--border-light);
+  color: var(--text-disabled);
+  cursor: not-allowed;
+}

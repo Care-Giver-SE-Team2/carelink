@@ -1,22 +1,23 @@
 import { useEffect, useMemo, useState } from 'react'
-import { createPortal } from 'react-dom'
 import { Link, useParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { ManagerShell } from '../components/ManagerShell'
 import { UserIdentity } from '../components/UserIdentity'
-import modalStyles from '../components/ConfirmModal.module.css'
 import { ACTIVITY_CATALOG, CARE_PLANS, ELDER_PROFILES, activityCategory } from '../data/carePlans'
 import type { PlanNode, SubPlanNode, TaskNode } from '../data/carePlans'
 import { useElder } from '../lib/useElder'
 import { useCurrentUser } from '../lib/useCurrentUser'
 import {
   countTree,
+  dayScheduleFromVisits,
+  findSubPlan,
   formatHoursFixed,
+  formatHoursLoose,
   fromCarePlanNodeResponses,
-  perVisitDisplay,
   removeNode,
-  scheduleLabel,
+  toPlanTreeItems,
   updateTask,
+  visitsFromDaySchedule,
   weeklyHours,
   weeklyHoursOfTree,
 } from '../lib/planTree'
@@ -27,61 +28,45 @@ import {
   publishCarePlan,
 } from '../../../shared/api/careplan'
 import type { PlanNodePayload } from '../../../shared/api/careplan'
-import { StopCarePlanModal } from '../components/StopCarePlanModal'
+import {
+  BackLink,
+  Badge,
+  BodyText,
+  Button,
+  Callout,
+  ConfirmDialog,
+  DateInput,
+  Eyebrow,
+  Field,
+  IdentityHeader,
+  KeyValueList,
+  MetaText,
+  PageHeader,
+  PlanTreeView,
+  SidePanel,
+  SplitLayout,
+  Tag,
+} from '../../../shared/components/ui'
+import type { BadgeStatus, SelectGroup } from '../../../shared/components/ui'
+import { PlanTreeEditor } from '../components/PlanTreeEditor'
+import { StopCarePlanButton } from '../components/StopCarePlanButton'
+import { StopCarePlanDialog } from '../components/StopCarePlanDialog'
+import { VersionHistoryList } from '../components/VersionHistoryList'
+import type { VersionEntry } from '../components/VersionHistoryList'
+import type { DayScheduleValue } from '../components/weekdays'
 import styles from './CarePlan.module.css'
 
 /** Placeholder until real roster data exists — see the publish modal copy. */
 const MOCK_AFFECTED_WEEKS = 4
 
-/** Left-chevron glyph for the "Back to Elders" link, per the design handoff's SVG spec (screens.html 1d). */
-function BackChevronIcon() {
-  return (
-    <svg width="9" height="9" viewBox="0 0 10 10" fill="none">
-      <path d="M6.5 1.5L2 5l4.5 3.5" stroke="#444" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  )
-}
+const ACTIVITY_OPTIONS: SelectGroup[] = ACTIVITY_CATALOG.map((group) => ({
+  group: group.category,
+  items: group.activities.map((activity) => ({ value: activity, label: activity })),
+}))
 
-/** Trash-can glyph per the design handoff's SVG spec (screens.html 1d). */
-function TrashIcon() {
-  return (
-    <svg width="13" height="13" viewBox="0 0 14 14" fill="none">
-      <path
-        d="M2.5 3.5h9M5.5 3.5V2a1 1 0 011-1h1a1 1 0 011 1v1.5M3.5 3.5l.5 8a1 1 0 001 1h4a1 1 0 001-1l.5-8"
-        stroke="#444"
-        strokeWidth="1.1"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  )
-}
-
-const DAYS: { key: string; full: string }[] = [
-  { key: 'mon', full: 'Mon' },
-  { key: 'tue', full: 'Tue' },
-  { key: 'wed', full: 'Wed' },
-  { key: 'thu', full: 'Thu' },
-  { key: 'fri', full: 'Fri' },
-  { key: 'sat', full: 'Sat' },
-  { key: 'sun', full: 'Sun' },
-]
-
-type DayState = { active: boolean; time: string; minutes: string }
-
-function initialDayState(): Record<string, DayState> {
-  return Object.fromEntries(DAYS.map((d) => [d.key, { active: false, time: '8:00 AM', minutes: '15' }]))
-}
-
-/** Pre-populates the day/minutes editor from an existing task's visits, for the edit panel. */
-function dayStateFromVisits(visits: TaskNode['visits']): Record<string, DayState> {
-  const byFull = new Map(visits.map((v) => [v.day, v.minutes]))
-  return Object.fromEntries(
-    DAYS.map((d) => {
-      const minutes = byFull.get(d.full)
-      return [d.key, { active: minutes !== undefined, time: '8:00 AM', minutes: String(minutes ?? 15) }]
-    }),
-  )
+/** Local-date "yyyy-MM-dd" — lexically comparable with the plan's ISO start date. */
+function todayIso(): string {
+  return new Date().toISOString().slice(0, 10)
 }
 
 function collectDefaultCollapsed(nodes: PlanNode[]): Set<string> {
@@ -114,8 +99,8 @@ function taskToPayload(node: TaskNode, groupName: string | null): PlanNodePayloa
  * Care plan editor — UC-MG01. Editable, flat sub-plan/task list with a live
  * weekly-effort rollup (lib/planTree.ts) and a publish flow that snapshots
  * the current tree as a new published version. Sub-plan deletion is
- * confirmed via a modal. See design_handoff_care_plan_authoring/README.md
- * for the full spec.
+ * confirmed via a dialog; task deletion is immediate. See
+ * design_handoff_care_plan_authoring/README.md for the full spec.
  */
 export default function CarePlan() {
   const { elderId } = useParams()
@@ -142,33 +127,13 @@ export default function CarePlan() {
   const [stopInfo, setStopInfo] = useState<{ effectiveDate: string; reason: string } | null>(null)
   const [showStopModal, setShowStopModal] = useState(false)
 
+  // The inline panels keep their own in-progress input; the page only tracks which is open.
   const [addPanelOpen, setAddPanelOpen] = useState(false)
-  const [newSubPlanName, setNewSubPlanName] = useState('')
-  const [newSubPlanDays, setNewSubPlanDays] = useState<Record<string, DayState>>(initialDayState)
-
   const [editingTaskId, setEditingTaskId] = useState<string | null>(null)
-  const [editTaskName, setEditTaskName] = useState('')
-  const [editTaskDays, setEditTaskDays] = useState<Record<string, DayState>>(initialDayState)
-
-  // Rendered via a portal (see below) so the per-visit day-by-day breakdown
-  // isn't clipped by the sub-plan rows' `overflow: hidden` (needed for the
-  // expand/collapse animation), and shows instantly on hover instead of
-  // waiting on the browser's native tooltip delay.
-  const [perVisitTooltip, setPerVisitTooltip] = useState<{ top: number; left: number; text: string } | null>(
-    null,
-  )
-
-  function showPerVisitTooltip(e: React.MouseEvent<HTMLElement>, text: string) {
-    const rect = e.currentTarget.getBoundingClientRect()
-    setPerVisitTooltip({ top: rect.top - 6, left: rect.right, text })
-  }
-
-  function hidePerVisitTooltip() {
-    setPerVisitTooltip(null)
-  }
 
   const totalHours = useMemo(() => weeklyHoursOfTree(tree), [tree])
-  const { tasks } = useMemo(() => countTree(tree), [tree])
+  const { subPlans, tasks } = useMemo(() => countTree(tree), [tree])
+  const treeItems = useMemo(() => toPlanTreeItems(tree), [tree])
 
   useEffect(() => {
     if (elder && currentUser) {
@@ -214,18 +179,10 @@ export default function CarePlan() {
     }
   }, [latestPlan, planNodes])
 
-  if (elderLoading) {
+  if (elderLoading || elderError || !elder) {
     return (
       <ManagerShell>
-        <p style={{ padding: 24, color: 'var(--text-muted)' }}>Loading elder…</p>
-      </ManagerShell>
-    )
-  }
-
-  if (elderError || !elder) {
-    return (
-      <ManagerShell>
-        <p style={{ padding: 24, color: 'var(--text-muted)' }}>Elder not found.</p>
+        <MetaText className={styles.pageMessage}>{elderLoading ? 'Loading elder…' : 'Elder not found.'}</MetaText>
       </ManagerShell>
     )
   }
@@ -258,36 +215,25 @@ export default function CarePlan() {
     setTree((prev) => removeNode(prev, taskId))
   }
 
-  function openEditTask(task: TaskNode) {
-    setEditingTaskId(task.id)
-    setEditTaskName(task.name)
-    setEditTaskDays(dayStateFromVisits(task.visits))
+  function findTask(taskId: string): TaskNode | undefined {
+    for (const node of tree) {
+      if (node.type === 'task' && node.id === taskId) return node
+      if (node.type === 'subplan') {
+        const task = node.children.find((child) => child.id === taskId)
+        if (task) return task
+      }
+    }
+    return undefined
   }
 
-  function toggleEditDay(key: string) {
-    setEditTaskDays((prev) => ({ ...prev, [key]: { ...prev[key], active: !prev[key].active } }))
-  }
-
-  function setEditDayMinutes(key: string, minutes: string) {
-    setEditTaskDays((prev) => ({ ...prev, [key]: { ...prev[key], minutes } }))
-  }
-
-  function setEditDayTime(key: string, time: string) {
-    setEditTaskDays((prev) => ({ ...prev, [key]: { ...prev[key], time } }))
-  }
-
-  const editActiveDays = DAYS.filter((d) => editTaskDays[d.key]?.active)
-
-  function submitEditTask(task: TaskNode) {
-    if (editActiveDays.length === 0) return
+  function submitEditTask(taskId: string, name: string, schedule: DayScheduleValue) {
+    const task = findTask(taskId)
+    if (!task) return
     enterDraft(totalHours)
     const updated: TaskNode = {
       ...task,
-      name: editTaskName.trim() || task.name,
-      visits: editActiveDays.map((d) => ({
-        day: d.full,
-        minutes: Number(editTaskDays[d.key].minutes) || 0,
-      })),
+      name: name.trim() || task.name,
+      visits: visitsFromDaySchedule(schedule),
     }
     setTree((prev) => updateTask(prev, task.id, updated))
     setEditingTaskId(null)
@@ -300,43 +246,18 @@ export default function CarePlan() {
     setDeleteTarget(null)
   }
 
-  function openAddPanel() {
-    setNewSubPlanName('')
-    setNewSubPlanDays(initialDayState())
-    setAddPanelOpen(true)
-  }
-
-  function toggleDay(key: string) {
-    setNewSubPlanDays((prev) => ({ ...prev, [key]: { ...prev[key], active: !prev[key].active } }))
-  }
-
-  function setDayMinutes(key: string, minutes: string) {
-    setNewSubPlanDays((prev) => ({ ...prev, [key]: { ...prev[key], minutes } }))
-  }
-
-  function setDayTime(key: string, time: string) {
-    setNewSubPlanDays((prev) => ({ ...prev, [key]: { ...prev[key], time } }))
-  }
-
-  const activeDays = DAYS.filter((d) => newSubPlanDays[d.key]?.active)
-
-  function submitAddSubPlan() {
-    if (activeDays.length === 0) return
+  function submitAddSubPlan(activity: string, schedule: DayScheduleValue) {
     enterDraft(totalHours)
-    const name = newSubPlanName.trim() || 'New sub-plan'
     const task: TaskNode = {
       id: `task-${Date.now()}`,
       type: 'task',
-      name,
-      visits: activeDays.map((d) => ({
-        day: d.full,
-        minutes: Number(newSubPlanDays[d.key].minutes) || 0,
-      })),
+      name: activity,
+      visits: visitsFromDaySchedule(schedule),
       evidence: 'CHECKLIST',
     }
     // Activities are filed under their catalog category, so a second activity from the same
     // category joins the existing sub-plan rather than starting a new one.
-    const groupName = activityCategory(name) ?? name
+    const groupName = activityCategory(activity) ?? activity
     const existing = tree.find((n): n is SubPlanNode => n.type === 'subplan' && n.name === groupName)
     if (existing) {
       setTree((prev) =>
@@ -360,7 +281,7 @@ export default function CarePlan() {
   }
 
   /** The draft this publish writes to: reuses one already open on the backend, or opens one.
-   * Only called from the publish modal, which only renders once the elder guard below has
+   * Only called from the publish dialog, which only renders once the elder guard above has
    * passed, but that narrowing doesn't reach this nested function declaration. */
   async function getOrCreateDraftPlanId(): Promise<number> {
     const currentElderId = elder!.id
@@ -393,144 +314,20 @@ export default function CarePlan() {
     }
   }
 
-  function openStopModal() {
-    setShowStopModal(true)
-  }
+  // A published plan whose start date hasn't arrived yet isn't live — say so.
+  const badgeStatus: BadgeStatus =
+    status === 'published' && startDate && startDate > todayIso() ? 'scheduled' : status
 
-  function renderSubPlan(node: SubPlanNode) {
-    const isCollapsed = collapsed.has(node.id)
-    return (
-      <div key={node.id}>
-        <div className={`${styles.gridRow} ${styles.subplanRow}`}>
-          <div className={styles.subplanName} onClick={() => toggleCollapsed(node.id)}>
-            {isCollapsed ? '▸' : '▾'} {node.name}
-          </div>
-          <div className={styles.subplanPerVisit}>—</div>
-          <div className={styles.subplanWeekly}>{formatHoursFixed(weeklyHours(node))}</div>
-          {!editable ? (
-            <div />
-          ) : (
-            <div
-              className={styles.subplanIcons}
-              title="Delete sub-plan (and its contents)"
-              onClick={() => setDeleteTarget(node)}
-            >
-              <TrashIcon />
-            </div>
-          )}
-        </div>
-        <div className={`${styles.subplanChildren} ${isCollapsed ? styles.subplanChildrenCollapsed : ''}`}>
-          <div className={styles.subplanChildrenInner}>{node.children.map((task) => renderTask(task))}</div>
-        </div>
-      </div>
-    )
-  }
-
-  function renderTask(node: TaskNode) {
-    if (editingTaskId === node.id) return renderEditTaskPanel(node)
-
-    const perVisit = perVisitDisplay(node.visits)
-    return (
-      <div key={node.id} className={`${styles.gridRow} ${styles.taskRow}`}>
-        <div className={styles.taskName} style={{ paddingLeft: 24 }}>
-          {node.name} · {scheduleLabel(node.visits)}
-        </div>
-        <div className={styles.taskPerVisit}>
-          {perVisit.tooltip ? (
-            <span
-              className={styles.perVisitRange}
-              onMouseEnter={(e) => showPerVisitTooltip(e, perVisit.tooltip!)}
-              onMouseLeave={hidePerVisitTooltip}
-              aria-label={perVisit.tooltip}
-            >
-              {perVisit.text}
-            </span>
-          ) : (
-            perVisit.text
-          )}
-        </div>
-        <div className={styles.taskWeekly}>{formatHoursFixed(weeklyHours(node))}</div>
-        {!editable ? (
-          <div />
-        ) : (
-          <div className={styles.taskIcons}>
-            <span className={styles.editIconTask} title="Edit task" onClick={() => openEditTask(node)}>
-              ✎
-            </span>
-            <span className={styles.deleteIconTask} title="Remove task from sub-plan" onClick={() => removeTask(node.id)}>
-              <TrashIcon />
-            </span>
-          </div>
-        )}
-      </div>
-    )
-  }
-
-  function renderEditTaskPanel(node: TaskNode) {
-    return (
-      <div key={node.id} className={styles.addPanelRow}>
-        <div className={styles.addPanelTitle}>Edit task</div>
-
-        <div className={styles.stepLabel}>Name</div>
-        <input
-          className={styles.nameInput}
-          type="text"
-          value={editTaskName}
-          onChange={(e) => setEditTaskName(e.target.value)}
-          autoFocus
-        />
-
-        <div className={styles.stepLabel}>Schedule</div>
-        <div className={styles.dayGrid}>
-          {DAYS.map((d) => {
-            const state = editTaskDays[d.key]
-            return (
-              <div key={d.key} className={styles.dayRow}>
-                <button
-                  type="button"
-                  className={`${styles.dayButton} ${state.active ? styles.dayButtonActive : ''}`}
-                  onClick={() => toggleEditDay(d.key)}
-                >
-                  {d.full[0]}
-                </button>
-                <input
-                  className={styles.dayTimeInput}
-                  type="text"
-                  disabled={!state.active}
-                  placeholder="—"
-                  value={state.active ? state.time : ''}
-                  onChange={(e) => setEditDayTime(d.key, e.target.value)}
-                />
-                <div className={styles.dayMinutes}>
-                  <input
-                    className={styles.dayMinutesInput}
-                    type="text"
-                    disabled={!state.active}
-                    value={state.active ? state.minutes : ''}
-                    onChange={(e) => setEditDayMinutes(d.key, e.target.value)}
-                  />
-                  <span className={styles.dayMinutesUnit}>min</span>
-                </div>
-              </div>
-            )
-          })}
-        </div>
-
-        <div className={styles.addPanelActions}>
-          <button
-            className={styles.addPanelSubmit}
-            disabled={editActiveDays.length === 0}
-            onClick={() => submitEditTask(node)}
-          >
-            Save changes
-          </button>
-          <button className={styles.addPanelCancel} onClick={() => setEditingTaskId(null)}>
-            Cancel
-          </button>
-        </div>
-      </div>
-    )
-  }
+  const history: VersionEntry[] = [
+    ...(status === 'draft' ? [{ n: version + 1, date: 'editing', status: 'draft' as const }] : []),
+    ...versions.map((v, i) => ({
+      n: v.version,
+      date: v.date,
+      summary: v.summary,
+      // The newest recorded version is the live one (the draft above, if any, isn't yet).
+      status: i > 0 ? ('archived' as const) : status === 'draft' ? ('published' as const) : badgeStatus,
+    })),
+  ]
 
   const headerContext = (
     <span>
@@ -541,284 +338,183 @@ export default function CarePlan() {
       <Link to="/manager/elders" className={styles.breadcrumbLink}>
         {elder.name}
       </Link>
-      {' / Care Plan'}
+      {' / care plan'}
     </span>
   )
 
-  const statusTone = status === 'published' ? 'success' : status === 'stopped' ? 'danger' : 'warning'
   const headerRight = (
     <>
-      <span className={`${styles.statusBadge} ${styles[statusTone]}`}>
-        {status.toUpperCase()} v{version}
-      </span>
+      <Badge status={badgeStatus} version={status === 'draft' ? version + 1 : version} />
       <UserIdentity />
     </>
   )
 
-  const primaryLabel = status === 'draft' ? `Publish v${version + 1}` : 'Edit plan'
-  const primaryDisabled = status === 'draft' && (tasks === 0 || !startDate)
+  const editingTask = editingTaskId ? findTask(editingTaskId) : undefined
 
-  return (
-    <ManagerShell headerContext={headerContext} headerRight={headerRight}>
-      <div className={styles.layout}>
-        <div className={styles.planColumn}>
-          {status === 'stopped' && stopInfo && (
-            <div className={styles.readOnlyBanner}>
-              Stopped effective {stopInfo.effectiveDate || '—'} — {stopInfo.reason || 'no reason on file'}. This
-              plan and its history are kept; create a new plan to resume care.
-            </div>
-          )}
-
-          <div className={styles.planHeader}>
-            <div>
-              <Link to="/manager/elders" className={styles.backLink} title="Back to Elders">
-                <BackChevronIcon />
-                Back to Elders
-              </Link>
-              <h2 className={styles.planTitle}>Care Plan</h2>
-              <div className={styles.startsRow}>
-                <span className={styles.startsLabel}>Starts</span>
-                <input
-                  className={styles.startsInput}
-                  type="date"
-                  value={startDate}
-                  disabled={!editable}
-                  onChange={(e) => setStartDate(e.target.value)}
-                />
-              </div>
-            </div>
-            {!locked && (
-              <div className={styles.planActions}>
-                {status === 'draft' && (
-                  <button className={styles.addSubPlanBtn} onClick={openAddPanel}>
-                    Add sub-plan
-                  </button>
-                )}
-                <button
-                  className={styles.publishBtn}
-                  disabled={primaryDisabled}
-                  onClick={() => (status === 'draft' ? setShowPublishModal(true) : enterDraft(totalHours))}
-                >
-                  {primaryLabel}
-                </button>
-              </div>
-            )}
-          </div>
-
-          <div className={`${styles.gridRow} ${styles.tableHeaderRow}`}>
-            <div className={styles.eyebrow}>Plan item</div>
-            <div className={`${styles.eyebrow} ${styles.right}`}>Per visit</div>
-            <div className={`${styles.eyebrow} ${styles.right}`}>Weekly</div>
-            <div className={styles.eyebrow} />
-          </div>
-
-          {tree.length === 0 && !addPanelOpen ? (
-            <div className={styles.emptyState}>No sub-plans yet. Add one to start the plan.</div>
-          ) : (
-            tree.map((node) => (node.type === 'subplan' ? renderSubPlan(node) : renderTask(node)))
-          )}
-
-          {addPanelOpen && (
-            <div className={styles.addPanelRow}>
-              <div className={styles.addPanelTitle}>New sub-plan</div>
-
-              <div className={styles.stepLabel}>Step 1 · select sub-plan</div>
-              <select
-                className={`${styles.nameInput} ${styles.activitySelect}`}
-                value={newSubPlanName}
-                onChange={(e) => setNewSubPlanName(e.target.value)}
-                autoFocus
-              >
-                <option value="" disabled>
-                  Select an activity…
-                </option>
-                {ACTIVITY_CATALOG.map((group) => (
-                  <optgroup key={group.category} label={group.category}>
-                    {group.activities.map((activity) => (
-                      <option key={activity} value={activity}>
-                        {activity}
-                      </option>
-                    ))}
-                  </optgroup>
-                ))}
-              </select>
-
-              <div className={styles.stepLabel}>Step 2 · schedule</div>
-              <div className={styles.dayGrid}>
-                {DAYS.map((d) => {
-                  const state = newSubPlanDays[d.key]
-                  return (
-                    <div key={d.key} className={styles.dayRow}>
-                      <button
-                        type="button"
-                        className={`${styles.dayButton} ${state.active ? styles.dayButtonActive : ''}`}
-                        onClick={() => toggleDay(d.key)}
-                      >
-                        {d.full[0]}
-                      </button>
-                      <input
-                        className={styles.dayTimeInput}
-                        type="text"
-                        disabled={!state.active}
-                        placeholder="—"
-                        value={state.active ? state.time : ''}
-                        onChange={(e) => setDayTime(d.key, e.target.value)}
-                      />
-                      <div className={styles.dayMinutes}>
-                        <input
-                          className={styles.dayMinutesInput}
-                          type="text"
-                          disabled={!state.active}
-                          value={state.active ? state.minutes : ''}
-                          onChange={(e) => setDayMinutes(d.key, e.target.value)}
-                        />
-                        <span className={styles.dayMinutesUnit}>min</span>
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
-
-              <div className={styles.addPanelActions}>
-                <button
-                  className={styles.addPanelSubmit}
-                  disabled={activeDays.length === 0 || !newSubPlanName}
-                  onClick={submitAddSubPlan}
-                >
-                  Add sub-plan ({activeDays.length} {activeDays.length === 1 ? 'activity' : 'activities'})
-                </button>
-                <button className={styles.addPanelCancel} onClick={() => setAddPanelOpen(false)}>
-                  Cancel
-                </button>
-              </div>
-            </div>
-          )}
-
-          <div className={`${styles.gridRow} ${styles.totalRow}`}>
-            <div className={styles.totalLabel}>Plan total</div>
-            <div className={styles.totalSpacer} />
-            <div className={styles.totalValue}>{formatHoursFixed(totalHours)}</div>
-            <div />
-          </div>
-
-        </div>
-
-        <div className={styles.detailPanel}>
-          <div className={styles.eyebrow}>Elder</div>
-          <div className={styles.elderHeader}>
-            <div className={styles.avatarLg} />
-            <div>
-              <div className={styles.elderName}>{elder.name}</div>
-              <div className={styles.elderMeta}>
-                {elder.age} · {elder.id} · {elder.sector}
-              </div>
-            </div>
-          </div>
-
-          {profile && (
-            <>
-              <div className={styles.profileFields}>
-                <div className={styles.profileField}>
-                  <span className={styles.profileFieldLabel}>Dialect</span>
-                  <span>{profile.dialect}</span>
-                </div>
-                <div className={styles.profileField}>
-                  <span className={styles.profileFieldLabel}>Lives</span>
-                  <span>{elder.livesAlone === null ? 'not on file' : elder.livesAlone ? 'alone' : 'with family'}</span>
-                </div>
-                <div className={styles.profileField}>
-                  <span className={styles.profileFieldLabel}>Family</span>
-                  <span>{profile.family}</span>
-                </div>
-                <div className={styles.profileField}>
-                  <span className={styles.profileFieldLabel}>Mobility</span>
-                  <span>{profile.mobility}</span>
-                </div>
-                <div className={styles.profileField}>
-                  <span className={styles.profileFieldLabel}>Continuity</span>
-                  <span>{profile.continuity}</span>
-                </div>
-              </div>
-
-              <div className={styles.sectionSpacer}>
-                <div className={styles.eyebrow}>Required certifications</div>
-                <div className={styles.certList}>
-                  {profile.requiredCertifications.map((cert) => (
-                    <span key={cert} className={styles.certBadge}>
-                      {cert}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            </>
-          )}
-
-          {versions.length > 0 && (
-            <div className={styles.sectionSpacer}>
-              <div className={styles.eyebrow}>Version history</div>
-              <div className={styles.versionList}>
-                {versions.map((v, i) => (
-                  <div
-                    key={v.version}
-                    className={`${styles.versionRow} ${i === 0 ? styles.versionLatest : ''}`}
-                  >
-                    <span>
-                      v{v.version} · {v.date}
-                    </span>
-                    <span>{v.summary}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {status === 'draft' && priorPublishedHours !== undefined && (
-            <div className={styles.deltaBanner}>
-              Draft v{version + 1} changes weekly effort {formatHoursFixed(priorPublishedHours)} →{' '}
-              {formatHoursFixed(totalHours)}. Publishing re-runs the roster for affected weeks.
-            </div>
-          )}
-
-          {status === 'published' && !locked && (
-            <button className={styles.dangerBtn} onClick={openStopModal}>
-              Stop care plan
-            </button>
-          )}
-        </div>
-      </div>
-
-      {showPublishModal && (
-        <div className={modalStyles.modalOverlay} onClick={() => setShowPublishModal(false)}>
-          <div className={modalStyles.modalBox} onClick={(e) => e.stopPropagation()}>
-            <div className={modalStyles.modalTitle}>Publish care plan</div>
-            <p className={modalStyles.modalBody}>
-              This publishes v{version + 1} at {formatHoursFixed(totalHours)}/week
-              {priorPublishedHours !== undefined ? ` (from ${formatHoursFixed(priorPublishedHours)})` : ''}.
-              Publishing re-runs the roster for the next {MOCK_AFFECTED_WEEKS} weeks.
-            </p>
-            {publishError && <p className={modalStyles.modalBodyProse}>{publishError}</p>}
-            <div className={modalStyles.modalActions}>
-              <button
-                className={`${modalStyles.modalBtn} ${modalStyles.secondary}`}
-                disabled={publishing}
-                onClick={() => setShowPublishModal(false)}
-              >
-                Cancel
-              </button>
-              <button
-                className={`${modalStyles.modalBtn} ${modalStyles.primary}`}
-                disabled={publishing || !startDate}
-                onClick={publish}
-              >
-                {publishing ? 'Publishing…' : 'Publish'}
-              </button>
-            </div>
-          </div>
+  const main = (
+    <>
+      {status === 'stopped' && stopInfo && (
+        <div className={styles.banner}>
+          <Callout tone="neutral">
+            Stopped effective {stopInfo.effectiveDate || '—'} — {stopInfo.reason || 'no reason on file'}. This plan
+            and its history are kept; create a new plan to resume care.
+          </Callout>
         </div>
       )}
 
+      <PageHeader
+        back={<BackLink to="/manager/elders">Back to Elders</BackLink>}
+        title="Care plan"
+        meta={[
+          `${subPlans} sub-plans`,
+          `${tasks} tasks`,
+          `${formatHoursLoose(totalHours)} / week`,
+          elder.sector && `sector ${elder.sector}`,
+        ]
+          .filter(Boolean)
+          .join(' · ')}
+        actions={
+          !locked && (
+            <>
+              {editable && <Button onClick={() => setAddPanelOpen(true)}>Add sub-plan</Button>}
+              <Button
+                variant="primary"
+                disabled={editable && (tasks === 0 || !startDate)}
+                onClick={() => (editable ? setShowPublishModal(true) : enterDraft(totalHours))}
+              >
+                {editable ? `Publish v${version + 1}` : 'Edit plan'}
+              </Button>
+            </>
+          )
+        }
+      >
+        <Field label="Starts" inline>
+          {(id) => <DateInput id={id} value={startDate} disabled={!editable} onChange={setStartDate} />}
+        </Field>
+      </PageHeader>
+
+      {editable ? (
+        <PlanTreeEditor
+          items={treeItems}
+          collapsedIds={collapsed}
+          onToggle={toggleCollapsed}
+          total={formatHoursFixed(totalHours)}
+          onEditTask={setEditingTaskId}
+          onDeleteTask={removeTask}
+          onDeleteSubPlan={(id) => setDeleteTarget(findSubPlan(tree, id) ?? null)}
+          editingTask={
+            editingTask
+              ? { id: editingTask.id, name: editingTask.name, schedule: dayScheduleFromVisits(editingTask.visits) }
+              : null
+          }
+          onSaveTask={submitEditTask}
+          onCancelEdit={() => setEditingTaskId(null)}
+          adding={addPanelOpen}
+          activityOptions={ACTIVITY_OPTIONS}
+          onAdd={submitAddSubPlan}
+          onCancelAdd={() => setAddPanelOpen(false)}
+        />
+      ) : (
+        <PlanTreeView
+          items={treeItems}
+          collapsedIds={collapsed}
+          onToggle={toggleCollapsed}
+          total={formatHoursFixed(totalHours)}
+        />
+      )}
+    </>
+  )
+
+  const rail = (
+    <SidePanel
+      label="Elder"
+      sections={[
+        <div key="elder" className={styles.railGroup}>
+          <Eyebrow>Elder</Eyebrow>
+          <IdentityHeader
+            name={elder.name}
+            meta={[elder.age, elder.id, elder.sector].filter((part) => part !== '').join(' · ')}
+          />
+        </div>,
+        profile && (
+          <KeyValueList
+            key="profile"
+            variant="ruled"
+            items={[
+              { label: 'Dialect', value: profile.dialect },
+              {
+                label: 'Lives',
+                value: elder.livesAlone === null ? 'not on file' : elder.livesAlone ? 'alone' : 'with family',
+              },
+              { label: 'Family', value: profile.family },
+              { label: 'Mobility', value: profile.mobility },
+              { label: 'Continuity', value: profile.continuity },
+            ]}
+          />
+        ),
+        profile && (
+          <div key="certs" className={styles.railGroup}>
+            <Eyebrow>Required certifications</Eyebrow>
+            <div className={styles.tags}>
+              {profile.requiredCertifications.map((cert) => (
+                <Tag key={cert}>{cert}</Tag>
+              ))}
+            </div>
+          </div>
+        ),
+        history.length > 0 && (
+          <div key="history" className={styles.railGroup}>
+            <Eyebrow>Version history</Eyebrow>
+            <VersionHistoryList versions={history} />
+          </div>
+        ),
+        status === 'draft' && priorPublishedHours !== undefined && (
+          <Callout key="delta" tone="info" role="status">
+            Draft v{version + 1} changes weekly effort {formatHoursFixed(priorPublishedHours)} →{' '}
+            {formatHoursFixed(totalHours)}. Publishing re-runs the roster for affected weeks.
+          </Callout>
+        ),
+      ]}
+      footer={
+        status === 'published' && (
+          <StopCarePlanButton onClick={() => setShowStopModal(true)} />
+        )
+      }
+    />
+  )
+
+  const deleteTaskCount = deleteTarget?.children.length ?? 0
+
+  return (
+    <ManagerShell headerContext={headerContext} headerRight={headerRight}>
+      <SplitLayout main={main} rail={rail} />
+
+      {showPublishModal && (
+        <ConfirmDialog
+          eyebrow="Publish"
+          title={`Publish care plan v${version + 1}?`}
+          meta={elder.name}
+          confirmLabel={publishing ? 'Publishing…' : 'Publish'}
+          busy={publishing}
+          confirmDisabled={!startDate}
+          onConfirm={publish}
+          onCancel={() => setShowPublishModal(false)}
+        >
+          <BodyText>
+            This publishes v{version + 1} at {formatHoursFixed(totalHours)}/week
+            {priorPublishedHours !== undefined ? ` (from ${formatHoursFixed(priorPublishedHours)})` : ''}.
+            Publishing re-runs the roster for the next {MOCK_AFFECTED_WEEKS} weeks.
+          </BodyText>
+          {publishError && (
+            <Callout tone="danger" role="alert">
+              {publishError}
+            </Callout>
+          )}
+        </ConfirmDialog>
+      )}
+
       {showStopModal && (
-        <StopCarePlanModal
+        <StopCarePlanDialog
           elder={elder}
           onClose={() => setShowStopModal(false)}
           onStopped={(stopped) => {
@@ -833,42 +529,22 @@ export default function CarePlan() {
       )}
 
       {deleteTarget && (
-        <div className={modalStyles.modalOverlay} onClick={() => setDeleteTarget(null)}>
-          <div className={modalStyles.modalBox} onClick={(e) => e.stopPropagation()}>
-            <div className={`${modalStyles.modalEyebrow} ${modalStyles.danger}`}>Delete sub-plan</div>
-            <div className={modalStyles.modalTitle}>Delete "{deleteTarget.name}"?</div>
-            <p className={modalStyles.modalBodyProse}>
-              This sub-plan has {deleteTarget.children.length}{' '}
-              {deleteTarget.children.length === 1 ? 'task' : 'tasks'} totalling{' '}
-              {formatHoursFixed(weeklyHours(deleteTarget))}/week. Deleting it removes{' '}
-              {deleteTarget.children.length === 1 ? 'that task' : 'all of them'} from the care plan — this
-              can't be undone.
-            </p>
-            <div className={modalStyles.modalActions}>
-              <button
-                className={`${modalStyles.modalBtn} ${modalStyles.secondary}`}
-                onClick={() => setDeleteTarget(null)}
-              >
-                Cancel
-              </button>
-              <button className={`${modalStyles.modalBtn} ${modalStyles.danger}`} onClick={confirmDeleteSubPlan}>
-                Delete sub-plan
-              </button>
-            </div>
-          </div>
-        </div>
+        <ConfirmDialog
+          tone="danger"
+          eyebrow="Delete sub-plan"
+          title={`Delete "${deleteTarget.name}"?`}
+          confirmLabel="Delete sub-plan"
+          onConfirm={confirmDeleteSubPlan}
+          onCancel={() => setDeleteTarget(null)}
+        >
+          <BodyText>
+            This sub-plan has {deleteTaskCount} {deleteTaskCount === 1 ? 'task' : 'tasks'} totalling{' '}
+            {formatHoursFixed(weeklyHours(deleteTarget))}/week. Deleting it removes{' '}
+            {deleteTaskCount === 1 ? 'that task' : deleteTaskCount === 2 ? 'both tasks' : `all ${deleteTaskCount} tasks`}{' '}
+            from the care plan — this can't be undone.
+          </BodyText>
+        </ConfirmDialog>
       )}
-
-      {perVisitTooltip &&
-        createPortal(
-          <div
-            className={styles.hoverTooltip}
-            style={{ top: perVisitTooltip.top, left: perVisitTooltip.left }}
-          >
-            {perVisitTooltip.text}
-          </div>,
-          document.body,
-        )}
     </ManagerShell>
   )
 }
