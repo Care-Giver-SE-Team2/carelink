@@ -2,6 +2,8 @@ package sg.nus.carelink.careplan.domain.model;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.Comparator;
+import java.util.List;
 
 /**
  * Domain model for care_plan_node.
@@ -23,7 +25,15 @@ public record CarePlanNode(
 		CarePlanNode.EvidenceType evidenceType,
 		Integer displayOrder,
 		LocalDateTime createdAt,
-		LocalDateTime updatedAt) {
+		LocalDateTime updatedAt,
+		/** One entry per scheduled day, Monday first. scheduleDays and weeklyHours summarise it. */
+		List<ScheduledVisit> visits) {
+
+	public CarePlanNode {
+		visits = visits == null
+				? List.of()
+				: visits.stream().sorted(Comparator.comparing(ScheduledVisit::day)).toList();
+	}
 
 	public enum EvidenceType {
 		NONE, CHECKLIST, PHOTO, READING

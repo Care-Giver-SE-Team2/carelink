@@ -1,5 +1,7 @@
 package sg.nus.carelink.careplan.application;
 
-/** One scheduled day for a TASK node, e.g. Mon at 30 minutes. */
-public record VisitInput(String day, int minutes) {
+import java.time.LocalTime;
+
+/** One scheduled day for a task, e.g. Mon starting 08:00 for 30 minutes. */
+public record VisitInput(String day, LocalTime startTime, int minutes) {
 }

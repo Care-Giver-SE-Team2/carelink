@@ -1,6 +1,4 @@
-import { useId, useState } from 'react'
-import type { FocusEvent, MouseEvent, ReactNode } from 'react'
-import { createPortal } from 'react-dom'
+import type { ReactNode } from 'react'
 import { Eyebrow } from './Typography'
 import { ChevronDownIcon } from './icons'
 import { cx } from './cx'
@@ -9,12 +7,10 @@ import styles from './PlanTreeView.module.css'
 export type PlanTreeTask = {
   kind: 'task'
   id: string
-  /** e.g. "Bathing assistance · Mon, Wed, Fri" */
+  /** The task's name, e.g. "Bathing assistance". */
   label: ReactNode
-  /** e.g. "45 m", or a range "30–60 m" when the duration varies by day. */
-  perVisit: string
-  /** Day-by-day breakdown shown on hover/focus when `perVisit` is a range. */
-  perVisitDetail?: string
+  /** One tag per scheduled day, already worded: "Mon 8:00–8:30 AM · 30 m", or a single "Daily …". */
+  schedule: string[]
   weekly: string
 }
 
@@ -35,7 +31,7 @@ type Props = {
   /** Plan total, already formatted ("6.50 h"). */
   total: string
   emptyMessage?: ReactNode
-  columns?: { item: string; perVisit: string; weekly: string }
+  columns?: { item: string; weekly: string }
   /**
    * Extension points for a wrapping component (e.g. an editor); a plain read-only tree
    * passes none of these. `rowActions` adds a trailing actions column.
@@ -61,7 +57,7 @@ export function PlanTreeView({
   onToggle,
   total,
   emptyMessage = 'No sub-plans yet.',
-  columns = { item: 'Plan item', perVisit: 'Per visit', weekly: 'Weekly' },
+  columns = { item: 'Plan item', weekly: 'Weekly' },
   rowActions,
   replaceTask,
   children,
@@ -71,9 +67,17 @@ export function PlanTreeView({
     if (replacement) return <div key={task.id}>{replacement}</div>
     return (
       <div key={task.id} className={cx(styles.row, styles.taskRow, nested && styles.nested)}>
-        <span className={styles.taskLabel}>{task.label}</span>
-        <span className={cx(styles.taskValue, styles.right, styles.perVisit)}>
-          <PerVisit text={task.perVisit} detail={task.perVisitDetail} />
+        <span className={styles.taskCell}>
+          <span className={styles.taskLabel}>{task.label}</span>
+          {task.schedule.length > 0 && (
+            <span className={styles.scheduleTags}>
+              {task.schedule.map((tag) => (
+                <span key={tag} className={styles.scheduleTag}>
+                  {tag}
+                </span>
+              ))}
+            </span>
+          )}
         </span>
         <span className={cx(styles.taskValue, styles.right)}>{task.weekly}</span>
         {rowActions && <span className={styles.actions}>{rowActions.task(task)}</span>}
@@ -98,7 +102,6 @@ export function PlanTreeView({
             </span>
             {sub.name}
           </button>
-          <span className={cx(styles.dash, styles.right, styles.perVisit)}>—</span>
           <span className={cx(styles.subWeekly, styles.right)}>{sub.weekly}</span>
           {rowActions && <span className={styles.actions}>{rowActions.subPlan(sub)}</span>}
         </div>
@@ -113,7 +116,6 @@ export function PlanTreeView({
     <div className={cx(styles.tree, rowActions && styles.withActions)}>
       <div className={cx(styles.row, styles.headerRow)}>
         <Eyebrow>{columns.item}</Eyebrow>
-        <Eyebrow className={cx(styles.right, styles.perVisit)}>{columns.perVisit}</Eyebrow>
         <Eyebrow className={styles.right}>{columns.weekly}</Eyebrow>
         {rowActions && <span />}
       </div>
@@ -128,54 +130,9 @@ export function PlanTreeView({
 
       <div className={cx(styles.row, styles.totalRow)}>
         <span className={styles.totalLabel}>Plan total</span>
-        <span className={styles.perVisit} />
         <span className={cx(styles.totalValue, styles.right)}>{total}</span>
         {rowActions && <span />}
       </div>
     </div>
-  )
-}
-
-/**
- * The per-visit cell. A range shows its day-by-day breakdown in a tooltip rendered to
- * document.body — so the collapse animation's `overflow: hidden` can't clip it, and it
- * appears at once rather than after the browser's title-attribute delay.
- */
-function PerVisit({ text, detail }: { text: string; detail?: string }) {
-  const [tip, setTip] = useState<{ top: number; left: number } | null>(null)
-  const tipId = useId()
-  if (!detail) return <>{text}</>
-
-  function show(e: MouseEvent<HTMLSpanElement> | FocusEvent<HTMLSpanElement>) {
-    const rect = e.currentTarget.getBoundingClientRect()
-    setTip({ top: rect.top - 6, left: rect.right })
-  }
-
-  return (
-    <>
-      <span
-        className={styles.range}
-        tabIndex={0}
-        aria-describedby={tipId}
-        onMouseEnter={show}
-        onMouseLeave={() => setTip(null)}
-        onFocus={show}
-        onBlur={() => setTip(null)}
-      >
-        {text}
-      </span>
-      {/* Always in the DOM (hidden when idle) so aria-describedby resolves for screen readers. */}
-      {createPortal(
-        <div
-          id={tipId}
-          role="tooltip"
-          className={styles.tooltip}
-          style={tip ? { top: tip.top, left: tip.left } : { display: 'none' }}
-        >
-          {detail}
-        </div>,
-        document.body,
-      )}
-    </>
   )
 }

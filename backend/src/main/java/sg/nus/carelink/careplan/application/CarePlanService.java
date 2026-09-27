@@ -5,7 +5,9 @@ import java.math.RoundingMode;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.util.EnumSet;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.Optional;
 
 import org.springframework.stereotype.Service;
@@ -14,6 +16,7 @@ import org.springframework.transaction.annotation.Transactional;
 import sg.nus.carelink.careplan.domain.model.CarePlan;
 import sg.nus.carelink.careplan.domain.model.CarePlanNode;
 import sg.nus.carelink.careplan.domain.model.ScheduleDays;
+import sg.nus.carelink.careplan.domain.model.ScheduledVisit;
 import sg.nus.carelink.careplan.domain.repository.CarePlanNodeRepository;
 import sg.nus.carelink.careplan.domain.repository.CarePlanRepository;
 import sg.nus.carelink.shared.error.BusinessRuleViolation;
@@ -101,14 +104,33 @@ public class CarePlanService {
 			throw new BusinessRuleViolation(
 					"CARE_PLAN_TASK_NO_VISITS", "Task [%s] has no scheduled visits".formatted(node.name()));
 		}
-		int totalMinutes = node.visits().stream().mapToInt(VisitInput::minutes).sum();
-		int averageMinutes = Math.round((float) totalMinutes / node.visits().size());
+		List<ScheduledVisit> visits = scheduledVisitsOf(node);
+		int totalMinutes = visits.stream().mapToInt(ScheduledVisit::minutes).sum();
+		// duration_per_visit is kept as the average for readers that predate the per-day rows.
+		int averageMinutes = Math.round((float) totalMinutes / visits.size());
 		CarePlanNode task = new CarePlanNode(
 				null, planId, node.groupName(), node.name(),
 				scheduleDaysOf(node.visits()), minutesToHours(averageMinutes), minutesToHours(totalMinutes),
 				node.evidenceType() == null ? CarePlanNode.EvidenceType.NONE : node.evidenceType(),
-				displayOrder, null, null);
+				displayOrder, null, null, visits);
 		return carePlanNodes.save(task).weeklyHours();
+	}
+
+	/** Each day as entered: its own start time and minutes. A day may appear only once per task. */
+	private static List<ScheduledVisit> scheduledVisitsOf(PlanNodeInput node) {
+		Set<DayOfWeek> seen = new HashSet<>();
+		return node.visits().stream().map(visit -> {
+			DayOfWeek day = ScheduleDays.dayOf(visit.day());
+			if (!seen.add(day)) {
+				throw new BusinessRuleViolation("CARE_PLAN_TASK_DUPLICATE_DAY",
+						"Task [%s] schedules %s more than once".formatted(node.name(), visit.day()));
+			}
+			if (visit.startTime() == null) {
+				throw new BusinessRuleViolation("CARE_PLAN_TASK_NO_START_TIME",
+						"Task [%s] has no start time on %s".formatted(node.name(), visit.day()));
+			}
+			return new ScheduledVisit(day, visit.startTime(), visit.minutes());
+		}).toList();
 	}
 
 	private static String scheduleDaysOf(List<VisitInput> visits) {

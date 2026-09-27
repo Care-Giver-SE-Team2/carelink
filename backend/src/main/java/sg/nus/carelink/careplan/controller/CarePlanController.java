@@ -100,7 +100,7 @@ public class CarePlanController {
 				request.name(),
 				request.visits() == null
 						? List.of()
-						: request.visits().stream().map(v -> new VisitInput(v.day(), v.minutes())).toList(),
+						: request.visits().stream().map(v -> new VisitInput(v.day(), v.startTime(), v.minutes())).toList(),
 				request.evidenceType());
 	}
 }

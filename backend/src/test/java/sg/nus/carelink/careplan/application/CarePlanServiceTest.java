@@ -5,16 +5,21 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.DayOfWeek;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.List;
 
 import org.junit.jupiter.api.Test;
 
 import sg.nus.carelink.careplan.domain.model.CarePlan;
 import sg.nus.carelink.careplan.domain.model.CarePlanNode;
+import sg.nus.carelink.careplan.domain.model.ScheduledVisit;
 import sg.nus.carelink.shared.error.BusinessRuleViolation;
 
 class CarePlanServiceTest {
+
+	private static final LocalTime EIGHT = LocalTime.of(8, 0);
 
 	private final InMemoryCarePlanRepository repository = new InMemoryCarePlanRepository();
 	private final InMemoryCarePlanNodeRepository nodeRepository = new InMemoryCarePlanNodeRepository();
@@ -61,7 +66,7 @@ class CarePlanServiceTest {
 				new PlanNodeInput(
 						"Personal care",
 						"Bathing assistance",
-						List.of(new VisitInput("Mon", 30), new VisitInput("Wed", 30), new VisitInput("Fri", 30)),
+						List.of(new VisitInput("Mon", EIGHT, 30), new VisitInput("Wed", EIGHT, 30), new VisitInput("Fri", EIGHT, 30)),
 						CarePlanNode.EvidenceType.CHECKLIST)));
 
 		assertThat(published.status()).isEqualTo(CarePlan.Status.PUBLISHED);
@@ -78,7 +83,7 @@ class CarePlanServiceTest {
 		CarePlan draft = service.createDraft(42L, 7L);
 		List<PlanNodeInput> tasks = List.of(new PlanNodeInput(
 				"Personal care", "Bathing assistance",
-				List.of(new VisitInput("Mon", 30)), CarePlanNode.EvidenceType.CHECKLIST));
+				List.of(new VisitInput("Mon", EIGHT, 30)), CarePlanNode.EvidenceType.CHECKLIST));
 		CarePlan published = service.publish(draft.id(), LocalDate.of(2026, 4, 1), tasks);
 
 		assertThatThrownBy(() -> service.publish(published.id(), LocalDate.of(2026, 4, 1), tasks))
@@ -92,7 +97,7 @@ class CarePlanServiceTest {
 		CarePlan draft = service.createDraft(42L, 7L);
 		List<PlanNodeInput> tasks = List.of(new PlanNodeInput(
 				"Personal care", "Bathing assistance",
-				List.of(new VisitInput("Mon", 30)), CarePlanNode.EvidenceType.CHECKLIST));
+				List.of(new VisitInput("Mon", EIGHT, 30)), CarePlanNode.EvidenceType.CHECKLIST));
 
 		assertThatThrownBy(() -> service.publish(draft.id(), null, tasks))
 				.isInstanceOf(BusinessRuleViolation.class)
@@ -117,7 +122,7 @@ class CarePlanServiceTest {
 		CarePlan draft = service.createDraft(42L, 7L);
 		List<PlanNodeInput> tasks = List.of(new PlanNodeInput(
 				"Personal care", "Bathing assistance",
-				List.of(new VisitInput("Mon", 30)), CarePlanNode.EvidenceType.CHECKLIST));
+				List.of(new VisitInput("Mon", EIGHT, 30)), CarePlanNode.EvidenceType.CHECKLIST));
 		CarePlan published = service.publish(draft.id(), LocalDate.of(2026, 4, 1), tasks);
 
 		CarePlan stopped = service.stop(published.id(), LocalDate.of(2026, 9, 22), "Elder moved away", 9L);
@@ -145,7 +150,7 @@ class CarePlanServiceTest {
 	void publishingANewDraftSupersedesThePreviousPublishedPlan() {
 		List<PlanNodeInput> tasks = List.of(new PlanNodeInput(
 				"Personal care", "Bathing assistance",
-				List.of(new VisitInput("Mon", 30)), CarePlanNode.EvidenceType.CHECKLIST));
+				List.of(new VisitInput("Mon", EIGHT, 30)), CarePlanNode.EvidenceType.CHECKLIST));
 		CarePlan firstDraft = service.createDraft(42L, 7L);
 		CarePlan firstPublished = service.publish(firstDraft.id(), LocalDate.of(2026, 4, 1), tasks);
 
@@ -157,12 +162,58 @@ class CarePlanServiceTest {
 	}
 
 	@Test
+	void keepsEachDaysStartTimeAndMinutesAndSumsThemIntoWeeklyHours() {
+		CarePlan draft = service.createDraft(42L, 7L);
+
+		service.publish(draft.id(), LocalDate.of(2026, 4, 1), List.of(new PlanNodeInput(
+				"Personal care", "Bathing assistance",
+				List.of(new VisitInput("Fri", LocalTime.of(8, 0), 60), new VisitInput("Mon", LocalTime.of(8, 0), 30),
+						new VisitInput("Wed", LocalTime.of(16, 30), 45)),
+				CarePlanNode.EvidenceType.CHECKLIST)));
+
+		CarePlanNode task = service.findNodes(draft.id()).getFirst();
+		assertThat(task.visits()).containsExactly(
+				new ScheduledVisit(DayOfWeek.MONDAY, LocalTime.of(8, 0), 30),
+				new ScheduledVisit(DayOfWeek.WEDNESDAY, LocalTime.of(16, 30), 45),
+				new ScheduledVisit(DayOfWeek.FRIDAY, LocalTime.of(8, 0), 60));
+		assertThat(task.weeklyHours()).isEqualByComparingTo("2.25");
+		assertThat(task.scheduleDays()).isEqualTo("MON,WED,FRI");
+	}
+
+	@Test
+	void publishingATaskThatSchedulesADayTwiceIsRejected() {
+		CarePlan draft = service.createDraft(42L, 7L);
+		List<PlanNodeInput> tasks = List.of(new PlanNodeInput(
+				"Personal care", "Bathing assistance",
+				List.of(new VisitInput("Mon", EIGHT, 30), new VisitInput("Monday", EIGHT, 15)),
+				CarePlanNode.EvidenceType.CHECKLIST));
+
+		assertThatThrownBy(() -> service.publish(draft.id(), LocalDate.of(2026, 4, 1), tasks))
+				.isInstanceOf(BusinessRuleViolation.class)
+				.extracting(ex -> ((BusinessRuleViolation) ex).code())
+				.isEqualTo("CARE_PLAN_TASK_DUPLICATE_DAY");
+	}
+
+	@Test
+	void publishingADayWithNoStartTimeIsRejected() {
+		CarePlan draft = service.createDraft(42L, 7L);
+		List<PlanNodeInput> tasks = List.of(new PlanNodeInput(
+				"Personal care", "Bathing assistance",
+				List.of(new VisitInput("Mon", null, 30)), CarePlanNode.EvidenceType.CHECKLIST));
+
+		assertThatThrownBy(() -> service.publish(draft.id(), LocalDate.of(2026, 4, 1), tasks))
+				.isInstanceOf(BusinessRuleViolation.class)
+				.extracting(ex -> ((BusinessRuleViolation) ex).code())
+				.isEqualTo("CARE_PLAN_TASK_NO_START_TIME");
+	}
+
+	@Test
 	void schedulesSevenVisitsAWeekAsDaily() {
 		CarePlan draft = service.createDraft(42L, 7L);
 		List<VisitInput> everyDay = List.of(
-				new VisitInput("Mon", 30), new VisitInput("Tue", 30), new VisitInput("Wed", 30),
-				new VisitInput("Thu", 30), new VisitInput("Fri", 30), new VisitInput("Sat", 30),
-				new VisitInput("Sun", 30));
+				new VisitInput("Mon", EIGHT, 30), new VisitInput("Tue", EIGHT, 30), new VisitInput("Wed", EIGHT, 30),
+				new VisitInput("Thu", EIGHT, 30), new VisitInput("Fri", EIGHT, 30), new VisitInput("Sat", EIGHT, 30),
+				new VisitInput("Sun", EIGHT, 30));
 
 		service.publish(draft.id(), LocalDate.of(2026, 4, 1), List.of(
 				new PlanNodeInput("Personal care", "Bathing assistance", everyDay, CarePlanNode.EvidenceType.CHECKLIST)));

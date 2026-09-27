@@ -19,7 +19,11 @@ export type CarePlanResponse = {
   stoppedAt: string | null
 }
 
-export type VisitPayload = { day: string; minutes: number }
+/**
+ * One day of a task's schedule. startTime is 24-hour "HH:mm" when sent; the backend returns it as
+ * java.time.LocalTime's "HH:mm:ss". The end time is start + minutes, worked out client-side.
+ */
+export type VisitPayload = { day: string; startTime: string; minutes: number }
 
 /** Every published node is a task; groupName is a display-only label, not a hierarchy. */
 export type PlanNodePayload = {

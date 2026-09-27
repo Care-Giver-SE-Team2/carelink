@@ -32,7 +32,7 @@ class InMemoryCarePlanNodeRepository implements CarePlanNodeRepository {
 						carePlanNode.name(),
 						carePlanNode.scheduleDays(), carePlanNode.durationPerVisit(), carePlanNode.weeklyHours(),
 						carePlanNode.evidenceType(), carePlanNode.displayOrder(), carePlanNode.createdAt(),
-						carePlanNode.updatedAt())
+						carePlanNode.updatedAt(), carePlanNode.visits())
 				: carePlanNode;
 		rows.put(stored.id(), stored);
 		if (carePlanNode.id() == null) {

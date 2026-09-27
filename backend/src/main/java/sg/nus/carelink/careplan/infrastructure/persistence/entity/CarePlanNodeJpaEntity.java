@@ -1,16 +1,22 @@
 package sg.nus.carelink.careplan.infrastructure.persistence.entity;
 
+import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
+import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * JPA entity for table care_plan_node.
@@ -72,6 +78,11 @@ public class CarePlanNodeJpaEntity {
 
 	@Column(name = "updated_at", nullable = false, insertable = false, updatable = false)
 	private LocalDateTime updatedAt;
+
+	/** The task's per-day schedule (care_plan_node_visit), saved and deleted with the task. */
+	@OneToMany(cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
+	@JoinColumn(name = "care_plan_node_id", nullable = false)
+	private List<CarePlanNodeVisitJpaEntity> visits = new ArrayList<>();
 
 	public CarePlanNodeJpaEntity() {
 	}
@@ -154,5 +165,13 @@ public class CarePlanNodeJpaEntity {
 
 	public LocalDateTime getUpdatedAt() {
 		return updatedAt;
+	}
+
+	public List<CarePlanNodeVisitJpaEntity> getVisits() {
+		return visits;
+	}
+
+	public void setVisits(List<CarePlanNodeVisitJpaEntity> visits) {
+		this.visits = visits;
 	}
 }
