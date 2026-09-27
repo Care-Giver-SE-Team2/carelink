@@ -90,7 +90,7 @@ function taskToPayload(node: TaskNode, groupName: string | null): PlanNodePayloa
   return {
     groupName,
     name: node.name,
-    visits: node.visits.map((v) => ({ day: v.day, minutes: v.minutes })),
+    visits: node.visits.map((v) => ({ day: v.day, startTime: v.startTime, minutes: v.minutes })),
     evidenceType: node.evidence,
   }
 }

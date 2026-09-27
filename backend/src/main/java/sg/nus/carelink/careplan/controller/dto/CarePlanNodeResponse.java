@@ -1,9 +1,10 @@
 package sg.nus.carelink.careplan.controller.dto;
 
 import java.math.BigDecimal;
-import java.math.RoundingMode;
+import java.time.format.TextStyle;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Locale;
 
 import sg.nus.carelink.careplan.domain.model.CarePlanNode;
 
@@ -12,10 +13,8 @@ import sg.nus.carelink.careplan.domain.model.CarePlanNode;
  * plan for further edits (see CarePlanService.publish), it only redisplays the last published
  * version. groupName is a display-only label; the list itself is flat.
  *
- * <p>{@code visits} is rebuilt from scheduleDays + durationPerVisit, so a day-by-day schedule that
- * varied its minutes per day (the editor allows this) comes back with one shared duration across
- * its days — the same simplification the schema itself makes (duration_per_visit is a single
- * column, not one per day).
+ * <p>{@code visits} is the task's per-day schedule exactly as published: each day's own start
+ * time and minutes, Monday first.
  */
 public record CarePlanNodeResponse(
 		Long id,
@@ -38,23 +37,11 @@ public record CarePlanNodeResponse(
 				node.id(), node.groupName(), node.name(), visitsFrom(node), node.evidenceType(), node.weeklyHours());
 	}
 
-	private static final List<String> WEEK = List.of("MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN");
-
+	/** "Mon", "Tue", …: the labels the editor sends and ScheduleDays.dayOf reads back. */
 	private static List<VisitRequest> visitsFrom(CarePlanNode node) {
-		if (node.scheduleDays() == null || node.scheduleDays().isBlank() || node.durationPerVisit() == null) {
-			return List.of();
-		}
-		int minutes = node.durationPerVisit()
-				.multiply(BigDecimal.valueOf(60))
-				.setScale(0, RoundingMode.HALF_UP)
-				.intValue();
-		List<String> days = "DAILY".equals(node.scheduleDays()) ? WEEK : List.of(node.scheduleDays().split(","));
-		return days.stream()
-				.map(day -> new VisitRequest(titleCase(day), minutes))
+		return node.visits().stream()
+				.map(v -> new VisitRequest(
+						v.day().getDisplayName(TextStyle.SHORT, Locale.ENGLISH), v.startTime(), v.minutes()))
 				.toList();
-	}
-
-	private static String titleCase(String day) {
-		return day.charAt(0) + day.substring(1).toLowerCase();
 	}
 }

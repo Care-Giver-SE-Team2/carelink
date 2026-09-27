@@ -12,7 +12,8 @@
 
 export type EvidenceType = 'CHECKLIST' | 'READING' | 'PHOTO'
 
-export type DayVisit = { day: string; minutes: number }
+/** One scheduled day: its own start time (24-hour "HH:mm") and minutes. */
+export type DayVisit = { day: string; startTime: string; minutes: number }
 
 export type TaskNode = {
   id: string
@@ -83,14 +84,14 @@ export type CarePlan = {
 
 const DAY_ORDER = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
 
-/** Every day, same duration. */
-function daily(minutes: number): DayVisit[] {
-  return DAY_ORDER.map((day) => ({ day, minutes }))
+/** Every day, same start and duration. */
+function daily(minutes: number, startTime = '08:00'): DayVisit[] {
+  return DAY_ORDER.map((day) => ({ day, startTime, minutes }))
 }
 
-/** Named days, same duration. */
-function on(days: string[], minutes: number): DayVisit[] {
-  return days.map((day) => ({ day, minutes }))
+/** Named days, same start and duration. */
+function on(days: string[], minutes: number, startTime = '08:00'): DayVisit[] {
+  return days.map((day) => ({ day, startTime, minutes }))
 }
 
 export const ELDER_PROFILES: Record<string, ElderProfile> = {
@@ -151,9 +152,9 @@ export const CARE_PLANS: Record<string, CarePlan> = {
             type: 'task',
             name: 'Bathing assistance',
             visits: [
-              { day: 'Mon', minutes: 30 },
-              { day: 'Wed', minutes: 45 },
-              { day: 'Fri', minutes: 60 },
+              { day: 'Mon', startTime: '08:00', minutes: 30 },
+              { day: 'Wed', startTime: '08:00', minutes: 45 },
+              { day: 'Fri', startTime: '08:00', minutes: 60 },
             ],
             evidence: 'CHECKLIST',
           },
@@ -161,7 +162,10 @@ export const CARE_PLANS: Record<string, CarePlan> = {
             id: 'grooming',
             type: 'task',
             name: 'Grooming',
-            visits: on(['Mon', 'Fri'], 15),
+            visits: [
+              { day: 'Mon', startTime: '08:30', minutes: 15 },
+              { day: 'Fri', startTime: '09:00', minutes: 15 },
+            ],
             evidence: 'CHECKLIST',
           },
         ],
@@ -175,7 +179,7 @@ export const CARE_PLANS: Record<string, CarePlan> = {
             id: 'vitals',
             type: 'task',
             name: 'Vital-sign check',
-            visits: daily(15),
+            visits: daily(15, '09:00'),
             evidence: 'READING',
           },
         ],
@@ -196,7 +200,7 @@ export const CARE_PLANS: Record<string, CarePlan> = {
             id: 'evening-reminder',
             type: 'task',
             name: 'Evening reminder',
-            visits: daily(5),
+            visits: daily(5, '19:00'),
             evidence: 'PHOTO',
           },
         ],
@@ -363,7 +367,7 @@ export const CARE_PLANS: Record<string, CarePlan> = {
             id: 'vitals',
             type: 'task',
             name: 'Vital-sign check',
-            visits: daily(15),
+            visits: daily(15, '09:00'),
             evidence: 'READING',
           },
         ],
@@ -391,7 +395,7 @@ export const CARE_PLANS: Record<string, CarePlan> = {
             id: 'evening-reminder',
             type: 'task',
             name: 'Evening reminder',
-            visits: daily(5),
+            visits: daily(5, '19:00'),
             evidence: 'PHOTO',
           },
         ],

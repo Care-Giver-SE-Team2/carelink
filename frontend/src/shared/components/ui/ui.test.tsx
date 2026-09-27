@@ -257,9 +257,8 @@ describe('PlanTreeView', () => {
         {
           kind: 'task',
           id: 't1',
-          label: 'Bathing assistance · Mon, Wed, Fri',
-          perVisit: '30–60 m',
-          perVisitDetail: 'Mon 30 m · Wed 45 m · Fri 60 m',
+          label: 'Bathing assistance',
+          schedule: ['Mon 8:00–8:30 AM · 30 m', 'Wed 8:00–8:45 AM · 45 m', 'Fri 8:00–9:00 AM · 60 m'],
           weekly: '2.25 h',
         },
       ],
@@ -277,9 +276,16 @@ describe('PlanTreeView', () => {
     expect(onToggle).toHaveBeenCalledWith('s1')
   })
 
-  it('describes a per-visit range with its day-by-day breakdown', () => {
+  it('lists a task’s schedule as one tag per day under its name, with Plan item and Weekly columns only', () => {
     render(<PlanTreeView items={items} collapsedIds={new Set()} onToggle={() => {}} total="2.75 h" />)
-    expect(screen.getByText('30–60 m')).toHaveAccessibleDescription('Mon 30 m · Wed 45 m · Fri 60 m')
+    const name = screen.getByText('Bathing assistance')
+    const cell = name.parentElement!
+    expect(within(cell).getByText('Mon 8:00–8:30 AM · 30 m')).toBeInTheDocument()
+    expect(within(cell).getByText('Wed 8:00–8:45 AM · 45 m')).toBeInTheDocument()
+    expect(within(cell).getByText('Fri 8:00–9:00 AM · 60 m')).toBeInTheDocument()
+    expect(screen.getByText('Plan item')).toBeInTheDocument()
+    expect(screen.getByText('Weekly')).toBeInTheDocument()
+    expect(screen.queryByText('Per visit')).not.toBeInTheDocument()
   })
 
   it('shows the empty message with a zero total', () => {

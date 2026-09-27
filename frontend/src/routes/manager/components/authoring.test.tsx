@@ -56,7 +56,15 @@ describe('PlanTreeEditor', () => {
       id: 's1',
       name: 'Personal care',
       weekly: '0.50 h',
-      tasks: [{ kind: 'task', id: 't1', label: 'Grooming · Mon, Fri', perVisit: '15 m', weekly: '0.50 h' }],
+      tasks: [
+        {
+          kind: 'task',
+          id: 't1',
+          label: 'Grooming',
+          schedule: ['Mon 8:30–8:45 AM · 15 m', 'Fri 9:00–9:15 AM · 15 m'],
+          weekly: '0.50 h',
+        },
+      ],
     },
   ]
 
@@ -99,7 +107,7 @@ describe('PlanTreeEditor', () => {
     schedule.mon = { active: true, startTime: '8:00 AM', minutes: 15 }
     const props = renderEditor({ editingTask: { id: 't1', name: 'Grooming', schedule } })
 
-    expect(screen.queryByText('Grooming · Mon, Fri')).not.toBeInTheDocument()
+    expect(screen.queryByText('Mon 8:30–8:45 AM · 15 m')).not.toBeInTheDocument()
     const name = screen.getByLabelText('Name')
     expect(name).toHaveValue('Grooming')
     await userEvent.clear(name)

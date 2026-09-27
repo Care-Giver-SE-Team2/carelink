@@ -30,27 +30,70 @@ export function countTree(tree: PlanNode[]): { subPlans: number; tasks: number }
   return { subPlans, tasks }
 }
 
-/** "Mon, Wed, Fri" for a partial week, "daily" once every day is scheduled. */
-export function scheduleLabel(visits: DayVisit[]): string {
-  if (visits.length === 7) return 'daily'
-  return visits.map((v) => v.day).join(', ')
+/** "08:00" (or the backend's "08:00:00") -> minutes after midnight. */
+function minutesOfDay(startTime: string): number {
+  const [hours, minutes] = startTime.split(':').map(Number)
+  return hours * 60 + minutes
+}
+
+/** Minutes after midnight -> "8:00" plus its meridiem, wrapping past midnight. */
+function clock12(minutesOfDay: number): { time: string; meridiem: 'AM' | 'PM' } {
+  const wrapped = ((minutesOfDay % 1440) + 1440) % 1440
+  const hours = Math.floor(wrapped / 60)
+  const minutes = wrapped % 60
+  return {
+    time: `${((hours + 11) % 12) + 1}:${String(minutes).padStart(2, '0')}`,
+    meridiem: hours < 12 ? 'AM' : 'PM',
+  }
+}
+
+/** "8:00–8:30 AM", or "11:45 AM–12:15 PM" when the visit crosses noon. The end is start + minutes. */
+export function timeRange(startTime: string, minutes: number): string {
+  const start = minutesOfDay(startTime)
+  const from = clock12(start)
+  const to = clock12(start + minutes)
+  return from.meridiem === to.meridiem
+    ? `${from.time}–${to.time} ${to.meridiem}`
+    : `${from.time} ${from.meridiem}–${to.time} ${to.meridiem}`
 }
 
 /**
- * Per-visit duration for the table's "Per visit" column. A task scheduled at
- * the same duration every day shows that single value; one whose duration
- * varies by day shows a low–high range with a day-by-day tooltip, per the
- * handoff ("tracked per-day, not as a single shared value").
+ * A task's schedule as the tags shown under its name: one per day ("Mon 8:00–8:30 AM · 30 m"),
+ * collapsed to a single "Daily …" tag when all seven days share the same start and minutes.
  */
-export function perVisitDisplay(visits: DayVisit[]): { text: string; tooltip?: string } {
-  const minutes = visits.map((v) => v.minutes)
-  const min = Math.min(...minutes)
-  const max = Math.max(...minutes)
-  if (min === max) return { text: `${min} m` }
-  return {
-    text: `${min}–${max} m`,
-    tooltip: visits.map((v) => `${v.day} ${v.minutes} m`).join(' · '),
+export function scheduleTags(visits: DayVisit[]): string[] {
+  const [first] = visits
+  const sameEveryDay =
+    visits.length === 7 &&
+    visits.every((v) => minutesOfDay(v.startTime) === minutesOfDay(first.startTime) && v.minutes === first.minutes)
+  if (sameEveryDay) return [`Daily ${timeRange(first.startTime, first.minutes)} · ${first.minutes} m`]
+  return visits.map((v) => `${v.day} ${timeRange(v.startTime, v.minutes)} · ${v.minutes} m`)
+}
+
+/** "HH:mm" -> the editor's "8:00 AM". */
+export function toEditorTime(startTime: string): string {
+  const { time, meridiem } = clock12(minutesOfDay(startTime))
+  return `${time} ${meridiem}`
+}
+
+/**
+ * What a manager typed in a start-time field -> 24-hour "HH:mm", or null if it isn't a time.
+ * Accepts "8:00 AM", "8:00am", "8 PM" and 24-hour "16:30".
+ */
+export function parseEditorTime(input: string): string | null {
+  const match = /^\s*(\d{1,2})(?::(\d{2}))?\s*([ap])?\.?\s*m?\.?\s*$/i.exec(input)
+  if (!match) return null
+  let hours = Number(match[1])
+  const minutes = Number(match[2] ?? 0)
+  const meridiem = match[3]?.toLowerCase()
+  if (minutes > 59) return null
+  if (meridiem) {
+    if (hours < 1 || hours > 12) return null
+    hours = (hours % 12) + (meridiem === 'p' ? 12 : 0)
+  } else if (hours > 23 || match[2] === undefined) {
+    return null
   }
+  return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`
 }
 
 /** Fixed two-decimal hours for table cells, e.g. "2.25 h". */
@@ -119,7 +162,8 @@ function toTaskNode(node: CarePlanNodeResponse): TaskNode {
     id: `task-${node.id}`,
     type: 'task',
     name: node.name,
-    visits: node.visits,
+    // The backend sends LocalTime as "HH:mm:ss"; the tree keeps "HH:mm".
+    visits: node.visits.map((v) => ({ ...v, startTime: v.startTime.slice(0, 5) })),
     evidence: (node.evidenceType === 'NONE' ? 'CHECKLIST' : node.evidenceType) as EvidenceType,
   }
 }
@@ -148,13 +192,11 @@ export function fromCarePlanNodeResponses(nodes: CarePlanNodeResponse[]): PlanNo
 }
 
 function toPlanTreeTask(task: TaskNode): PlanTreeTask {
-  const perVisit = perVisitDisplay(task.visits)
   return {
     kind: 'task',
     id: task.id,
-    label: `${task.name} · ${scheduleLabel(task.visits)}`,
-    perVisit: perVisit.text,
-    perVisitDetail: perVisit.tooltip,
+    label: task.name,
+    schedule: scheduleTags(task.visits),
     weekly: formatHoursFixed(weeklyHours(task)),
   }
 }
@@ -174,27 +216,32 @@ export function toPlanTreeItems(tree: PlanNode[]): PlanTreeItem[] {
   )
 }
 
-/** A task's visits -> the DaySchedule editor's value. Start times aren't stored on a visit yet,
- * so every day opens at the editor's default. */
+/** A task's visits -> the DaySchedule editor's value, each day pre-filled with its own start and minutes. */
 export function dayScheduleFromVisits(visits: DayVisit[]): DayScheduleValue {
   const schedule = emptyDaySchedule()
   for (const visit of visits) {
     const day = WEEKDAYS.find((d) => d.short === visit.day)
-    if (day) schedule[day.key] = { ...schedule[day.key], active: true, minutes: visit.minutes }
+    if (day) {
+      schedule[day.key] = { active: true, startTime: toEditorTime(visit.startTime), minutes: visit.minutes }
+    }
   }
   return schedule
 }
 
-/** The DaySchedule editor's active days -> visits, in weekday order. */
+/** The DaySchedule editor's active days -> visits, in weekday order. Call once isScheduleComplete. */
 export function visitsFromDaySchedule(schedule: DayScheduleValue): DayVisit[] {
   return WEEKDAYS.filter((d) => schedule[d.key].active).map((d) => ({
     day: d.short,
+    startTime: parseEditorTime(schedule[d.key].startTime) ?? '08:00',
     minutes: schedule[d.key].minutes ?? 0,
   }))
 }
 
-/** A schedule can be saved once at least one day is on and every day that's on has a duration. */
+/** A schedule can be saved once at least one day is on and every day that's on has a start time and a duration. */
 export function isScheduleComplete(schedule: DayScheduleValue): boolean {
   const active = WEEKDAYS.filter((d) => schedule[d.key].active)
-  return active.length > 0 && active.every((d) => (schedule[d.key].minutes ?? 0) > 0)
+  return (
+    active.length > 0 &&
+    active.every((d) => (schedule[d.key].minutes ?? 0) > 0 && parseEditorTime(schedule[d.key].startTime) !== null)
+  )
 }

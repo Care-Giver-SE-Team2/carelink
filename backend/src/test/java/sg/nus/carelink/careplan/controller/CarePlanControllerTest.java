@@ -6,10 +6,13 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import java.math.BigDecimal;
+import java.time.DayOfWeek;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 
 import java.util.List;
 import java.util.Optional;
@@ -24,6 +27,7 @@ import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import sg.nus.carelink.careplan.application.CarePlanService;
 import sg.nus.carelink.careplan.domain.model.CarePlan;
 import sg.nus.carelink.careplan.domain.model.CarePlanNode;
+import sg.nus.carelink.careplan.domain.model.ScheduledVisit;
 import sg.nus.carelink.identity.application.UserDirectory;
 import sg.nus.carelink.identity.domain.model.AppUser;
 import sg.nus.carelink.shared.security.Role;
@@ -91,10 +95,18 @@ class CarePlanControllerTest {
 	@Test
 	void returns200WithThePlanNodes() throws Exception {
 		when(service.findNodes(1L)).thenReturn(List.of(new CarePlanNode(
-				5L, 1L, "Personal care", "Bathing", "Mon,Wed", null, null,
-				CarePlanNode.EvidenceType.CHECKLIST, 1, null, null)));
+				5L, 1L, "Personal care", "Bathing", "MON,WED", null, null,
+				CarePlanNode.EvidenceType.CHECKLIST, 1, null, null,
+				List.of(new ScheduledVisit(DayOfWeek.WEDNESDAY, LocalTime.of(16, 30), 45),
+						new ScheduledVisit(DayOfWeek.MONDAY, LocalTime.of(8, 0), 30)))));
 
-		mvc.perform(get("/api/care-plans/1/nodes")).andExpect(status().isOk());
+		mvc.perform(get("/api/care-plans/1/nodes"))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$[0].visits[0].day").value("Mon"))
+				.andExpect(jsonPath("$[0].visits[0].startTime").value("08:00:00"))
+				.andExpect(jsonPath("$[0].visits[0].minutes").value(30))
+				.andExpect(jsonPath("$[0].visits[1].day").value("Wed"))
+				.andExpect(jsonPath("$[0].visits[1].startTime").value("16:30:00"));
 	}
 
 	@Test
@@ -106,7 +118,7 @@ class CarePlanControllerTest {
 						.contentType(MediaType.APPLICATION_JSON)
 						.content("""
 								{"startDate":"2026-04-01","nodes":[{"groupName":"Personal care","name":"Bathing",
-								"visits":[{"day":"Mon","minutes":30}],"evidenceType":"CHECKLIST"}]}
+								"visits":[{"day":"Mon","startTime":"08:00","minutes":30}],"evidenceType":"CHECKLIST"}]}
 								"""))
 				.andExpect(status().isOk());
 	}

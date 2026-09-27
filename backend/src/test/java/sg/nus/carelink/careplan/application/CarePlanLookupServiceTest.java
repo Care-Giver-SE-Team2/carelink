@@ -6,6 +6,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.List;
 
 import org.junit.jupiter.api.Test;
 
@@ -141,6 +142,6 @@ class CarePlanLookupServiceTest {
 		return new CarePlanNode(
 				null, carePlanId, null, "Task", scheduleDays, new BigDecimal("1.0"), new BigDecimal("2.0"),
 				CarePlanNode.EvidenceType.NONE, 1, LocalDateTime.of(2026, 9, 6, 10, 8),
-				LocalDateTime.of(2026, 9, 6, 10, 8));
+				LocalDateTime.of(2026, 9, 6, 10, 8), List.of());
 	}
 }
