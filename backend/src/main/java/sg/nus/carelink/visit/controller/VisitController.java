@@ -1,10 +1,15 @@
 package sg.nus.carelink.visit.controller;
 
+import java.time.LocalDate;
+import java.util.List;
+
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import sg.nus.carelink.visit.application.VisitService;
@@ -25,6 +30,17 @@ public class VisitController {
 
 	public VisitController(VisitService service) {
 		this.service = service;
+	}
+
+	/**
+	 * The day roster for the manager's Today board; {@code date} defaults to today. Not the
+	 * bare collection path, which is the family portal's visit list (FamilyVisitController).
+	 */
+	@GetMapping("/roster")
+	@PreAuthorize("hasRole('MANAGER')")
+	public List<Visit> dayRoster(
+			@RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
+		return service.findDayRoster(date);
 	}
 
 	@GetMapping("/{id}")

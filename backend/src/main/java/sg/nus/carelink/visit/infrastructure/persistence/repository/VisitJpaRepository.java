@@ -21,6 +21,9 @@ public interface VisitJpaRepository
     List<VisitJpaEntity> findByCaregiverIdAndScheduledStartGreaterThanEqualAndScheduledStartLessThanOrderByScheduledStartAscIdAsc(
             Long caregiverId, java.time.LocalDateTime from, java.time.LocalDateTime until);
 
+    List<VisitJpaEntity> findByScheduledStartGreaterThanEqualAndScheduledStartLessThanOrderByScheduledStartAscIdAsc(
+            java.time.LocalDateTime from, java.time.LocalDateTime until);
+
     /**
      * EL01: finds completed visits for an elder, with the most recent
      * scheduled visit first.

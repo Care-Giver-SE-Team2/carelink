@@ -38,6 +38,12 @@ class VisitRepositoryAdapter
     }
 
     @Override
+    public List<Visit> findScheduledBetween(java.time.LocalDateTime from, java.time.LocalDateTime until) {
+        return jpa.findByScheduledStartGreaterThanEqualAndScheduledStartLessThanOrderByScheduledStartAscIdAsc(
+                from, until).stream().map(VisitMapper::toDomain).toList();
+    }
+
+    @Override
     public List<Visit> findCompletedByElderId(
             Long elderId) {
 

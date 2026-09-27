@@ -80,7 +80,7 @@ export function ExceptionQueue({
             title={exception.title}
             description={exception.description}
             meta={metaFor(exception, now)}
-            countdown={formatCountdown(Date.parse(exception.deadline) - now)}
+            countdown={exception.deadline ? formatCountdown(Date.parse(exception.deadline) - now) : '--:--:--'}
             actions={actionsFor(exception)}
           />
         ))}

@@ -8,6 +8,7 @@ import static org.mockito.Mockito.verifyNoInteractions;
 
 import java.time.Clock;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 
@@ -82,6 +83,18 @@ class VisitServiceTest {
                         999L
                 )
         ).isEmpty();
+    }
+
+    @Test
+    void dayRosterDefaultsToTodayInSingaporeAndLeavesOutCancelledVisits() {
+        Visit lateYesterday = visits.save(visitAt(1L, Visit.Status.COMPLETED, LocalDateTime.of(2026, 9, 23, 23, 30)));
+        Visit afternoon = visits.save(visitAt(2L, Visit.Status.SCHEDULED, LocalDateTime.of(2026, 9, 24, 14, 0)));
+        Visit morning = visits.save(visitAt(3L, Visit.Status.IN_PROGRESS, LocalDateTime.of(2026, 9, 24, 8, 0)));
+        visits.save(visitAt(4L, Visit.Status.CANCELLED, LocalDateTime.of(2026, 9, 24, 9, 0)));
+        visits.save(visitAt(5L, Visit.Status.SCHEDULED, LocalDateTime.of(2026, 9, 25, 0, 0)));
+
+        assertThat(service.findDayRoster(null)).containsExactly(morning, afternoon);
+        assertThat(service.findDayRoster(LocalDate.of(2026, 9, 23))).containsExactly(lateYesterday);
     }
 
     @Test
