@@ -1,26 +1,26 @@
 import type { VisitState } from '../../../shared/components/ui'
+import type { VisitResponse } from '../../../shared/api/visit'
+import type { CaregiverOption } from '../../../shared/api/profile'
+import type { EscalationChain, Incident, IncidentSeverity } from '../../../features/incidents/types'
+import type { ElderRow } from './elders'
 
 /**
- * Today board fixtures — an in-memory mock store standing in for endpoints that don't
- * exist yet in the shape this board needs:
+ * Today board data — the board's own shapes, mapped from the real endpoints:
  *
- * - `fetchTodayRoster` → the visit module's day roster (today's visits for the manager's
- *   sectors).
- * - `fetchExceptionQueue` / `claimException` → GET /api/incidents and
- *   POST /api/incidents/{id}/claim. The real queue (features/incidents) returns elder and
- *   responder ids rather than the names, escalation target and family-notified time shown
- *   here, so the board reads this mock until the endpoint carries them.
- * - `fetchEscalationChain` → GET /api/incidents/{id}/escalation-chain, flattened to steps.
- * - `fetchTodayKpis` → a day-summary endpoint (none exists yet).
- * - `reassignVisit` → a visit-reassignment write (none exists yet).
+ * - roster ← GET /api/visits/roster (today's visits), named via GET /api/elders and GET /api/caregivers.
+ * - exception queue ← GET /api/incidents (everything still needing attention), elders named
+ *   the same way; the responder is named only when it's the signed-in manager, since no
+ *   endpoint resolves another manager's user id to a name yet.
+ * - escalation chain ← GET /api/incidents/{id}/escalation-chain, flattened to steps.
+ * - KPIs are counted from the roster and the queue.
  *
- * Deadlines are set relative to when this module loads, so the countdowns read like a live
- * queue rather than expiring against a fixed date.
+ * `reassignVisit` is still an in-memory mock: there is no visit-reassignment write yet, so a
+ * reassignment is held here and laid over the fetched roster until the page reloads.
  */
 
 export type Visit = {
   id: string
-  /** "HH:MM", local time. */
+  /** "HH:MM", Singapore time. */
   time: string
   elder: { name: string; sector: string }
   /** Absent while the visit is unassigned. */
@@ -30,9 +30,7 @@ export type Visit = {
 }
 
 export type TodayRoster = {
-  /** The visits shown on the board; the rest of the day's are only counted. */
   visits: Visit[]
-  totalToday: number
   sectors: string[]
 }
 
@@ -44,25 +42,27 @@ export type Exception = {
   severity: Severity
   title: string
   description?: string
-  /** Who is answerable now; absent while unclaimed. */
+  /** Who has taken it over; absent while unclaimed. */
   responder?: string
   /** The next level, once the chain has named one. */
   escalatesTo?: string
   /** ISO — when an unclaimed exception moves up the chain. */
   escalatesAt?: string
-  /** ISO — the response deadline the countdown runs to. */
-  deadline: string
+  /** ISO — the response deadline the countdown runs to; absent once claimed or escalated. */
+  deadline?: string
   /** ISO */
   familyNotifiedAt?: string
   /** The roster visit this exception is about, if any. */
   visitId?: string
+  /** The chain ran out with nobody answering. */
+  escalated: boolean
 }
 
 export type EscalationStep = {
   role: string
   person?: string
   state: 'done' | 'active' | 'pending'
-  /** Already worded for display: "reported 09:12:04", "at 09:16 if unacknowledged". */
+  /** Already worded for display: "respond within 5 min", "after 10 min if unanswered". */
   note: string
 }
 
@@ -74,118 +74,127 @@ export type Kpis = {
   escalated: number
 }
 
-const loadedAt = Date.now()
-const fromNow = (seconds: number) => new Date(loadedAt + seconds * 1000).toISOString()
-
-function todayAt(hour: number, minute: number): string {
-  const at = new Date()
-  at.setHours(hour, minute, 0, 0)
-  return at.toISOString()
+/** A backend `LocalDateTime` (Singapore wall clock, no offset) as an ISO instant. */
+function sgInstant(localDateTime: string): string {
+  return new Date(localDateTime.slice(0, 19) + '+08:00').toISOString()
 }
 
-const roster: TodayRoster = {
-  totalToday: 86,
-  sectors: ['S31', 'S45'],
-  visits: [
-    { id: 'v-0800-lak', time: '08:00', elder: { name: 'Lim Ah Kow', sector: 'S45' }, caregiver: { name: 'Siti Rahmah' }, service: 'Bathing assist', state: 'closed' },
-    { id: 'v-0900-cbc', time: '09:00', elder: { name: 'Chan Bee Choo', sector: 'S31' }, caregiver: { name: 'Nur Aisyah' }, service: 'Vital-sign check', state: 'in_visit' },
-    { id: 'v-0900-my', time: '09:00', elder: { name: 'Mohd Yusof', sector: 'S52' }, caregiver: { name: 'Devi Raman' }, service: 'Medication reminder', state: 'no_checkin' },
-    { id: 'v-1030-gsl', time: '10:30', elder: { name: 'Goh Siew Lan', sector: 'S45' }, caregiver: { name: 'Siti Rahmah' }, service: 'Mobility exercise', state: 'scheduled' },
-    { id: 'v-1100-ths', time: '11:00', elder: { name: 'Tan Hock Seng', sector: 'S31' }, service: 'Companionship', state: 'needs_cover' },
-    { id: 'v-1300-lak', time: '13:00', elder: { name: 'Lim Ah Kow', sector: 'S45' }, caregiver: { name: 'Kamala Devi' }, service: 'Companionship', state: 'scheduled' },
-    { id: 'v-1430-cbc', time: '14:30', elder: { name: 'Chan Bee Choo', sector: 'S31' }, caregiver: { name: 'Nur Aisyah' }, service: 'Bathing assist', state: 'scheduled' },
-  ],
+const VISIT_STATES: Record<VisitResponse['status'], VisitState> = {
+  SCHEDULED: 'scheduled',
+  ARRIVED: 'in_visit',
+  IN_PROGRESS: 'in_visit',
+  COMPLETED: 'closed',
+  VERIFIED: 'closed',
+  AUTO_CLOSED: 'closed',
+  EXCEPTION: 'no_checkin',
+  CANCELLED: 'closed',
 }
 
-/** Unassigned visits among the day's visits that aren't listed on the board. */
-const UNLISTED_UNASSIGNED = 1
+/** Caregivers put on a visit by `reassignVisit`, by visit id. */
+const reassigned = new Map<string, string>()
 
-const exceptions: Exception[] = [
-  {
-    id: 'EXC-2088',
-    severity: 1,
-    title: 'Fall reported — Mohd Yusof',
-    description: 'Reported by Devi Raman at 09:12. Senior conscious, refuses ambulance.',
-    responder: 'Tan Mei Ling',
-    escalatesTo: 'duty supervisor',
-    deadline: fromNow(4 * 60 + 12),
-  },
-  {
-    id: 'EXC-2087',
-    severity: 2,
-    title: 'No check-in — 09:00 visit',
-    description: 'Raised automatically by scheduled scan after the 10-minute no-entry wait expired.',
-    escalatesAt: fromNow(11 * 60 + 56),
-    deadline: fromNow(41 * 60 + 56),
-    visitId: 'v-0900-my',
-  },
-  {
-    id: 'EXC-2085',
-    severity: 3,
-    title: 'Home hazard — loose bathroom rail',
-    responder: 'Ong Wei Jie',
-    familyNotifiedAt: todayAt(8, 5),
-    deadline: fromNow(2 * 3600 + 18 * 60 + 3),
-  },
-  {
-    id: 'EXC-2084',
-    severity: 3,
-    title: 'Medication log incomplete — Chan Bee Choo',
-    responder: 'Ong Wei Jie',
-    deadline: fromNow(3 * 3600 + 40 * 60),
-  },
-]
+export function toRoster(visits: VisitResponse[], elders: ElderRow[], caregivers: CaregiverOption[]): TodayRoster {
+  const elderById = new Map(elders.map((elder) => [elder.id, elder]))
+  const caregiverById = new Map(caregivers.map((caregiver) => [caregiver.id, caregiver.fullName]))
 
-const escalationChains: Record<string, EscalationStep[]> = {
-  'EXC-2088': [
-    { role: 'Assigned caregiver', person: 'Devi Raman', state: 'done', note: 'reported 09:12:04' },
-    { role: 'Care manager on duty', person: 'you', state: 'active', note: 'notified 09:12:06 · unacknowledged' },
-    { role: 'Duty supervisor', state: 'pending', note: 'at 09:16 if unacknowledged' },
-    { role: 'Registered family member', state: 'pending', note: 'urgent alert · 2h response window' },
-  ],
+  const rows = visits.map((visit): Visit => {
+    const id = String(visit.id)
+    const elder = elderById.get(String(visit.elderId))
+    const caregiver = reassigned.get(id) ?? (visit.caregiverId == null ? undefined : caregiverById.get(visit.caregiverId))
+    return {
+      id,
+      time: visit.scheduledStart.slice(11, 16),
+      elder: { name: elder?.name ?? `Elder #${visit.elderId}`, sector: elder?.sector ?? '' },
+      caregiver: caregiver ? { name: caregiver } : undefined,
+      service: visit.serviceType ?? '—',
+      state: reassigned.has(id) ? 'scheduled' : visit.caregiverId == null ? 'needs_cover' : VISIT_STATES[visit.status],
+    }
+  })
+  const sectors = [...new Set(rows.map((row) => row.elder.sector).filter(Boolean))].sort()
+  return { visits: rows, sectors }
 }
 
-/** Copies out, so a caller holding query data never sees the store change underneath it. */
-const copy = <T>(value: T): Promise<T> => Promise.resolve(structuredClone(value))
+const SEVERITY: Record<IncidentSeverity, Severity> = { HIGH: 1, MEDIUM: 2, LOW: 3 }
 
-export function fetchTodayRoster(): Promise<TodayRoster> {
-  return copy(roster)
+function headline(incident: Incident): string {
+  if (incident.source === 'SYSTEM_MISSED_CHECKIN') return 'No check-in'
+  switch (incident.category) {
+    case 'FALL':
+      return 'Fall reported'
+    case 'SOS':
+      return 'SOS call'
+    case 'MEDICAL':
+      return 'Medical concern'
+    case 'SERVICE':
+      return 'Service dispute'
+    default:
+      return 'Care exception'
+  }
 }
 
-export function fetchExceptionQueue(): Promise<Exception[]> {
-  return copy(exceptions)
+export function toException(
+  incident: Incident,
+  elders: ElderRow[],
+  currentUser: { id: number; displayName: string } | undefined,
+): Exception {
+  const elderName = elders.find((elder) => elder.id === String(incident.elderId))?.name ?? `Elder #${incident.elderId}`
+  const claimed = incident.status === 'ACKNOWLEDGED' || incident.status === 'IN_PROGRESS'
+  const escalated = incident.status === 'UNRESOLVED_ESCALATED'
+  const deadline = incident.respondBy ? sgInstant(incident.respondBy) : undefined
+  return {
+    id: `EXC-${incident.id}`,
+    severity: SEVERITY[incident.severity],
+    title: `${headline(incident)} — ${elderName}`,
+    description: incident.description ?? undefined,
+    responder: claimed
+      ? incident.responderUserId === currentUser?.id
+        ? currentUser.displayName
+        : `manager #${incident.responderUserId}`
+      : undefined,
+    escalatesTo: escalated ? 'family (chain exhausted)' : undefined,
+    escalatesAt: claimed || escalated ? undefined : deadline,
+    deadline: claimed || escalated ? undefined : deadline,
+    visitId: incident.visitId == null ? undefined : String(incident.visitId),
+    escalated,
+  }
 }
 
-export function fetchEscalationChain(exceptionId: string): Promise<EscalationStep[]> {
-  return copy(escalationChains[exceptionId] ?? [])
-}
-
-export function fetchTodayKpis(): Promise<Kpis> {
-  return copy({
-    scheduled: roster.totalToday,
-    completed: 31,
-    unassigned: UNLISTED_UNASSIGNED + roster.visits.filter((visit) => !visit.caregiver).length,
-    openExceptions: exceptions.length,
-    escalated: 1,
+export function toEscalationSteps(chain: EscalationChain, currentUserId: number | undefined): EscalationStep[] {
+  return chain.levels.map((level) => {
+    const person =
+      level.responderUserId != null && level.responderUserId === currentUserId ? 'you' : level.responderName ?? undefined
+    switch (level.state) {
+      case 'CURRENT':
+        return { role: level.tier, person, state: 'active', note: `respond within ${level.countdownMinutes} min` }
+      case 'CLAIMED':
+        return { role: level.tier, person, state: 'done', note: 'took over' }
+      case 'TIMED_OUT':
+        return { role: level.tier, person, state: 'done', note: 'timed out' }
+      case 'SKIPPED_UNAVAILABLE':
+        return { role: level.tier, state: 'pending', note: 'nobody available' }
+      default:
+        return {
+          role: level.tier,
+          person,
+          state: 'pending',
+          note: level.countdownMinutes > 0 ? `${level.countdownMinutes} min to respond once reached` : 'if every level above times out',
+        }
+    }
   })
 }
 
-/** Makes `responder` answerable for the exception; claiming stops its escalation timer. */
-export function claimException(exceptionId: string, responder: string): Promise<void> {
-  const exception = exceptions.find((e) => e.id === exceptionId)
-  if (exception) {
-    exception.responder = responder
-    delete exception.escalatesAt
+export function toKpis(roster: TodayRoster, exceptions: Exception[]): Kpis {
+  return {
+    scheduled: roster.visits.length,
+    completed: roster.visits.filter((visit) => visit.state === 'closed').length,
+    unassigned: roster.visits.filter((visit) => !visit.caregiver).length,
+    openExceptions: exceptions.length,
+    escalated: exceptions.filter((exception) => exception.escalated).length,
   }
-  return Promise.resolve()
 }
 
 /** Puts another caregiver on the visit; it goes back to waiting for them to check in. */
 export function reassignVisit(visitId: string, caregiverName: string): Promise<void> {
-  const visit = roster.visits.find((v) => v.id === visitId)
-  if (visit) {
-    visit.caregiver = { name: caregiverName }
-    visit.state = 'scheduled'
-  }
+  reassigned.set(visitId, caregiverName)
   return Promise.resolve()
 }

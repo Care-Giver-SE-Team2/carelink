@@ -27,7 +27,9 @@ export function useNow(intervalMs = 1000): number {
   return now
 }
 
-/** Queue order: most severe first, then the nearest deadline. */
+const deadlineOf = (exception: Exception) => (exception.deadline ? Date.parse(exception.deadline) : Infinity)
+
+/** Queue order: most severe first, then the nearest deadline; those without one last. */
 export function byUrgency(a: Exception, b: Exception): number {
-  return a.severity - b.severity || Date.parse(a.deadline) - Date.parse(b.deadline)
+  return a.severity - b.severity || deadlineOf(a) - deadlineOf(b) || (a.id < b.id ? -1 : 1)
 }

@@ -13,6 +13,9 @@ public interface VisitRepository {
 
     Optional<Visit> findById(Long id);
 
+    /** Every visit starting in [from, until), whoever it is assigned to, earliest first. */
+    List<Visit> findScheduledBetween(java.time.LocalDateTime from, java.time.LocalDateTime until);
+
     /**
      * Visits that have been completed by the caregiver and are therefore
      * candidates for EL01 elder confirmation.

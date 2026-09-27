@@ -30,6 +30,13 @@ class InMemoryVisitRepository
     }
 
     @Override
+    public List<Visit> findScheduledBetween(java.time.LocalDateTime from, java.time.LocalDateTime until) {
+        return rows.values().stream()
+                .filter(v -> !v.scheduledStart().isBefore(from) && v.scheduledStart().isBefore(until))
+                .sorted(Comparator.comparing(Visit::scheduledStart).thenComparing(Visit::id)).toList();
+    }
+
+    @Override
     public Optional<Visit> findById(
             Long id) {
 

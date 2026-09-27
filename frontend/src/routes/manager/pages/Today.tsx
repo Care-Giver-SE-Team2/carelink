@@ -9,10 +9,10 @@ import { EscalationChain } from '../components/EscalationChain'
 import { ExceptionQueue } from '../components/ExceptionQueue'
 import { ModelSuggestionBanner } from '../components/ModelSuggestionBanner'
 import { VisitRosterTable } from '../components/VisitRosterTable'
-import { claimException, reassignVisit } from '../data/today'
+import { claimIncident } from '../../../features/incidents/api'
+import { reassignVisit } from '../data/today'
 import type { Exception, Kpis, Visit } from '../data/today'
 import { byUrgency } from '../lib/clock'
-import { useCurrentUser } from '../lib/useCurrentUser'
 import {
   EXCEPTION_REFRESH_SECONDS,
   useEscalationChain,
@@ -33,9 +33,14 @@ function kpiItems(kpis: Kpis | undefined): KpiItem[] {
   ]
 }
 
-/** The exception's workbench, keyed by the numeric part of its id: EXC-2088 → 2088. */
+/** The incident behind an exception: EXC-2088 → 2088. */
+function incidentId(exception: Exception): number {
+  return Number(exception.id.replace(/^EXC-/, ''))
+}
+
+/** The exception's workbench, keyed by its incident id. */
 function workbenchPath(exception: Exception): string {
-  return '/manager/exceptions/' + exception.id.replace(/^EXC-/, '')
+  return '/manager/exceptions/' + incidentId(exception)
 }
 
 /**
@@ -45,7 +50,6 @@ function workbenchPath(exception: Exception): string {
 export default function Today() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
-  const { data: currentUser } = useCurrentUser()
   const roster = useTodayRoster()
   const kpis = useTodayKpis()
   const exceptions = useExceptionQueue()
@@ -60,18 +64,20 @@ export default function Today() {
   const refreshBoard = () => queryClient.invalidateQueries({ queryKey: ['exceptions'] })
 
   async function claim(exception: Exception) {
-    if (!currentUser) return
     setBusy(true)
     try {
-      await claimException(exception.id, currentUser.displayName)
-      await refreshBoard()
+      await claimIncident(incidentId(exception))
+    } catch {
+      // Refused (somebody got there first, or it closed): the refresh below shows who holds it.
     } finally {
+      await refreshBoard()
       setBusy(false)
     }
   }
 
+  /** Claims it unless somebody already has, then opens the workbench either way. */
   async function takeOver(exception: Exception) {
-    await claim(exception)
+    if (!exception.responder) await claim(exception)
     navigate(workbenchPath(exception))
   }
 
@@ -126,7 +132,8 @@ export default function Today() {
             empty={roster.isError ? 'Could not load today’s roster.' : roster.isPending ? 'Loading today’s roster…' : 'No visits today.'}
             footer={
               rosterData &&
-              `${rosterData.totalToday - rosterData.visits.length} further visits today · filtered to sector ${rosterData.sectors.join(' / ')}`
+              rosterData.visits.length > 0 &&
+              `${rosterData.visits.length} visits today · sector ${rosterData.sectors.join(' / ')}`
             }
           />
         </section>

@@ -1,7 +1,9 @@
 package sg.nus.carelink.visit.application;
 
 import java.time.Clock;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.Optional;
 
@@ -59,6 +61,24 @@ public class VisitService {
         return visits.findById(
                 id
         );
+    }
+
+    /**
+     * The manager's day roster: every visit scheduled on {@code date}, assigned or not,
+     * earliest first. Cancelled visits are left out; they no longer need anyone.
+     *
+     * @param date the day to list; null means today in Singapore
+     */
+    @Transactional(readOnly = true)
+    public List<Visit> findDayRoster(LocalDate date) {
+        LocalDate day = date != null
+                ? date
+                : LocalDate.now(clock.withZone(ZoneId.of("Asia/Singapore")));
+
+        return visits.findScheduledBetween(day.atStartOfDay(), day.plusDays(1).atStartOfDay())
+                .stream()
+                .filter(visit -> visit.status() != Visit.Status.CANCELLED)
+                .toList();
     }
 
     /**
