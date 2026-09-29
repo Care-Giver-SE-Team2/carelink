@@ -150,3 +150,12 @@ cd backend
 ```
 
 需要 JDK 25 与可运行 Testcontainers 的 Docker。完整后端回归使用 `./mvnw verify -Pintegration`。这些查询测试不代替绑定确认、排程生成和护理员分配等上游写入流程的联调。
+
+后端 `FamilyReportWorkflowIT` 验证 MG07 真实生成三种受众报告 → 家属登录 → 老人范围及报告分页 → 详情 → 精确周摘要的跨流程行为。7 个场景覆盖：服务／体征／观察／事件原文与缺失项、追加更正不改写原件或摘要、READ_ONLY 与归档读取、家属及受众隔离、同一会话下撤销／精确到期失权、退出后旧 Cookie 不可复用，以及主管、FM01／FM02 接口兼容。请求走真实 HTTP、Session／CSRF 和隔离 MySQL；数据库仅用于准备上游护理事实／绑定，并核对业务数据不变及审计持久化。
+
+```bash
+cd backend
+./mvnw verify -Pintegration -Dit.test=FamilyReportWorkflowIT -Duser.timezone=UTC
+```
+
+测试使用固定的新加坡周界时间、生产 JDBC `connectionTimeZone=Asia/Singapore`，并让 MySQL 使用不同的默认时区，验证读取不依赖 JVM／数据库默认时区一致。报告及更正通过主管 API 创建；绑定撤销／到期与归档状态由隔离数据准备，不代表这些上游写入页面已经联调。FM04 首轮交付为列表、详情和 TEMPLATE 周摘要；模型摘要、周报通知及 PDF 下载仍未包含。
