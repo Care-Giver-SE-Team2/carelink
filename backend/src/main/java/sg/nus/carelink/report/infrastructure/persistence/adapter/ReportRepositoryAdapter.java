@@ -44,6 +44,9 @@ class ReportRepositoryAdapter implements ReportRepository {
 			Sort.Order.asc("elderId"),
 			Sort.Order.desc("id"));
 
+	private static final Sort FAMILY_LIST_ORDER = Sort.by(
+			Sort.Order.desc("periodStart"), Sort.Order.desc("createdAt"), Sort.Order.desc("id"));
+
 	private final ReportJpaRepository reports;
 	private final ReportAmendmentJpaRepository amendments;
 
@@ -111,6 +114,19 @@ class ReportRepositoryAdapter implements ReportRepository {
 				rows.getNumber(),
 				rows.getSize(),
 				rows.getTotalElements());
+	}
+
+	@Override
+	public ReportPage findFamilyPage(Set<Long> elderIds, int page, int size) {
+		var states = EnumSet.of(ReportJpaEntity.Status.PUBLISHED, ReportJpaEntity.Status.ARCHIVED);
+		PageRequest request = PageRequest.of(page, size, FAMILY_LIST_ORDER);
+		long total = reports.countByElderIdInAndAudienceAndStatusIn(elderIds, ReportJpaEntity.Audience.FAMILY, states);
+		// Count first, so even a large valid page beyond the result avoids JPA's int offset limit.
+		if (request.getOffset() >= total) {
+			return new ReportPage(List.of(), page, size, total);
+		}
+		var rows = reports.findByElderIdInAndAudienceAndStatusIn(elderIds, ReportJpaEntity.Audience.FAMILY, states, request);
+		return new ReportPage(rows.stream().map(row -> ReportMapper.toDomain(row, List.of())).toList(), page, size, total);
 	}
 
 	private Report withAmendments(ReportJpaEntity row) {

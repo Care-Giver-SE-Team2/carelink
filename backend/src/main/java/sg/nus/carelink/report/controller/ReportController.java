@@ -5,6 +5,7 @@ import java.util.List;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -13,11 +14,14 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.server.ResponseStatusException;
 
 import jakarta.validation.Valid;
 
 import sg.nus.carelink.identity.application.IdentityService;
 import sg.nus.carelink.report.application.ReportService;
+import sg.nus.carelink.report.application.FamilyReportQueryService;
+import sg.nus.carelink.report.controller.dto.FamilyReportPageResponse;
 import sg.nus.carelink.report.controller.dto.ReportRequests;
 import sg.nus.carelink.report.controller.dto.ReportResponses;
 import sg.nus.carelink.report.domain.model.Report;
@@ -25,7 +29,7 @@ import sg.nus.carelink.report.domain.model.Report;
 /**
  * HTTP for UC-MG07: generate the period's reports, list them, read one, append a correction.
  *
- * <p>Presentation only - HTTP in, HTTP out, status codes. Talks to ReportService only, never
+ * <p>Presentation only - HTTP in, HTTP out, status codes. Talks to application services, never
  * to a repository (ArchUnit enforces it). The paths are the ones drafted in
  * {@code docs/api/openapi-draft.yaml}; the contract was written first and this is made to
  * match it.
@@ -34,9 +38,8 @@ import sg.nus.carelink.report.domain.model.Report;
  * be edited or removed (UC-MG07 5a), only corrected by appending. The rule is enforced by the
  * endpoints not existing rather than by an endpoint that always refuses.
  *
- * <p>Every endpoint is for managers. The contract also describes a family member's read of
- * the list and of one report; that branch belongs to UC-FM04 and is not served here, so a
- * family session is refused with 403 like any other role.
+ * <p>UC-FM04 shares the list path, with a separate family projection and current binding
+ * checks. Detail, generation and corrections remain manager-only.
  */
 @RestController
 @RequestMapping("/api/reports")
@@ -44,10 +47,12 @@ public class ReportController {
 
 	private final ReportService service;
 	private final IdentityService identity;
+	private final FamilyReportQueryService familyReports;
 
-	public ReportController(ReportService service, IdentityService identity) {
+	public ReportController(ReportService service, IdentityService identity, FamilyReportQueryService familyReports) {
 		this.service = service;
 		this.identity = identity;
+		this.familyReports = familyReports;
 	}
 
 	/**
@@ -71,15 +76,23 @@ public class ReportController {
 				.toList();
 	}
 
-	/** The filed reports, most recent period first, the three versions of a period together. */
+	/** Lists the authenticated role's report projection; family scope comes only from the session. */
 	@GetMapping
-	@PreAuthorize("hasRole('MANAGER')")
-	public ReportResponses.Page list(
+	@PreAuthorize("hasAnyRole('MANAGER', 'FAMILY')")
+	public Object list(
 			@RequestParam(defaultValue = "0") int page,
 			@RequestParam(defaultValue = "20") int size,
 			@RequestParam(required = false) Long elderId,
-			@RequestParam(required = false) Report.Audience audience) {
+			@RequestParam(required = false) Report.Audience audience,
+			Authentication authentication) {
 
+		if (authentication.getAuthorities().stream().anyMatch(role -> role.getAuthority().equals("ROLE_FAMILY"))) {
+			if (page < 0 || size < 1 || size > 200) {
+				throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+						"page must be nonnegative and size must be between 1 and 200");
+			}
+			return FamilyReportPageResponse.of(familyReports.page(authentication.getName(), elderId, audience, page, size));
+		}
 		return ReportResponses.Page.of(service.page(elderId, audience, page, size));
 	}
 

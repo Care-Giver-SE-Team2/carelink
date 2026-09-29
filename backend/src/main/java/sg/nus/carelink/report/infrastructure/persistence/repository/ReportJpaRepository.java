@@ -2,6 +2,7 @@ package sg.nus.carelink.report.infrastructure.persistence.repository;
 
 import java.time.LocalDate;
 import java.util.Collection;
+import java.util.List;
 import java.util.Optional;
 
 import org.springframework.data.domain.Page;
@@ -36,4 +37,12 @@ public interface ReportJpaRepository extends JpaRepository<ReportJpaEntity, Long
 	/** As above, for one elder. */
 	Page<ReportJpaEntity> findByElderIdAndAudienceIn(
 			Long elderId, Collection<ReportJpaEntity.Audience> audiences, Pageable pageable);
+
+	/** Current family scope, audience and readable states apply to both rows and total. */
+	List<ReportJpaEntity> findByElderIdInAndAudienceAndStatusIn(
+			Collection<Long> elderIds, ReportJpaEntity.Audience audience,
+			Collection<ReportJpaEntity.Status> statuses, Pageable pageable);
+
+	long countByElderIdInAndAudienceAndStatusIn(Collection<Long> elderIds, ReportJpaEntity.Audience audience,
+			Collection<ReportJpaEntity.Status> statuses);
 }

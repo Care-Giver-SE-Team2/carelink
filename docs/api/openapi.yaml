@@ -1120,7 +1120,8 @@ paths:
       tags:
         - Reports
       summary: List generated reports
-      x-status: draft
+      x-status: implemented
+      x-implemented-roles: [MANAGER, FAMILY]
       parameters:
         - $ref: '#/components/parameters/Page'
         - $ref: '#/components/parameters/Size'
@@ -1162,6 +1163,12 @@ paths:
           $ref: '#/components/responses/FamilyUnauthorized'
         '403':
           $ref: '#/components/responses/FamilyForbidden'
+        '503':
+          description: Access recording is unavailable; no report content is returned.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/FamilyProblemDetail'
       x-contract-status: specified
       x-family-use-cases:
         - UC-FM04
@@ -1170,17 +1177,25 @@ paths:
         - sessionCookie: []
       operationId: listReports
       description: >-
-        Family access is limited to FAMILY reports of elders currently in scope, in PUBLISHED or
-        ARCHIVED state. DRAFT and non-FAMILY reports are forbidden. Apply the same
-        current-authorisation and content rules on list, online detail, weekly summary and PDF export.
-        Generation-time permission is not permanent reading permission. Family content uses caregiver
-        names only, no staff-performance data, vital ranges rather than raw measurements, no other
-        elders, and a fixed medical disclaimer. Redact any unsafe legacy content at read/export
-        without mutating the archived original. All report generation and amendments remain with MG07.
-        For FAMILY, omitted audience means FAMILY; explicitly requesting REGULATOR or INTERNAL is 403.
-        An omitted elderId spans currently accessible elders only. Order by periodStart descending,
-        createdAt descending, then id descending and paginate after filtering; no reports returns 200
-        with items=[]. Other roles retain their existing report-list schema and audience rules.
+        FAMILY callers receive list metadata from FAMILY reports of currently readable elders,
+        in PUBLISHED or ARCHIVED state only. DRAFT and other audiences are excluded before
+        counting and pagination. Omitted audience means FAMILY; requesting REGULATOR or INTERNAL
+        is 403, and an unknown audience is 400. Omitted elderId spans all currently readable elders;
+        an explicitly inaccessible elderId is 403. No readable bindings or matching reports returns
+        200 with items=[]. Both FULL and READ_ONLY bindings permit the same family metadata.
+        Family order is periodStart descending, createdAt descending, then id descending.
+        Family page defaults to 0 and must be nonnegative; size defaults to 20 and must be 1-200.
+        Invalid family pagination is 400. MANAGER retains its existing response, audience rules,
+        ordering and pagination clamping. Other roles are forbidden.
+        The family list excludes sections, disclaimer, amendments and internal actor IDs.
+        Completeness metadata comes from the same authorized FAMILY report, never another audience.
+        Missing items retain MG07's controlled visit-gap format; unfamiliar legacy descriptions use a
+        generic incomplete-data notice. The stored report is never modified by this projection.
+        Family createdAt includes the Asia/Singapore offset; archivedAt is null because no separate
+        archive timestamp is stored. Each family query records its outcome through the existing
+        read audit; an audit failure returns 503 without report content.
+        Only the family list is implemented in this batch. Family detail, weekly summary and export
+        retain their separate implementation status; generation and amendments remain with MG07.
 
 
         Family callers are identified from the authenticated session, never a caller-supplied

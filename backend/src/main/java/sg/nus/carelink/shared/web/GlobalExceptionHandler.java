@@ -12,6 +12,7 @@ import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.web.server.ResponseStatusException;
 
 import sg.nus.carelink.shared.error.BusinessRuleViolation;
 import sg.nus.carelink.shared.error.AuditUnavailable;
@@ -148,6 +149,12 @@ class GlobalExceptionHandler {
 				"Request body is missing or does not match the expected JSON format");
 		problem.setTitle("Invalid request");
 		return problem;
+	}
+
+	/** Preserves explicit HTTP validation failures instead of treating them as server errors. */
+	@ExceptionHandler(ResponseStatusException.class)
+	ProblemDetail onResponseStatus(ResponseStatusException ex) {
+		return ex.getBody();
 	}
 
 	/** Catch-all. Details go to the log only, never back to the caller, to avoid leaking internals. */

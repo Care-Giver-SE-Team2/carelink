@@ -7,6 +7,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 
 import sg.nus.carelink.report.domain.model.Report;
 import sg.nus.carelink.report.domain.model.ReportAmendment;
@@ -76,6 +77,18 @@ class InMemoryReportRepository implements ReportRepository {
 		int from = Math.min(page * size, matching.size());
 		int to = Math.min(from + size, matching.size());
 		return new ReportPage(matching.subList(from, to), page, size, matching.size());
+	}
+
+	@Override
+	public ReportPage findFamilyPage(Set<Long> elderIds, int page, int size) {
+		List<Report> matching = rows.values().stream()
+				.filter(report -> elderIds.contains(report.elderId()) && report.audience() == Report.Audience.FAMILY)
+				.filter(report -> report.status() == Report.Status.PUBLISHED || report.status() == Report.Status.ARCHIVED)
+				.sorted(Comparator.comparing((Report report) -> report.period().start()).reversed()
+						.thenComparing(Report::createdAt, Comparator.reverseOrder())
+						.thenComparing(Report::id, Comparator.reverseOrder()))
+				.toList();
+		return new ReportPage(matching.stream().skip((long) page * size).limit(size).toList(), page, size, matching.size());
 	}
 
 	int reportCount() {

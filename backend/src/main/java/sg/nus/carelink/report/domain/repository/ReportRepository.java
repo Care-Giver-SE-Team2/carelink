@@ -1,6 +1,7 @@
 package sg.nus.carelink.report.domain.repository;
 
 import java.util.Optional;
+import java.util.Set;
 
 import sg.nus.carelink.report.domain.model.Report;
 import sg.nus.carelink.report.domain.model.ReportAmendment;
@@ -43,4 +44,10 @@ public interface ReportRepository {
 	 * @param audience one reader's version, or null for all three
 	 */
 	ReportPage findPage(Long elderId, Report.Audience audience, int page, int size);
+
+	/**
+	 * Published or archived FAMILY reports of readable elders, filtered before counting and
+	 * paging; newest period start, creation time and id first. List rows omit amendments.
+	 */
+	ReportPage findFamilyPage(Set<Long> elderIds, int page, int size);
 }
