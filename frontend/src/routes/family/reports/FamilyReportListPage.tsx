@@ -19,7 +19,8 @@ export function FamilyReportListPage() {
   const reports = data?.reports
   const pages = reports ? Math.ceil(reports.totalElements / reports.size) : 0
   const listParams = new URLSearchParams()
-  if (data?.selectedElderId != null) listParams.set('elderId', String(data.selectedElderId))
+  const selectedElderId = data?.selectedElderId ?? elderId
+  if (selectedElderId !== null) listParams.set('elderId', String(selectedElderId))
   if (page > 0) listParams.set('page', String(page))
   const changePage = (nextPage: number, nextElder = data?.selectedElderId ?? elderId) => {
     const next = new URLSearchParams()
@@ -41,7 +42,8 @@ export function FamilyReportListPage() {
       <section className={styles.hero}>
         <p className={styles.eyebrow}>YOUR FAMILY'S CARE</p>
         <h1>Care reports</h1>
-        <p>Follow the care recorded for your loved one, one report at a time.</p>
+        <p className={styles.intro}>Follow the care recorded for your loved one, one report at a time.</p>
+        <Link className={styles.readLink} to={`/family/reports/weekly${listParams.size ? `?${listParams}` : ''}`}>Read by week</Link>
       </section>
       {resource.status === 'loading' && <p className={styles.loading} role="status">Loading your reports…</p>}
       {resource.status === 'error' && <ReportListFeedback error={resource.error} onRetry={refresh} onResetAccess={resetAccess} />}
