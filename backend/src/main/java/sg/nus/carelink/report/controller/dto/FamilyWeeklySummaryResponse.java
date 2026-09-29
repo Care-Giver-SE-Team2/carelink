@@ -16,6 +16,6 @@ public record FamilyWeeklySummaryResponse(Long reportId, Long elderId, LocalDate
 	public static FamilyWeeklySummaryResponse of(FamilyWeeklySummary summary) {
 		return new FamilyWeeklySummaryResponse(summary.reportId(), summary.elderId(), summary.period().start(),
 				summary.period().end(), summary.summaryText(), ReportContent.GeneratedBy.TEMPLATE,
-				FamilyReportDetailResponse.DISCLAIMER);
+				FamilyReportDetailResponse.FAMILY_DISCLAIMER);
 	}
 }

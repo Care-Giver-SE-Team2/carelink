@@ -39,7 +39,7 @@ public class FamilyWeeklySummaryController {
 	public FamilyWeeklySummaryResponse get(@PathVariable Long elderId,
 			@RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate weekStart, Principal principal) {
 		if (weekStart.isBefore(MIN_DATE) || weekStart.isAfter(MAX_WEEK_START)
-				|| weekStart.getDayOfWeek() != DayOfWeek.MONDAY) {
+				|| !DayOfWeek.MONDAY.equals(weekStart.getDayOfWeek())) {
 			throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
 					"weekStart must be a Monday whose full week is within 1000-01-01 and 9999-12-31");
 		}

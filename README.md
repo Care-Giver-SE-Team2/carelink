@@ -124,7 +124,7 @@ One workflow, `cicd-pipeline.yml`, nine jobs. **Anything independent runs in par
 `needs` expresses real dependencies and quality gates only, never queueing.**
 
 ```
-        ┌─ Backend: build, unit tests, ArchUnit, SAST ─┐
+        ┌─ Backend: build, all tests, ArchUnit, SAST  ─┐
 push ───┼─ Frontend: lint, unit tests, build          ─┼──→ Quality gate ──┐
   PR    └─ Secret scanning (gitleaks)                 ─┘     5-8 minutes   │
                                                                            │ not on PRs
@@ -141,7 +141,7 @@ push ───┼─ Frontend: lint, unit tests, build          ─┼──→ 
 
 | Stage | Job | When |
 |---|---|---|
-| Fast feedback | Backend (ArchUnit, JaCoCo, Sonar quality gate) | Every PR and every push to main |
+| Fast feedback | Backend (unit/integration tests, ArchUnit, JaCoCo, Sonar quality gate) | Every PR and every push to main |
 | Fast feedback | Frontend (lint, Vitest coverage, build) | Same |
 | Fast feedback | Secret scanning across the whole history | Same |
 | Gate | Quality gate — passes only when all three are green | The single required check for branch protection |
@@ -149,6 +149,9 @@ push ───┼─ Frontend: lint, unit tests, build          ─┼──→ 
 | Delivery | Image to GHCR, tagged with the commit SHA, `latest` and `staging` | Pushes to main |
 | Deployment | The staging VM pulls the `:staging` tag itself; the job waits for it to report the new commit, smoke-tests and runs the ZAP baseline scan against the live address (`deploy/staging/README.md`) | Pushes to main |
 | Rollback | `rollback.yml`: points `:staging` back at an earlier commit's image and waits for the VM to report it. Code only; migrations stay applied | On demand |
+
+The backend job runs `clean verify -Pintegration` before Sonar analysis so its JaCoCo
+report includes both unit and MySQL integration coverage, including on pull requests.
 
 **Build once, deploy many.** The image is built once in the delivery stage; deployment and
 rollback only move a tag, so what runs is always a binary the pipeline already verified.

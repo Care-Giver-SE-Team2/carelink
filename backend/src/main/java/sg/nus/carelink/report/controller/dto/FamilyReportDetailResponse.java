@@ -18,7 +18,7 @@ public record FamilyReportDetailResponse(Long id, Long elderId, Report.Audience 
 		List<String> missingItems, ReportContent.GeneratedBy generatedBy, OffsetDateTime createdAt,
 		OffsetDateTime archivedAt, List<Section> sections, String disclaimer, List<Amendment> amendments) {
 
-	static final String DISCLAIMER = "This summary records care observations and services; it is not a diagnosis or medical advice.";
+	static final String FAMILY_DISCLAIMER = "This summary records care observations and services; it is not a diagnosis or medical advice.";
 
 	public static FamilyReportDetailResponse of(Report report) {
 		var metadata = FamilyReportPageResponse.Item.of(report);
@@ -26,7 +26,7 @@ public record FamilyReportDetailResponse(Long id, Long elderId, Report.Audience 
 				metadata.periodStart(), metadata.periodEnd(), metadata.status(), metadata.dataComplete(),
 				metadata.missingItems(), metadata.generatedBy(), metadata.createdAt(), metadata.archivedAt(),
 				report.content().familySections().stream().map(section -> new Section(section.title(), section.body())).toList(),
-				DISCLAIMER,
+				FAMILY_DISCLAIMER,
 				report.amendments().stream().map(note -> new Amendment(note.id(), note.note(),
 						note.createdAt().atZone(ZoneId.of("Asia/Singapore")).toOffsetDateTime())).toList());
 	}
