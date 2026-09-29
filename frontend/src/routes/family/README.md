@@ -1,6 +1,6 @@
 # 家属端　Family portal
 
-**FM01 / FM02 负责人：** Wang Zhili。申请页面放在 `intake/`，周排程页面放在 `schedule/`；家属布局和登录放在 `components/`。
+**FM01 / FM02 / FM04 负责人：** Wang Zhili。申请页面放在 `intake/`，周排程页面放在 `schedule/`，报告页面放在 `reports/`；家属布局和登录放在 `components/`。
 
 ## 要覆盖的用例
 
@@ -54,6 +54,15 @@ FM02 周排程入口为 `/family/schedule`，也可通过家属导航进入：
 - 关闭详情或切换老人、周次、页码时取消详情请求，重新打开时重新查询。任一详情请求返回 401／403 时清除整个页面的受保护排程、老人和护理员数据，再显示登录或权限提示。
 - `features/schedule/` 管理 API 参数、类型、请求生命周期和日期展示；`schedule/` 管理页面与 CSS Modules。页面不写入绑定、排班、护理员分配或访视状态，也不在浏览器持久保存排程数据。
 
+FM04 报告列表入口为 `/family/reports`，也可通过家属导航的 `Care reports` 进入：
+
+- 先通过 GET `/api/auth/me` 确认家属身份，再读取 GET `/api/elders`；按选中老人请求 GET `/api/reports?elderId=...&audience=FAMILY&page=...&size=20`。复用报告模块的列表请求和元数据类型，身份与可读状态由服务端验证及过滤，不在前端拉取全量报告再筛选。
+- 卡片显示报告周期、发布／归档状态、内容来源及完整性，缺失项作为纯文本显示。`TEMPLATE` 显示为正常的 `Structured template` 内容。周期按 API 的日期文字显示，不受浏览器时区影响；不从创建时间推断归档时间。
+- 老人及页码使用 URL 的 `elderId`、`page` 保存；切换老人回到第一页，刷新保留当前老人和页码，并重新检查身份及可访问老人。每页最多 20 条，按服务端总数分页；空的后续页提供返回第一页。
+- 无绑定、无报告、加载中和请求失败分别提示。401 提供原页登录；403 清除报告及老人信息，可重新加载可用老人或更换账号。重新登录后重新选择新账号可读的老人，不沿用旧账号的老人及页码。网络／服务故障可重试，不显示后端内部错误文字。
+- 切换、刷新及离开页面会取消请求；迟到响应不会恢复旧报告。报告和老人数据只保存在页面内存中，不写入浏览器持久存储。FM01／FM02 导航保持可用。
+- 本批交付报告列表；详情阅读、按周摘要入口和 PDF 按后续批次接入，目前没有指向未完成页面的阅读或下载按钮。
+
 提交行为：
 
 - 调用 POST `/api/intake-applications` 前初始化 CSRF；Session Cookie 随请求发送，申请人和审核字段由后端确定。
@@ -65,6 +74,7 @@ FM02 周排程入口为 `/family/schedule`，也可通过家属导航进入：
 
 代码位置：
 
+- `features/reports/useFamilyReportPage.ts`：家属报告列表的身份／老人校验、分页请求和取消；`routes/family/reports/` 管理页面、URL 选择、状态反馈与样式。
 - `routes/family/intake/`：页面、表单交互与样式；浏览器 URL 的分页和筛选状态留在页面中管理。
 - `features/intake/api.ts`：申请提交、列表、详情接口的路径、参数编码和返回类型。
 - `features/intake/intakeForm.ts`：表单类型、字段校验和提交参数转换。
@@ -107,6 +117,8 @@ npm run build
 `features/schedule/api.test.ts` 和 `presentation.test.ts` 验证 API 参数、新加坡周界、跨月跨年及可空字段展示。
 `FamilyCaregiverDetails.test.tsx` 验证按需加载资料与资质、独立重试、权限失效和详情取消；
 `features/schedule/caregiverApi.test.ts`、`credentialPresentation.test.ts` 验证公开接口和资质的日期、状态展示规则。
+
+`FamilyReportListPage.test.tsx` 从页面及网络边界验证家属报告列表的 30 个场景：身份／老人范围、服务端分页、URL 恢复、完整性及纯文本、401／403 清理、CSRF 登录、重试、慢响应和请求取消，以及 FM01／FM02 导航回归。
 
 日期选择仅接受 API 支持范围内的完整周，首末周的越界导航自动禁用；非法输入保留当前周。页面及日期测试覆盖年份边界和正常跨月、跨年切换。
 

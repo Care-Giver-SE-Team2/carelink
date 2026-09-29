@@ -5,14 +5,18 @@ import { IntakeDetailPage } from './intake/IntakeDetailPage'
 import { IntakeCreatePage } from './intake/IntakeCreatePage'
 import { FamilyLayout } from './components/FamilyLayout'
 import { FamilySchedulePage } from './schedule/FamilySchedulePage'
+import { FamilyReportListPage } from './reports/FamilyReportListPage'
 
 /**
- * Family application and weekly schedule routes.
+ * Family application, schedule and care report routes.
  * @author Wang Zhili
  */
 export default function FamilyHome() {
   return (
     <Routes>
+      <Route element={<FamilyLayout title="Care reports" />}>
+        <Route path="reports" element={<FamilyReportListPage />} />
+      </Route>
       <Route element={<FamilyLayout title="Weekly schedule" />}>
         <Route path="schedule" element={<FamilySchedulePage />} />
       </Route>
