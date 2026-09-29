@@ -1,6 +1,8 @@
 import { initialiseCsrf } from '../auth/api'
 import { api } from '../../shared/api/client'
 import type {
+  FamilyReportDetail,
+  FamilyWeeklySummary,
   GenerateReportsRequest,
   Report,
   ReportAmendment,
@@ -44,6 +46,21 @@ export function listReports(
  */
 export function getReport(id: number, signal?: AbortSignal): Promise<ReportDetail> {
   return api<ReportDetail>('/reports/' + id, { signal })
+}
+
+/** Reads the family projection using the session's resource permissions.
+ * @author Wang Zhili
+ */
+export function getFamilyReport(id: string, signal?: AbortSignal): Promise<FamilyReportDetail> {
+  return api<FamilyReportDetail>('/reports/' + encodeURIComponent(id), { signal })
+}
+
+/** Reads the exact Monday-to-Sunday week without generating a report.
+ * @author Wang Zhili
+ */
+export function getFamilyWeeklySummary(elderId: number, weekStart: string, signal?: AbortSignal): Promise<FamilyWeeklySummary> {
+  const query = new URLSearchParams({ weekStart })
+  return api<FamilyWeeklySummary>(`/elders/${elderId}/weekly-summary?${query}`, { signal })
 }
 
 /**

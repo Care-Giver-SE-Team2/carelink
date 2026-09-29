@@ -27,6 +27,8 @@ import org.junit.jupiter.api.Test;
 import org.springframework.core.annotation.AnnotatedElementUtils;
 import org.springframework.http.MediaType;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.RequestPostProcessor;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
@@ -39,6 +41,7 @@ import org.springframework.web.bind.annotation.RequestMethod;
 import sg.nus.carelink.identity.application.IdentityService;
 import sg.nus.carelink.identity.domain.model.AppUser;
 import sg.nus.carelink.report.application.ReportService;
+import sg.nus.carelink.report.application.FamilyReportQueryService;
 import sg.nus.carelink.report.domain.model.Report;
 import sg.nus.carelink.report.domain.model.ReportAmendment;
 import sg.nus.carelink.report.domain.model.ReportPage;
@@ -71,7 +74,7 @@ class ReportControllerTest {
 	@BeforeEach
 	void setUp() {
 		mvc = MockMvcBuilders
-				.standaloneSetup(new ReportController(service, identity))
+				.standaloneSetup(new ReportController(service, identity, mock(FamilyReportQueryService.class)))
 				.setControllerAdvice(GlobalExceptionHandlerTestSupport.instance())
 				.build();
 		when(identity.require(anyString())).thenReturn(MANAGER);
@@ -79,7 +82,8 @@ class ReportControllerTest {
 
 	private static RequestPostProcessor asManager() {
 		return request -> {
-			request.setUserPrincipal(() -> "alice");
+			request.setUserPrincipal(new UsernamePasswordAuthenticationToken("alice", null,
+					List.of(new SimpleGrantedAuthority("ROLE_MANAGER"))));
 			return request;
 		};
 	}
@@ -325,14 +329,16 @@ class ReportControllerTest {
 		}
 	}
 
-	/** Only managers, on every endpoint. The family's read of a report is UC-FM04's, not served here. */
+	/** List and detail reads are shared with UC-FM04; writes remain manager-only. */
 	@Test
-	void everyEndpointIsForManagersOnly() {
+	void onlyReadsAlsoAllowFamilies() {
 		List<Method> endpoints = Arrays.stream(ReportController.class.getDeclaredMethods())
 				.filter(method -> AnnotatedElementUtils.hasAnnotation(method, RequestMapping.class))
 				.toList();
 
 		assertThat(endpoints).hasSize(4).allSatisfy(method ->
-				assertThat(method.getAnnotation(PreAuthorize.class).value()).isEqualTo("hasRole('MANAGER')"));
+				assertThat(method.getAnnotation(PreAuthorize.class).value()).isEqualTo(
+						Set.of("list", "get").contains(method.getName())
+								? "hasAnyRole('MANAGER', 'FAMILY')" : "hasRole('MANAGER')"));
 	}
 }

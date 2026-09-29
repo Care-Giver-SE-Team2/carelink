@@ -1,6 +1,6 @@
 # 家属端　Family portal
 
-**FM01 / FM02 负责人：** Wang Zhili。申请页面放在 `intake/`，周排程页面放在 `schedule/`；家属布局和登录放在 `components/`。
+**FM01 / FM02 / FM04 负责人：** Wang Zhili。申请页面放在 `intake/`，周排程页面放在 `schedule/`，报告页面放在 `reports/`；家属布局和登录放在 `components/`。
 
 ## 要覆盖的用例
 
@@ -54,6 +54,33 @@ FM02 周排程入口为 `/family/schedule`，也可通过家属导航进入：
 - 关闭详情或切换老人、周次、页码时取消详情请求，重新打开时重新查询。任一详情请求返回 401／403 时清除整个页面的受保护排程、老人和护理员数据，再显示登录或权限提示。
 - `features/schedule/` 管理 API 参数、类型、请求生命周期和日期展示；`schedule/` 管理页面与 CSS Modules。页面不写入绑定、排班、护理员分配或访视状态，也不在浏览器持久保存排程数据。
 
+FM04 报告列表入口为 `/family/reports`，也可通过家属导航的 `Care reports` 进入：
+
+- 先通过 GET `/api/auth/me` 确认家属身份，再读取 GET `/api/elders`；按选中老人请求 GET `/api/reports?elderId=...&audience=FAMILY&page=...&size=20`。复用报告模块的列表请求和元数据类型，身份与可读状态由服务端验证及过滤，不在前端拉取全量报告再筛选。
+- 卡片显示报告周期、发布／归档状态、内容来源及完整性，缺失项作为纯文本显示。`TEMPLATE` 显示为正常的 `Structured template` 内容。周期按 API 的日期文字显示，不受浏览器时区影响；不从创建时间推断归档时间。
+- 老人及页码使用 URL 的 `elderId`、`page` 保存；切换老人回到第一页，刷新保留当前老人和页码，并重新检查身份及可访问老人。每页最多 20 条，按服务端总数分页；空的后续页提供返回第一页。
+- 无绑定、无报告、加载中和请求失败分别提示。401 提供原页登录；403 清除报告及老人信息，可重新加载可用老人或更换账号。重新登录后重新选择新账号可读的老人，不沿用旧账号的老人及页码。网络／服务故障可重试，不显示后端内部错误文字。
+- 切换、刷新及离开页面会取消请求；迟到响应不会恢复旧报告。报告和老人数据只保存在页面内存中，不写入浏览器持久存储。FM01／FM02 导航保持可用。
+- 每张卡片提供 `Read report`，进入 `/family/reports/:id`，并将当前老人和页码带入 URL；`Back to reports` 返回原列表选择，包括最初未显式选择老人的情况。
+
+FM04 报告详情支持直接打开和浏览器刷新：
+
+- 每次读取先确认 FAMILY 会话，再请求 GET `/api/reports/{id}`。详情授权由服务端根据报告资源判断，URL 的 `elderId`／`page` 仅用于返回列表，不作为身份或授权参数。报告编号按 URL 字符串编码传递。
+- 展示已发布／归档状态、周期、老人档案编号、来源、完整性和缺失项；章节按服务端顺序原样显示，保留空行和缩进。更正单独追加，保留原报告正文；免责声明始终显示。正文与更正均通过 React 纯文本渲染，不解析 HTML 或 Markdown。
+- 创建和更正时间读取接口中的时区偏移，统一显示为新加坡时间；归档时间为空时不补造。空章节和无更正各有说明，TEMPLATE 报告可正常阅读。
+- 401 提供原页登录，403 显示无权访问并支持重试／更换账号，404 与无权访问分别提示；参数错误、网络或服务故障也有独立反馈。重新登录后重新读取同一份报告并由服务端重新授权，不自动替换成另一份报告。
+- 刷新、切换报告及离开页面时取消旧请求并隐藏旧正文，迟到响应不能恢复受保护内容。从周摘要进入时，返回链接保留原来的老人和周次。
+
+FM04 按周入口为列表中的 `Read by week`，路由 `/family/reports/weekly`：
+
+- 默认查看新加坡时间的上一完整周，可选择任意日期查看对应周一至周日，或使用上一周／本周／下一周按钮。复用排程的日历工具，完整周边界与当前报告接口一致；非法输入不发起请求，首末完整周禁用越界导航。
+- `elderId`／`weekStart` 保存当前老人和周一，`page` 仅保存返回列表的页码。深链接和刷新保留选择；切换老人清除旧列表页码。URL 中非周一的有效日期归一到该周周一，缺失或非法日期回到上一完整周。
+- 每次加载确认 FAMILY 会话并重新读取可用老人，然后 GET `/api/elders/{elderId}/weekly-summary?weekStart=...`，再按响应的 `reportId` GET `/api/reports/{id}`。不把周条件传给报告列表接口，也不在一页列表中筛选周报。
+- 摘要和对应详情成功后一起展示；核对响应的老人、周期和报告编号，防止错误组合。摘要保留原始段落，TEMPLATE 显示为正常的 `Structured template`；完整性、缺失项、更正及免责声明随摘要显示，更正不改写原摘要。
+- 只有周摘要接口返回 404 才表示该周暂无报告；详情 404、网络／审计等失败显示可重试错误。无绑定、无报告、加载失败分别提示，不借用其他周内容。
+- 切换／刷新／离开取消旧请求并隐藏旧内容；任一请求返回 401／403 都清除老人及摘要／详情。登录恢复或重新加载权限时保留周次，重新选择新会话有权查看的老人，不保留旧账号的老人和页码。
+- `Read full report` 进入相同报告，`Back to weekly summary` 返回原周；`All reports` 返回原列表页。PDF 仍在后续，本页没有下载按钮。
+
 提交行为：
 
 - 调用 POST `/api/intake-applications` 前初始化 CSRF；Session Cookie 随请求发送，申请人和审核字段由后端确定。
@@ -65,6 +92,7 @@ FM02 周排程入口为 `/family/schedule`，也可通过家属导航进入：
 
 代码位置：
 
+- `features/reports/useFamilyReportPage.ts`、`useFamilyReport.ts`、`useFamilyWeeklySummary.ts`：家属报告列表、详情和周摘要的身份校验、请求和取消；`api.ts`／`types.ts` 明确家属详情及摘要投影，更正不含内部作者 ID；`routes/family/reports/` 管理页面、URL 选择、状态反馈与样式，`ReportNotes.tsx` 复用详情与摘要的完整性和更正展示。
 - `routes/family/intake/`：页面、表单交互与样式；浏览器 URL 的分页和筛选状态留在页面中管理。
 - `features/intake/api.ts`：申请提交、列表、详情接口的路径、参数编码和返回类型。
 - `features/intake/intakeForm.ts`：表单类型、字段校验和提交参数转换。
@@ -108,6 +136,10 @@ npm run build
 `FamilyCaregiverDetails.test.tsx` 验证按需加载资料与资质、独立重试、权限失效和详情取消；
 `features/schedule/caregiverApi.test.ts`、`credentialPresentation.test.ts` 验证公开接口和资质的日期、状态展示规则。
 
+`FamilyReportListPage.test.tsx` 从页面及网络边界验证家属报告列表的 30 个场景：身份／老人范围、服务端分页、URL 恢复、完整性及纯文本、401／403 清理、CSRF 登录、重试、慢响应和请求取消，以及 FM01／FM02 导航回归。
+`FamilyReportDetailPage.test.tsx` 覆盖 26 个详情场景：深链接、列表往返、归档／模板、原文与更正、时区、401／403／404、重新登录后原报告授权、服务故障重试、旧响应隔离及取消、报告编号编码和列表返回参数。
+`FamilyWeeklySummaryPage.test.tsx` 覆盖 50 个按周阅读场景：新加坡周界、跨月跨年、日期范围、老人／周次和列表往返、摘要与详情一致性、完整性与追加更正、无报告和失败区分、权限清理／登录恢复、慢响应隔离与各阶段取消。测试只替换网络边界。
+
 日期选择仅接受 API 支持范围内的完整周，首末周的越界导航自动禁用；非法输入保留当前周。页面及日期测试覆盖年份边界和正常跨月、跨年切换。
 
 后端 `FamilyScheduleWorkflowIT` 通过真实 HTTP、Session Cookie、CSRF 和 Testcontainers MySQL 验证登录 → 老人列表 → 排程分页 → 护理员资料／资质的完整读取流程，另覆盖绑定撤销、退出后旧会话失效、主管老人数组及 FM01 提交／查询兼容。测试使用隔离数据，不依赖本地已有账号。从项目根目录运行：
@@ -118,3 +150,12 @@ cd backend
 ```
 
 需要 JDK 25 与可运行 Testcontainers 的 Docker。完整后端回归使用 `./mvnw verify -Pintegration`。这些查询测试不代替绑定确认、排程生成和护理员分配等上游写入流程的联调。
+
+后端 `FamilyReportWorkflowIT` 验证 MG07 真实生成三种受众报告 → 家属登录 → 老人范围及报告分页 → 详情 → 精确周摘要的跨流程行为。7 个场景覆盖：服务／体征／观察／事件原文与缺失项、追加更正不改写原件或摘要、READ_ONLY 与归档读取、家属及受众隔离、同一会话下撤销／精确到期失权、退出后旧 Cookie 不可复用，以及主管、FM01／FM02 接口兼容。请求走真实 HTTP、Session／CSRF 和隔离 MySQL；数据库仅用于准备上游护理事实／绑定，并核对业务数据不变及审计持久化。
+
+```bash
+cd backend
+./mvnw verify -Pintegration -Dit.test=FamilyReportWorkflowIT -Duser.timezone=UTC
+```
+
+测试使用固定的新加坡周界时间、生产 JDBC `connectionTimeZone=Asia/Singapore`，并让 MySQL 使用不同的默认时区，验证读取不依赖 JVM／数据库默认时区一致。报告及更正通过主管 API 创建；绑定撤销／到期与归档状态由隔离数据准备，不代表这些上游写入页面已经联调。FM04 首轮交付为列表、详情和 TEMPLATE 周摘要；模型摘要、周报通知及 PDF 下载仍未包含。

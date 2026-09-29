@@ -1,6 +1,7 @@
 package sg.nus.carelink.report.domain.repository;
 
 import java.util.Optional;
+import java.util.Set;
 
 import sg.nus.carelink.report.domain.model.Report;
 import sg.nus.carelink.report.domain.model.ReportAmendment;
@@ -20,6 +21,15 @@ public interface ReportRepository {
 
 	/** The report with every correction appended to it, oldest first. */
 	Optional<Report> findById(Long id);
+
+	/** Tests existence without parsing a draft's possibly absent content. */
+	boolean existsById(Long id);
+
+	/** A readable FAMILY report with ordered amendments; applies scope before parsing content. */
+	Optional<Report> findFamilyDetail(Long id, Set<Long> readableElderIds);
+
+	/** Latest published/archived FAMILY report for an exact period, by createdAt then id. Omits amendments. */
+	Optional<Report> findLatestFamilyFor(Long elderId, ReportPeriod period);
 
 	/** Stores a report that has not been stored before. */
 	Report save(Report report);
@@ -43,4 +53,10 @@ public interface ReportRepository {
 	 * @param audience one reader's version, or null for all three
 	 */
 	ReportPage findPage(Long elderId, Report.Audience audience, int page, int size);
+
+	/**
+	 * Published or archived FAMILY reports of readable elders, filtered before counting and
+	 * paging; newest period start, creation time and id first. List rows omit amendments.
+	 */
+	ReportPage findFamilyPage(Set<Long> elderIds, int page, int size);
 }

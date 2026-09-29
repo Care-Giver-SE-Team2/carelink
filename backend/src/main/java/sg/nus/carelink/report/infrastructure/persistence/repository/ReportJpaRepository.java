@@ -2,6 +2,7 @@ package sg.nus.carelink.report.infrastructure.persistence.repository;
 
 import java.time.LocalDate;
 import java.util.Collection;
+import java.util.List;
 import java.util.Optional;
 
 import org.springframework.data.domain.Page;
@@ -13,6 +14,10 @@ import sg.nus.carelink.report.infrastructure.persistence.entity.ReportJpaEntity;
 /** Spring Data repository for report. Used by persistence.adapter only; never exposed outwards. */
 public interface ReportJpaRepository extends JpaRepository<ReportJpaEntity, Long> {
 
+	/** Filters visibility before the adapter deserializes the report or loads its amendments. */
+	Optional<ReportJpaEntity> findByIdAndElderIdInAndAudienceAndStatusIn(Long id, Collection<Long> elderIds,
+			ReportJpaEntity.Audience audience, Collection<ReportJpaEntity.Status> statuses);
+
 	/**
 	 * The report already filed for one elder, reader and period.
 	 *
@@ -22,6 +27,11 @@ public interface ReportJpaRepository extends JpaRepository<ReportJpaEntity, Long
 	 */
 	Optional<ReportJpaEntity> findFirstByElderIdAndAudienceAndPeriodStartAndPeriodEndOrderByIdAsc(
 			Long elderId, ReportJpaEntity.Audience audience, LocalDate periodStart, LocalDate periodEnd);
+
+	/** Latest readable source for a family summary; separate from generation's first-id lookup. */
+	Optional<ReportJpaEntity> findFirstByElderIdAndAudienceAndStatusInAndPeriodStartAndPeriodEndOrderByCreatedAtDescIdDesc(
+			Long elderId, ReportJpaEntity.Audience audience, Collection<ReportJpaEntity.Status> statuses,
+			LocalDate periodStart, LocalDate periodEnd);
 
 	/**
 	 * One page of every elder's reports for the given readers.
@@ -36,4 +46,12 @@ public interface ReportJpaRepository extends JpaRepository<ReportJpaEntity, Long
 	/** As above, for one elder. */
 	Page<ReportJpaEntity> findByElderIdAndAudienceIn(
 			Long elderId, Collection<ReportJpaEntity.Audience> audiences, Pageable pageable);
+
+	/** Current family scope, audience and readable states apply to both rows and total. */
+	List<ReportJpaEntity> findByElderIdInAndAudienceAndStatusIn(
+			Collection<Long> elderIds, ReportJpaEntity.Audience audience,
+			Collection<ReportJpaEntity.Status> statuses, Pageable pageable);
+
+	long countByElderIdInAndAudienceAndStatusIn(Collection<Long> elderIds, ReportJpaEntity.Audience audience,
+			Collection<ReportJpaEntity.Status> statuses);
 }

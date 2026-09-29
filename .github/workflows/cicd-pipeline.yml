@@ -53,9 +53,11 @@ jobs:
           java-version: ${{ env.JAVA_VERSION }}
           cache: maven                    # caching ~/.m2 is what keeps this inside ten minutes
 
-      - name: Compile, unit test, ArchUnit, JaCoCo
+      # Sonar must receive coverage from both unit and real MySQL integration tests.
+      # Coverage produced by another workflow is not available in this job.
+      - name: Compile, unit and integration tests, ArchUnit, JaCoCo
         working-directory: backend
-        run: ./mvnw -B -ntp verify
+        run: ./mvnw -B -ntp clean verify -Pintegration
 
       # SAST shares this job with the build. Splitting it out would repeat the entire
       # build, a textbook case of parallelism that is actually slower.

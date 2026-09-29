@@ -91,6 +91,16 @@ export function reportTime(value: string | null): string {
   return `${Number(match[3])} ${MONTHS[Number(match[2]) - 1]} ${match[1]} ${match[4]}:${match[5]}`
 }
 
+/** Family responses include offsets; display their instants in Singapore time.
+ * @author Wang Zhili
+ */
+export function familyReportTime(value: string): string {
+  return new Intl.DateTimeFormat('en-SG', {
+    timeZone: 'Asia/Singapore', day: 'numeric', month: 'short', year: 'numeric',
+    hour: '2-digit', minute: '2-digit', hourCycle: 'h23',
+  }).format(new Date(value))
+}
+
 /**
  * Today's date on the browser's own calendar, in the backend's LocalDate form.
  * The browser is where the manager is, which is the calendar the default
