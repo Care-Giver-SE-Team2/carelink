@@ -2,6 +2,7 @@ package sg.nus.carelink.report.domain.model;
 
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 
 /**
  * What one reader's report says, already filtered for that reader.
@@ -28,10 +29,23 @@ public record ReportContent(
 		String disclaimer,
 		ReportContent.GeneratedBy generatedBy) {
 
+	private static final Set<String> FAMILY_SECTION_TITLES = Set.of(
+			"Service completion", "Vital signs", "Observations", "Incidents");
+
 	public ReportContent {
 		sections = List.copyOf(Objects.requireNonNull(sections, "sections"));
 		missingItems = List.copyOf(Objects.requireNonNull(missingItems, "missingItems"));
 		Objects.requireNonNull(generatedBy, "generatedBy");
+	}
+
+	/**
+	 * The published family chapter types, retaining stored order and text. Called only after
+	 * report authorization; MG07 owns the content it publishes for the FAMILY audience.
+	 *
+	 * @author Wang Zhili
+	 */
+	public List<ReportSection> familySections() {
+		return sections.stream().filter(section -> FAMILY_SECTION_TITLES.contains(section.title())).toList();
 	}
 
 	/**

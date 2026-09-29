@@ -60,6 +60,19 @@ class ReportRepositoryAdapter implements ReportRepository {
 		return reports.findById(id).map(this::withAmendments);
 	}
 
+	@Override
+	public boolean existsById(Long id) {
+		return reports.existsById(id);
+	}
+
+	@Override
+	public Optional<Report> findFamilyDetail(Long id, Set<Long> readableElderIds) {
+		return reports.findByIdAndElderIdInAndAudienceAndStatusIn(id, readableElderIds,
+				ReportJpaEntity.Audience.FAMILY,
+				EnumSet.of(ReportJpaEntity.Status.PUBLISHED, ReportJpaEntity.Status.ARCHIVED))
+				.map(this::withAmendments);
+	}
+
 	/**
 	 * Inserts, never updates: a report that already has an id is refused rather than merged
 	 * over the stored one, which is what {@code save} on an existing entity would otherwise do.

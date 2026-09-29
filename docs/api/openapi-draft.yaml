@@ -3232,8 +3232,8 @@ paths:
         Family createdAt includes the Asia/Singapore offset; archivedAt is null because no separate
         archive timestamp is stored. Each family query records its outcome through the existing
         read audit; an audit failure returns 503 without report content.
-        Only the family list is implemented in this batch. Family detail, weekly summary and export
-        retain their separate implementation status; generation and amendments remain with MG07.
+        Family list and online detail are implemented. Weekly summary and export retain their
+        separate implementation status; generation and amendments remain with MG07.
 
 
         Family callers are identified from the authenticated session, never a caller-supplied familyMemberId. For
@@ -3324,36 +3324,31 @@ paths:
       - Reports
       summary: Read a report online
       x-status: implemented
-      x-implemented-roles: [MANAGER]
+      x-implemented-roles: [MANAGER, FAMILY]
       description: >-
-        The report's sections, already filtered for its audience. Readable even when PDF export fails (5b). A
-        family member can only read `FAMILY` reports of elders they are bound to. There is deliberately no DELETE
-        and no PUT on a report: an archived report cannot be removed or edited in place (5a); corrections are
-        appended as amendments.
-
-
-
-        Family access is limited to FAMILY reports of elders currently in scope, in PUBLISHED or ARCHIVED state.
-        DRAFT and non-FAMILY reports are forbidden. Apply the same current-authorisation and content rules on
-        list, online detail, weekly summary and PDF export. Generation-time permission is not permanent reading
-        permission. Family content uses caregiver names only, no staff-performance data, vital ranges rather than
-        raw measurements, no other elders, and a fixed medical disclaimer. Redact any unsafe legacy content at
-        read/export without mutating the archived original. All report generation and amendments remain with MG07.
-        Return sections, family-visible corrections and the fixed non-null disclaimer. MODEL and TEMPLATE both
-        represent successful readable reports; a template is not a failed read. Unknown ID is 404, while a known
-        DRAFT, other audience or out-of-scope report is 403. The read does not invoke a model or modify the
-        report. Other roles retain the existing ReportDetail schema.
-
-
-        Family callers are identified from the authenticated session, never a caller-supplied familyMemberId. For
-        family callers, care resources require an ACTIVE binding to their actual elder, with no revocation and no
-        elapsed expiresAt, and the applicable access scope at request time. Revocation/expiry takes effect on
-        subsequent reads and writes, including historical content. Reading a family care resource records the
-        caller, resource and server access time in the internal audit trail. Read access alone does not imply
-        explicit acknowledgement. FULL/READ_ONLY do not imply different clinical field sets: both may use the
-        family read projections below; an authorised notification recipient may record read/view/acknowledgement
-        under either scope because those commands record the recipient response, not a change to the elder care
-        record.
+        FAMILY callers can read a PUBLISHED or ARCHIVED FAMILY report for an elder covered by
+        their current ACTIVE, unexpired FULL or READ_ONLY binding. Identity and roles come from
+        the session. Unknown IDs return 404; known DRAFT, other-audience or out-of-scope reports
+        return 403. Scope, audience and status are checked before parsing stored content, so an
+        inaccessible draft with no body still returns 403. Malformed IDs return 400.
+        Return the stored Service completion, Vital signs, Observations and Incidents chapters
+        in their original order as plain-text strings; omit other chapter types. MG07 owns the
+        content generated and published for the FAMILY audience, including caregiver names and
+        vital ranges. Observation text, incident descriptions and corrections on that FAMILY
+        report are displayed as published; this read does not add a content-review workflow or
+        perform automatic semantic redaction of arbitrary prose. Clients must render the strings
+        as text. Internal/REGULATOR report content and corrections are never combined into this view.
+        Include only id, note and createdAt for each amendment, ordered by createdAt then id
+        ascending. Corrections remain appended and never replace the original sections. Use the
+        fixed non-null family disclaimer, even when the stored disclaimer differs or is absent.
+        Completeness metadata uses the same projection as the family list. Family createdAt and
+        amendment timestamps include the Asia/Singapore offset; archivedAt remains null because
+        no separate archive timestamp is stored. MODEL and TEMPLATE are both readable sources.
+        Reads reuse the existing family audit: record the account, report ID, outcome and server
+        time without report text. An audit outage returns 503 without content. The read neither
+        regenerates a report nor invokes a model, and never modifies the archived original.
+        MANAGER retains its existing ReportDetail response and access. Generation and amendments
+        remain manager-only; family weekly summary and PDF export keep their separate status.
       responses:
         '200':
           description: >-
@@ -3365,16 +3360,24 @@ paths:
                 anyOf:
                 - $ref: '#/components/schemas/FamilyReportDetail'
                 - $ref: '#/components/schemas/ReportDetail'
+        '400':
+          $ref: '#/components/responses/FamilyValidationError'
         '401':
           $ref: '#/components/responses/FamilyUnauthorized'
         '403':
-          description: Not the reader's audience.
+          description: The report is a draft, belongs to another audience, or is outside the caller's current scope.
           content:
             application/problem+json:
               schema:
                 $ref: '#/components/schemas/ProblemDetail'
         '404':
           $ref: '#/components/responses/NotFound'
+        '503':
+          description: Access recording is unavailable; no report content is returned.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/FamilyProblemDetail'
       x-contract-status: specified
       x-family-use-cases:
       - UC-FM04

@@ -264,9 +264,8 @@ class FamilyReportListIT {
 	}
 
 	@Test
-	void detailAndWriteEndpointsRemainManagerOnly() throws Exception {
+	void writeEndpointsRemainManagerOnly() throws Exception {
 		var session = loginAs("family-a");
-		mvc.perform(get(PATH + "/301").session(session)).andExpect(status().isForbidden());
 		Cookie token = mvc.perform(get("/api/auth/csrf").session(session)).andReturn().getResponse().getCookie("XSRF-TOKEN");
 		assertThat(token).isNotNull();
 		mvc.perform(post(PATH + "/generate").session(session).cookie(token).header("X-XSRF-TOKEN", token.getValue())

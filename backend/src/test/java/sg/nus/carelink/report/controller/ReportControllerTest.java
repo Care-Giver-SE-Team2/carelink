@@ -329,15 +329,16 @@ class ReportControllerTest {
 		}
 	}
 
-	/** Only listing is shared with UC-FM04 at this stage. */
+	/** List and detail reads are shared with UC-FM04; writes remain manager-only. */
 	@Test
-	void onlyListAlsoAllowsFamilies() {
+	void onlyReadsAlsoAllowFamilies() {
 		List<Method> endpoints = Arrays.stream(ReportController.class.getDeclaredMethods())
 				.filter(method -> AnnotatedElementUtils.hasAnnotation(method, RequestMapping.class))
 				.toList();
 
 		assertThat(endpoints).hasSize(4).allSatisfy(method ->
 				assertThat(method.getAnnotation(PreAuthorize.class).value()).isEqualTo(
-						method.getName().equals("list") ? "hasAnyRole('MANAGER', 'FAMILY')" : "hasRole('MANAGER')"));
+						Set.of("list", "get").contains(method.getName())
+								? "hasAnyRole('MANAGER', 'FAMILY')" : "hasRole('MANAGER')"));
 	}
 }

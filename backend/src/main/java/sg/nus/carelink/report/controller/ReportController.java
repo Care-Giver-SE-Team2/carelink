@@ -21,6 +21,7 @@ import jakarta.validation.Valid;
 import sg.nus.carelink.identity.application.IdentityService;
 import sg.nus.carelink.report.application.ReportService;
 import sg.nus.carelink.report.application.FamilyReportQueryService;
+import sg.nus.carelink.report.controller.dto.FamilyReportDetailResponse;
 import sg.nus.carelink.report.controller.dto.FamilyReportPageResponse;
 import sg.nus.carelink.report.controller.dto.ReportRequests;
 import sg.nus.carelink.report.controller.dto.ReportResponses;
@@ -38,8 +39,8 @@ import sg.nus.carelink.report.domain.model.Report;
  * be edited or removed (UC-MG07 5a), only corrected by appending. The rule is enforced by the
  * endpoints not existing rather than by an endpoint that always refuses.
  *
- * <p>UC-FM04 shares the list path, with a separate family projection and current binding
- * checks. Detail, generation and corrections remain manager-only.
+ * <p>UC-FM04 shares list and detail paths, with separate family projections and current
+ * binding checks. Generation and corrections remain manager-only.
  */
 @RestController
 @RequestMapping("/api/reports")
@@ -98,8 +99,11 @@ public class ReportController {
 
 	/** One report: its sections, its disclaimer if it has one, and every correction. */
 	@GetMapping("/{id}")
-	@PreAuthorize("hasRole('MANAGER')")
-	public ReportResponses.Detail get(@PathVariable Long id) {
+	@PreAuthorize("hasAnyRole('MANAGER', 'FAMILY')")
+	public Object get(@PathVariable Long id, Authentication authentication) {
+		if (authentication.getAuthorities().stream().anyMatch(role -> role.getAuthority().equals("ROLE_FAMILY"))) {
+			return FamilyReportDetailResponse.of(familyReports.findDetail(authentication.getName(), id));
+		}
 		return ReportResponses.Detail.of(service.findDetail(id));
 	}
 

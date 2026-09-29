@@ -22,6 +22,12 @@ public interface ReportRepository {
 	/** The report with every correction appended to it, oldest first. */
 	Optional<Report> findById(Long id);
 
+	/** Tests existence without parsing a draft's possibly absent content. */
+	boolean existsById(Long id);
+
+	/** A readable FAMILY report with ordered amendments; applies scope before parsing content. */
+	Optional<Report> findFamilyDetail(Long id, Set<Long> readableElderIds);
+
 	/** Stores a report that has not been stored before. */
 	Report save(Report report);
 

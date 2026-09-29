@@ -11,6 +11,7 @@ import sg.nus.carelink.profile.application.FamilyReadAudit;
 import sg.nus.carelink.report.domain.model.Report;
 import sg.nus.carelink.report.domain.model.ReportPage;
 import sg.nus.carelink.report.domain.repository.ReportRepository;
+import sg.nus.carelink.shared.error.ResourceNotFound;
 
 /**
  * Reads filed family reports under the session's current bindings and records the outcome.
@@ -28,6 +29,21 @@ public class FamilyReportQueryService {
 		this.reports = reports;
 		this.access = access;
 		this.audit = audit;
+	}
+
+	/** Resolves current access before content is parsed; an absent report is distinct from a forbidden one. */
+	public Report findDetail(String username, Long id) {
+		return audit.read(username, FamilyReadAudit.Resource.REPORT_DETAIL, id, "", () -> {
+			Set<Long> readable = access.readableElderIds(username);
+			if (!reports.existsById(id)) {
+				throw new ResourceNotFound("Report", id);
+			}
+			if (readable.isEmpty()) {
+				throw new AccessDeniedException("A readable elder binding is required");
+			}
+			return reports.findFamilyDetail(id, readable)
+					.orElseThrow(() -> new AccessDeniedException("A readable FAMILY report is required"));
+		});
 	}
 
 	/** Lists report metadata after HTTP validation; authorization is rechecked on every read. */

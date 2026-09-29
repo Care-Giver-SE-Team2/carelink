@@ -34,6 +34,18 @@ class InMemoryReportRepository implements ReportRepository {
 	}
 
 	@Override
+	public boolean existsById(Long id) {
+		return rows.containsKey(id);
+	}
+
+	@Override
+	public Optional<Report> findFamilyDetail(Long id, Set<Long> readableElderIds) {
+		return findById(id).filter(report -> readableElderIds.contains(report.elderId()))
+				.filter(report -> report.audience() == Report.Audience.FAMILY)
+				.filter(report -> report.status() == Report.Status.PUBLISHED || report.status() == Report.Status.ARCHIVED);
+	}
+
+	@Override
 	public Report save(Report report) {
 		if (report.id() != null) {
 			throw new IllegalArgumentException("reports are stored once");

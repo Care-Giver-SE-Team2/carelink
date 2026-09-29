@@ -14,6 +14,10 @@ import sg.nus.carelink.report.infrastructure.persistence.entity.ReportJpaEntity;
 /** Spring Data repository for report. Used by persistence.adapter only; never exposed outwards. */
 public interface ReportJpaRepository extends JpaRepository<ReportJpaEntity, Long> {
 
+	/** Filters visibility before the adapter deserializes the report or loads its amendments. */
+	Optional<ReportJpaEntity> findByIdAndElderIdInAndAudienceAndStatusIn(Long id, Collection<Long> elderIds,
+			ReportJpaEntity.Audience audience, Collection<ReportJpaEntity.Status> statuses);
+
 	/**
 	 * The report already filed for one elder, reader and period.
 	 *
