@@ -8,8 +8,10 @@ import org.springframework.stereotype.Service;
 
 import sg.nus.carelink.profile.application.FamilyAccessQuery;
 import sg.nus.carelink.profile.application.FamilyReadAudit;
+import sg.nus.carelink.report.domain.model.FamilyWeeklySummary;
 import sg.nus.carelink.report.domain.model.Report;
 import sg.nus.carelink.report.domain.model.ReportPage;
+import sg.nus.carelink.report.domain.model.ReportPeriod;
 import sg.nus.carelink.report.domain.repository.ReportRepository;
 import sg.nus.carelink.shared.error.ResourceNotFound;
 
@@ -43,6 +45,17 @@ public class FamilyReportQueryService {
 			}
 			return reports.findFamilyDetail(id, readable)
 					.orElseThrow(() -> new AccessDeniedException("A readable FAMILY report is required"));
+		});
+	}
+
+	/** Formats saved chapters inside the single audited read, after checking current elder access. */
+	public FamilyWeeklySummary findWeeklySummary(String username, Long elderId, ReportPeriod period) {
+		return audit.read(username, FamilyReadAudit.Resource.WEEKLY_SUMMARY, elderId,
+				"weekStart=" + period.start(), () -> {
+			access.requireReadableElder(username, elderId);
+			Report report = reports.findLatestFamilyFor(elderId, period)
+					.orElseThrow(() -> new ResourceNotFound("Family weekly report", elderId + "/" + period.start()));
+			return FamilyWeeklySummary.of(report);
 		});
 	}
 

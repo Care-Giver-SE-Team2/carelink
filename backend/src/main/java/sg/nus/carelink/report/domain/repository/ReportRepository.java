@@ -28,6 +28,9 @@ public interface ReportRepository {
 	/** A readable FAMILY report with ordered amendments; applies scope before parsing content. */
 	Optional<Report> findFamilyDetail(Long id, Set<Long> readableElderIds);
 
+	/** Latest published/archived FAMILY report for an exact period, by createdAt then id. Omits amendments. */
+	Optional<Report> findLatestFamilyFor(Long elderId, ReportPeriod period);
+
 	/** Stores a report that has not been stored before. */
 	Report save(Report report);
 

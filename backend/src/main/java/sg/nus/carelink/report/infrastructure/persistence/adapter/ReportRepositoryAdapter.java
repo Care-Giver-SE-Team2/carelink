@@ -73,6 +73,14 @@ class ReportRepositoryAdapter implements ReportRepository {
 				.map(this::withAmendments);
 	}
 
+	@Override
+	public Optional<Report> findLatestFamilyFor(Long elderId, ReportPeriod period) {
+		return reports.findFirstByElderIdAndAudienceAndStatusInAndPeriodStartAndPeriodEndOrderByCreatedAtDescIdDesc(
+				elderId, ReportJpaEntity.Audience.FAMILY,
+				EnumSet.of(ReportJpaEntity.Status.PUBLISHED, ReportJpaEntity.Status.ARCHIVED), period.start(), period.end())
+				.map(row -> ReportMapper.toDomain(row, List.of()));
+	}
+
 	/**
 	 * Inserts, never updates: a report that already has an id is refused rather than merged
 	 * over the stored one, which is what {@code save} on an existing entity would otherwise do.

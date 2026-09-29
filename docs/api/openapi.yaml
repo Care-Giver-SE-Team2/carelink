@@ -1194,8 +1194,8 @@ paths:
         Family createdAt includes the Asia/Singapore offset; archivedAt is null because no separate
         archive timestamp is stored. Each family query records its outcome through the existing
         read audit; an audit failure returns 503 without report content.
-        Family list and online detail are implemented. Weekly summary and export retain their
-        separate implementation status; generation and amendments remain with MG07.
+        Family list, online detail and the template weekly summary are implemented. PDF export
+        retains its separate implementation status; generation and amendments remain with MG07.
 
 
         Family callers are identified from the authenticated session, never a caller-supplied
@@ -1247,7 +1247,7 @@ paths:
         time without report text. An audit outage returns 503 without content. The read neither
         regenerates a report nor invokes a model, and never modifies the archived original.
         MANAGER retains its existing ReportDetail response and access. Generation and amendments
-        remain manager-only; family weekly summary and PDF export keep their separate status.
+        remain manager-only. The family template weekly summary is implemented; PDF export remains separate.
       responses:
         '200':
           description: >-
@@ -1361,34 +1361,36 @@ paths:
       tags:
         - Reports
       summary: Plain-language weekly summary
-      x-status: draft
+      x-status: implemented
+      x-implemented-roles: [FAMILY]
       description: >-
-        Family access is limited to FAMILY reports of elders currently in scope, in PUBLISHED or
-        ARCHIVED state. DRAFT and non-FAMILY reports are forbidden. Apply the same
-        current-authorisation and content rules on list, online detail, weekly summary and PDF export.
-        Generation-time permission is not permanent reading permission. Family content uses caregiver
-        names only, no staff-performance data, vital ranges rather than raw measurements, no other
-        elders, and a fixed medical disclaimer. Redact any unsafe legacy content at read/export
-        without mutating the archived original. All report generation and amendments remain with MG07.
-        FAMILY-only summary of an existing report. weekStart is required and must be a Monday in
-        Asia/Singapore; the report period is that date through Sunday inclusive. Select a readable
-        FAMILY report with exactly that period; if multiple exist, select the latest createdAt, then
-        greatest id. Return its reportId and stored summary/template result. No matching readable
-        report for an accessible elder is 404. An invalid weekStart is 400. This GET never generates
-        or archives a report, invokes the model, or invents a successful summary when no report
-        exists. A stored template fallback returns 200 with generatedBy=TEMPLATE.
-
-
-        Family callers are identified from the authenticated session, never a caller-supplied
-        familyMemberId. For family callers, care resources require an ACTIVE binding to their actual
-        elder, with no revocation and no elapsed expiresAt, and the applicable access scope at request
-        time. Revocation/expiry takes effect on subsequent reads and writes, including historical
-        content. Reading a family care resource records the caller, resource and server access time in
-        the internal audit trail. Read access alone does not imply explicit acknowledgement.
-        FULL/READ_ONLY do not imply different clinical field sets: both may use the family read
-        projections below; an authorised notification recipient may record read/view/acknowledgement
-        under either scope because those commands record the recipient response, not a change to the
-        elder care record.
+        FAMILY-only summary of an existing PUBLISHED or ARCHIVED FAMILY report. Resolve identity
+        from the session and require a current ACTIVE, unexpired FULL or READ_ONLY binding before
+        selecting a report. Other roles and inaccessible or unknown elders return 403. DRAFT and
+        other audiences are excluded before selection and content parsing.
+        weekStart is required as YYYY-MM-DD and must be a Monday in Asia/Singapore. The exact
+        period is that Monday through Sunday inclusive; both dates must fall within 1000-01-01
+        and 9999-12-31. Malformed dates, unsupported weeks and non-Mondays return 400. An accessible
+        elder with no readable report for that exact period returns 404. Among matching readable
+        reports choose createdAt descending, then id descending; do not use the generation lookup.
+        Format the stored family-visible Service completion, Vital signs, Observations and Incidents
+        chapters in their original order: title, a newline, and the original body, with a blank line
+        between chapters. Omit other chapter types and use the same projection as family detail.
+        MG07 owns published FAMILY text; this read preserves observations and incident descriptions
+        as published, without a new review workflow or semantic redaction of arbitrary prose.
+        Clients must render summaryText as plain text. Return the fixed family medical disclaimer.
+        This formatting fallback returns 200 with generatedBy=TEMPLATE, including when the source
+        report is marked MODEL; it does not claim that a separate model summary exists. The detail
+        retains the source report's original generatedBy value. Return reportId so clients can read
+        that same report's completeness, missing items and appended corrections. Do not merge
+        corrections into the original chapters or combine another audience's content.
+        The GET neither collects care facts, generates or archives reports, invokes a model, nor
+        changes stored reports or amendments. Generation and amendments remain with MG07.
+        Recheck current authorization on every read, including historical reports. Record the
+        account, elder, week, outcome and server access time once through the existing family read
+        audit, without report text. An audit outage returns 503 without summary content.
+        Missing or unreadable stored content, including no visible family chapters, returns 500;
+        do not invent text or return an empty successful summary.
       responses:
         '200':
           description: Successful family operation.
@@ -1404,6 +1406,18 @@ paths:
           $ref: '#/components/responses/FamilyForbidden'
         '404':
           $ref: '#/components/responses/FamilyNotFound'
+        '500':
+          description: The selected stored report cannot provide readable family summary content.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/FamilyProblemDetail'
+        '503':
+          description: Access recording is unavailable; no summary content is returned.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/FamilyProblemDetail'
       x-contract-status: specified
       x-use-cases:
         - UC-FM04
@@ -3014,14 +3028,16 @@ components:
               This summary records care observations and services; it is not a diagnosis or medical
               advice.
       description: >-
-        Summary of the selected existing FAMILY report, including its stored template fallback. Does not
-        trigger model generation.
+        Fixed-format TEMPLATE text from the selected existing FAMILY report's visible chapters.
+        Each title and original body are separated by a newline; chapters are separated by a blank
+        line. reportId links to the detail containing completeness, missing items and corrections.
+        Does not trigger report or model generation.
       example:
         reportId: 410
         elderId: 12
         periodStart: '2026-09-07'
         periodEnd: '2026-09-13'
-        summaryText: Three planned visits were completed this week.
+        summaryText: "Service completion\nThree visits were completed this week.\n\nObservations\nWalked two laps."
         generatedBy: TEMPLATE
         disclaimer: This summary records care observations and services; it is not a diagnosis or medical advice.
       required:

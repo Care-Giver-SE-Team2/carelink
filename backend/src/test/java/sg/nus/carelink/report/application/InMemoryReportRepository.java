@@ -57,6 +57,15 @@ class InMemoryReportRepository implements ReportRepository {
 	}
 
 	@Override
+	public Optional<Report> findLatestFamilyFor(Long elderId, ReportPeriod period) {
+		return rows.values().stream()
+				.filter(report -> report.elderId().equals(elderId) && report.audience() == Report.Audience.FAMILY)
+				.filter(report -> report.status() == Report.Status.PUBLISHED || report.status() == Report.Status.ARCHIVED)
+				.filter(report -> report.period().equals(period))
+				.max(Comparator.comparing(Report::createdAt).thenComparing(Report::id));
+	}
+
+	@Override
 	public ReportAmendment saveAmendment(ReportAmendment amendment) {
 		ReportAmendment stored = new ReportAmendment(nextAmendmentId++, amendment.reportId(), amendment.note(),
 				amendment.authorUserId(), amendment.createdAt());

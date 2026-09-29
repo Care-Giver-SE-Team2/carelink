@@ -28,6 +28,11 @@ public interface ReportJpaRepository extends JpaRepository<ReportJpaEntity, Long
 	Optional<ReportJpaEntity> findFirstByElderIdAndAudienceAndPeriodStartAndPeriodEndOrderByIdAsc(
 			Long elderId, ReportJpaEntity.Audience audience, LocalDate periodStart, LocalDate periodEnd);
 
+	/** Latest readable source for a family summary; separate from generation's first-id lookup. */
+	Optional<ReportJpaEntity> findFirstByElderIdAndAudienceAndStatusInAndPeriodStartAndPeriodEndOrderByCreatedAtDescIdDesc(
+			Long elderId, ReportJpaEntity.Audience audience, Collection<ReportJpaEntity.Status> statuses,
+			LocalDate periodStart, LocalDate periodEnd);
+
 	/**
 	 * One page of every elder's reports for the given readers.
 	 *
