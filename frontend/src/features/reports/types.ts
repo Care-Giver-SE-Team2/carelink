@@ -58,6 +58,17 @@ export interface ReportDetail extends Report {
   amendments: ReportAmendment[]
 }
 
+/** Family projection: offset timestamps and corrections without internal author IDs.
+ * @author Wang Zhili
+ */
+export interface FamilyReportDetail extends Report {
+  audience: 'FAMILY'
+  status: 'PUBLISHED' | 'ARCHIVED'
+  sections: ReportSection[]
+  disclaimer: string
+  amendments: Omit<ReportAmendment, 'authorUserId'>[]
+}
+
 /** One page of the list. */
 export interface ReportPage {
   items: Report[]

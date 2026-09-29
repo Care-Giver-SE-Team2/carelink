@@ -81,7 +81,8 @@ describe('Family care report list', () => {
     expect(screen.getByText('Published')).toBeInTheDocument()
     expect(screen.getByText('Structured template')).toBeInTheDocument()
     expect(screen.getByText('Records complete')).toBeInTheDocument()
-    expect(screen.queryByRole('link', { name: /Read report|Download/ })).not.toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Read report 301' })).toHaveAttribute('href', '/family/reports/301?elderId=21')
+    expect(screen.queryByRole('link', { name: /Download/ })).not.toBeInTheDocument()
   })
   it('paginates on the server and resets the page when switching elders', async () => {
     const user = userEvent.setup()

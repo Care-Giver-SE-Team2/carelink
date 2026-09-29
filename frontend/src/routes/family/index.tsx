@@ -6,6 +6,7 @@ import { IntakeCreatePage } from './intake/IntakeCreatePage'
 import { FamilyLayout } from './components/FamilyLayout'
 import { FamilySchedulePage } from './schedule/FamilySchedulePage'
 import { FamilyReportListPage } from './reports/FamilyReportListPage'
+import { FamilyReportDetailPage } from './reports/FamilyReportDetailPage'
 
 /**
  * Family application, schedule and care report routes.
@@ -16,6 +17,9 @@ export default function FamilyHome() {
     <Routes>
       <Route element={<FamilyLayout title="Care reports" />}>
         <Route path="reports" element={<FamilyReportListPage />} />
+      </Route>
+      <Route element={<FamilyLayout title="Care report" />}>
+        <Route path="reports/:id" element={<FamilyReportDetailPage />} />
       </Route>
       <Route element={<FamilyLayout title="Weekly schedule" />}>
         <Route path="schedule" element={<FamilySchedulePage />} />

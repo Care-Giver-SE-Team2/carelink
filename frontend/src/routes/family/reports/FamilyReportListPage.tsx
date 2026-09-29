@@ -18,6 +18,9 @@ export function FamilyReportListPage() {
   const data = resource.status === 'success' ? resource.data : null
   const reports = data?.reports
   const pages = reports ? Math.ceil(reports.totalElements / reports.size) : 0
+  const listParams = new URLSearchParams()
+  if (data?.selectedElderId != null) listParams.set('elderId', String(data.selectedElderId))
+  if (page > 0) listParams.set('page', String(page))
   const changePage = (nextPage: number, nextElder = data?.selectedElderId ?? elderId) => {
     const next = new URLSearchParams()
     if (nextElder !== null) next.set('elderId', String(nextElder))
@@ -79,6 +82,7 @@ export function FamilyReportListPage() {
                 <p>{report.dataComplete ? 'Records complete' : 'Some care records are missing'}</p>
                 {report.missingItems.length > 0 && <ul>{report.missingItems.map((item, index) => <li key={index}>{item}</li>)}</ul>}
               </div>
+              <Link className={styles.readLink} to={`/family/reports/${report.id}?${listParams}`} aria-label={`Read report ${report.id}`}>Read report →</Link>
             </li>)}
           </ol>}
           {reports.items.length > 0 && pages > 1 && <nav className={styles.pagination} aria-label="Report pages">
