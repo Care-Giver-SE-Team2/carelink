@@ -21,6 +21,7 @@ import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import sg.nus.carelink.visit.application.VisitService;
 import sg.nus.carelink.visit.application.FamilyVisitDetailService;
 import sg.nus.carelink.visit.application.FamilyVisitTimelineService;
+import sg.nus.carelink.visit.application.FamilyVisitTaskService;
 import sg.nus.carelink.visit.domain.model.Visit;
 
 /** HTTP surface only: status codes for found and not found. Security is tested at the filter-chain level. */
@@ -28,7 +29,8 @@ class VisitControllerTest {
 
 	private final VisitService service = mock(VisitService.class);
 	private final MockMvc mvc = MockMvcBuilders.standaloneSetup(
-			new VisitController(service, mock(FamilyVisitDetailService.class), mock(FamilyVisitTimelineService.class))).build();
+			new VisitController(service, mock(FamilyVisitDetailService.class), mock(FamilyVisitTimelineService.class),
+					mock(FamilyVisitTaskService.class))).build();
 	private final UsernamePasswordAuthenticationToken manager = new UsernamePasswordAuthenticationToken(
 			"manager", null, List.of(new SimpleGrantedAuthority("ROLE_MANAGER")));
 

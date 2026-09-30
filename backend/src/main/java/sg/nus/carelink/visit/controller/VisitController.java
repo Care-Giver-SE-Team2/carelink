@@ -16,8 +16,10 @@ import org.springframework.web.bind.annotation.RestController;
 import sg.nus.carelink.visit.application.VisitService;
 import sg.nus.carelink.visit.application.FamilyVisitDetailService;
 import sg.nus.carelink.visit.application.FamilyVisitTimelineService;
+import sg.nus.carelink.visit.application.FamilyVisitTaskService;
 import sg.nus.carelink.visit.controller.dto.FamilyVisitResponse;
 import sg.nus.carelink.visit.controller.dto.FamilyVisitTimelineEntryResponse;
+import sg.nus.carelink.visit.controller.dto.FamilyVisitTaskResponse;
 import sg.nus.carelink.visit.domain.model.Visit;
 
 /**
@@ -34,12 +36,14 @@ public class VisitController {
 	private final VisitService service;
 	private final FamilyVisitDetailService familyVisits;
 	private final FamilyVisitTimelineService familyTimeline;
+	private final FamilyVisitTaskService familyTasks;
 
 	public VisitController(VisitService service, FamilyVisitDetailService familyVisits,
-			FamilyVisitTimelineService familyTimeline) {
+			FamilyVisitTimelineService familyTimeline, FamilyVisitTaskService familyTasks) {
 		this.service = service;
 		this.familyVisits = familyVisits;
 		this.familyTimeline = familyTimeline;
+		this.familyTasks = familyTasks;
 	}
 
 	/**
@@ -70,5 +74,13 @@ public class VisitController {
 	public List<FamilyVisitTimelineEntryResponse> timeline(@PathVariable Long visitId, Authentication authentication) {
 		return familyTimeline.findTimeline(authentication.getName(), visitId).stream()
 				.map(FamilyVisitTimelineEntryResponse::from).toList();
+	}
+
+	/** Family task fields only; the caregiver projection remains unimplemented on this endpoint. */
+	@GetMapping("/{visitId}/tasks")
+	@PreAuthorize("hasRole('FAMILY')")
+	public List<FamilyVisitTaskResponse> tasks(@PathVariable Long visitId, Authentication authentication) {
+		return familyTasks.findTasks(authentication.getName(), visitId).stream()
+				.map(FamilyVisitTaskResponse::from).toList();
 	}
 }
