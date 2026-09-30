@@ -13,27 +13,32 @@ const taskLabels: Record<FamilyVisitTask['status'], string> = {
   PENDING: 'Pending', DONE: 'Done', SKIPPED: 'Skipped', REFUSED: 'Refused',
 }
 
-/** Displays recorded care facts with independent section results and manual refresh.
+/** Displays recorded care facts with independent section freshness and automatic refresh.
  * @author Wang Zhili
  */
 export function FamilyVisitProgressPage() {
   const { visitId = '' } = useParams()
-  const { resource, refresh } = useFamilyVisitProgress(visitId)
+  const { resource, refresh, refreshing, retrySeconds, pause } = useFamilyVisitProgress(visitId)
+  const disabled = refreshing || pause !== null
   return <div className={styles.progressPage}>
     <div className={styles.navigation}>
       <Link to="/family/schedule"><span aria-hidden="true">←&nbsp;</span>Back to schedule</Link>
       {resource.status === 'ready' && <button onClick={refresh}
-        disabled={Object.values(resource.parts).some((part) => part.status === 'loading')}>Refresh progress</button>}
+        disabled={disabled}>Refresh progress</button>}
     </div>
     <header className={styles.hero}>
       <p className={styles.eyebrow}>YOUR FAMILY'S CARE</p>
       <h1>Visit progress</h1>
-      <p>Recorded care activity for this visit. Refresh to check for updates.</p>
+      <p>Recorded care activity for this visit. Checks for updates automatically while this page is open.</p>
     </header>
-    {resource.status === 'loading' && <p className={styles.loading} role="status">Loading visit progress…</p>}
-    {resource.status === 'error' && <VisitFeedback error={resource.error} onRetry={refresh} />}
+    {pause && <p className={styles.empty} role="status">
+      Updates paused {pause === 'offline' ? 'while offline' : 'while this tab is hidden'}. Displayed information may be out of date.
+    </p>}
+    {retrySeconds && <p className={styles.empty} role="status">Updates unavailable. Automatic retry interval: {retrySeconds} seconds.</p>}
+    {resource.status === 'loading' && !pause && <p className={styles.loading} role="status">Loading visit progress…</p>}
+    {resource.status === 'error' && <VisitFeedback error={resource.error} onRetry={refresh} disabled={disabled} />}
     {resource.status === 'ready' && <div className={styles.sections}>
-      <ProgressSection title="Visit details" resource={resource.parts.details} onRetry={refresh}>
+      <ProgressSection title="Visit details" resource={resource.parts.details} onRetry={refresh} disabled={disabled} paused={!!pause}>
         {(visit) => <>
           <div className={styles.overview}>
             <strong>{serviceLabel(visit.serviceType)}</strong>
@@ -50,7 +55,7 @@ export function FamilyVisitProgressPage() {
           <p className={styles.timestamp}>Visit details checked <VisitTime value={visit.asOf} /></p>
         </>}
       </ProgressSection>
-      <ProgressSection title="Service timeline" resource={resource.parts.timeline} onRetry={refresh}>
+      <ProgressSection title="Service timeline" resource={resource.parts.timeline} onRetry={refresh} disabled={disabled} paused={!!pause}>
         {(entries, loadedAt) => <>
           {entries.length === 0 ? <p className={styles.empty}>No service updates recorded yet.</p>
             : <ol className={styles.timeline} aria-label="Service updates">
@@ -62,7 +67,7 @@ export function FamilyVisitProgressPage() {
           <p className={styles.timestamp}>Timeline loaded <VisitTime value={loadedAt} /></p>
         </>}
       </ProgressSection>
-      <ProgressSection title="Task progress" resource={resource.parts.tasks} onRetry={refresh}>
+      <ProgressSection title="Task progress" resource={resource.parts.tasks} onRetry={refresh} disabled={disabled} paused={!!pause}>
         {(tasks, loadedAt) => {
           const done = tasks.filter((task) => task.status === 'DONE').length
           return <>
@@ -91,25 +96,30 @@ function VisitTime({ value }: { value: string | null }) {
   return value ? <time dateTime={value}>{visitDate(value)}, {visitTime(value)}</time> : <span>Not recorded</span>
 }
 
-function ProgressSection<T>({ title, resource, onRetry, children }: {
-  title: string; resource: VisitPart<T>; onRetry: () => void; children: (data: T, loadedAt: string) => ReactNode
+function ProgressSection<T>({ title, resource, onRetry, disabled, paused, children }: {
+  title: string; resource: VisitPart<T>; onRetry: () => void; disabled: boolean; paused: boolean; children: (data: T, loadedAt: string) => ReactNode
 }) {
+  const previous = resource.status === 'success' ? resource : resource.previous
   return <section className={styles.section} aria-label={title}>
     <h2>{title}</h2>
-    {resource.status === 'loading' && <p role="status" className={styles.empty}>Loading {title.toLowerCase()}…</p>}
+    {resource.status === 'loading' && <p role="status" className={styles.empty}>
+      {paused ? 'Waiting to resume.' : previous ? 'Updating… Displayed information may be out of date.' : `Loading ${title.toLowerCase()}…`}
+    </p>}
     {resource.status === 'error' && <div role="alert" className={styles.sectionError}>
       <p>Unable to load {title.toLowerCase()}. Refresh to try again.</p>
-      <button onClick={onRetry}>Retry {title.toLowerCase()}</button>
+      {previous && <p>Showing last loaded information; it may be out of date.</p>}
+      <button onClick={onRetry} disabled={disabled}>Retry {title.toLowerCase()}</button>
     </div>}
-    {resource.status === 'success' && children(resource.data, resource.loadedAt)}
+    {previous && children(previous.data, previous.loadedAt)}
   </section>
 }
 
-function VisitFeedback({ error, onRetry }: { error: unknown; onRetry: () => void }) {
+function VisitFeedback({ error, onRetry, disabled }: { error: unknown; onRetry: () => void; disabled: boolean }) {
   const [signIn, setSignIn] = useState(false)
   const status = error instanceof ApiError ? error.status : undefined
   if (status === 401 || signIn) {
-    return <FamilySignIn onSignedIn={onRetry} description="Sign in with your family account to view this visit's progress." />
+    return <FamilySignIn onSignedIn={() => { setSignIn(false); onRetry() }}
+      description="Sign in with your family account to view this visit's progress." />
   }
   const forbidden = status === 403
   const missing = status === 404
@@ -120,7 +130,7 @@ function VisitFeedback({ error, onRetry }: { error: unknown; onRetry: () => void
       : missing ? 'This visit could not be found. Return to your schedule to choose another.'
       : invalid ? 'Check the visit link or return to your schedule.'
       : 'Check your connection and try again.'}</p>
-    {!missing && !invalid && <button onClick={onRetry}>Try again</button>}
+    {!missing && !invalid && <button onClick={onRetry} disabled={disabled}>Try again</button>}
     {forbidden && <button onClick={() => setSignIn(true)}>Sign in with another account</button>}
   </section>
 }

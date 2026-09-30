@@ -1,5 +1,6 @@
-import { act, cleanup, render, screen, waitFor, within } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { StrictMode } from 'react'
 import { MemoryRouter, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import FamilyHome from './index'
@@ -50,18 +51,319 @@ function CurrentUrl() {
     <div aria-label="Current URL">{location.pathname}{location.search}</div>
   </>
 }
-function openProgress(path = '/family/visits/501') {
-  return render(<MemoryRouter initialEntries={[path]}>
+function openProgress(path = '/family/visits/501', strict = false) {
+  const page = <MemoryRouter initialEntries={[path]}>
     <CurrentUrl />
     <Routes><Route path="/family/*" element={<FamilyHome />} /></Routes>
-  </MemoryRouter>)
+  </MemoryRouter>
+  return render(strict ? <StrictMode>{page}</StrictMode> : page)
 }
 beforeEach(() => vi.stubGlobal('scrollTo', vi.fn()))
 afterEach(() => {
   cleanup()
+  vi.useRealTimers()
   vi.unstubAllGlobals()
   vi.restoreAllMocks()
   document.cookie = 'XSRF-TOKEN=; Max-Age=0; path=/'
+})
+
+describe('Family visit automatic refresh', () => {
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ['Date', 'setTimeout', 'clearTimeout'] })
+    vi.setSystemTime(new Date('2026-10-01T01:00:00Z'))
+  })
+
+  it.each(['/api/auth/me', '/api/visits/501', '/api/visits/501/timeline', '/api/visits/501/tasks'])(
+    'does not overlap refresh rounds while %s is slow, including repeated manual clicks', async (path) => {
+      let slow = false
+      let finish!: (response: Response) => void
+      const fetchMock = installApi((url) => slow && url.pathname === path
+        ? new Promise<Response>((resolve) => { finish = resolve }) : undefined)
+      await act(async () => { openProgress() })
+      slow = true
+      await act(async () => { await vi.advanceTimersByTimeAsync(15000) })
+      expect(screen.getByRole('button', { name: 'Refresh progress' })).toBeDisabled()
+      fireEvent.click(screen.getByRole('button', { name: 'Refresh progress' }))
+      const count = fetchMock.mock.calls.length
+      await act(async () => { await vi.advanceTimersByTimeAsync(180000) })
+      expect(fetchMock).toHaveBeenCalledTimes(count)
+      slow = false
+      await act(async () => finish(json(path.endsWith('/me') ? family : path.endsWith('/tasks') ? tasks : path.endsWith('/timeline') ? timeline : visit)))
+      expect(screen.getByRole('button', { name: 'Refresh progress' })).toBeEnabled()
+      await act(async () => { await vi.advanceTimersByTimeAsync(14999) })
+      expect(fetchMock.mock.calls.filter(([p]) => p === '/api/auth/me')).toHaveLength(2)
+      await act(async () => { await vi.advanceTimersByTimeAsync(1) })
+      expect(fetchMock.mock.calls.filter(([p]) => p === '/api/auth/me')).toHaveLength(3)
+    },
+  )
+
+  it('starts no requests until the page is both visible and online', async () => {
+    const visibility = vi.spyOn(document, 'visibilityState', 'get').mockReturnValue('hidden')
+    const online = vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(false)
+    const fetchMock = installApi()
+    await act(async () => { openProgress() })
+    expect(screen.getByText(/Updates paused while offline/)).toBeInTheDocument()
+    await act(async () => { await vi.advanceTimersByTimeAsync(60000) })
+    expect(fetchMock).not.toHaveBeenCalled()
+    await act(async () => { online.mockReturnValue(true); window.dispatchEvent(new Event('online')) })
+    expect(screen.getByText(/Updates paused while this tab is hidden/)).toBeInTheDocument()
+    expect(fetchMock).not.toHaveBeenCalled()
+    await act(async () => { visibility.mockReturnValue('visible'); document.dispatchEvent(new Event('visibilitychange')) })
+    expect(screen.getByText('1 of 4 tasks completed')).toBeInTheDocument()
+    expect(fetchMock.mock.calls.filter(([path]) => path === '/api/auth/me')).toHaveLength(1)
+  })
+
+  it.each([401, 403].flatMap((status) => ['/api/auth/me', '/api/visits/501', '/api/visits/501/timeline', '/api/visits/501/tasks'].map((path) => [status, path] as const)))(
+    'clears all data and stops automatic retries after %s from %s, even after visibility/network events', async (status, path) => {
+      let denied = false
+      const visibility = vi.spyOn(document, 'visibilityState', 'get').mockReturnValue('visible')
+      const online = vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(true)
+      const fetchMock = installApi((url) => denied && url.pathname === path ? json({}, status) : undefined)
+      await act(async () => { openProgress() })
+      denied = true
+      await act(async () => { await vi.advanceTimersByTimeAsync(15000) })
+      expect(screen.getByRole('heading', { name: status === 401 ? 'Sign in to continue' : 'Visit access unavailable' })).toBeInTheDocument()
+      expect(screen.queryByText('Home care')).not.toBeInTheDocument()
+      expect(screen.queryByRole('list', { name: 'Visit tasks' })).not.toBeInTheDocument()
+      const count = fetchMock.mock.calls.length
+      await act(async () => {
+        visibility.mockReturnValue('hidden'); document.dispatchEvent(new Event('visibilitychange'))
+        online.mockReturnValue(false); window.dispatchEvent(new Event('offline'))
+        online.mockReturnValue(true); window.dispatchEvent(new Event('online'))
+        visibility.mockReturnValue('visible'); document.dispatchEvent(new Event('visibilitychange'))
+        await vi.advanceTimersByTimeAsync(300000)
+      })
+      expect(fetchMock).toHaveBeenCalledTimes(count)
+    },
+  )
+
+  it('allows explicit permission retry to resume polling after access is restored', async () => {
+    let denied = true
+    const fetchMock = installApi((url) => denied && url.pathname.endsWith('/tasks') ? json({}, 403) : undefined)
+    await act(async () => { openProgress() })
+    expect(screen.getByRole('heading', { name: 'Visit access unavailable' })).toBeInTheDocument()
+    denied = false
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Try again' })) })
+    expect(screen.getByText('1 of 4 tasks completed')).toBeInTheDocument()
+    await act(async () => { await vi.advanceTimersByTimeAsync(15000) })
+    expect(fetchMock.mock.calls.filter(([path]) => path === '/api/auth/me')).toHaveLength(3)
+  })
+
+  it('discards all previous account data when another family session is detected', async () => {
+    let otherAccount = false
+    let finish!: (response: Response) => void
+    installApi((url) => {
+      if (!otherAccount) return
+      if (url.pathname === '/api/auth/me') return json({ ...family, id: 9, username: 'family-b' })
+      if (url.pathname === '/api/visits/501') return json({ ...visit, serviceType: 'New account care' })
+      if (url.pathname.endsWith('/timeline')) return json([])
+      if (url.pathname.endsWith('/tasks')) return new Promise<Response>((resolve) => { finish = resolve })
+    })
+    await act(async () => { openProgress() })
+    otherAccount = true
+    await act(async () => { await vi.advanceTimersByTimeAsync(15000) })
+    expect(screen.queryByText('Home care')).not.toBeInTheDocument()
+    expect(screen.queryByText('Assist with walking')).not.toBeInTheDocument()
+    expect(screen.getByText('New account care')).toBeInTheDocument()
+    await act(async () => finish(json({}, 503)))
+    expect(screen.getByRole('alert')).not.toHaveTextContent('last loaded')
+    expect(screen.queryByText('1 of 4 tasks completed')).not.toBeInTheDocument()
+  })
+
+  it.each([false, true])('keeps session-check failures retryable without inventing data (previous success: %s)', async (previous) => {
+    let failing = !previous
+    const fetchMock = installApi((url) => failing && url.pathname === '/api/auth/me' ? Promise.reject(new TypeError('Offline')) : undefined)
+    await act(async () => { openProgress() })
+    if (previous) {
+      failing = true
+      await act(async () => { await vi.advanceTimersByTimeAsync(15000) })
+      expect(screen.getByText('1 of 4 tasks completed')).toBeInTheDocument()
+      expect(screen.getByText(/Visit details checked/)).toHaveTextContent('09:20')
+      expect(screen.getAllByRole('alert')).toHaveLength(3)
+    } else expect(screen.getByRole('heading', { name: 'Unable to load visit progress' })).toBeInTheDocument()
+    expect(screen.getByText(/Automatic retry interval: 30 seconds/)).toBeInTheDocument()
+    failing = false
+    await act(async () => { await vi.advanceTimersByTimeAsync(30000) })
+    expect(screen.getByText('1 of 4 tasks completed')).toBeInTheDocument()
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+    expect(fetchMock.mock.calls.filter(([path]) => path === '/api/auth/me')).toHaveLength(previous ? 3 : 2)
+  })
+
+  it('cancels the scheduled poll on manual refresh and bounds repeated failure backoff at 60 seconds', async () => {
+    let failing = false
+    const fetchMock = installApi((url) => failing && url.pathname.endsWith('/tasks') ? json({}, 503) : undefined)
+    await act(async () => { openProgress() })
+    await act(async () => { await vi.advanceTimersByTimeAsync(10000) })
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Refresh progress' })) })
+    await act(async () => { await vi.advanceTimersByTimeAsync(5000) })
+    expect(fetchMock.mock.calls.filter(([path]) => path === '/api/auth/me')).toHaveLength(2)
+    failing = true
+    await act(async () => { await vi.advanceTimersByTimeAsync(10000) })
+    await act(async () => { await vi.advanceTimersByTimeAsync(30000) })
+    await act(async () => { await vi.advanceTimersByTimeAsync(60000) })
+    expect(screen.getByText(/Automatic retry interval: 60 seconds/)).toBeInTheDocument()
+    await act(async () => { await vi.advanceTimersByTimeAsync(60000) })
+    expect(fetchMock.mock.calls.filter(([path]) => path === '/api/auth/me')).toHaveLength(6)
+    failing = false
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Retry task progress' })) })
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+    await act(async () => { await vi.advanceTimersByTimeAsync(15000) })
+    expect(fetchMock.mock.calls.filter(([path]) => path === '/api/auth/me')).toHaveLength(8)
+  })
+
+  it.each(['waiting', 'refreshing', 'backoff'])('leaves no automatic reads or event listeners after unmount during %s', async (stage) => {
+    let refreshing = false
+    let finish!: (response: Response) => void
+    const fetchMock = installApi((url) => refreshing && url.pathname.endsWith('/tasks')
+      ? stage === 'backoff' ? json({}, 503) : new Promise<Response>((resolve) => { finish = resolve }) : undefined)
+    let view!: ReturnType<typeof openProgress>
+    await act(async () => { view = openProgress() })
+    if (stage !== 'waiting') {
+      refreshing = true
+      await act(async () => { await vi.advanceTimersByTimeAsync(15000) })
+    }
+    view.unmount()
+    const count = fetchMock.mock.calls.length
+    const visibility = vi.spyOn(document, 'visibilityState', 'get')
+    const online = vi.spyOn(navigator, 'onLine', 'get')
+    await act(async () => {
+      if (stage === 'refreshing') finish(json(tasks))
+      visibility.mockReturnValue('hidden'); document.dispatchEvent(new Event('visibilitychange'))
+      online.mockReturnValue(false); window.dispatchEvent(new Event('offline'))
+      visibility.mockReturnValue('visible'); document.dispatchEvent(new Event('visibilitychange'))
+      online.mockReturnValue(true); window.dispatchEvent(new Event('online'))
+      await vi.advanceTimersByTimeAsync(600000)
+    })
+    expect(fetchMock).toHaveBeenCalledTimes(count)
+  })
+
+  it('aborts a session check on going offline and ignores its late denial after resuming', async () => {
+    let first = true
+    let finish!: (response: Response) => void
+    const online = vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(true)
+    const fetchMock = installApi((url) => url.pathname === '/api/auth/me' && first
+      ? new Promise<Response>((resolve) => { finish = resolve }) : undefined)
+    await act(async () => { openProgress() })
+    await act(async () => { online.mockReturnValue(false); window.dispatchEvent(new Event('offline')) })
+    expect(fetchMock.mock.calls[0][1].signal?.aborted).toBe(true)
+    first = false
+    await act(async () => { online.mockReturnValue(true); window.dispatchEvent(new Event('online')) })
+    expect(screen.getByText('1 of 4 tasks completed')).toBeInTheDocument()
+    await act(async () => finish(json({}, 401)))
+    expect(screen.queryByRole('heading', { name: 'Sign in to continue' })).not.toBeInTheDocument()
+    await act(async () => { await vi.advanceTimersByTimeAsync(15000) })
+    expect(fetchMock.mock.calls.filter(([path]) => path.endsWith('/tasks'))).toHaveLength(2)
+  })
+
+  it('keeps one live poll after StrictMode remounts the effect', async () => {
+    const fetchMock = installApi()
+    await act(async () => { openProgress('/family/visits/501', true) })
+    expect(fetchMock.mock.calls.filter(([path]) => path.endsWith('/tasks'))).toHaveLength(1)
+    await act(async () => { await vi.advanceTimersByTimeAsync(15000) })
+    expect(fetchMock.mock.calls.filter(([path]) => path.endsWith('/tasks'))).toHaveLength(2)
+  })
+
+  it('clears protected data when the session now has a non-family role', async () => {
+    let changed = false
+    const fetchMock = installApi((url) => changed && url.pathname === '/api/auth/me' ? json({ ...family, roles: ['MANAGER'] }) : undefined)
+    await act(async () => { openProgress() })
+    changed = true
+    await act(async () => { await vi.advanceTimersByTimeAsync(15000) })
+    expect(screen.getByRole('heading', { name: 'Visit access unavailable' })).toBeInTheDocument()
+    expect(screen.queryByText('1 of 4 tasks completed')).not.toBeInTheDocument()
+    await act(async () => { await vi.advanceTimersByTimeAsync(60000) })
+    expect(fetchMock.mock.calls.filter(([path]) => path.endsWith('/tasks'))).toHaveLength(1)
+  })
+
+  it.each([400, 404])('stops polling when a later read returns %s and clears old care facts', async (status) => {
+    let failing = false
+    const fetchMock = installApi((url) => failing && url.pathname.endsWith('/tasks') ? json({}, status) : undefined)
+    await act(async () => { openProgress() })
+    failing = true
+    await act(async () => { await vi.advanceTimersByTimeAsync(15000) })
+    expect(screen.getByRole('heading', { name: status === 400 ? 'Invalid visit link' : 'Visit not found' })).toBeInTheDocument()
+    expect(screen.queryByText('1 of 4 tasks completed')).not.toBeInTheDocument()
+    await act(async () => { await vi.advanceTimersByTimeAsync(60000) })
+    expect(fetchMock.mock.calls.filter(([path]) => path.endsWith('/tasks'))).toHaveLength(2)
+  })
+
+  it('reads updated care facts after 15 seconds without advancing saved state by time alone', async () => {
+    let updated = false
+    const fetchMock = installApi((url) => updated && url.pathname === '/api/visits/501'
+      ? json({ ...visit, status: 'COMPLETED', asOf: '2026-10-01T09:00:15+08:00' }) : undefined)
+    await act(async () => { openProgress() })
+    const detail = screen.getByRole('region', { name: 'Visit details' })
+    expect(within(detail).getByText('In progress')).toBeInTheDocument()
+    updated = true
+    await act(async () => { await vi.advanceTimersByTimeAsync(14999) })
+    expect(within(detail).getByText('In progress')).toBeInTheDocument()
+    await act(async () => { await vi.advanceTimersByTimeAsync(1) })
+    const refreshed = screen.getByRole('region', { name: 'Visit details' })
+    expect(within(refreshed).getByText('Completed')).toBeInTheDocument()
+    expect(within(refreshed).getByText(/Visit details checked/)).toHaveTextContent('09:00')
+    expect(fetchMock.mock.calls.filter(([path]) => path === '/api/auth/me')).toHaveLength(2)
+  })
+
+  it('keeps failed task data marked stale, backs off to 30 then 60 seconds and resets after recovery', async () => {
+    let failing = false
+    const fetchMock = installApi((url) => failing && url.pathname.endsWith('/tasks') ? json({}, 503) : undefined)
+    await act(async () => { openProgress() })
+    const stamp = screen.getByText(/Tasks loaded/).querySelector('time')!.dateTime
+    failing = true
+    await act(async () => { await vi.advanceTimersByTimeAsync(15000) })
+    expect(screen.getByText('1 of 4 tasks completed')).toBeInTheDocument()
+    expect(within(screen.getByRole('region', { name: 'Task progress' })).getByRole('alert')).toHaveTextContent('out of date')
+    expect(screen.getByText(/Tasks loaded/).querySelector('time')).toHaveAttribute('datetime', stamp)
+    expect(screen.getByText(/Automatic retry interval: 30 seconds/)).toBeInTheDocument()
+    await act(async () => { await vi.advanceTimersByTimeAsync(29999) })
+    expect(fetchMock.mock.calls.filter(([path]) => path.endsWith('/tasks'))).toHaveLength(2)
+    await act(async () => { await vi.advanceTimersByTimeAsync(1) })
+    expect(screen.getByText(/Automatic retry interval: 60 seconds/)).toBeInTheDocument()
+    await act(async () => { await vi.advanceTimersByTimeAsync(59999) })
+    expect(fetchMock.mock.calls.filter(([path]) => path.endsWith('/tasks'))).toHaveLength(3)
+    failing = false
+    await act(async () => { await vi.advanceTimersByTimeAsync(1) })
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+    expect(screen.getByText(/Tasks loaded/).querySelector('time')).not.toHaveAttribute('datetime', stamp)
+    await act(async () => { await vi.advanceTimersByTimeAsync(15000) })
+    expect(fetchMock.mock.calls.filter(([path]) => path.endsWith('/tasks'))).toHaveLength(5)
+  })
+
+  it.each(['hidden', 'offline'])('pauses while %s, cancels pending reads and refreshes once on return', async (reason) => {
+    const visibility = vi.spyOn(document, 'visibilityState', 'get').mockReturnValue('visible')
+    const online = vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(true)
+    let hold = false
+    let finish!: (response: Response) => void
+    const fetchMock = installApi((url) => hold && url.pathname.endsWith('/tasks')
+      ? new Promise<Response>((resolve) => { finish = resolve }) : undefined)
+    await act(async () => { openProgress() })
+    hold = true
+    await act(async () => { await vi.advanceTimersByTimeAsync(15000) })
+    const pendingSignal = fetchMock.mock.calls.at(-1)![1].signal!
+    await act(async () => {
+      if (reason === 'hidden') { visibility.mockReturnValue('hidden'); document.dispatchEvent(new Event('visibilitychange')) }
+      else { online.mockReturnValue(false); window.dispatchEvent(new Event('offline')) }
+    })
+    expect(pendingSignal.aborted).toBe(true)
+    expect(screen.getByText(/Updates paused/)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Refresh progress' })).toBeDisabled()
+    expect(screen.getByText('1 of 4 tasks completed')).toBeInTheDocument()
+    const count = fetchMock.mock.calls.length
+    await act(async () => { await vi.advanceTimersByTimeAsync(300000) })
+    expect(fetchMock).toHaveBeenCalledTimes(count)
+    await act(async () => finish(json([{ ...tasks[0], name: 'Late task from paused request' }])))
+    expect(screen.queryByText('Late task from paused request')).not.toBeInTheDocument()
+    hold = false
+    await act(async () => {
+      visibility.mockReturnValue('visible'); online.mockReturnValue(true)
+      window.dispatchEvent(new Event('online')); document.dispatchEvent(new Event('visibilitychange'))
+    })
+    expect(screen.queryByText(/Updates paused/)).not.toBeInTheDocument()
+    expect(screen.getByText('1 of 4 tasks completed')).toBeInTheDocument()
+    expect(fetchMock.mock.calls.filter(([path]) => path === '/api/auth/me')).toHaveLength(3)
+    await act(async () => { await vi.advanceTimersByTimeAsync(15000) })
+    expect(fetchMock.mock.calls.filter(([path]) => path === '/api/auth/me')).toHaveLength(4)
+  })
 })
 
 describe('Family visit progress', () => {
@@ -75,7 +377,7 @@ describe('Family visit progress', () => {
       await screen.findByText('1 of 4 tasks completed')
       refreshing = true
       await userEvent.setup().click(screen.getByRole('button', { name: 'Refresh progress' }))
-      expect(screen.queryByText('Home care')).not.toBeInTheDocument()
+      expect(screen.getByText('Home care')).toBeInTheDocument()
       await waitFor(() => expect(pending.size).toBe(3))
       const failedPath = '/api/visits/501' + (part === 'details' ? '' : '/' + part)
       await act(async () => pending.get(failedPath)!(json({}, status)))
@@ -277,17 +579,21 @@ describe('Family visit progress', () => {
 
   it.each([
     ['/api/visits/501', 'Visit details'], ['/api/visits/501/timeline', 'Service timeline'], ['/api/visits/501/tasks', 'Task progress'],
-  ])('clears stale data on refresh and distinguishes %s failure from an empty result', async (path, title) => {
+  ])('retains the last successful %s data and timestamps with an explicit stale warning', async (path, title) => {
     let failed = false
     installApi((url) => failed && url.pathname === path ? json({ detail: 'PRIVATE server message' }, 503) : undefined)
     openProgress()
     await screen.findByText('1 of 4 tasks completed')
+    const initialTimes = [...screen.getByRole('region', { name: title }).querySelectorAll('time')].map((time) => time.dateTime)
     failed = true
     await userEvent.setup().click(screen.getByRole('button', { name: 'Refresh progress' }))
     const section = await screen.findByRole('region', { name: title })
     expect(await within(section).findByRole('alert')).toHaveTextContent('Unable to load')
-    expect(within(section).queryByRole('list')).not.toBeInTheDocument()
-    expect(within(section).queryByText(/loaded|checked|No task|No service/)).not.toBeInTheDocument()
+    expect(within(section).getByRole('alert')).toHaveTextContent('out of date')
+    expect([...section.querySelectorAll('time')].map((time) => time.dateTime)).toEqual(initialTimes)
+    expect(screen.getByText('Home care')).toBeInTheDocument()
+    expect(screen.getByText('1 of 4 tasks completed')).toBeInTheDocument()
+    expect(screen.getByRole('list', { name: 'Service updates' })).toBeInTheDocument()
     expect(screen.queryByText('PRIVATE server message')).not.toBeInTheDocument()
     failed = false
     await userEvent.setup().click(within(section).getByRole('button'))

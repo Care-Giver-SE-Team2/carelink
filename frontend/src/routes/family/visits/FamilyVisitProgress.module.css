@@ -175,6 +175,7 @@
 .sectionError {
   color: #7c4c25;
   font-size: 14px;
+  margin-bottom: 16px;
 }
 .sectionError button {
   margin-top: 12px;
