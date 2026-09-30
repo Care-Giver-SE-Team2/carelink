@@ -300,10 +300,14 @@ class FamilyVisitListIT {
 	}
 
 	@Test
-	void existingVisitDetailRemainsRestrictedToManagers() throws Exception {
-		mvc.perform(get(PATH + "/301").session(loginAs("family-a"))).andExpect(status().isForbidden());
+	void visitDetailKeepsInternalFieldsRestrictedToManagers() throws Exception {
+		mvc.perform(get(PATH + "/301").session(loginAs("family-a")))
+				.andExpect(status().isOk()).andExpect(jsonPath("$.id").value(301))
+				.andExpect(jsonPath("$.carePlanId").doesNotExist())
+				.andExpect(jsonPath("$.stateDeadline").doesNotExist());
 		mvc.perform(get(PATH + "/301").session(loginAs("manager")))
-				.andExpect(status().isOk()).andExpect(jsonPath("$.id").value(301));
+				.andExpect(status().isOk()).andExpect(jsonPath("$.id").value(301))
+				.andExpect(jsonPath("$.carePlanId").value(901));
 	}
 
 	private JsonNode readPage(MockHttpSession session, String... parameters) throws Exception {

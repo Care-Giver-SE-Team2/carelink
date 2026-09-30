@@ -937,9 +937,16 @@ paths:
       tags:
         - Visits
       summary: Get a visit
-      x-status: draft
+      x-status: implemented
+      x-implemented-roles: [MANAGER, FAMILY]
+      x-family-status: implemented
       description: >-
-        UC-FM03 (live status) reads this directly, typically polled.
+        Implemented for MANAGER and FAMILY. UC-FM03 reads the family projection directly.
+        Family reads record the account, visit ID, outcome and server access time through the
+        existing audit service. An audit outage returns 503 without visit content. The read
+        never modifies visit facts or advances its state. MANAGER retains the original Visit
+        response; other roles cannot use this endpoint. Timeline and task reads remain separate.
+        An absent visit returns 404; a visit outside current family access returns 403.
 
 
         Read the authorised family live view. asOf is the server snapshot time, not a fabricated visit
@@ -972,12 +979,16 @@ paths:
                 anyOf:
                   - $ref: '#/components/schemas/FamilyVisitView'
                   - $ref: '#/components/schemas/Visit'
+        '400':
+          $ref: '#/components/responses/FamilyValidationError'
         '401':
           $ref: '#/components/responses/FamilyUnauthorized'
         '403':
           $ref: '#/components/responses/FamilyForbidden'
         '404':
           $ref: '#/components/responses/NotFound'
+        '503':
+          $ref: '#/components/responses/FamilyAuditUnavailable'
       x-contract-status: specified
       x-family-use-cases:
         - UC-FM03
