@@ -229,6 +229,22 @@
   align-items: center;
   margin-top: 14px;
 }
+.progressLink {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 44px;
+  margin-top: 14px;
+  padding: 10px 16px;
+  border-radius: 12px;
+  background: #e7f1ed;
+  text-decoration: none;
+  font-size: 14px;
+  font-weight: 600;
+}
+.progressLink:hover {
+  background: #dbece3;
+}
 .pagination {
   display: flex;
   align-items: center;

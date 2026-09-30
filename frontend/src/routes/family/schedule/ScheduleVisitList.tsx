@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom'
 import type { FamilyVisitPage } from '../../../features/schedule/types'
 import { serviceLabel, visitDate, visitStatusLabels, visitTime } from '../../../features/schedule/presentation'
 import styles from './FamilySchedule.module.css'
@@ -54,6 +55,10 @@ export function ScheduleVisitList({ visits, onPage, onCaregiver }: {
                 <span>{visit.caregiverId === null ? 'Caregiver awaiting assignment' : 'Caregiver assigned'}</span>
                 <span className={styles.reference}>Visit #{visit.id}</span>
               </div>
+              <Link className={styles.progressLink} to={`/family/visits/${visit.id}`}
+                aria-label={`View progress for visit ${visit.id}`}>
+                View progress <span aria-hidden="true">→</span>
+              </Link>
               {visit.caregiverId !== null && <button
                 className={styles.caregiverButton}
                 aria-label={`View caregiver for visit ${visit.id}`}
