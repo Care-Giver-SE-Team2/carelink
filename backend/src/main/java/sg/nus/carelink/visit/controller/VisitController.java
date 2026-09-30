@@ -15,7 +15,9 @@ import org.springframework.web.bind.annotation.RestController;
 
 import sg.nus.carelink.visit.application.VisitService;
 import sg.nus.carelink.visit.application.FamilyVisitDetailService;
+import sg.nus.carelink.visit.application.FamilyVisitTimelineService;
 import sg.nus.carelink.visit.controller.dto.FamilyVisitResponse;
+import sg.nus.carelink.visit.controller.dto.FamilyVisitTimelineEntryResponse;
 import sg.nus.carelink.visit.domain.model.Visit;
 
 /**
@@ -31,10 +33,13 @@ public class VisitController {
 
 	private final VisitService service;
 	private final FamilyVisitDetailService familyVisits;
+	private final FamilyVisitTimelineService familyTimeline;
 
-	public VisitController(VisitService service, FamilyVisitDetailService familyVisits) {
+	public VisitController(VisitService service, FamilyVisitDetailService familyVisits,
+			FamilyVisitTimelineService familyTimeline) {
 		this.service = service;
 		this.familyVisits = familyVisits;
+		this.familyTimeline = familyTimeline;
 	}
 
 	/**
@@ -57,5 +62,13 @@ public class VisitController {
 			return ResponseEntity.ok(FamilyVisitResponse.from(detail.visit(), detail.asOf()));
 		}
 		return ResponseEntity.of(service.findVisit(id));
+	}
+
+	/** Applied history only; internal audit projections for other roles remain unimplemented. */
+	@GetMapping("/{visitId}/timeline")
+	@PreAuthorize("hasRole('FAMILY')")
+	public List<FamilyVisitTimelineEntryResponse> timeline(@PathVariable Long visitId, Authentication authentication) {
+		return familyTimeline.findTimeline(authentication.getName(), visitId).stream()
+				.map(FamilyVisitTimelineEntryResponse::from).toList();
 	}
 }

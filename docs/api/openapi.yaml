@@ -1006,9 +1006,16 @@ paths:
         - Visits
       summary: Full state-transition history
       x-status: draft
+      x-family-status: implemented
+      x-implemented-roles: [FAMILY]
       description: >-
-        Includes transitions the state machine refused, not only the ones it applied — the
-        auditability trail for this visit.
+        Implemented for FAMILY only. The internal full-history projection for other roles remains
+        specified but unimplemented; those callers currently receive 403. Family requests independently
+        check the visit's current elder binding, even when no transitions exist. An absent visit returns
+        404; an existing visit outside current family access returns 403. Invalid visit ID syntax
+        returns 400. Access outcomes are persisted through the existing audit service; an audit outage
+        returns 503 without timeline content. Reads never advance visit state or create history from
+        scheduled or actual visit timestamps. occurredAt uses an explicit Asia/Singapore offset.
 
 
         For FAMILY return only APPLIED service transitions in occurredAt ascending, then id ascending
@@ -1031,9 +1038,9 @@ paths:
       responses:
         '200':
           description: >-
-            Family response uses the explicitly listed family schema. Other roles retain the original
-            response schema; the server chooses by authenticated role, never by a client projection
-            flag.
+            The implemented FAMILY response is an array of FamilyVisitTimelineEntry. The original
+            VisitStateTransition array remains specified for internal roles, whose implementation is
+            pending. Client role or projection parameters cannot select internal fields.
           content:
             application/json:
               schema:
@@ -1044,12 +1051,16 @@ paths:
                   - type: array
                     items:
                       $ref: '#/components/schemas/VisitStateTransition'
+        '400':
+          $ref: '#/components/responses/FamilyValidationError'
         '401':
           $ref: '#/components/responses/FamilyUnauthorized'
         '403':
           $ref: '#/components/responses/FamilyForbidden'
         '404':
           $ref: '#/components/responses/FamilyNotFound'
+        '503':
+          $ref: '#/components/responses/FamilyAuditUnavailable'
       x-contract-status: specified
       x-family-use-cases:
         - UC-FM03
