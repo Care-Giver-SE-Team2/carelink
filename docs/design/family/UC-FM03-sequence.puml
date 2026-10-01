@@ -1,0 +1,66 @@
+@startuml
+skinparam shadowing false
+hide footbox
+title UC-FM03 — one independently authorized section read
+actor Family
+boundary "FamilyVisitProgressPage\nuseFamilyVisitProgress" as Page
+control "Spring Security\nSession / role" as Security
+control VisitController as Controller
+control "FamilyVisit{Detail,Timeline,Task}Service" as Service
+control FamilyReadAudit as Audit
+control FamilyAccessQuery as Access
+entity "VisitRepository +\nsection repository" as Repos
+database "MySQL" as DB
+
+Family -> Page : View progress (visitId)
+Page -> Security : GET /api/auth/me
+Security --> Page : Current account and roles
+note over Page
+A changed account clears prior data.
+Only a confirmed FAMILY session starts the three GETs.
+Session failure skips section reads and follows error handling.
+end note
+loop details / timeline / tasks (parallel requests; no shared snapshot)
+  Page -> Security : GET /api/visits/{id}[/timeline|/tasks]
+  alt Session or role rejected
+    Security --> Page : 401 / 403; no protected content
+  else Allowed into FAMILY branch
+    Security -> Controller : Authenticated username and visitId
+    Controller -> Service : findDetail / findTimeline / findTasks
+    Service -> Audit : read(username, resource, visitId, query)
+    Audit -> Repos : query callback: findById(visitId)
+    Repos -> DB : Read visit
+    DB --> Repos : Saved visit (or missing)
+    Repos --> Audit : Visit facts
+    alt Visit missing
+      Audit -> Audit : Query fails with ResourceNotFound
+    else Visit exists
+    Audit -> Access : requireReadableElder(username, visit.elderId)
+    Access -> DB : Current user/profile and effective binding
+    DB --> Access : Authorization facts
+    Access --> Audit : Allow or deny
+    opt Authorized section needs child records
+      Audit -> Repos : findAppliedByVisitId / findByVisitId
+      Repos -> DB : Read ordered saved records
+      DB --> Repos : APPLIED transitions / tasks
+      Repos --> Audit : Section data
+    end
+    end
+    Audit -> DB : Persist READ audit via AccessAudit
+    alt Audit unavailable
+      Audit --> Page : 503 without section content
+    else Audit persisted
+      Audit --> Service : Data or rethrow query failure
+      Service --> Controller : Result or 403 / 404
+      Controller --> Page : Family DTO or error
+    end
+  end
+end
+note over Page
+Details: server asOf. Child arrays: client loadedAt.
+Success updates only its section; retryable failure keeps stale prior data.
+Any 400/401/403/404 clears all sections and stops polling.
+Visible + online: next round 15s after completion; failure 30/60s.
+Manual retry, pause/resume and cleanup are in the activity diagram.
+end note
+@enduml

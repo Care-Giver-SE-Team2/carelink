@@ -949,11 +949,14 @@ paths:
         An absent visit returns 404; a visit outside current family access returns 403.
 
 
-        Read the authorised family live view. asOf is the server snapshot time, not a fabricated visit
-        event. The current page may poll approximately every 15 seconds while visible and stop when
-        hidden or closed; back off after failures and label retained data stale. Never infer an actual
-        state change from the clock. Stop displaying protected content after 401/403. Tasks are read
-        through GET /visits/{visitId}/tasks. No WebSocket or push infrastructure is required.
+        Read the authorised family live view. asOf is this detail query's server read time, not a visit
+        event or a shared snapshot across detail, timeline and task requests. The current page starts
+        its next round 15 seconds after all reads finish while visible and online; failures back off
+        to 30 then 60 seconds. Hidden, offline or closed pages cancel pending reads and timers.
+        Retained same-account sections keep their original times and are labelled stale; child arrays
+        use separate client receipt times. Never infer an actual state change from the clock.
+        A 400/401/403/404 clears all sections and stops polling until explicit login or retry.
+        Tasks use GET /visits/{visitId}/tasks. No WebSocket or push infrastructure is required.
         Non-family readers retain the existing Visit response.
 
 
