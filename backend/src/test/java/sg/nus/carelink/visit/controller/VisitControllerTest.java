@@ -13,17 +13,26 @@ import java.util.List;
 import java.util.Optional;
 
 import org.junit.jupiter.api.Test;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
 import sg.nus.carelink.visit.application.VisitService;
+import sg.nus.carelink.visit.application.FamilyVisitDetailService;
+import sg.nus.carelink.visit.application.FamilyVisitTimelineService;
+import sg.nus.carelink.visit.application.FamilyVisitTaskService;
 import sg.nus.carelink.visit.domain.model.Visit;
 
 /** HTTP surface only: status codes for found and not found. Security is tested at the filter-chain level. */
 class VisitControllerTest {
 
 	private final VisitService service = mock(VisitService.class);
-	private final MockMvc mvc = MockMvcBuilders.standaloneSetup(new VisitController(service)).build();
+	private final MockMvc mvc = MockMvcBuilders.standaloneSetup(
+			new VisitController(service, mock(FamilyVisitDetailService.class), mock(FamilyVisitTimelineService.class),
+					mock(FamilyVisitTaskService.class))).build();
+	private final UsernamePasswordAuthenticationToken manager = new UsernamePasswordAuthenticationToken(
+			"manager", null, List.of(new SimpleGrantedAuthority("ROLE_MANAGER")));
 
 	@Test
 	void returns200WithTheRecord() throws Exception {
@@ -45,14 +54,14 @@ class VisitControllerTest {
 				LocalDateTime.of(2026, 9, 6, 10, 15),
 				LocalDateTime.of(2026, 9, 6, 10, 16))));
 
-		mvc.perform(get("/api/visits/1")).andExpect(status().isOk());
+		mvc.perform(get("/api/visits/1").principal(manager)).andExpect(status().isOk());
 	}
 
 	@Test
 	void returns404WhenMissing() throws Exception {
 		when(service.findVisit(2L)).thenReturn(Optional.empty());
 
-		mvc.perform(get("/api/visits/2")).andExpect(status().isNotFound());
+		mvc.perform(get("/api/visits/2").principal(manager)).andExpect(status().isNotFound());
 	}
 
 	@Test

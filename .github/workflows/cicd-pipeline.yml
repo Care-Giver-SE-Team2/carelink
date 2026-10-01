@@ -106,6 +106,14 @@ jobs:
         working-directory: frontend
         run: npm run test:coverage
 
+      - name: Retain frontend coverage report
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: frontend-coverage
+          path: frontend/coverage/
+          retention-days: 7
+
       - name: Build
         working-directory: frontend
         run: npm run build

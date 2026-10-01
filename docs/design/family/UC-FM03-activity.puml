@@ -1,0 +1,54 @@
+@startuml
+!pragma layout smetana
+skinparam shadowing false
+title UC-FM03 — family live service progress (implemented)
+start
+:Open View progress from FM02\nor /family/visits/:visitId;
+if (Valid positive Long visit ID?) then (yes)
+else (no)
+  :Show invalid-link feedback; stop reads;
+  stop
+endif
+repeat
+  if (Visible and online?) then (yes)
+  else (no)
+    :Cancel requests and timer;\nshow paused / stale data;
+    :Wait until visible and online;
+  endif
+  :Check current FAMILY session;
+  if (Current FAMILY session confirmed?) then (yes)
+    :Clear prior account data if identity changed;
+    :Read details, timeline and tasks independently;
+  note right
+    Every GET authorizes the visit's actual elder
+    using the current binding and records audit.
+    APPLIED history only; DONE-only task count.
+    No care writes or inferred state transitions.
+  end note
+  else (no)
+    :Handle session failure; do not read sections;
+  endif
+  if (Any 400 / 401 / 403 / 404?) then (yes)
+    :Cancel remaining reads; clear protected data;\nstop automatic refresh;
+    :Show login / access / missing / invalid feedback;
+    stop
+  else (no)
+    :Update successful sections and their times;
+    if (Any retryable failure?) then (yes)
+      :Keep same-account prior section in memory\nwith its original time and stale warning;
+      :Retry after 30s, then 60s maximum;
+    else (no)
+      :Next round 15s after this round finishes;
+    endif
+  endif
+  :Wait; manual refresh may start earlier;\nhidden/offline cancels requests and timer;
+repeat while (Still on this visit page?) is (yes) not (no)
+:Cancel requests/timer; remove listeners;
+stop
+legend bottom
+After terminal feedback, explicit login/retry re-enters the flow and reauthorizes.
+Visibility/network events cannot resume a terminally stopped flow.
+Late results from cancelled rounds cannot change the current page.
+CG03/CG05 writes and real upstream integration are pending.
+endlegend
+@enduml

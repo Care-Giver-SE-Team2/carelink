@@ -9,12 +9,14 @@ design sections for that owner's use cases: PlantUML source (`.puml`) next to th
 | `manager-b/` | Wang Ziyu | UC-MG04, UC-MG05, UC-MG07, UC-MG08, UC-SYS02 | Chain of Responsibility (escalation chain) | `UC-MG05-activity.puml` |
 | `caregiver/` | Wang Chenyu | UC-CG01 – UC-CG06 | State (visit execution) | `UC-CG03-CG05-activity.puml` |
 | `family-elder/` | Zheng Zishan | UC-FM06 and the elder/family bindings | to be confirmed | `UC_FM06_Activity.puml` |
-| `family/` | Wang Zhili | UC-FM05 | to be confirmed | **missing — PNG only** |
+| `family/` | Wang Zhili | UC-FM03, UC-FM05 | Existing query services; FM03 read workflow | `UC-FM03-activity.puml`, `UC-FM03-sequence.puml`; FM05 source still missing |
 | — | Kok Cheng Da | UC-MG01 (care plan tree) | Composite | not committed yet |
 
 UC-FM06 is the family-side view of the same scenario as UC-MG04: use case specification v3.0
 merged the two under UC-MG04 with the manager as primary actor. Keep both diagrams, but say
 in the report that they are two views of one flow, not two use cases.
+
+FM03 implementation mapping and pending upstream integration: [family/FM03-implementation.md](family/FM03-implementation.md).
 
 ## Conventions
 

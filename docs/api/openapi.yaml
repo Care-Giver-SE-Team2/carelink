@@ -937,16 +937,26 @@ paths:
       tags:
         - Visits
       summary: Get a visit
-      x-status: draft
+      x-status: implemented
+      x-implemented-roles: [MANAGER, FAMILY]
+      x-family-status: implemented
       description: >-
-        UC-FM03 (live status) reads this directly, typically polled.
+        Implemented for MANAGER and FAMILY. UC-FM03 reads the family projection directly.
+        Family reads record the account, visit ID, outcome and server access time through the
+        existing audit service. An audit outage returns 503 without visit content. The read
+        never modifies visit facts or advances its state. MANAGER retains the original Visit
+        response; other roles cannot use this endpoint. Timeline and task reads remain separate.
+        An absent visit returns 404; a visit outside current family access returns 403.
 
 
-        Read the authorised family live view. asOf is the server snapshot time, not a fabricated visit
-        event. The current page may poll approximately every 15 seconds while visible and stop when
-        hidden or closed; back off after failures and label retained data stale. Never infer an actual
-        state change from the clock. Stop displaying protected content after 401/403. Tasks are read
-        through GET /visits/{visitId}/tasks. No WebSocket or push infrastructure is required.
+        Read the authorised family live view. asOf is this detail query's server read time, not a visit
+        event or a shared snapshot across detail, timeline and task requests. The current page starts
+        its next round 15 seconds after all reads finish while visible and online; failures back off
+        to 30 then 60 seconds. Hidden, offline or closed pages cancel pending reads and timers.
+        Retained same-account sections keep their original times and are labelled stale; child arrays
+        use separate client receipt times. Never infer an actual state change from the clock.
+        A 400/401/403/404 clears all sections and stops polling until explicit login or retry.
+        Tasks use GET /visits/{visitId}/tasks. No WebSocket or push infrastructure is required.
         Non-family readers retain the existing Visit response.
 
 
@@ -972,12 +982,16 @@ paths:
                 anyOf:
                   - $ref: '#/components/schemas/FamilyVisitView'
                   - $ref: '#/components/schemas/Visit'
+        '400':
+          $ref: '#/components/responses/FamilyValidationError'
         '401':
           $ref: '#/components/responses/FamilyUnauthorized'
         '403':
           $ref: '#/components/responses/FamilyForbidden'
         '404':
           $ref: '#/components/responses/NotFound'
+        '503':
+          $ref: '#/components/responses/FamilyAuditUnavailable'
       x-contract-status: specified
       x-family-use-cases:
         - UC-FM03
@@ -995,9 +1009,16 @@ paths:
         - Visits
       summary: Full state-transition history
       x-status: draft
+      x-family-status: implemented
+      x-implemented-roles: [FAMILY]
       description: >-
-        Includes transitions the state machine refused, not only the ones it applied — the
-        auditability trail for this visit.
+        Implemented for FAMILY only. The internal full-history projection for other roles remains
+        specified but unimplemented; those callers currently receive 403. Family requests independently
+        check the visit's current elder binding, even when no transitions exist. An absent visit returns
+        404; an existing visit outside current family access returns 403. Invalid visit ID syntax
+        returns 400. Access outcomes are persisted through the existing audit service; an audit outage
+        returns 503 without timeline content. Reads never advance visit state or create history from
+        scheduled or actual visit timestamps. occurredAt uses an explicit Asia/Singapore offset.
 
 
         For FAMILY return only APPLIED service transitions in occurredAt ascending, then id ascending
@@ -1020,9 +1041,9 @@ paths:
       responses:
         '200':
           description: >-
-            Family response uses the explicitly listed family schema. Other roles retain the original
-            response schema; the server chooses by authenticated role, never by a client projection
-            flag.
+            The implemented FAMILY response is an array of FamilyVisitTimelineEntry. The original
+            VisitStateTransition array remains specified for internal roles, whose implementation is
+            pending. Client role or projection parameters cannot select internal fields.
           content:
             application/json:
               schema:
@@ -1033,12 +1054,16 @@ paths:
                   - type: array
                     items:
                       $ref: '#/components/schemas/VisitStateTransition'
+        '400':
+          $ref: '#/components/responses/FamilyValidationError'
         '401':
           $ref: '#/components/responses/FamilyUnauthorized'
         '403':
           $ref: '#/components/responses/FamilyForbidden'
         '404':
           $ref: '#/components/responses/FamilyNotFound'
+        '503':
+          $ref: '#/components/responses/FamilyAuditUnavailable'
       x-contract-status: specified
       x-family-use-cases:
         - UC-FM03
@@ -1058,9 +1083,17 @@ paths:
       - Visits
       summary: List visit tasks for the current role
       x-status: draft
+      x-family-status: implemented
+      x-implemented-roles: [FAMILY]
       description: >-
-        UC-CG03. Lists the task-execution state for the caller's assigned visit. Task completion remains available
-        through the task-specific completion route.
+        Implemented for FAMILY only. The caregiver task projection remains specified but unimplemented
+        on this endpoint; other roles currently receive 403. The existing caregiver work-pack is separate.
+        Each family request independently validates the visit's actual elder and current binding before
+        reading its tasks, even when the task list is empty. An absent visit returns 404; an existing visit
+        outside current family access returns 403; invalid visit ID syntax returns 400. Access outcomes
+        are persisted through the existing audit service; an audit outage returns 503 without task content.
+        Stored statuses and nullable completedAt are returned unchanged, with non-null timestamps using
+        an explicit Asia/Singapore offset. Reading does not create tasks or infer completion from visit state.
 
 
         Family behaviour (UC-FM03): Read family-visible task progress for an authorised visit, ordered by task id.
@@ -1086,8 +1119,9 @@ paths:
       responses:
         '200':
           description: >-
-            Visit tasks. Family callers receive FamilyVisitTaskView items; caregivers retain VisitTask items. The
-            server selects by authenticated role.
+            The implemented FAMILY response contains FamilyVisitTaskView items in task ID order.
+            The original VisitTask array remains specified for caregivers, whose implementation on this
+            endpoint is pending. Client role or projection parameters cannot select internal fields.
           content:
             application/json:
               schema:
@@ -1098,12 +1132,16 @@ paths:
                 - type: array
                   items:
                     $ref: '#/components/schemas/VisitTask'
+        '400':
+          $ref: '#/components/responses/FamilyValidationError'
         '401':
           $ref: '#/components/responses/FamilyUnauthorized'
         '403':
-          $ref: '#/components/responses/Forbidden'
+          $ref: '#/components/responses/FamilyForbidden'
         '404':
-          $ref: '#/components/responses/NotFound'
+          $ref: '#/components/responses/FamilyNotFound'
+        '503':
+          $ref: '#/components/responses/FamilyAuditUnavailable'
       x-contract-status: specified
       x-family-owner: Member 4 (FM01-FM05 behaviour); source data remains with its assigned owner.
       security:

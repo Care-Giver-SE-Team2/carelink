@@ -6,6 +6,7 @@ import java.util.List;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -13,11 +14,17 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import sg.nus.carelink.visit.application.VisitService;
+import sg.nus.carelink.visit.application.FamilyVisitDetailService;
+import sg.nus.carelink.visit.application.FamilyVisitTimelineService;
+import sg.nus.carelink.visit.application.FamilyVisitTaskService;
+import sg.nus.carelink.visit.controller.dto.FamilyVisitResponse;
+import sg.nus.carelink.visit.controller.dto.FamilyVisitTimelineEntryResponse;
+import sg.nus.carelink.visit.controller.dto.FamilyVisitTaskResponse;
 import sg.nus.carelink.visit.domain.model.Visit;
 
 /**
  * Presentation layer of the visit module: HTTP in, HTTP out, status codes. No business
- * rules. Talks to VisitService only, never to a repository (ArchUnit enforces it). Which role
+ * rules. Talks to application services, never to a repository (ArchUnit enforces it). Which role
  * may call each endpoint is declared on the method with @PreAuthorize.
  * identity.controller.AuthController is the template; use dto/ for request and response
  * shapes once they differ from the domain model.
@@ -27,9 +34,16 @@ import sg.nus.carelink.visit.domain.model.Visit;
 public class VisitController {
 
 	private final VisitService service;
+	private final FamilyVisitDetailService familyVisits;
+	private final FamilyVisitTimelineService familyTimeline;
+	private final FamilyVisitTaskService familyTasks;
 
-	public VisitController(VisitService service) {
+	public VisitController(VisitService service, FamilyVisitDetailService familyVisits,
+			FamilyVisitTimelineService familyTimeline, FamilyVisitTaskService familyTasks) {
 		this.service = service;
+		this.familyVisits = familyVisits;
+		this.familyTimeline = familyTimeline;
+		this.familyTasks = familyTasks;
 	}
 
 	/**
@@ -43,9 +57,30 @@ public class VisitController {
 		return service.findDayRoster(date);
 	}
 
+	/** Reads the authenticated role's projection; family access is checked against the visit's elder. */
 	@GetMapping("/{id}")
-	@PreAuthorize("hasRole('MANAGER')")
-	public ResponseEntity<Visit> get(@PathVariable Long id) {
+	@PreAuthorize("hasAnyRole('MANAGER', 'FAMILY')")
+	public ResponseEntity<?> get(@PathVariable Long id, Authentication authentication) {
+		if (authentication.getAuthorities().stream().anyMatch(role -> role.getAuthority().equals("ROLE_FAMILY"))) {
+			var detail = familyVisits.findDetail(authentication.getName(), id);
+			return ResponseEntity.ok(FamilyVisitResponse.from(detail.visit(), detail.asOf()));
+		}
 		return ResponseEntity.of(service.findVisit(id));
+	}
+
+	/** Applied history only; internal audit projections for other roles remain unimplemented. */
+	@GetMapping("/{visitId}/timeline")
+	@PreAuthorize("hasRole('FAMILY')")
+	public List<FamilyVisitTimelineEntryResponse> timeline(@PathVariable Long visitId, Authentication authentication) {
+		return familyTimeline.findTimeline(authentication.getName(), visitId).stream()
+				.map(FamilyVisitTimelineEntryResponse::from).toList();
+	}
+
+	/** Family task fields only; the caregiver projection remains unimplemented on this endpoint. */
+	@GetMapping("/{visitId}/tasks")
+	@PreAuthorize("hasRole('FAMILY')")
+	public List<FamilyVisitTaskResponse> tasks(@PathVariable Long visitId, Authentication authentication) {
+		return familyTasks.findTasks(authentication.getName(), visitId).stream()
+				.map(FamilyVisitTaskResponse::from).toList();
 	}
 }

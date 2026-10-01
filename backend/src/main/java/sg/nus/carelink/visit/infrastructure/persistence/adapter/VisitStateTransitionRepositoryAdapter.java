@@ -1,11 +1,13 @@
 package sg.nus.carelink.visit.infrastructure.persistence.adapter;
 
+import java.util.List;
 import java.util.Optional;
 
 import org.springframework.stereotype.Repository;
 
 import sg.nus.carelink.visit.domain.model.VisitStateTransition;
 import sg.nus.carelink.visit.domain.repository.VisitStateTransitionRepository;
+import sg.nus.carelink.visit.infrastructure.persistence.entity.VisitStateTransitionJpaEntity;
 import sg.nus.carelink.visit.infrastructure.persistence.repository.VisitStateTransitionJpaRepository;
 
 /**
@@ -24,6 +26,12 @@ class VisitStateTransitionRepositoryAdapter implements VisitStateTransitionRepos
 	@Override
 	public Optional<VisitStateTransition> findById(Long id) {
 		return jpa.findById(id).map(VisitStateTransitionMapper::toDomain);
+	}
+
+	@Override
+	public List<VisitStateTransition> findAppliedByVisitId(Long visitId) {
+		return jpa.findByVisitIdAndResultOrderByOccurredAtAscIdAsc(visitId, VisitStateTransitionJpaEntity.Result.APPLIED)
+				.stream().map(VisitStateTransitionMapper::toDomain).toList();
 	}
 
 	@Override

@@ -8,14 +8,18 @@ import { FamilySchedulePage } from './schedule/FamilySchedulePage'
 import { FamilyReportListPage } from './reports/FamilyReportListPage'
 import { FamilyReportDetailPage } from './reports/FamilyReportDetailPage'
 import { FamilyWeeklySummaryPage } from './reports/FamilyWeeklySummaryPage'
+import { FamilyVisitProgressPage } from './visits/FamilyVisitProgressPage'
 
 /**
- * Family application, schedule and care report routes.
+ * Family application, schedule, visit progress and care report routes.
  * @author Wang Zhili
  */
 export default function FamilyHome() {
   return (
     <Routes>
+      <Route element={<FamilyLayout title="Visit progress" />}>
+        <Route path="visits/:visitId" element={<FamilyVisitProgressPage />} />
+      </Route>
       <Route element={<FamilyLayout title="Care reports" />}>
         <Route path="reports" element={<FamilyReportListPage />} />
       </Route>
