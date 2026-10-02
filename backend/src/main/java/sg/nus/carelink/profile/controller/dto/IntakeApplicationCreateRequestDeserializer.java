@@ -71,7 +71,7 @@ public class IntakeApplicationCreateRequestDeserializer extends ValueDeserialize
 		}
 		try {
 			return MobilityLevel.valueOf(value);
-		} catch (IllegalArgumentException ex) {
+		} catch (IllegalArgumentException _) {
 			return invalid(context, "Unsupported mobilityLevel");
 		}
 	}
@@ -79,7 +79,7 @@ public class IntakeApplicationCreateRequestDeserializer extends ValueDeserialize
 	private static List<String> careNeeds(JsonNode input, DeserializationContext context) {
 		JsonNode value = input.get("careNeeds");
 		if (value == null) {
-			return null;
+			return List.of();
 		}
 		if (!value.isArray()) {
 			return invalid(context, "careNeeds must be an array");
