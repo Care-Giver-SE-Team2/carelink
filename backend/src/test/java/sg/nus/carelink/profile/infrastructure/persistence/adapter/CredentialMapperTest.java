@@ -26,6 +26,8 @@ class CredentialMapperTest {
 		entity.setExpiryDate(LocalDate.of(2026, 9, 9));
 		entity.setStatus(CredentialJpaEntity.Status.SUBMITTED);
 		entity.setRenewsCredentialId(12L);
+		entity.setReviewNote("v13");
+		entity.setReviewedAt(LocalDateTime.of(2026, 9, 14, 10, 30));
 
 		Credential domain = CredentialMapper.toDomain(entity);
 		assertThat(domain.id()).isEqualTo(entity.getId());
@@ -38,6 +40,8 @@ class CredentialMapperTest {
 		assertThat(domain.expiryDate()).isEqualTo(entity.getExpiryDate());
 		assertThat(domain.status().name()).isEqualTo(entity.getStatus().name());
 		assertThat(domain.renewsCredentialId()).isEqualTo(entity.getRenewsCredentialId());
+		assertThat(domain.reviewNote()).isEqualTo(entity.getReviewNote());
+		assertThat(domain.reviewedAt()).isEqualTo(entity.getReviewedAt());
 
 		CredentialJpaEntity back = CredentialMapper.toEntity(domain);
 		assertThat(back.getId()).isEqualTo(entity.getId());
@@ -50,5 +54,7 @@ class CredentialMapperTest {
 		assertThat(back.getExpiryDate()).isEqualTo(entity.getExpiryDate());
 		assertThat(back.getStatus()).isEqualTo(entity.getStatus());
 		assertThat(back.getRenewsCredentialId()).isEqualTo(entity.getRenewsCredentialId());
+		assertThat(back.getReviewNote()).isEqualTo(entity.getReviewNote());
+		assertThat(back.getReviewedAt()).isEqualTo(entity.getReviewedAt());
 	}
 }

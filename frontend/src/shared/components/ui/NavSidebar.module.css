@@ -46,6 +46,11 @@
   color: var(--text-muted);
 }
 
+/* Muted grey would vanish on the ink fill of the active item. */
+.active .neutral {
+  color: var(--bg);
+}
+
 .initial {
   display: none;
   flex: none;

@@ -23,5 +23,8 @@ public interface CredentialRepository {
 	 */
 	List<Credential> findByCaregiverId(Long caregiverId);
 
+	/** Every caregiver's credentials, whatever their status, in id order. */
+	List<Credential> findAll();
+
 	Credential save(Credential credential);
 }

@@ -7,8 +7,10 @@ import {
   AppHeader,
   Badge,
   Button,
+  CertificationStateTag,
   ConfirmDialog,
   DataTable,
+  FilterChips,
   KpiStrip,
   NavSidebar,
   NumberInput,
@@ -162,6 +164,64 @@ describe('DataTable', () => {
   it('shows the empty note when there are no rows', () => {
     render(<DataTable label="Visits" columns={[]} rows={[]} rowKey={() => ''} empty="No visits today." />)
     expect(screen.getByText('No visits today.')).toBeInTheDocument()
+  })
+
+  it('opens a row by click or keyboard and marks the selected one', async () => {
+    const onRowClick = vi.fn()
+    render(
+      <DataTable
+        label="Visits"
+        columns={[{ key: 'name', label: 'Elder', width: '1fr' }]}
+        rows={rows}
+        rowKey={(r) => r.id}
+        onRowClick={onRowClick}
+        selectedKey="b"
+      />,
+    )
+    const [, first, second] = screen.getAllByRole('row')
+    expect(first).toHaveAttribute('aria-selected', 'false')
+    expect(second).toHaveAttribute('aria-selected', 'true')
+
+    await userEvent.click(within(first).getByText('Lim Ah Kow'))
+    expect(onRowClick).toHaveBeenLastCalledWith(rows[0])
+    second.focus()
+    await userEvent.keyboard('{Enter}')
+    expect(onRowClick).toHaveBeenLastCalledWith(rows[1])
+  })
+})
+
+describe('FilterChips', () => {
+  it('labels each chip with its count and reports the one picked', async () => {
+    const onChange = vi.fn()
+    render(
+      <FilterChips
+        label="Certification filter"
+        options={[
+          { value: 'review', label: 'TO REVIEW', count: 2 },
+          { value: 'all', label: 'ALL', count: 41 },
+        ]}
+        value="review"
+        onChange={onChange}
+      />,
+    )
+    expect(screen.getByRole('button', { name: 'TO REVIEW · 2' })).toHaveAttribute('aria-pressed', 'true')
+    await userEvent.click(screen.getByRole('button', { name: 'ALL · 41' }))
+    expect(onChange).toHaveBeenCalledWith('all')
+  })
+})
+
+describe('CertificationStateTag', () => {
+  it('labels each certification state', () => {
+    render(
+      <>
+        <CertificationStateTag state="SUBMITTED" />
+        <CertificationStateTag state="REMINDED" />
+        <CertificationStateTag state="EXPIRED" />
+      </>,
+    )
+    expect(screen.getByText('SUBMITTED')).toBeInTheDocument()
+    expect(screen.getByText('PENDING')).toBeInTheDocument()
+    expect(screen.getByText('EXPIRED')).toBeInTheDocument()
   })
 })
 

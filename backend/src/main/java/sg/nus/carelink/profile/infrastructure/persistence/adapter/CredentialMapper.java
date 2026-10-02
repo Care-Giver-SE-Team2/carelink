@@ -25,7 +25,9 @@ final class CredentialMapper {
 				e.getStatus() == null ? null : Credential.Status.valueOf(e.getStatus().name()),
 				e.getCreatedAt(),
 				e.getUpdatedAt(),
-				e.getRenewsCredentialId());
+				e.getRenewsCredentialId(),
+				e.getReviewNote(),
+				e.getReviewedAt());
 	}
 
 	static CredentialJpaEntity toEntity(Credential d) {
@@ -40,6 +42,8 @@ final class CredentialMapper {
 		e.setExpiryDate(d.expiryDate());
 		e.setStatus(d.status() == null ? null : CredentialJpaEntity.Status.valueOf(d.status().name()));
 		e.setRenewsCredentialId(d.renewsCredentialId());
+		e.setReviewNote(d.reviewNote());
+		e.setReviewedAt(d.reviewedAt());
 		return e;
 	}
 }

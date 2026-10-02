@@ -60,10 +60,20 @@ describe('Legend', () => {
 
 describe('Pagination', () => {
   it('shows first, last and three around the current page, with gaps', () => {
-    expect(pageSlots(1, 17)).toEqual([1, 2, 3, 'gap', 17])
+    expect(pageSlots(1, 17)).toEqual([1, 2, 3, 4, 5, 'gap', 17])
     expect(pageSlots(9, 17)).toEqual([1, 'gap', 8, 9, 10, 'gap', 17])
-    expect(pageSlots(17, 17)).toEqual([1, 'gap', 15, 16, 17])
+    expect(pageSlots(17, 17)).toEqual([1, 'gap', 13, 14, 15, 16, 17])
     expect(pageSlots(1, 2)).toEqual([1, 2])
+    expect(pageSlots(4, 7)).toEqual([1, 2, 3, 4, 5, 6, 7])
+  })
+
+  it('keeps the same number of slots on every page', () => {
+    for (const pageCount of [8, 9, 17]) {
+      for (let page = 1; page <= pageCount; page++) {
+        expect(pageSlots(page, pageCount)).toHaveLength(7)
+        expect(pageSlots(page, pageCount)).toContain(page)
+      }
+    }
   })
 
   it('reads the range, marks the current page and disables Prev on page 1', async () => {

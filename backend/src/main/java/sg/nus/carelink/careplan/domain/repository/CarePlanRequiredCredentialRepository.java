@@ -1,5 +1,7 @@
 package sg.nus.carelink.careplan.domain.repository;
 
+import java.util.Collection;
+import java.util.List;
 import java.util.Optional;
 
 import sg.nus.carelink.careplan.domain.model.CarePlanRequiredCredential;
@@ -12,6 +14,9 @@ import sg.nus.carelink.careplan.domain.model.CarePlanRequiredCredential;
 public interface CarePlanRequiredCredentialRepository {
 
 	Optional<CarePlanRequiredCredential> findById(CarePlanRequiredCredential.Id id);
+
+	/** The credential types each of these plans requires, one row per plan and type. */
+	List<CarePlanRequiredCredential> findByCarePlanIds(Collection<Long> carePlanIds);
 
 	CarePlanRequiredCredential save(CarePlanRequiredCredential carePlanRequiredCredential);
 }

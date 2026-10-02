@@ -50,6 +50,12 @@ public class CredentialJpaEntity {
 	@Column(name = "reviewed_by_user_id")
 	private Long reviewedByUserId;
 
+	@Column(name = "review_note", length = 500)
+	private String reviewNote;
+
+	@Column(name = "reviewed_at")
+	private LocalDateTime reviewedAt;
+
 	@Column(name = "certificate_no", length = 100)
 	private String certificateNo;
 
@@ -110,6 +116,22 @@ public class CredentialJpaEntity {
 
 	public void setReviewedByUserId(Long reviewedByUserId) {
 		this.reviewedByUserId = reviewedByUserId;
+	}
+
+	public String getReviewNote() {
+		return reviewNote;
+	}
+
+	public void setReviewNote(String reviewNote) {
+		this.reviewNote = reviewNote;
+	}
+
+	public LocalDateTime getReviewedAt() {
+		return reviewedAt;
+	}
+
+	public void setReviewedAt(LocalDateTime reviewedAt) {
+		this.reviewedAt = reviewedAt;
 	}
 
 	public String getCertificateNo() {

@@ -1,0 +1,32 @@
+.name {
+  font: 500 13px/1.3 var(--font);
+}
+
+.type {
+  font: 400 12.5px/1.3 var(--font);
+  color: var(--text-tertiary);
+}
+
+.expires {
+  font: 500 12px/1 var(--font-mono);
+}
+
+.danger {
+  color: var(--danger);
+}
+
+.ink {
+  color: var(--text);
+}
+
+.success {
+  color: var(--success);
+}
+
+.muted {
+  color: var(--text-muted);
+}
+
+.risk {
+  font: 400 12px/1 var(--font-mono);
+}
