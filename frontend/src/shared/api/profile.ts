@@ -57,6 +57,8 @@ export type CaregiverOption = {
   id: number
   fullName: string
   sector: string | null
+  /** Comma-separated languages and dialects, as stored ("Malay,English"). Optional so older fixtures still type-check. */
+  dialects?: string | null
   status: 'ONBOARDING' | 'AVAILABLE' | 'BUSY' | 'INACTIVE'
   /** Server-side Caregiver.isAssignable(): false for onboarding or inactive caregivers. */
   assignable: boolean

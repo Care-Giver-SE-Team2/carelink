@@ -90,7 +90,7 @@
   color: var(--bg);
 }
 
-.visit_no_checkin {
+.visit_exception {
   border-color: var(--danger);
   background: var(--danger);
   color: var(--bg);

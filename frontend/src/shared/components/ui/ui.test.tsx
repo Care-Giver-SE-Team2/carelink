@@ -9,6 +9,7 @@ import {
   Button,
   ConfirmDialog,
   DataTable,
+  KpiStrip,
   NavSidebar,
   NumberInput,
   PlanTreeView,
@@ -53,12 +54,12 @@ describe('VisitStateBadge', () => {
     render(
       <>
         <VisitStateBadge state="in_visit" />
-        <VisitStateBadge state="no_checkin" />
+        <VisitStateBadge state="exception" />
         <VisitStateBadge state="needs_cover" />
       </>,
     )
     expect(screen.getByText('IN VISIT')).toBeInTheDocument()
-    expect(screen.getByText('NO CHECK-IN')).toBeInTheDocument()
+    expect(screen.getByText('EXCEPTION')).toBeInTheDocument()
     expect(screen.getByText('NEEDS COVER')).toBeInTheDocument()
   })
 })
@@ -108,6 +109,23 @@ describe('NavSidebar', () => {
       </MemoryRouter>,
     )
     expect(screen.getByRole('link', { name: 'Exceptions' })).toHaveTextContent(/^EExceptions$/)
+  })
+})
+
+describe('KpiStrip', () => {
+  it('links a cell named by its label and value, and leaves the rest as plain figures', () => {
+    render(
+      <MemoryRouter>
+        <KpiStrip
+          items={[
+            { label: 'Completed', value: 31 },
+            { label: 'Open exceptions', value: 4, tone: 'danger', href: '/manager/exceptions' },
+          ]}
+        />
+      </MemoryRouter>,
+    )
+    expect(screen.getByRole('link', { name: 'Open exceptions 4' })).toHaveAttribute('href', '/manager/exceptions')
+    expect(screen.getAllByRole('link')).toHaveLength(1)
   })
 })
 

@@ -3,7 +3,9 @@ package sg.nus.carelink.profile.application;
 import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -22,19 +24,21 @@ import sg.nus.carelink.shared.error.ResourceNotFound;
  */
 @Service
 @Transactional
-public class PrimaryCaregiverService {
+public class PrimaryCaregiverService implements PrimaryCaregiverLookup {
 
 	private final ElderRepository elders;
 	private final CaregiverRepository caregivers;
 	private final PrimaryCaregiverAssignmentRepository assignments;
 	private final Clock clock;
+	private final ApplicationEventPublisher events;
 
 	public PrimaryCaregiverService(ElderRepository elders, CaregiverRepository caregivers,
-			PrimaryCaregiverAssignmentRepository assignments, Clock clock) {
+			PrimaryCaregiverAssignmentRepository assignments, Clock clock, ApplicationEventPublisher events) {
 		this.elders = elders;
 		this.caregivers = caregivers;
 		this.assignments = assignments;
 		this.clock = clock;
+		this.events = events;
 	}
 
 	/** Every caregiver the picker lists, ineligible ones included so the manager sees why. */
@@ -59,6 +63,7 @@ public class PrimaryCaregiverService {
 		}
 		PrimaryCaregiverAssignment saved = assignments.save(
 				new PrimaryCaregiverAssignment(elderId, caregiverId, LocalDateTime.now(clock)));
+		events.publishEvent(new PrimaryCaregiverChanged(elderId));
 		return new PrimaryCaregiverSummary(caregiver.id(), caregiver.fullName(), saved.assignedAt());
 	}
 
@@ -66,5 +71,14 @@ public class PrimaryCaregiverService {
 	public void unassign(Long elderId) {
 		elders.findById(elderId).orElseThrow(() -> new ResourceNotFound("Elder", elderId));
 		assignments.deleteByElderId(elderId);
+	}
+
+	@Override
+	@Transactional(readOnly = true)
+	public Optional<Long> findRosterableCaregiverId(Long elderId) {
+		return assignments.findByElderId(elderId)
+				.flatMap(assignment -> caregivers.findById(assignment.caregiverId()))
+				.filter(Caregiver::isAssignable)
+				.map(Caregiver::id);
 	}
 }

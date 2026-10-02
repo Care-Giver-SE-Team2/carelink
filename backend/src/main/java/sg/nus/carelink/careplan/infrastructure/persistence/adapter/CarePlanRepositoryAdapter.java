@@ -1,5 +1,6 @@
 package sg.nus.carelink.careplan.infrastructure.persistence.adapter;
 
+import java.util.List;
 import java.util.Optional;
 
 import org.springframework.stereotype.Repository;
@@ -29,6 +30,16 @@ class CarePlanRepositoryAdapter implements CarePlanRepository {
 	@Override
 	public Optional<CarePlan> findLatestByElderId(Long elderId) {
 		return jpa.findFirstByElderIdOrderByVersionDesc(elderId).map(CarePlanMapper::toDomain);
+	}
+
+	@Override
+	public List<CarePlan> findByElderId(Long elderId) {
+		return jpa.findByElderIdOrderByVersionAsc(elderId).stream().map(CarePlanMapper::toDomain).toList();
+	}
+
+	@Override
+	public List<Long> findElderIdsWithIssuedPlans() {
+		return jpa.findElderIdsWithIssuedPlans();
 	}
 
 	@Override

@@ -1,0 +1,38 @@
+.cell {
+  min-width: 0;
+  padding: 4px 3px;
+}
+
+.block {
+  padding: 7px 8px;
+  border: 1px solid transparent;
+  font: 500 10px/1.2 var(--font-mono);
+  overflow-wrap: anywhere;
+}
+
+.assigned {
+  background: var(--text);
+  color: var(--bg);
+}
+
+.closed {
+  background: var(--success);
+  color: var(--bg);
+}
+
+.exception {
+  background: var(--danger);
+  color: var(--bg);
+}
+
+.suggested,
+.needs_cover {
+  border: 1px dashed var(--accent);
+  background: var(--bg);
+  color: var(--accent);
+}
+
+.vacated {
+  border: 1px dashed var(--danger);
+  color: var(--danger);
+}

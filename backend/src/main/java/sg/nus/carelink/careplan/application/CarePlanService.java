@@ -10,6 +10,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.Optional;
 
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -35,10 +36,13 @@ public class CarePlanService {
 
 	private final CarePlanRepository carePlans;
 	private final CarePlanNodeRepository carePlanNodes;
+	private final ApplicationEventPublisher events;
 
-	public CarePlanService(CarePlanRepository carePlans, CarePlanNodeRepository carePlanNodes) {
+	public CarePlanService(CarePlanRepository carePlans, CarePlanNodeRepository carePlanNodes,
+			ApplicationEventPublisher events) {
 		this.carePlans = carePlans;
 		this.carePlanNodes = carePlanNodes;
+		this.events = events;
 	}
 
 	@Transactional(readOnly = true)
@@ -89,6 +93,7 @@ public class CarePlanService {
 					.ifPresent(previous -> carePlans.save(previous.supersede()));
 		}
 
+		events.publishEvent(new CarePlanScheduleChanged(published.elderId()));
 		return published;
 	}
 
@@ -96,7 +101,9 @@ public class CarePlanService {
 	public CarePlan stop(Long planId, LocalDate effectiveDate, String reason, Long stoppedByUserId) {
 		CarePlan plan = carePlans.findById(planId)
 				.orElseThrow(() -> new ResourceNotFound("CarePlan", planId));
-		return carePlans.save(plan.stop(effectiveDate, reason, stoppedByUserId));
+		CarePlan stopped = carePlans.save(plan.stop(effectiveDate, reason, stoppedByUserId));
+		events.publishEvent(new CarePlanScheduleChanged(stopped.elderId()));
+		return stopped;
 	}
 
 	private BigDecimal saveTask(Long planId, PlanNodeInput node, int displayOrder) {

@@ -37,6 +37,21 @@ class InMemoryVisitRepository
     }
 
     @Override
+    public List<Visit> findUnassignedScheduledStartingBetween(java.time.LocalDateTime from, java.time.LocalDateTime until) {
+        return rows.values().stream()
+                .filter(v -> v.caregiverId() == null && v.status() == Visit.Status.SCHEDULED)
+                .filter(v -> !v.scheduledStart().isBefore(from) && v.scheduledStart().isBefore(until))
+                .sorted(Comparator.comparing(Visit::scheduledStart).thenComparing(Visit::id)).toList();
+    }
+
+    @Override
+    public List<Visit> findByCarePlanIdStartingFrom(Long carePlanId, java.time.LocalDateTime from) {
+        return rows.values().stream()
+                .filter(v -> carePlanId.equals(v.carePlanId()) && !v.scheduledStart().isBefore(from))
+                .toList();
+    }
+
+    @Override
     public Optional<Visit> findById(
             Long id) {
 

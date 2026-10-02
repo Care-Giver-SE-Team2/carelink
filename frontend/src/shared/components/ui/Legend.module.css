@@ -1,0 +1,45 @@
+.legend {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font: 400 10px/1 var(--font-mono);
+  color: var(--text-muted);
+}
+
+.item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.swatch {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  box-sizing: border-box;
+}
+
+.assigned {
+  background: var(--text);
+}
+
+.closed {
+  background: var(--success);
+}
+
+.exception {
+  background: var(--danger);
+}
+
+.suggested,
+.needs_cover {
+  border: 1px dashed var(--accent);
+  background: var(--bg);
+}
+
+.vacated {
+  border: 1px dashed var(--danger);
+}

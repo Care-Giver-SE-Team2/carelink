@@ -8,6 +8,7 @@ import java.time.LocalDate;
 import java.time.DayOfWeek;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.util.ArrayList;
 import java.util.List;
 
 import org.junit.jupiter.api.Test;
@@ -23,7 +24,8 @@ class CarePlanServiceTest {
 
 	private final InMemoryCarePlanRepository repository = new InMemoryCarePlanRepository();
 	private final InMemoryCarePlanNodeRepository nodeRepository = new InMemoryCarePlanNodeRepository();
-	private final CarePlanService service = new CarePlanService(repository, nodeRepository);
+	private final List<Object> events = new ArrayList<>();
+	private final CarePlanService service = new CarePlanService(repository, nodeRepository, events::add);
 
 	@Test
 	void findsWhatWasSaved() {
@@ -229,5 +231,27 @@ class CarePlanServiceTest {
 				.isInstanceOf(BusinessRuleViolation.class)
 				.extracting(ex -> ((BusinessRuleViolation) ex).code())
 				.isEqualTo("CARE_PLAN_NOT_PUBLISHED");
+	}
+
+	@Test
+	void announcesTheScheduleChangeWhenAPlanIsPublishedAndWhenItIsStopped() {
+		CarePlan draft = service.createDraft(42L, 7L);
+		CarePlan published = service.publish(draft.id(), LocalDate.of(2026, 4, 1), List.of(new PlanNodeInput(
+				"Personal care", "Bathing assistance",
+				List.of(new VisitInput("Mon", EIGHT, 30)), CarePlanNode.EvidenceType.CHECKLIST)));
+		service.stop(published.id(), LocalDate.of(2026, 9, 22), "Elder moved away", 9L);
+
+		assertThat(events).containsExactly(new CarePlanScheduleChanged(42L), new CarePlanScheduleChanged(42L));
+	}
+
+	@Test
+	void announcesNothingWhenAPublishIsRejected() {
+		CarePlan draft = service.createDraft(42L, 7L);
+
+		assertThatThrownBy(() -> service.publish(draft.id(), null, List.of()))
+				.isInstanceOf(BusinessRuleViolation.class)
+				.extracting(ex -> ((BusinessRuleViolation) ex).code())
+				.isEqualTo("CARE_PLAN_START_DATE_REQUIRED");
+		assertThat(events).isEmpty();
 	}
 }

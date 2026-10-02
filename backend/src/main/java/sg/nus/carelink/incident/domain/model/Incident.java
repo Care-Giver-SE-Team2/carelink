@@ -177,6 +177,53 @@ public record Incident(
     }
 
     /**
+     * UC-MG03:
+     * Raised by the system when a visit reaches its start time with nobody assigned. Nobody
+     * can check in to it, so it enters the workflow the same way a missed check-in does:
+     * source SYSTEM_MISSED_CHECKIN, category SERVICE, severity MEDIUM, reported by nobody.
+     */
+    public static Incident raisedForUncoveredVisit(
+            Long elderId,
+            Long visitId,
+            String description,
+            LocalDateTime now) {
+
+        if (elderId == null) {
+            throw new IllegalArgumentException(
+                    "elderId must not be null"
+            );
+        }
+
+        if (visitId == null) {
+            throw new IllegalArgumentException(
+                    "visitId must not be null"
+            );
+        }
+
+        return new Incident(
+                null,
+                elderId,
+                visitId,
+                null,
+                null,
+                Source.SYSTEM_MISSED_CHECKIN,
+                Category.SERVICE,
+                Severity.MEDIUM,
+                Status.OPEN,
+                null,
+                null,
+                null,
+                description,
+                null,
+                Objects.requireNonNull(
+                        now,
+                        "now"
+                ),
+                null
+        );
+    }
+
+    /**
      * UC-EL01:
      * Creates an incident when an elder disputes a completed service.
      *

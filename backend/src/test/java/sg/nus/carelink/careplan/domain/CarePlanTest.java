@@ -10,6 +10,7 @@ import java.time.LocalDateTime;
 import org.junit.jupiter.api.Test;
 
 import sg.nus.carelink.careplan.domain.model.CarePlan;
+import sg.nus.carelink.careplan.domain.model.EffectivePeriod;
 import sg.nus.carelink.shared.error.BusinessRuleViolation;
 
 class CarePlanTest {
@@ -140,5 +141,48 @@ class CarePlanTest {
 				.isInstanceOf(BusinessRuleViolation.class)
 				.extracting(ex -> ((BusinessRuleViolation) ex).code())
 				.isEqualTo("CARE_PLAN_STOP_REASON_REQUIRED");
+	}
+
+	private static final LocalDate OCT_1 = LocalDate.of(2026, 10, 1);
+	private static final LocalDate OCT_8 = LocalDate.of(2026, 10, 8);
+
+	@Test
+	void aPublishedPlanRunsFromItsStartDateWithNoEnd() {
+		CarePlan published = CarePlan.startDraft(10L, 99L, null).publish(OCT_1, BigDecimal.ONE);
+
+		assertThat(published.effectivePeriod(null)).contains(new EffectivePeriod(OCT_1, null));
+	}
+
+	@Test
+	void aStoppedPlanEndsOnTheStopsEffectiveDate() {
+		CarePlan stopped = CarePlan.startDraft(10L, 99L, null).publish(OCT_1, BigDecimal.ONE)
+				.stop(OCT_8, "Moved to a nursing home", 99L);
+
+		assertThat(stopped.effectivePeriod(null)).contains(new EffectivePeriod(OCT_1, OCT_8));
+	}
+
+	@Test
+	void aSupersededPlanRunsUntilItsSuccessorStarts() {
+		CarePlan superseded = CarePlan.startDraft(10L, 99L, null).publish(OCT_1, BigDecimal.ONE).supersede();
+		CarePlan successor = CarePlan.startDraft(10L, 99L, null).publish(OCT_8, BigDecimal.ONE);
+
+		assertThat(superseded.effectivePeriod(successor)).contains(new EffectivePeriod(OCT_1, OCT_8));
+	}
+
+	@Test
+	void aSupersededPlanWithNoKnownSuccessorSchedulesNothing() {
+		CarePlan superseded = CarePlan.startDraft(10L, 99L, null).publish(OCT_1, BigDecimal.ONE).supersede();
+
+		assertThat(superseded.effectivePeriod(null)).hasValueSatisfying(period -> assertThat(period.isEmpty()).isTrue());
+	}
+
+	@Test
+	void aDraftOrAPlanWithoutAStartDateHasNoSchedule() {
+		CarePlan draft = CarePlan.startDraft(10L, 99L, null);
+		CarePlan legacy = new CarePlan(5L, 10L, 1L, null, 1, CarePlan.Status.PUBLISHED,
+				BigDecimal.ONE, LocalDateTime.now(), null, null);
+
+		assertThat(draft.effectivePeriod(null)).isEmpty();
+		assertThat(legacy.effectivePeriod(null)).isEmpty();
 	}
 }

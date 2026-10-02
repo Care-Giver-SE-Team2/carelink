@@ -2,6 +2,7 @@ package sg.nus.carelink.careplan.application;
 
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
@@ -27,9 +28,27 @@ class InMemoryCarePlanRepository implements CarePlanRepository {
 	}
 
 	@Override
+	public List<CarePlan> findByElderId(Long elderId) {
+		return rows.values().stream()
+				.filter(p -> p.elderId().equals(elderId))
+				.sorted(Comparator.comparing(CarePlan::version))
+				.toList();
+	}
+
+	@Override
+	public List<Long> findElderIdsWithIssuedPlans() {
+		return rows.values().stream()
+				.filter(p -> p.status() != CarePlan.Status.DRAFT)
+				.map(CarePlan::elderId)
+				.distinct()
+				.toList();
+	}
+
+	@Override
 	public CarePlan save(CarePlan carePlan) {
 		CarePlan stored = carePlan.id() == null
-				? new CarePlan(nextId, carePlan.elderId(), carePlan.createdByUserId(), carePlan.supersedesPlanId(), carePlan.version(), carePlan.status(), carePlan.totalHours(), carePlan.publishedAt(), carePlan.createdAt(), carePlan.updatedAt())
+				? new CarePlan(nextId, carePlan.elderId(), carePlan.createdByUserId(), carePlan.supersedesPlanId(), carePlan.version(), carePlan.status(), carePlan.totalHours(), carePlan.publishedAt(), carePlan.createdAt(), carePlan.updatedAt(),
+						carePlan.startDate(), carePlan.stopEffectiveDate(), carePlan.stopReason(), carePlan.stoppedByUserId(), carePlan.stoppedAt())
 				: carePlan;
 		rows.put(stored.id(), stored);
 		if (carePlan.id() == null) {

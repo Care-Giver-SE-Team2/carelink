@@ -1,0 +1,50 @@
+.pagination {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.range {
+  font: 400 10px/1 var(--font-mono);
+  color: var(--text-muted);
+}
+
+.pages {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: auto;
+}
+
+.page {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 28px;
+  height: 28px;
+  padding: 0 8px;
+  border: 1px solid #ddd;
+  background: var(--bg);
+  color: var(--text-secondary);
+  font: 400 10px/1 var(--font-mono);
+  cursor: pointer;
+}
+
+.page:hover:not(:disabled, .current, .gap) {
+  background: var(--bg-hover);
+}
+
+.page:disabled {
+  color: var(--filter-border);
+  cursor: default;
+}
+
+.current {
+  border-color: var(--text);
+  background: var(--text);
+  color: var(--bg);
+}
+
+.gap {
+  cursor: default;
+}

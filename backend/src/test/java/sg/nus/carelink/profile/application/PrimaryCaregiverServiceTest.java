@@ -6,6 +6,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import java.time.Clock;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
+import java.util.ArrayList;
+import java.util.List;
 
 import org.junit.jupiter.api.Test;
 
@@ -24,8 +26,9 @@ class PrimaryCaregiverServiceTest {
 	private final InMemoryCaregiverRepository caregivers = new InMemoryCaregiverRepository();
 	private final InMemoryPrimaryCaregiverAssignmentRepository assignments =
 			new InMemoryPrimaryCaregiverAssignmentRepository();
+	private final List<Object> events = new ArrayList<>();
 	private final PrimaryCaregiverService service = new PrimaryCaregiverService(elders, caregivers, assignments,
-			Clock.fixed(NOW.atZone(SINGAPORE).toInstant(), SINGAPORE));
+			Clock.fixed(NOW.atZone(SINGAPORE).toInstant(), SINGAPORE), events::add);
 
 	@Test
 	void assignsAndStampsTheTime() {
@@ -92,6 +95,36 @@ class PrimaryCaregiverServiceTest {
 
 		assertThat(service.listCaregivers()).extracting(Caregiver::fullName)
 				.containsExactly("Aisyah N.", "Wei Jie Tan");
+	}
+
+	@Test
+	void announcesTheNewPrimaryCaregiverSoTheirVisitsCanFollow() {
+		Elder elder = saveElder();
+		Caregiver aisyah = caregivers.save("Aisyah N.", Caregiver.Status.AVAILABLE);
+
+		service.assign(elder.id(), aisyah.id());
+
+		assertThat(events).containsExactly(new PrimaryCaregiverChanged(elder.id()));
+	}
+
+	@Test
+	void rostersVisitsToTheNamedCaregiverWhileTheyCanTakeThem() {
+		Elder elder = saveElder();
+		Caregiver aisyah = caregivers.save("Aisyah N.", Caregiver.Status.BUSY);
+		service.assign(elder.id(), aisyah.id());
+
+		assertThat(service.findRosterableCaregiverId(elder.id())).contains(aisyah.id());
+	}
+
+	@Test
+	void rostersToNobodyWhenThereIsNoPrimaryCaregiverOrTheyHaveGoneInactive() {
+		Elder unassigned = saveElder();
+		Elder elder = saveElder();
+		Caregiver inactive = caregivers.save("Left Last Month", Caregiver.Status.INACTIVE);
+		assignments.save(new PrimaryCaregiverAssignment(elder.id(), inactive.id(), NOW));
+
+		assertThat(service.findRosterableCaregiverId(unassigned.id())).isEmpty();
+		assertThat(service.findRosterableCaregiverId(elder.id())).isEmpty();
 	}
 
 	private Elder saveElder() {
