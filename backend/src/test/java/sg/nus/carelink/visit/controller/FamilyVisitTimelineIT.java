@@ -23,7 +23,6 @@ import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
-import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
@@ -31,13 +30,14 @@ import org.springframework.context.annotation.Primary;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.mock.web.MockHttpSession;
+import org.springframework.test.context.DynamicPropertyRegistry;
+import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
-import org.testcontainers.junit.jupiter.Container;
-import org.testcontainers.junit.jupiter.Testcontainers;
-import org.testcontainers.mysql.MySQLContainer;
 
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
+
+import sg.nus.carelink.testsupport.SharedMySql;
 
 /**
  * Family timelines through real login sessions, current bindings, MySQL and auditing.
@@ -47,12 +47,12 @@ import tools.jackson.databind.json.JsonMapper;
 @SpringBootTest(properties = {"carelink.report.schedule-cron=-", "carelink.escalation.scan-initial-delay=PT1H"})
 @AutoConfigureMockMvc
 @Import(FamilyVisitTimelineIT.FixedTime.class)
-@Testcontainers
 class FamilyVisitTimelineIT {
 
-	@Container
-	@ServiceConnection
-	static final MySQLContainer MYSQL = new MySQLContainer("mysql:8.4").withCommand("--default-time-zone=+05:00");
+	@DynamicPropertySource
+	static void database(DynamicPropertyRegistry registry) {
+		SharedMySql.register(registry, FamilyVisitTimelineIT.class, "+05:00");
+	}
 
 	@Autowired
 	private MockMvc mvc;

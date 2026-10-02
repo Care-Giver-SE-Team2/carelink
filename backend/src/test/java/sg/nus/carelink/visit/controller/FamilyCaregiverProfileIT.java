@@ -23,7 +23,6 @@ import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
-import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
@@ -31,13 +30,14 @@ import org.springframework.context.annotation.Primary;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.mock.web.MockHttpSession;
+import org.springframework.test.context.DynamicPropertyRegistry;
+import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
-import org.testcontainers.junit.jupiter.Container;
-import org.testcontainers.junit.jupiter.Testcontainers;
-import org.testcontainers.mysql.MySQLContainer;
 
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
+
+import sg.nus.carelink.testsupport.SharedMySql;
 
 /**
  * Verifies public caregiver profiles against current family access and MySQL visit data.
@@ -47,17 +47,16 @@ import tools.jackson.databind.json.JsonMapper;
 @SpringBootTest
 @AutoConfigureMockMvc
 @Import(FamilyCaregiverProfileIT.FixedTime.class)
-@Testcontainers
 class FamilyCaregiverProfileIT {
 
 	private static final String PATH = "/api/caregivers/";
 	private static final String PASSWORD = "test-password";
 	private static final LocalDateTime NOW = LocalDateTime.of(2026, 9, 28, 0, 30);
 
-	@Container
-	@ServiceConnection
-	static final MySQLContainer MYSQL = new MySQLContainer("mysql:8.4")
-			.withCommand("--default-time-zone=+05:00");
+	@DynamicPropertySource
+	static void database(DynamicPropertyRegistry registry) {
+		SharedMySql.register(registry, FamilyCaregiverProfileIT.class, "+05:00");
+	}
 
 	@Autowired
 	private MockMvc mvc;
@@ -131,8 +130,8 @@ class FamilyCaregiverProfileIT {
 		var body = readProfile(loginAs("family-a"), 201);
 		assertThat(body.propertyNames()).containsExactlyInAnyOrder("id", "fullName", "dialects");
 		assertThat(body.path("id").longValue()).isEqualTo(201);
-		assertThat(body.path("fullName").asText()).isEqualTo("Test caregiver 201");
-		assertThat(body.path("dialects")).extracting(JsonNode::asText).containsExactly("English", "Mandarin");
+		assertThat(body.path("fullName").asString()).isEqualTo("Test caregiver 201");
+		assertThat(body.path("dialects")).extracting(JsonNode::asString).containsExactly("English", "Mandarin");
 	}
 
 	@Test
@@ -241,7 +240,7 @@ class FamilyCaregiverProfileIT {
 	void dialectsTrimEmptyEntriesWhilePreservingOrderSpellingAndDuplicates() throws Exception {
 		jdbc.update("UPDATE caregiver SET dialects = ? WHERE id = 201", " , English,\u2003Hokkien\u2003,,English, mandarin , ");
 		var body = readProfile(loginAs("family-a"), 201);
-		assertThat(body.path("dialects")).extracting(JsonNode::asText)
+		assertThat(body.path("dialects")).extracting(JsonNode::asString)
 				.containsExactly("English", "Hokkien", "English", "mandarin");
 	}
 

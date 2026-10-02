@@ -11,7 +11,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.core.io.support.EncodedResource;
@@ -19,17 +18,19 @@ import org.springframework.jdbc.core.ConnectionCallback;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.datasource.init.ScriptUtils;
 import org.springframework.mock.web.MockHttpSession;
+import org.springframework.test.context.DynamicPropertyRegistry;
+import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
-import org.testcontainers.junit.jupiter.Container;
-import org.testcontainers.junit.jupiter.Testcontainers;
-import org.testcontainers.mysql.MySQLContainer;
+
+import sg.nus.carelink.testsupport.SharedMySql;
 
 @SpringBootTest
 @AutoConfigureMockMvc
-@Testcontainers
 class CaregiverWorkIT {
-    @Container @ServiceConnection
-    static final MySQLContainer MYSQL = new MySQLContainer("mysql:8.4").withUrlParam("connectionTimeZone","LOCAL");
+    @DynamicPropertySource
+    static void database(DynamicPropertyRegistry registry) {
+        SharedMySql.register(registry, CaregiverWorkIT.class, null, "connectionTimeZone=LOCAL");
+    }
     @Autowired MockMvc mvc;
     @Autowired JdbcTemplate jdbc;
     long aVisit;

@@ -23,7 +23,6 @@ import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
-import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
@@ -31,13 +30,14 @@ import org.springframework.context.annotation.Primary;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.mock.web.MockHttpSession;
+import org.springframework.test.context.DynamicPropertyRegistry;
+import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
-import org.testcontainers.junit.jupiter.Container;
-import org.testcontainers.junit.jupiter.Testcontainers;
-import org.testcontainers.mysql.MySQLContainer;
 
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
+
+import sg.nus.carelink.testsupport.SharedMySql;
 
 /**
  * Verifies family schedule queries through login sessions and isolated MySQL data.
@@ -47,7 +47,6 @@ import tools.jackson.databind.json.JsonMapper;
 @SpringBootTest
 @AutoConfigureMockMvc
 @Import(FamilyVisitListIT.FixedTime.class)
-@Testcontainers
 class FamilyVisitListIT {
 
 	private static final String PATH = "/api/visits";
@@ -55,10 +54,10 @@ class FamilyVisitListIT {
 	private static final String SNAPSHOT = "2026-09-28T00:30:00+08:00";
 	private static final LocalDateTime NOW = LocalDateTime.of(2026, 9, 28, 0, 30);
 
-	@Container
-	@ServiceConnection
-	static final MySQLContainer MYSQL = new MySQLContainer("mysql:8.4")
-			.withCommand("--default-time-zone=+05:00");
+	@DynamicPropertySource
+	static void database(DynamicPropertyRegistry registry) {
+		SharedMySql.register(registry, FamilyVisitListIT.class, "+05:00");
+	}
 
 	@Autowired
 	private MockMvc mvc;
@@ -152,14 +151,14 @@ class FamilyVisitListIT {
 			assertThat(item.propertyNames()).containsExactlyInAnyOrder(
 					"id", "elderId", "caregiverId", "serviceType", "scheduledStart", "scheduledEnd",
 					"checkedInAt", "checkedOutAt", "status", "asOf");
-			assertThat(item.path("asOf").asText()).isEqualTo(SNAPSHOT);
+			assertThat(item.path("asOf").asString()).isEqualTo(SNAPSHOT);
 		});
 		var completed = body.path("items").get(1);
-		assertThat(completed.path("serviceType").asText()).isEqualTo("BATHING");
-		assertThat(completed.path("scheduledStart").asText()).isEqualTo("2026-09-28T09:00:00+08:00");
-		assertThat(completed.path("scheduledEnd").asText()).isEqualTo("2026-09-28T10:00:00+08:00");
-		assertThat(completed.path("checkedInAt").asText()).isEqualTo("2026-09-28T09:02:00+08:00");
-		assertThat(completed.path("checkedOutAt").asText()).isEqualTo("2026-09-28T10:01:00+08:00");
+		assertThat(completed.path("serviceType").asString()).isEqualTo("BATHING");
+		assertThat(completed.path("scheduledStart").asString()).isEqualTo("2026-09-28T09:00:00+08:00");
+		assertThat(completed.path("scheduledEnd").asString()).isEqualTo("2026-09-28T10:00:00+08:00");
+		assertThat(completed.path("checkedInAt").asString()).isEqualTo("2026-09-28T09:02:00+08:00");
+		assertThat(completed.path("checkedOutAt").asString()).isEqualTo("2026-09-28T10:01:00+08:00");
 		var unassigned = body.path("items").get(2);
 		for (String field : List.of("caregiverId", "serviceType", "scheduledEnd", "checkedInAt", "checkedOutAt")) {
 			assertThat(unassigned.path(field).isNull()).as(field).isTrue();
@@ -272,7 +271,7 @@ class FamilyVisitListIT {
 		assertThat(body.path("totalElements").intValue()).isEqualTo(expectedCount);
 		assertThat(body.path("items")).extracting(item -> item.path("id").longValue()).contains(601L);
 		assertThat(body.path("items")).isNotEmpty()
-				.allSatisfy(item -> assertThat(item.path("status").asText()).isEqualTo(visitStatus));
+				.allSatisfy(item -> assertThat(item.path("status").asString()).isEqualTo(visitStatus));
 	}
 
 	@ParameterizedTest

@@ -5,12 +5,11 @@ import javax.sql.DataSource;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
-import org.testcontainers.junit.jupiter.Container;
-import org.testcontainers.junit.jupiter.Testcontainers;
-import org.testcontainers.mysql.MySQLContainer;
+import org.springframework.test.context.DynamicPropertyRegistry;
+import org.springframework.test.context.DynamicPropertySource;
 
 import sg.nus.carelink.identity.domain.repository.AppUserRepository;
+import sg.nus.carelink.testsupport.SharedMySql;
 
 import java.sql.Connection;
 import java.sql.ResultSet;
@@ -27,12 +26,12 @@ import static org.assertj.core.api.Assertions.assertThat;
  * pipeline. Running it locally requires Docker.
  */
 @SpringBootTest
-@Testcontainers
 class ApplicationContextIT {
 
-	@Container
-	@ServiceConnection
-	static final MySQLContainer MYSQL = new MySQLContainer("mysql:8.4");
+	@DynamicPropertySource
+	static void database(DynamicPropertyRegistry registry) {
+		SharedMySql.register(registry, ApplicationContextIT.class, null);
+	}
 
 	@Autowired
 	private DataSource dataSource;

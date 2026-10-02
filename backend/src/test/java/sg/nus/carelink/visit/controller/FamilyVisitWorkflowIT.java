@@ -26,17 +26,17 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.test.web.server.LocalServerPort;
-import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.Primary;
 import org.springframework.jdbc.core.JdbcTemplate;
-import org.testcontainers.junit.jupiter.Container;
-import org.testcontainers.junit.jupiter.Testcontainers;
-import org.testcontainers.mysql.MySQLContainer;
+import org.springframework.test.context.DynamicPropertyRegistry;
+import org.springframework.test.context.DynamicPropertySource;
 
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
+
+import sg.nus.carelink.testsupport.SharedMySql;
 
 /**
  * Real HTTP/Session/CSRF and MySQL acceptance of FM03 reads.
@@ -46,12 +46,11 @@ import tools.jackson.databind.json.JsonMapper;
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
 		properties = {"carelink.report.schedule-cron=-", "carelink.escalation.scan-initial-delay=PT1H"})
 @Import(FamilyVisitWorkflowIT.FixedTime.class)
-@Testcontainers
 class FamilyVisitWorkflowIT {
-	@Container
-	@ServiceConnection
-	static final MySQLContainer MYSQL = new MySQLContainer("mysql:8.4")
-			.withUrlParam("connectionTimeZone", "Asia/Singapore").withCommand("--default-time-zone=+05:00");
+	@DynamicPropertySource
+	static void database(DynamicPropertyRegistry registry) {
+		SharedMySql.register(registry, FamilyVisitWorkflowIT.class, "+05:00", "connectionTimeZone=Asia/Singapore");
+	}
 	@LocalServerPort
 	private int port;
 	@Autowired
@@ -128,12 +127,12 @@ class FamilyVisitWorkflowIT {
 			var detail = getJson(family, "/api/visits/" + visitId);
 			var timeline = getJson(family, "/api/visits/" + visitId + "/timeline");
 			var tasks = getJson(family, "/api/visits/" + visitId + "/tasks");
-			assertThat(detail.path("status").asText()).isEqualTo("IN_PROGRESS");
-			assertThat(detail.path("checkedInAt").asText()).isEqualTo("2026-09-30T09:03:00+08:00");
+			assertThat(detail.path("status").asString()).isEqualTo("IN_PROGRESS");
+			assertThat(detail.path("checkedInAt").asString()).isEqualTo("2026-09-30T09:03:00+08:00");
 			assertThat(detail.path("checkedOutAt").isNull()).isTrue();
-			assertThat(detail.path("asOf").asText()).isEqualTo("2026-09-30T09:20:00+08:00");
+			assertThat(detail.path("asOf").asString()).isEqualTo("2026-09-30T09:20:00+08:00");
 			assertThat(timeline).extracting(node -> node.path("id").longValue()).containsExactly(801L, 802L);
-			assertThat(tasks).extracting(node -> node.path("status").asText())
+			assertThat(tasks).extracting(node -> node.path("status").asString())
 					.containsExactly("DONE", "PENDING", "SKIPPED", "REFUSED");
 			assertThat(List.of(detail, timeline, tasks).toString()).doesNotContain("PRIVATE-", "INTERNAL-",
 					"REJECTED", "carePlanNodeId", "stateDeadline", "version", "actorUserId", "rejectionReason");
@@ -153,18 +152,18 @@ class FamilyVisitWorkflowIT {
 	void nextRoundReadsChangedFactsWithoutInventingMissingHistoryOrTaskCompletion() throws Exception {
 		try (var family = newBrowser()) {
 			login(family, "family-a");
-			assertThat(getJson(family, "/api/visits/501").path("status").asText()).isEqualTo("IN_PROGRESS");
-			assertThat(getJson(family, "/api/visits/501/tasks").get(1).path("status").asText()).isEqualTo("PENDING");
+			assertThat(getJson(family, "/api/visits/501").path("status").asString()).isEqualTo("IN_PROGRESS");
+			assertThat(getJson(family, "/api/visits/501/tasks").get(1).path("status").asString()).isEqualTo("PENDING");
 			assertThat(getJson(family, "/api/visits/501/timeline")).hasSize(2);
 			// Isolated upstream fixture writes, deliberately independent of CG03/CG05.
 			jdbc.update("UPDATE visit SET status = 'COMPLETED', checked_out_at = ? WHERE id = 501", at("2026-10-01T00:20:00"));
 			jdbc.update("UPDATE visit_task SET status = 'DONE', completed_at = ? WHERE id = 902", at("2026-10-01T00:19:00"));
 			var changed = careFacts();
 			var detail = getJson(family, "/api/visits/501");
-			assertThat(detail.path("status").asText()).isEqualTo("COMPLETED");
-			assertThat(detail.path("checkedOutAt").asText()).isEqualTo("2026-10-01T00:20:00+08:00");
+			assertThat(detail.path("status").asString()).isEqualTo("COMPLETED");
+			assertThat(detail.path("checkedOutAt").asString()).isEqualTo("2026-10-01T00:20:00+08:00");
 			assertThat(getJson(family, "/api/visits/501/timeline")).hasSize(2);
-			assertThat(getJson(family, "/api/visits/501/tasks")).extracting(node -> node.path("status").asText())
+			assertThat(getJson(family, "/api/visits/501/tasks")).extracting(node -> node.path("status").asString())
 					.containsExactly("DONE", "DONE", "SKIPPED", "REFUSED");
 			assertThat(careFacts()).isEqualTo(changed);
 			jdbc.update("""
@@ -174,7 +173,7 @@ class FamilyVisitWorkflowIT {
 			var afterHistory = careFacts();
 			var latest = getJson(family, "/api/visits/501/timeline");
 			assertThat(latest).hasSize(3);
-			assertThat(latest.get(2).path("occurredAt").asText()).isEqualTo("2026-10-01T00:20:00+08:00");
+			assertThat(latest.get(2).path("occurredAt").asString()).isEqualTo("2026-10-01T00:20:00+08:00");
 			assertThat(careFacts()).isEqualTo(afterHistory);
 		}
 	}
@@ -206,7 +205,7 @@ class FamilyVisitWorkflowIT {
 		try (var family = newBrowser(); var other = newBrowser()) {
 			login(family, "family-a");
 			login(other, "family-b");
-			assertThat(getJson(family, "/api/visits/503").path("status").asText()).isEqualTo("SCHEDULED");
+			assertThat(getJson(family, "/api/visits/503").path("status").asString()).isEqualTo("SCHEDULED");
 			assertThat(getJson(family, "/api/visits/503/timeline")).isEmpty();
 			assertThat(getJson(family, "/api/visits/503/tasks")).isEmpty();
 			for (String suffix : List.of("", "/timeline", "/tasks")) {
@@ -333,7 +332,7 @@ class FamilyVisitWorkflowIT {
 						Map.of("username", username, "password", "test-password")))).build();
 		var response = browser.client().send(request, HttpResponse.BodyHandlers.ofString());
 		assertThat(response.statusCode()).as("Login response: %s", response.body()).isEqualTo(200);
-		assertThat(json.readTree(response.body()).path("username").asText()).isEqualTo(username);
+		assertThat(json.readTree(response.body()).path("username").asString()).isEqualTo(username);
 		assertThat(cookie(browser, "JSESSIONID").getValue()).isNotBlank();
 		assertThat(cookie(browser, "JSESSIONID").isHttpOnly()).isTrue();
 	}

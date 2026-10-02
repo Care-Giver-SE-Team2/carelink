@@ -15,14 +15,12 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
-import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.test.context.DynamicPropertyRegistry;
+import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.context.TestPropertySource;
-import org.testcontainers.junit.jupiter.Container;
-import org.testcontainers.junit.jupiter.Testcontainers;
-import org.testcontainers.mysql.MySQLContainer;
 
 import sg.nus.carelink.incident.application.EscalationScanService;
 import sg.nus.carelink.incident.application.IncidentService;
@@ -35,6 +33,7 @@ import sg.nus.carelink.incident.domain.model.IncidentLog;
 import sg.nus.carelink.incident.domain.model.PageSlice;
 import sg.nus.carelink.incident.domain.model.Playbook;
 import sg.nus.carelink.incident.domain.repository.IncidentRepository;
+import sg.nus.carelink.testsupport.SharedMySql;
 
 /**
  * UC-MG05 and UC-SYS02 against a real MySQL, with the real Flyway migrations, the real
@@ -58,7 +57,6 @@ import sg.nus.carelink.incident.domain.repository.IncidentRepository;
  * <p>Named *IT: runs under the integration-tests job of the pipeline; needs Docker.
  */
 @SpringBootTest
-@Testcontainers
 @Import(EscalationFlowIT.FixedClockConfig.class)
 @TestPropertySource(properties = {
 		// Keep the real scheduler out of the way; the sweep is driven by hand here.
@@ -74,10 +72,10 @@ class EscalationFlowIT {
 	 * developer machine whose own zone is Singapore sees no shift either way; CI is where this
 	 * has teeth.)
 	 */
-	@Container
-	@ServiceConnection
-	static final MySQLContainer MYSQL = new MySQLContainer("mysql:8.4")
-			.withUrlParam("connectionTimeZone", "Asia/Singapore");
+	@DynamicPropertySource
+	static void database(DynamicPropertyRegistry registry) {
+		SharedMySql.register(registry, EscalationFlowIT.class, null, "connectionTimeZone=Asia/Singapore");
+	}
 
 	/**
 	 * The institution's managers, created once for the class.

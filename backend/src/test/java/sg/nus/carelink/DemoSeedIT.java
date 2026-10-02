@@ -9,16 +9,16 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.support.EncodedResource;
 import org.springframework.jdbc.core.ConnectionCallback;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.datasource.init.ScriptUtils;
-import org.testcontainers.junit.jupiter.Container;
-import org.testcontainers.junit.jupiter.Testcontainers;
-import org.testcontainers.mysql.MySQLContainer;
+import org.springframework.test.context.DynamicPropertyRegistry;
+import org.springframework.test.context.DynamicPropertySource;
+
+import sg.nus.carelink.testsupport.SharedMySql;
 
 /**
  * Checks that the demonstration seed still loads, that loading it twice is harmless, and
@@ -45,12 +45,12 @@ import org.testcontainers.mysql.MySQLContainer;
  * <p>Named *IT: runs under the integration-tests job of the pipeline; needs Docker.
  */
 @SpringBootTest
-@Testcontainers
 class DemoSeedIT {
 
-	@Container
-	@ServiceConnection
-	static final MySQLContainer MYSQL = new MySQLContainer("mysql:8.4");
+	@DynamicPropertySource
+	static void database(DynamicPropertyRegistry registry) {
+		SharedMySql.register(registry, DemoSeedIT.class, null);
+	}
 
 	private static final Resource SEED = new ClassPathResource("db/demo/demo-seed.sql");
 

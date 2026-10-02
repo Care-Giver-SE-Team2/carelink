@@ -3,7 +3,6 @@ package sg.nus.carelink.rostering.infrastructure.persistence.adapter;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
 
 import org.junit.jupiter.api.Test;
 

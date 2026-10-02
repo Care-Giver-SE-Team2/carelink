@@ -9,17 +9,16 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.access.AccessDeniedException;
-import org.testcontainers.junit.jupiter.Container;
-import org.testcontainers.junit.jupiter.Testcontainers;
-import org.testcontainers.mysql.MySQLContainer;
+import org.springframework.test.context.DynamicPropertyRegistry;
+import org.springframework.test.context.DynamicPropertySource;
 
 import sg.nus.carelink.profile.domain.model.IntakeApplication;
 import sg.nus.carelink.profile.domain.model.IntakeSubmission;
 import sg.nus.carelink.profile.domain.repository.FamilyMemberRepository;
 import sg.nus.carelink.profile.domain.repository.IntakeApplicationRepository;
+import sg.nus.carelink.testsupport.SharedMySql;
 
 /**
  * Verifies family intake submission and persistence using an isolated MySQL database.
@@ -27,12 +26,12 @@ import sg.nus.carelink.profile.domain.repository.IntakeApplicationRepository;
  * @author Wang Zhili
  */
 @SpringBootTest
-@Testcontainers
 class IntakeSubmissionIT {
 
-	@Container
-	@ServiceConnection
-	static final MySQLContainer MYSQL = new MySQLContainer("mysql:8.4");
+	@DynamicPropertySource
+	static void database(DynamicPropertyRegistry registry) {
+		SharedMySql.register(registry, IntakeSubmissionIT.class, null);
+	}
 
 	@Autowired
 	private IntakeSubmissionService service;

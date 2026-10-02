@@ -52,7 +52,7 @@ public class IntakeApplicationCreateRequestDeserializer extends ValueDeserialize
 		if (value == null) {
 			return null;
 		}
-		return value.isTextual() ? value.stringValue() : invalid(context, field + " must be a string");
+		return value.isString() ? value.stringValue() : invalid(context, field + " must be a string");
 	}
 
 	private static Integer age(JsonNode input, DeserializationContext context) {
@@ -86,7 +86,7 @@ public class IntakeApplicationCreateRequestDeserializer extends ValueDeserialize
 		}
 		var needs = new ArrayList<String>();
 		for (JsonNode item : value) {
-			if (!item.isTextual()) {
+			if (!item.isString()) {
 				return invalid(context, "careNeeds items must be strings");
 			}
 			needs.add(item.stringValue());

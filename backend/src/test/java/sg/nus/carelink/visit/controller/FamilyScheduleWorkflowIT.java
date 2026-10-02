@@ -22,17 +22,17 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.test.web.server.LocalServerPort;
-import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.Primary;
 import org.springframework.jdbc.core.JdbcTemplate;
-import org.testcontainers.junit.jupiter.Container;
-import org.testcontainers.junit.jupiter.Testcontainers;
-import org.testcontainers.mysql.MySQLContainer;
+import org.springframework.test.context.DynamicPropertyRegistry;
+import org.springframework.test.context.DynamicPropertySource;
 
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
+
+import sg.nus.carelink.testsupport.SharedMySql;
 
 /**
  * Verifies the family schedule workflow over HTTP with server sessions and isolated MySQL data.
@@ -41,13 +41,12 @@ import tools.jackson.databind.json.JsonMapper;
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @Import(FamilyScheduleWorkflowIT.FixedTime.class)
-@Testcontainers
 class FamilyScheduleWorkflowIT {
 
-	@Container
-	@ServiceConnection
-	static final MySQLContainer MYSQL = new MySQLContainer("mysql:8.4")
-			.withCommand("--default-time-zone=+05:00");
+	@DynamicPropertySource
+	static void database(DynamicPropertyRegistry registry) {
+		SharedMySql.register(registry, FamilyScheduleWorkflowIT.class, "+05:00");
+	}
 
 	@LocalServerPort
 	private int port;
@@ -130,7 +129,7 @@ class FamilyScheduleWorkflowIT {
 			login(browser, "family-a");
 			var currentUser = getJson(browser, "/api/auth/me");
 			assertThat(currentUser.path("id").longValue()).isEqualTo(7L);
-			assertThat(currentUser.path("roles")).extracting(JsonNode::asText).containsExactly("FAMILY");
+			assertThat(currentUser.path("roles")).extracting(JsonNode::asString).containsExactly("FAMILY");
 
 			var elders = getJson(browser, "/api/elders");
 			assertThat(elders.isArray()).isTrue();
@@ -142,9 +141,9 @@ class FamilyScheduleWorkflowIT {
 			assertThat(firstPage.path("totalElements").longValue()).isEqualTo(3L);
 			assertThat(firstPage.path("items")).extracting(visit -> visit.path("id").longValue())
 					.containsExactly(301L, 302L);
-			assertThat(firstPage.path("items").get(0).path("scheduledStart").asText())
+			assertThat(firstPage.path("items").get(0).path("scheduledStart").asString())
 					.isEqualTo("2026-09-28T10:00:00+08:00");
-			assertThat(firstPage.path("items").get(0).path("asOf").asText())
+			assertThat(firstPage.path("items").get(0).path("asOf").asString())
 					.isEqualTo("2026-09-28T00:30:00+08:00");
 			var secondPage = getJson(browser, "/api/visits?elderId=" + selectedElderId + "&page=1&size=2");
 			assertThat(secondPage.path("page").intValue()).isEqualTo(1);
@@ -155,14 +154,14 @@ class FamilyScheduleWorkflowIT {
 			long selectedCaregiverId = firstPage.path("items").get(0).path("caregiverId").longValue();
 			var caregiver = getJson(browser, "/api/caregivers/" + selectedCaregiverId);
 			assertThat(caregiver.path("id").longValue()).isEqualTo(201L);
-			assertThat(caregiver.path("fullName").asText()).isEqualTo("Caregiver Mei");
+			assertThat(caregiver.path("fullName").asString()).isEqualTo("Caregiver Mei");
 			assertThat(caregiver.propertyNames()).containsExactlyInAnyOrder("id", "fullName", "dialects");
-			assertThat(caregiver.path("dialects")).extracting(JsonNode::asText).containsExactly("Mandarin", "Hokkien");
+			assertThat(caregiver.path("dialects")).extracting(JsonNode::asString).containsExactly("Mandarin", "Hokkien");
 			var credentials = getJson(browser, "/api/caregivers/" + selectedCaregiverId + "/credentials");
 			assertThat(credentials).extracting(credential -> credential.path("id").longValue())
 					.containsExactly(901L, 902L);
-			assertThat(credentials.get(0).path("status").asText()).isEqualTo("PUBLISHED");
-			assertThat(credentials.get(1).path("status").asText()).isEqualTo("EXPIRED");
+			assertThat(credentials.get(0).path("status").asString()).isEqualTo("PUBLISHED");
+			assertThat(credentials.get(1).path("status").asString()).isEqualTo("EXPIRED");
 			assertThat(credentials.toString()).doesNotContain("PRIVATE-", "certificateNo", "reviewedByUserId");
 
 			var audits = auditRows();
@@ -267,7 +266,7 @@ class FamilyScheduleWorkflowIT {
 			var application = json.readTree(submitted.body());
 			long applicationId = application.path("id").longValue();
 			assertThat(application.path("applicantFamilyMemberId").longValue()).isEqualTo(42L);
-			assertThat(application.path("status").asText()).isEqualTo("SUBMITTED");
+			assertThat(application.path("status").asString()).isEqualTo("SUBMITTED");
 			assertThat(application.path("elderId").isNull()).isTrue();
 			assertThat(getJson(family, "/api/visits?elderId=101").path("totalElements").longValue()).isEqualTo(3L);
 			var applications = getJson(family, "/api/intake-applications");
@@ -306,7 +305,7 @@ class FamilyScheduleWorkflowIT {
 						Map.of("username", username, "password", "test-password")))).build();
 		var response = browser.client().send(request, HttpResponse.BodyHandlers.ofString());
 		assertThat(response.statusCode()).as("Login response: %s", response.body()).isEqualTo(200);
-		assertThat(json.readTree(response.body()).path("username").asText()).isEqualTo(username);
+		assertThat(json.readTree(response.body()).path("username").asString()).isEqualTo(username);
 		assertThat(cookie(browser, "JSESSIONID").getValue()).isNotBlank();
 		assertThat(cookie(browser, "JSESSIONID").isHttpOnly()).isTrue();
 	}

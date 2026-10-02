@@ -22,7 +22,6 @@ import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
-import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
@@ -30,13 +29,14 @@ import org.springframework.context.annotation.Primary;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.mock.web.MockHttpSession;
+import org.springframework.test.context.DynamicPropertyRegistry;
+import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
-import org.testcontainers.junit.jupiter.Container;
-import org.testcontainers.junit.jupiter.Testcontainers;
-import org.testcontainers.mysql.MySQLContainer;
 
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
+
+import sg.nus.carelink.testsupport.SharedMySql;
 
 /**
  * Family report details through real login sessions, current bindings, MySQL and auditing.
@@ -46,7 +46,6 @@ import tools.jackson.databind.json.JsonMapper;
 @SpringBootTest(properties = {"carelink.report.schedule-cron=-", "carelink.escalation.scan-initial-delay=PT1H"})
 @AutoConfigureMockMvc
 @Import(FamilyReportDetailIT.FixedTime.class)
-@Testcontainers
 class FamilyReportDetailIT {
 
 	private static final LocalDateTime NOW = LocalDateTime.of(2026, 9, 28, 0, 30);
@@ -55,9 +54,10 @@ class FamilyReportDetailIT {
 			{"sections":[],"dataComplete":true,"missingItems":[],"disclaimer":null,"generatedBy":"TEMPLATE"}
 			""";
 
-	@Container
-	@ServiceConnection
-	static final MySQLContainer MYSQL = new MySQLContainer("mysql:8.4").withCommand("--default-time-zone=+05:00");
+	@DynamicPropertySource
+	static void database(DynamicPropertyRegistry registry) {
+		SharedMySql.register(registry, FamilyReportDetailIT.class, "+05:00");
+	}
 
 	@Autowired
 	private MockMvc mvc;
@@ -129,11 +129,11 @@ class FamilyReportDetailIT {
 		assertThat(body.propertyNames()).containsExactlyInAnyOrder("id", "elderId", "audience", "periodStart", "periodEnd",
 				"status", "dataComplete", "missingItems", "generatedBy", "createdAt", "archivedAt", "sections", "disclaimer", "amendments");
 		assertThat(body.path("id").longValue()).isEqualTo(id);
-		assertThat(body.path("audience").asText()).isEqualTo("FAMILY");
-		assertThat(body.path("status").asText()).isEqualTo(id == 301 ? "PUBLISHED" : "ARCHIVED");
-		assertThat(body.path("createdAt").asText()).isEqualTo("2026-09-28T00:30:00+08:00");
+		assertThat(body.path("audience").asString()).isEqualTo("FAMILY");
+		assertThat(body.path("status").asString()).isEqualTo(id == 301 ? "PUBLISHED" : "ARCHIVED");
+		assertThat(body.path("createdAt").asString()).isEqualTo("2026-09-28T00:30:00+08:00");
 		assertThat(body.path("archivedAt").isNull()).isTrue();
-		assertThat(body.path("disclaimer").asText()).isEqualTo(DISCLAIMER);
+		assertThat(body.path("disclaimer").asString()).isEqualTo(DISCLAIMER);
 		assertThat(body.path("sections")).isEmpty();
 		assertThat(body.path("amendments")).isEmpty();
 	}
@@ -201,7 +201,7 @@ class FamilyReportDetailIT {
 	void eitherStoredGenerationSourceIsReadableWithoutRegeneration(String source) throws Exception {
 		jdbc.update("UPDATE report SET content = ? WHERE id = 301", CONTENT.replace("TEMPLATE", source));
 		var before = jdbc.queryForList("SELECT * FROM report ORDER BY id");
-		assertThat(readDetail(loginAs("family-a"), 301).path("generatedBy").asText()).isEqualTo(source);
+		assertThat(readDetail(loginAs("family-a"), 301).path("generatedBy").asString()).isEqualTo(source);
 		assertThat(jdbc.queryForList("SELECT * FROM report ORDER BY id")).isEqualTo(before);
 	}
 
@@ -213,9 +213,9 @@ class FamilyReportDetailIT {
 				""");
 		var body = readDetail(loginAs("manager"), 301);
 		assertThat(body.path("disclaimer").isNull()).isTrue();
-		assertThat(body.path("createdAt").asText()).isEqualTo("2026-09-28T00:30:00");
+		assertThat(body.path("createdAt").asString()).isEqualTo("2026-09-28T00:30:00");
 		assertThat(body.path("amendments").get(0).path("authorUserId").longValue()).isEqualTo(10);
-		assertThat(readDetail(loginAs("manager"), 321).path("audience").asText()).isEqualTo("INTERNAL");
+		assertThat(readDetail(loginAs("manager"), 321).path("audience").asString()).isEqualTo("INTERNAL");
 	}
 
 	@Test
@@ -241,23 +241,23 @@ class FamilyReportDetailIT {
 		var manager = loginAs("manager");
 		var before = readDetail(manager, 301);
 		var body = readDetail(loginAs("family-a"), 301);
-		assertThat(body.path("sections")).extracting(section -> section.path("title").asText())
+		assertThat(body.path("sections")).extracting(section -> section.path("title").asString())
 				.containsExactly("Service completion", "Vital signs", "Observations", "Incidents");
 		assertThat(body.path("sections")).allSatisfy(section ->
 				assertThat(section.propertyNames()).containsExactlyInAnyOrder("title", "body"));
-		assertThat(body.path("sections").get(0).path("body").asText()).isEqualTo("Two visits completed by Mei.");
-		assertThat(body.path("sections").get(1).path("body").asText()).isEqualTo("Systolic 128–142 mmHg");
-		assertThat(body.path("sections").get(2).path("body").asText()).isEqualTo(observation);
-		assertThat(body.path("sections").get(3).path("body").asText()).isEqualTo("A fall was reported; follow-up completed.");
+		assertThat(body.path("sections").get(0).path("body").asString()).isEqualTo("Two visits completed by Mei.");
+		assertThat(body.path("sections").get(1).path("body").asString()).isEqualTo("Systolic 128–142 mmHg");
+		assertThat(body.path("sections").get(2).path("body").asString()).isEqualTo(observation);
+		assertThat(body.path("sections").get(3).path("body").asString()).isEqualTo("A fall was reported; follow-up completed.");
 		assertThat(body.path("dataComplete").booleanValue()).isFalse();
-		assertThat(body.path("missingItems")).extracting(JsonNode::asText)
+		assertThat(body.path("missingItems")).extracting(JsonNode::asString)
 				.containsExactly("Visit 201 on 2026-09-22 not closed", "Some care records are incomplete.");
-		assertThat(body.path("disclaimer").asText()).isEqualTo(DISCLAIMER);
+		assertThat(body.path("disclaimer").asString()).isEqualTo(DISCLAIMER);
 		assertThat(body.path("amendments")).extracting(note -> note.path("id").longValue()).containsExactly(501L, 502L, 500L);
 		assertThat(body.path("amendments")).allSatisfy(note ->
 				assertThat(note.propertyNames()).containsExactlyInAnyOrder("id", "note", "createdAt"));
-		assertThat(body.path("amendments").get(0).path("note").asText()).isEqualTo("First correction: three laps, not two.");
-		assertThat(body.path("amendments").get(0).path("createdAt").asText()).isEqualTo("2026-09-28T01:00:00+08:00");
+		assertThat(body.path("amendments").get(0).path("note").asString()).isEqualTo("First correction: three laps, not two.");
+		assertThat(body.path("amendments").get(0).path("createdAt").asString()).isEqualTo("2026-09-28T01:00:00+08:00");
 		assertThat(readDetail(manager, 301)).isEqualTo(before);
 	}
 
@@ -285,9 +285,9 @@ class FamilyReportDetailIT {
 		long familyId = 0;
 		long internalId = 0;
 		for (JsonNode report : generated) {
-			if (report.path("audience").asText().equals("FAMILY")) {
+			if (report.path("audience").asString().equals("FAMILY")) {
 				familyId = report.path("id").longValue();
-			} else if (report.path("audience").asText().equals("INTERNAL")) {
+			} else if (report.path("audience").asString().equals("INTERNAL")) {
 				internalId = report.path("id").longValue();
 			}
 		}
@@ -295,13 +295,13 @@ class FamilyReportDetailIT {
 		assertThat(internalId).isPositive();
 		var session = loginAs("family-a");
 		var original = readDetail(session, familyId);
-		assertThat(original.path("sections")).extracting(section -> section.path("title").asText())
+		assertThat(original.path("sections")).extracting(section -> section.path("title").asString())
 				.containsExactly("Service completion", "Vital signs", "Observations", "Incidents");
-		assertThat(original.path("sections").get(0).path("body").asText()).contains("Mei").doesNotContain("#201");
-		assertThat(original.path("sections").get(1).path("body").asText()).isEqualTo("Systolic 128–142 mmHg");
-		assertThat(original.path("sections").get(2).path("body").asText()).contains("Mei: Walked two laps with a cane.");
-		assertThat(original.path("disclaimer").asText()).isEqualTo(DISCLAIMER);
-		assertThat(original.path("generatedBy").asText()).isEqualTo("TEMPLATE");
+		assertThat(original.path("sections").get(0).path("body").asString()).contains("Mei").doesNotContain("#201");
+		assertThat(original.path("sections").get(1).path("body").asString()).isEqualTo("Systolic 128–142 mmHg");
+		assertThat(original.path("sections").get(2).path("body").asString()).contains("Mei: Walked two laps with a cane.");
+		assertThat(original.path("disclaimer").asString()).isEqualTo(DISCLAIMER);
+		assertThat(original.path("generatedBy").asString()).isEqualTo("TEMPLATE");
 		assertThat(original.path("amendments")).isEmpty();
 		mvc.perform(get("/api/reports/{id}", internalId).session(session)).andExpect(status().isForbidden());
 		var amendment = managerPost(manager, "/api/reports/" + familyId + "/amendments",
@@ -310,7 +310,7 @@ class FamilyReportDetailIT {
 		assertThat(corrected.path("sections")).isEqualTo(original.path("sections"));
 		assertThat(corrected.path("amendments")).hasSize(1);
 		assertThat(corrected.path("amendments").get(0).path("id")).isEqualTo(amendment.path("id"));
-		assertThat(corrected.path("amendments").get(0).path("note").asText()).isEqualTo("Correction: three laps were completed.");
+		assertThat(corrected.path("amendments").get(0).path("note").asString()).isEqualTo("Correction: three laps were completed.");
 		assertThat(corrected.path("amendments").get(0).has("authorUserId")).isFalse();
 		assertThat(readDetail(manager, familyId).path("amendments").get(0).path("authorUserId").longValue()).isEqualTo(10L);
 	}

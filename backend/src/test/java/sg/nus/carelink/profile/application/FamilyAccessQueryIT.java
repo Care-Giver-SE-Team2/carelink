@@ -14,18 +14,17 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
-import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.Primary;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.access.AccessDeniedException;
-import org.testcontainers.junit.jupiter.Container;
-import org.testcontainers.junit.jupiter.Testcontainers;
-import org.testcontainers.mysql.MySQLContainer;
+import org.springframework.test.context.DynamicPropertyRegistry;
+import org.springframework.test.context.DynamicPropertySource;
 
 import sg.nus.carelink.profile.domain.model.ElderFamilyBinding;
 import sg.nus.carelink.profile.domain.repository.ElderFamilyBindingRepository;
+import sg.nus.carelink.testsupport.SharedMySql;
 
 /**
  * Verifies family access against real account and binding rows in isolated MySQL.
@@ -34,15 +33,14 @@ import sg.nus.carelink.profile.domain.repository.ElderFamilyBindingRepository;
  */
 @SpringBootTest
 @Import(FamilyAccessQueryIT.FixedTime.class)
-@Testcontainers
 class FamilyAccessQueryIT {
 
 	private static final LocalDateTime NOW = LocalDateTime.of(2026, 9, 23, 10, 0);
 
-	@Container
-	@ServiceConnection
-	static final MySQLContainer MYSQL = new MySQLContainer("mysql:8.4")
-			.withCommand("--default-time-zone=+05:00");
+	@DynamicPropertySource
+	static void database(DynamicPropertyRegistry registry) {
+		SharedMySql.register(registry, FamilyAccessQueryIT.class, "+05:00");
+	}
 
 	@Autowired
 	private FamilyAccessQuery access;

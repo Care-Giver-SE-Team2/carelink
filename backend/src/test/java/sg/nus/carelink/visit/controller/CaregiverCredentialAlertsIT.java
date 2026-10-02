@@ -18,30 +18,30 @@ import org.junit.jupiter.params.provider.CsvSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
-import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.Primary;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.test.context.DynamicPropertyRegistry;
+import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
 import org.springframework.transaction.annotation.Transactional;
-import org.testcontainers.junit.jupiter.Container;
-import org.testcontainers.junit.jupiter.Testcontainers;
-import org.testcontainers.mysql.MySQLContainer;
 import sg.nus.carelink.profile.application.CaregiverDirectory;
+import sg.nus.carelink.testsupport.SharedMySql;
 import tools.jackson.databind.json.JsonMapper;
 
 @SpringBootTest
 @AutoConfigureMockMvc
-@Testcontainers
 @Transactional
 @Import(CaregiverCredentialAlertsIT.FixedTime.class)
 class CaregiverCredentialAlertsIT {
     private static final LocalDate TODAY = LocalDate.of(2026, 9, 25);
-    @Container @ServiceConnection
-    static final MySQLContainer MYSQL = new MySQLContainer("mysql:8.4").withCommand("--default-time-zone=+05:00");
+    @DynamicPropertySource
+    static void database(DynamicPropertyRegistry registry) {
+        SharedMySql.register(registry, CaregiverCredentialAlertsIT.class, "+05:00");
+    }
     @Autowired MockMvc mvc;
     @Autowired JdbcTemplate jdbc;
     @Autowired EntityManager entityManager;

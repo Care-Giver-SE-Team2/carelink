@@ -19,16 +19,14 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
-import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.jdbc.support.GeneratedKeyHolder;
 import org.springframework.jdbc.support.KeyHolder;
+import org.springframework.test.context.DynamicPropertyRegistry;
+import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.context.TestPropertySource;
-import org.testcontainers.junit.jupiter.Container;
-import org.testcontainers.junit.jupiter.Testcontainers;
-import org.testcontainers.mysql.MySQLContainer;
 
 import sg.nus.carelink.report.application.ReportService;
 import sg.nus.carelink.report.domain.model.Report;
@@ -39,6 +37,7 @@ import sg.nus.carelink.report.domain.model.ReportPeriod;
 import sg.nus.carelink.report.domain.model.ReportSection;
 import sg.nus.carelink.report.domain.model.VisitFact;
 import sg.nus.carelink.report.domain.repository.ReportFactsSource;
+import sg.nus.carelink.testsupport.SharedMySql;
 
 /**
  * UC-MG07 against a real MySQL, with the real Flyway migrations (V8's report_amendment
@@ -65,7 +64,6 @@ import sg.nus.carelink.report.domain.repository.ReportFactsSource;
  * <p>Named *IT: runs under the integration-tests job of the pipeline; needs Docker.
  */
 @SpringBootTest
-@Testcontainers
 @Import(ReportFlowIT.FixedClockConfig.class)
 @TestPropertySource(properties = {
 		// Keep the escalation sweep out of the way, and drive the weekly run by hand.
@@ -74,10 +72,10 @@ import sg.nus.carelink.report.domain.repository.ReportFactsSource;
 })
 class ReportFlowIT {
 
-	@Container
-	@ServiceConnection
-	static final MySQLContainer MYSQL = new MySQLContainer("mysql:8.4")
-			.withUrlParam("connectionTimeZone", "Asia/Singapore");
+	@DynamicPropertySource
+	static void database(DynamicPropertyRegistry registry) {
+		SharedMySql.register(registry, ReportFlowIT.class, null, "connectionTimeZone=Asia/Singapore");
+	}
 
 	private static final ZoneId SINGAPORE = ZoneId.of("Asia/Singapore");
 

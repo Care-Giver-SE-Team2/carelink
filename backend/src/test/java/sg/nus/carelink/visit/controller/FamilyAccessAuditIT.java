@@ -33,7 +33,6 @@ import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
-import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
@@ -42,17 +41,17 @@ import org.springframework.dao.DataAccessResourceFailureException;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.mock.web.MockHttpSession;
+import org.springframework.test.context.DynamicPropertyRegistry;
+import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
-import org.testcontainers.junit.jupiter.Container;
-import org.testcontainers.junit.jupiter.Testcontainers;
-import org.testcontainers.mysql.MySQLContainer;
 
 import sg.nus.carelink.profile.application.CaregiverDirectory;
 import sg.nus.carelink.shared.audit.application.AccessAudit;
 import sg.nus.carelink.shared.audit.application.AccessAuditEntry;
 import sg.nus.carelink.shared.error.ResourceNotFound;
+import sg.nus.carelink.testsupport.SharedMySql;
 import sg.nus.carelink.visit.domain.repository.VisitScheduleQuery;
 import tools.jackson.databind.json.JsonMapper;
 
@@ -67,7 +66,6 @@ import tools.jackson.databind.json.JsonMapper;
 })
 @AutoConfigureMockMvc
 @Import(FamilyAccessAuditIT.FixedTime.class)
-@Testcontainers
 class FamilyAccessAuditIT {
 
 	private static final LocalDateTime NOW = LocalDateTime.of(2026, 9, 28, 0, 30);
@@ -79,10 +77,10 @@ class FamilyAccessAuditIT {
 			new ReadCase("/api/caregivers/201/credentials", "CAREGIVER_CREDENTIALS", 201L,
 					"FM02_LIST_CREDENTIALS", "$[0].id", 901));
 
-	@Container
-	@ServiceConnection
-	static final MySQLContainer MYSQL = new MySQLContainer("mysql:8.4")
-			.withCommand("--default-time-zone=+05:00");
+	@DynamicPropertySource
+	static void database(DynamicPropertyRegistry registry) {
+		SharedMySql.register(registry, FamilyAccessAuditIT.class, "+05:00");
+	}
 
 	@Autowired
 	private MockMvc mvc;

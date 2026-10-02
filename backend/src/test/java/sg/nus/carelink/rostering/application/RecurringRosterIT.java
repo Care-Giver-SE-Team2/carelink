@@ -13,11 +13,9 @@ import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.jdbc.core.JdbcTemplate;
-import org.testcontainers.junit.jupiter.Container;
-import org.testcontainers.junit.jupiter.Testcontainers;
-import org.testcontainers.mysql.MySQLContainer;
+import org.springframework.test.context.DynamicPropertyRegistry;
+import org.springframework.test.context.DynamicPropertySource;
 
 import sg.nus.carelink.careplan.application.CarePlanService;
 import sg.nus.carelink.careplan.application.PlanNodeInput;
@@ -25,6 +23,7 @@ import sg.nus.carelink.careplan.application.VisitInput;
 import sg.nus.carelink.careplan.domain.model.CarePlan;
 import sg.nus.carelink.careplan.domain.model.CarePlanNode;
 import sg.nus.carelink.profile.application.PrimaryCaregiverService;
+import sg.nus.carelink.testsupport.SharedMySql;
 
 /**
  * UC-MG03 end to end on real MySQL: publishing a plan fills the elder's next two weeks with
@@ -32,12 +31,12 @@ import sg.nus.carelink.profile.application.PrimaryCaregiverService;
  * plan calls off the ones from the stop date.
  */
 @SpringBootTest
-@Testcontainers
 class RecurringRosterIT {
 
-	@Container
-	@ServiceConnection
-	static final MySQLContainer MYSQL = new MySQLContainer("mysql:8.4");
+	@DynamicPropertySource
+	static void database(DynamicPropertyRegistry registry) {
+		SharedMySql.register(registry, RecurringRosterIT.class, null);
+	}
 
 	@Autowired
 	private CarePlanService carePlans;
