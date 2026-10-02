@@ -23,21 +23,20 @@ import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.mock.web.MockHttpSession;
+import org.springframework.test.context.DynamicPropertyRegistry;
+import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.RequestPostProcessor;
 import jakarta.servlet.http.Cookie;
-import org.testcontainers.junit.jupiter.Container;
-import org.testcontainers.junit.jupiter.Testcontainers;
-import org.testcontainers.mysql.MySQLContainer;
 
 import tools.jackson.databind.json.JsonMapper;
 import tools.jackson.databind.node.ObjectNode;
 import sg.nus.carelink.profile.domain.repository.IntakeApplicationRepository;
+import sg.nus.carelink.testsupport.SharedMySql;
 
 /**
  * Verifies the FM01 POST contract through the security filters and an isolated MySQL database.
@@ -46,7 +45,6 @@ import sg.nus.carelink.profile.domain.repository.IntakeApplicationRepository;
  */
 @SpringBootTest
 @AutoConfigureMockMvc
-@Testcontainers
 class IntakeSubmissionApiIT {
 
 	private static final String PATH = "/api/intake-applications";
@@ -54,10 +52,10 @@ class IntakeSubmissionApiIT {
 			{"targetElderName":"  Tan Mei  ","targetAddress":" 12 Example Road ","postalCode":" 123456 "}
 			""";
 
-	@Container
-	@ServiceConnection
-	static final MySQLContainer MYSQL = new MySQLContainer("mysql:8.4")
-			.withCommand("--default-time-zone=+05:00");
+	@DynamicPropertySource
+	static void database(DynamicPropertyRegistry registry) {
+		SharedMySql.register(registry, IntakeSubmissionApiIT.class, "+05:00");
+	}
 
 	@Autowired
 	private MockMvc mvc;

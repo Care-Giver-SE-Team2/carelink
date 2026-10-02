@@ -26,17 +26,17 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.test.web.server.LocalServerPort;
-import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.Primary;
 import org.springframework.jdbc.core.JdbcTemplate;
-import org.testcontainers.junit.jupiter.Container;
-import org.testcontainers.junit.jupiter.Testcontainers;
-import org.testcontainers.mysql.MySQLContainer;
+import org.springframework.test.context.DynamicPropertyRegistry;
+import org.springframework.test.context.DynamicPropertySource;
 
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
+
+import sg.nus.carelink.testsupport.SharedMySql;
 
 /**
  * MG07 generation to FM04 reading over real HTTP sessions and isolated MySQL.
@@ -47,18 +47,16 @@ import tools.jackson.databind.json.JsonMapper;
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
 		properties = {"carelink.report.schedule-cron=-", "carelink.escalation.scan-initial-delay=PT1H"})
 @Import(FamilyReportWorkflowIT.FixedTime.class)
-@Testcontainers
 class FamilyReportWorkflowIT {
 
 	private static final LocalDateTime NOW = LocalDateTime.of(2026, 9, 28, 0, 30);
 	private static final String DISCLAIMER = "This summary records care observations and services; it is not a diagnosis or medical advice.";
 	private static final String OBSERVATION = "Walked two laps.\n\n  Follow-up: rest after activity.";
 
-	@Container
-	@ServiceConnection
-	static final MySQLContainer MYSQL = new MySQLContainer("mysql:8.4")
-			.withUrlParam("connectionTimeZone", "Asia/Singapore")
-			.withCommand("--default-time-zone=+05:00");
+	@DynamicPropertySource
+	static void database(DynamicPropertyRegistry registry) {
+		SharedMySql.register(registry, FamilyReportWorkflowIT.class, "+05:00", "connectionTimeZone=Asia/Singapore");
+	}
 
 	@LocalServerPort
 	private int port;
@@ -125,7 +123,7 @@ class FamilyReportWorkflowIT {
 		try (var manager = browser(); var family = browser()) {
 			login(manager, "manager");
 			var generated = generate(manager, 101, "2026-09-21", "2026-09-27");
-			assertThat(generated).extracting(node -> node.path("audience").asText())
+			assertThat(generated).extracting(node -> node.path("audience").asString())
 					.containsExactly("FAMILY", "REGULATOR", "INTERNAL");
 			long reportId = reportId(generated, "FAMILY");
 			var managerDetail = getJson(manager, "/api/reports/" + reportId(generated, "INTERNAL"));
@@ -142,29 +140,29 @@ class FamilyReportWorkflowIT {
 			assertThat(first.path("totalElements").longValue()).isEqualTo(2);
 			assertThat(first.path("items")).hasSize(1);
 			assertThat(first.path("items").get(0).path("id").longValue()).isEqualTo(reportId);
-			assertThat(first.path("items").get(0).path("audience").asText()).isEqualTo("FAMILY");
+			assertThat(first.path("items").get(0).path("audience").asString()).isEqualTo("FAMILY");
 			var second = getJson(family, "/api/reports?elderId=101&audience=FAMILY&page=1&size=1");
 			assertThat(second.path("items")).hasSize(1);
 			assertThat(second.path("items").get(0).path("id").longValue()).isEqualTo(olderId);
-			assertThat(second.path("items").get(0).path("status").asText()).isEqualTo("ARCHIVED");
+			assertThat(second.path("items").get(0).path("status").asString()).isEqualTo("ARCHIVED");
 			var detail = getJson(family, "/api/reports/" + reportId);
 			assertThat(detail.path("dataComplete").booleanValue()).isFalse();
-			assertThat(detail.path("missingItems")).extracting(JsonNode::asText).containsExactly("Visit 203 on 2026-09-25 not closed");
+			assertThat(detail.path("missingItems")).extracting(JsonNode::asString).containsExactly("Visit 203 on 2026-09-25 not closed");
 			assertThat(section(detail, "Service completion")).contains("3 visits: 1 scheduled, 2 verified.", "Caregiver Mei");
 			assertThat(section(detail, "Vital signs")).isEqualTo("Systolic 128–142 mmHg");
 			assertThat(section(detail, "Observations")).isEqualTo("Mon 21 Sep · Caregiver Mei: " + OBSERVATION);
 			assertThat(section(detail, "Incidents"))
 					.isEqualTo("Tue 22 Sep 10:00 · Fall reported · Slipped in the bathroom, no injury. · resolved Tue 22 Sep 10:30");
-			assertThat(detail.path("createdAt").asText()).isEqualTo("2026-09-28T00:30:00+08:00");
-			assertThat(detail.path("disclaimer").asText()).isEqualTo(DISCLAIMER);
+			assertThat(detail.path("createdAt").asString()).isEqualTo("2026-09-28T00:30:00+08:00");
+			assertThat(detail.path("disclaimer").asString()).isEqualTo(DISCLAIMER);
 			assertThat(detail.toString()).doesNotContain("Manager Private", "INTERNAL-ONLY", "out of range", "OTHER-FAMILY");
 			var summary = getJson(family, "/api/elders/101/weekly-summary?weekStart=2026-09-21");
 			assertThat(summary.path("reportId").longValue()).isEqualTo(reportId);
-			assertThat(summary.path("periodStart").asText()).isEqualTo("2026-09-21");
-			assertThat(summary.path("periodEnd").asText()).isEqualTo("2026-09-27");
-			assertThat(summary.path("generatedBy").asText()).isEqualTo("TEMPLATE");
-			assertThat(summary.path("summaryText").asText()).contains("Vital signs\nSystolic 128–142 mmHg\n\nObservations\nMon 21 Sep · Caregiver Mei: " + OBSERVATION);
-			assertThat(summary.path("disclaimer").asText()).isEqualTo(DISCLAIMER);
+			assertThat(summary.path("periodStart").asString()).isEqualTo("2026-09-21");
+			assertThat(summary.path("periodEnd").asString()).isEqualTo("2026-09-27");
+			assertThat(summary.path("generatedBy").asString()).isEqualTo("TEMPLATE");
+			assertThat(summary.path("summaryText").asString()).contains("Vital signs\nSystolic 128–142 mmHg\n\nObservations\nMon 21 Sep · Caregiver Mei: " + OBSERVATION);
+			assertThat(summary.path("disclaimer").asString()).isEqualTo(DISCLAIMER);
 			assertThat(jdbc.queryForList("SELECT * FROM report ORDER BY id")).isEqualTo(originalReports);
 			assertThat(jdbc.queryForList("SELECT * FROM report_amendment")).isEmpty();
 			var audits = audits();
@@ -192,15 +190,15 @@ class FamilyReportWorkflowIT {
 			for (String note : notes) {
 				var amendment = postJson(manager, "/api/reports/" + id + "/amendments", Map.of("note", note), 201);
 				assertThat(amendment.path("authorUserId").longValue()).isEqualTo(10);
-				assertThat(amendment.path("note").asText()).isEqualTo(note);
+				assertThat(amendment.path("note").asString()).isEqualTo(note);
 			}
 			var originalAmendments = jdbc.queryForList("SELECT * FROM report_amendment ORDER BY id");
 			var after = getJson(family, "/api/reports/" + id);
 			assertThat(before.path("amendments")).isEmpty();
-			assertThat(after.path("amendments")).extracting(node -> node.path("note").asText()).containsExactlyElementsOf(notes);
+			assertThat(after.path("amendments")).extracting(node -> node.path("note").asString()).containsExactlyElementsOf(notes);
 			assertThat(after.path("amendments")).allSatisfy(note -> {
 				assertThat(note.has("authorUserId")).isFalse();
-				assertThat(note.path("createdAt").asText()).isEqualTo("2026-09-28T00:30:00+08:00");
+				assertThat(note.path("createdAt").asString()).isEqualTo("2026-09-28T00:30:00+08:00");
 			});
 			assertThat(after.path("sections")).isEqualTo(before.path("sections"));
 			assertThat(after.path("missingItems")).isEqualTo(before.path("missingItems"));
@@ -230,7 +228,7 @@ class FamilyReportWorkflowIT {
 					.extracting(node -> node.path("id").longValue()).containsExactlyInAnyOrder(ownId, archivedId);
 			assertThat(getJson(other, "/api/reports").path("items"))
 					.extracting(node -> node.path("id").longValue()).containsExactly(otherId);
-			assertThat(getJson(family, "/api/reports/" + archivedId).path("status").asText()).isEqualTo("ARCHIVED");
+			assertThat(getJson(family, "/api/reports/" + archivedId).path("status").asString()).isEqualTo("ARCHIVED");
 			assertThat(getJson(family, "/api/elders/102/weekly-summary?weekStart=2026-09-21")
 					.path("reportId").longValue()).isEqualTo(archivedId);
 			assertThat(getJson(other, "/api/reports/" + otherId).toString()).contains("OTHER-FAMILY-OBSERVATION");
@@ -315,13 +313,13 @@ class FamilyReportWorkflowIT {
 			var application = postJson(family, "/api/intake-applications", Map.of("targetElderName", "New elder",
 					"targetAddress", "12 Example Road", "postalCode", "123456"), 201);
 			assertThat(application.path("applicantFamilyMemberId").longValue()).isEqualTo(42);
-			assertThat(application.path("status").asText()).isEqualTo("SUBMITTED");
+			assertThat(application.path("status").asString()).isEqualTo("SUBMITTED");
 			assertThat(getJson(family, "/api/intake-applications").path("items")).containsExactly(application);
 			assertThat(getJson(family, "/api/intake-applications/" + application.path("id").longValue())).isEqualTo(application);
 			var schedule = getJson(family, "/api/visits?elderId=101&dateFrom=2026-09-21&dateTo=2026-09-27");
 			assertThat(schedule.path("totalElements").longValue()).isEqualTo(3);
 			assertThat(schedule.path("items")).extracting(node -> node.path("id").longValue()).containsExactly(201L, 202L, 203L);
-			assertThat(getJson(family, "/api/caregivers/501").path("fullName").asText()).isEqualTo("Caregiver Mei");
+			assertThat(getJson(family, "/api/caregivers/501").path("fullName").asString()).isEqualTo("Caregiver Mei");
 			login(other, "family-b");
 			assertThat(getJson(other, "/api/intake-applications").path("items")).isEmpty();
 			assertDenied(other, "/api/intake-applications/" + application.path("id").longValue(), 403);
@@ -355,14 +353,14 @@ class FamilyReportWorkflowIT {
 
 	private long reportId(JsonNode reports, String audience) {
 		for (var report : reports) {
-			if (report.path("audience").asText().equals(audience)) return report.path("id").longValue();
+			if (report.path("audience").asString().equals(audience)) return report.path("id").longValue();
 		}
 		throw new AssertionError("Missing generated " + audience + " report");
 	}
 
 	private String section(JsonNode report, String title) {
 		for (var section : report.path("sections")) {
-			if (section.path("title").asText().equals(title)) return section.path("body").asText();
+			if (section.path("title").asString().equals(title)) return section.path("body").asString();
 		}
 		throw new AssertionError("Missing section " + title);
 	}
@@ -377,7 +375,7 @@ class FamilyReportWorkflowIT {
 		assertThat(get(browser, "/api/auth/csrf").statusCode()).isEqualTo(200);
 		assertThat(cookie(browser, "XSRF-TOKEN").isHttpOnly()).isFalse();
 		assertThat(postJson(browser, "/api/auth/login", Map.of("username", username, "password", "test-password"), 200)
-				.path("username").asText()).isEqualTo(username);
+				.path("username").asString()).isEqualTo(username);
 		assertThat(cookie(browser, "JSESSIONID").isHttpOnly()).isTrue();
 	}
 

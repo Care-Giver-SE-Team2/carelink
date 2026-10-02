@@ -10,27 +10,26 @@ import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.jdbc.core.JdbcTemplate;
-import org.testcontainers.junit.jupiter.Container;
-import org.testcontainers.junit.jupiter.Testcontainers;
-import org.testcontainers.mysql.MySQLContainer;
+import org.springframework.test.context.DynamicPropertyRegistry;
+import org.springframework.test.context.DynamicPropertySource;
 
 import sg.nus.carelink.careplan.domain.model.CarePlan;
 import sg.nus.carelink.careplan.domain.model.CarePlanNode;
 import sg.nus.carelink.careplan.domain.model.ScheduledVisit;
+import sg.nus.carelink.testsupport.SharedMySql;
 
 /**
  * A task's per-day schedule survives a publish on real MySQL: each day's start time and minutes
  * land in care_plan_node_visit and come back as entered, and each version keeps its own schedule.
  */
 @SpringBootTest
-@Testcontainers
 class CarePlanScheduleIT {
 
-	@Container
-	@ServiceConnection
-	static final MySQLContainer MYSQL = new MySQLContainer("mysql:8.4");
+	@DynamicPropertySource
+	static void database(DynamicPropertyRegistry registry) {
+		SharedMySql.register(registry, CarePlanScheduleIT.class, null);
+	}
 
 	@Autowired
 	private CarePlanService service;

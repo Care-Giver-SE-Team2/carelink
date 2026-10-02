@@ -14,27 +14,28 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.ConnectionCallback;
 import org.springframework.jdbc.datasource.init.ScriptUtils;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.core.io.support.EncodedResource;
+import org.springframework.test.context.DynamicPropertyRegistry;
+import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
 import org.springframework.transaction.support.TransactionTemplate;
-import org.testcontainers.junit.jupiter.Container;
-import org.testcontainers.junit.jupiter.Testcontainers;
-import org.testcontainers.mysql.MySQLContainer;
+
+import sg.nus.carelink.testsupport.SharedMySql;
 
 /** Each change commits before the next request; no test-wide transaction or shared JPA cache. */
 @SpringBootTest
 @AutoConfigureMockMvc
-@Testcontainers
 class CaregiverScheduleChangesIT {
-    @Container @ServiceConnection
-    static final MySQLContainer MYSQL = new MySQLContainer("mysql:8.4").withCommand("--default-time-zone=+08:00");
+    @DynamicPropertySource
+    static void database(DynamicPropertyRegistry registry) {
+        SharedMySql.register(registry, CaregiverScheduleChangesIT.class, "+08:00");
+    }
     private static final AtomicLong IDS = new AtomicLong(8000);
     private static final LocalDate DAY = LocalDate.of(2026,9,25);
     @Autowired MockMvc mvc;

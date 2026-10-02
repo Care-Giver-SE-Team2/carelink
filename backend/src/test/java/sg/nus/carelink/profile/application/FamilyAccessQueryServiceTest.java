@@ -119,9 +119,9 @@ class FamilyAccessQueryServiceTest {
 	@Test
 	void rechecksBindingAccessOnEveryCall() {
 		var active = binding(101L, ElderFamilyBinding.Status.ACTIVE, null);
-		when(bindings.findByFamilyMemberId(42L)).thenReturn(List.of(active), List.of(active.revoke()));
+		when(bindings.findByFamilyMemberId(42L)).thenReturn(List.of(active)).thenReturn(List.of(active.revoke()));
 		when(bindings.findByElderIdAndFamilyMemberId(101L, 42L))
-				.thenReturn(Optional.of(active), Optional.of(active.revoke()));
+				.thenReturn(Optional.of(active)).thenReturn(Optional.of(active.revoke()));
 
 		assertThat(service.readableElderIds("family-a")).containsExactly(101L);
 		service.requireReadableElder("family-a", 101L);

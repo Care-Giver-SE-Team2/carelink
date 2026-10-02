@@ -166,7 +166,7 @@ class FamilyCaregiverQueryServiceTest {
 
 	@Test
 	void readingAProfileDoesNotAuthorizeLaterCredentialRequestsAfterRevocation() {
-		when(access.readableElderIds("family-a")).thenReturn(Set.of(101L), Set.of());
+		when(access.readableElderIds("family-a")).thenReturn(Set.of(101L)).thenReturn(Set.of());
 		when(visits.hasAssignedVisit(Set.of(101L), 201L)).thenReturn(true);
 		when(caregivers.findPublicProfile(201L))
 				.thenReturn(Optional.of(new CaregiverPublicProfile(201L, "Lim Jia Hui", List.of())));

@@ -24,7 +24,6 @@ import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
-import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
@@ -32,16 +31,16 @@ import org.springframework.context.annotation.Primary;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.mock.web.MockHttpSession;
+import org.springframework.test.context.DynamicPropertyRegistry;
+import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
-import org.testcontainers.junit.jupiter.Container;
-import org.testcontainers.junit.jupiter.Testcontainers;
-import org.testcontainers.mysql.MySQLContainer;
 
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
 
 import sg.nus.carelink.report.application.ReportService;
 import sg.nus.carelink.report.domain.model.Report;
+import sg.nus.carelink.testsupport.SharedMySql;
 
 /**
  * Family report listing through real sessions, authorization, audit and MySQL queries.
@@ -51,7 +50,6 @@ import sg.nus.carelink.report.domain.model.Report;
 @SpringBootTest(properties = {"report.schedule-cron=-", "escalation.scan-initial-delay=PT1H"})
 @AutoConfigureMockMvc
 @Import(FamilyReportListIT.FixedTime.class)
-@Testcontainers
 class FamilyReportListIT {
 
 	private static final String PATH = "/api/reports";
@@ -62,10 +60,10 @@ class FamilyReportListIT {
 			 "disclaimer":null,"generatedBy":"TEMPLATE"}
 			""";
 
-	@Container
-	@ServiceConnection
-	static final MySQLContainer MYSQL = new MySQLContainer("mysql:8.4")
-			.withCommand("--default-time-zone=+05:00");
+	@DynamicPropertySource
+	static void database(DynamicPropertyRegistry registry) {
+		SharedMySql.register(registry, FamilyReportListIT.class, "+05:00");
+	}
 
 	@Autowired
 	private MockMvc mvc;
@@ -149,15 +147,15 @@ class FamilyReportListIT {
 		assertThat(body.path("items")).allSatisfy(item -> {
 			assertThat(item.propertyNames()).containsExactlyInAnyOrder("id", "elderId", "audience", "periodStart",
 					"periodEnd", "status", "dataComplete", "missingItems", "generatedBy", "createdAt", "archivedAt");
-			assertThat(item.path("audience").asText()).isEqualTo("FAMILY");
-			assertThat(item.path("generatedBy").asText()).isEqualTo("TEMPLATE");
+			assertThat(item.path("audience").asString()).isEqualTo("FAMILY");
+			assertThat(item.path("generatedBy").asString()).isEqualTo("TEMPLATE");
 			assertThat(item.path("dataComplete").booleanValue()).isFalse();
-			assertThat(item.path("missingItems")).extracting(JsonNode::asText)
+			assertThat(item.path("missingItems")).extracting(JsonNode::asString)
 					.containsExactly("Visit 201 on 2026-09-22 not closed");
 			assertThat(item.path("archivedAt").isNull()).isTrue();
 		});
-		assertThat(body.path("items").get(2).path("createdAt").asText()).isEqualTo("2026-09-28T00:30:00+08:00");
-		assertThat(body.path("items").get(1).path("status").asText()).isEqualTo("ARCHIVED");
+		assertThat(body.path("items").get(2).path("createdAt").asString()).isEqualTo("2026-09-28T00:30:00+08:00");
+		assertThat(body.path("items").get(1).path("status").asString()).isEqualTo("ARCHIVED");
 		assertThat(jdbc.queryForObject("SELECT @@session.time_zone", String.class)).isEqualTo("+05:00");
 	}
 
@@ -168,10 +166,10 @@ class FamilyReportListIT {
 		jdbc.update("UPDATE report SET content = ? WHERE id = 301", stored);
 		var original = jdbc.queryForObject("SELECT content FROM report WHERE id = 301", String.class);
 		var family = readPage(loginAs("family-a"), "elderId", "101").path("items").get(1);
-		assertThat(family.path("missingItems")).extracting(JsonNode::asText)
+		assertThat(family.path("missingItems")).extracting(JsonNode::asString)
 				.containsExactly("Visit 201 on 2026-09-22 not closed", "Some care records are incomplete.");
 		var manager = readPage(loginAs("manager"), "elderId", "101", "audience", "FAMILY").path("items").get(2);
-		assertThat(manager.path("missingItems")).extracting(JsonNode::asText)
+		assertThat(manager.path("missingItems")).extracting(JsonNode::asString)
 				.containsExactly("Visit 201 on 2026-09-22 not closed", "Internal staff performance details");
 		assertThat(jdbc.queryForObject("SELECT content FROM report WHERE id = 301", String.class)).isEqualTo(original);
 	}
@@ -254,7 +252,7 @@ class FamilyReportListIT {
 		var session = loginAs("manager");
 		var body = readPage(session);
 		assertPage(body, 0, 20, 13, 320L, 403L, 404L, 405L, 406L, 407L, 310L, 322L, 321L, 303L, 301L, 302L, 304L);
-		assertThat(body.path("items").get(0).path("createdAt").asText()).isEqualTo("2026-09-28T00:30:00");
+		assertThat(body.path("items").get(0).path("createdAt").asString()).isEqualTo("2026-09-28T00:30:00");
 		assertPage(readPage(session, "page", "-1", "size", "0"), 0, 1, 13, 320L);
 		assertPage(readPage(session, "audience", "INTERNAL"), 0, 20, 1, 321L);
 		assertPage(readPage(session, "elderId", "101", "audience", "FAMILY"), 0, 20, 4, 320L, 303L, 301L, 304L);

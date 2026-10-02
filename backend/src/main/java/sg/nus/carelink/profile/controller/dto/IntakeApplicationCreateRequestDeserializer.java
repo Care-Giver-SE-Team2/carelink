@@ -52,7 +52,7 @@ public class IntakeApplicationCreateRequestDeserializer extends ValueDeserialize
 		if (value == null) {
 			return null;
 		}
-		return value.isTextual() ? value.stringValue() : invalid(context, field + " must be a string");
+		return value.isString() ? value.stringValue() : invalid(context, field + " must be a string");
 	}
 
 	private static Integer age(JsonNode input, DeserializationContext context) {
@@ -71,7 +71,7 @@ public class IntakeApplicationCreateRequestDeserializer extends ValueDeserialize
 		}
 		try {
 			return MobilityLevel.valueOf(value);
-		} catch (IllegalArgumentException ex) {
+		} catch (IllegalArgumentException _) {
 			return invalid(context, "Unsupported mobilityLevel");
 		}
 	}
@@ -79,14 +79,14 @@ public class IntakeApplicationCreateRequestDeserializer extends ValueDeserialize
 	private static List<String> careNeeds(JsonNode input, DeserializationContext context) {
 		JsonNode value = input.get("careNeeds");
 		if (value == null) {
-			return null;
+			return List.of();
 		}
 		if (!value.isArray()) {
 			return invalid(context, "careNeeds must be an array");
 		}
 		var needs = new ArrayList<String>();
 		for (JsonNode item : value) {
-			if (!item.isTextual()) {
+			if (!item.isString()) {
 				return invalid(context, "careNeeds items must be strings");
 			}
 			needs.add(item.stringValue());

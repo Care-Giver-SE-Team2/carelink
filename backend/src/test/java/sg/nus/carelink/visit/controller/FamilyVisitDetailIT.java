@@ -22,7 +22,6 @@ import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
-import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
@@ -30,13 +29,14 @@ import org.springframework.context.annotation.Primary;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.mock.web.MockHttpSession;
+import org.springframework.test.context.DynamicPropertyRegistry;
+import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
-import org.testcontainers.junit.jupiter.Container;
-import org.testcontainers.junit.jupiter.Testcontainers;
-import org.testcontainers.mysql.MySQLContainer;
 
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
+
+import sg.nus.carelink.testsupport.SharedMySql;
 
 /**
  * Family visit details through real login sessions, current bindings, MySQL and auditing.
@@ -46,12 +46,12 @@ import tools.jackson.databind.json.JsonMapper;
 @SpringBootTest(properties = {"carelink.report.schedule-cron=-", "carelink.escalation.scan-initial-delay=PT1H"})
 @AutoConfigureMockMvc
 @Import(FamilyVisitDetailIT.FixedTime.class)
-@Testcontainers
 class FamilyVisitDetailIT {
 
-	@Container
-	@ServiceConnection
-	static final MySQLContainer MYSQL = new MySQLContainer("mysql:8.4").withCommand("--default-time-zone=+05:00");
+	@DynamicPropertySource
+	static void database(DynamicPropertyRegistry registry) {
+		SharedMySql.register(registry, FamilyVisitDetailIT.class, "+05:00");
+	}
 
 	@Autowired
 	private MockMvc mvc;
@@ -147,7 +147,7 @@ class FamilyVisitDetailIT {
 	@ValueSource(strings = {"SCHEDULED", "ARRIVED", "IN_PROGRESS", "COMPLETED", "VERIFIED", "AUTO_CLOSED", "EXCEPTION", "CANCELLED"})
 	void readsTheStoredStateWithoutAdvancingIt(String state) throws Exception {
 		jdbc.update("UPDATE visit SET status = ? WHERE id = 501", state);
-		assertThat(readDetail(loginAs("family-a"), 501).path("status").asText()).isEqualTo(state);
+		assertThat(readDetail(loginAs("family-a"), 501).path("status").asString()).isEqualTo(state);
 	}
 
 	@Test
@@ -159,10 +159,10 @@ class FamilyVisitDetailIT {
 				status = 'COMPLETED' WHERE id = 502
 				""");
 		var body = readDetail(session, 502);
-		assertThat(body.path("status").asText()).isEqualTo("COMPLETED");
-		assertThat(body.path("checkedInAt").asText()).isEqualTo("2026-09-29T23:35:00+08:00");
-		assertThat(body.path("checkedOutAt").asText()).isEqualTo("2026-09-30T00:20:00+08:00");
-		assertThat(body.path("asOf").asText()).isEqualTo("2026-09-30T09:20:00+08:00");
+		assertThat(body.path("status").asString()).isEqualTo("COMPLETED");
+		assertThat(body.path("checkedInAt").asString()).isEqualTo("2026-09-29T23:35:00+08:00");
+		assertThat(body.path("checkedOutAt").asString()).isEqualTo("2026-09-30T00:20:00+08:00");
+		assertThat(body.path("asOf").asString()).isEqualTo("2026-09-30T09:20:00+08:00");
 		assertThat(jdbc.queryForObject("SELECT @@session.time_zone", String.class)).isEqualTo("+05:00");
 	}
 
@@ -268,8 +268,8 @@ class FamilyVisitDetailIT {
 				"id", "elderId", "caregiverId", "carePlanNodeId", "absenceId", "serviceType", "scheduledStart",
 				"scheduledEnd", "checkedInAt", "checkedOutAt", "status", "stateDeadline", "carePlanId", "version",
 				"createdAt", "updatedAt");
-		assertThat(body.path("stateDeadline").asText()).isEqualTo("2026-09-30T10:15:00");
-		assertThat(body.path("scheduledStart").asText()).isEqualTo("2026-09-30T09:00:00");
+		assertThat(body.path("stateDeadline").asString()).isEqualTo("2026-09-30T10:15:00");
+		assertThat(body.path("scheduledStart").asString()).isEqualTo("2026-09-30T09:00:00");
 		assertThat(body.path("version").intValue()).isEqualTo(2);
 		assertThat(readDetail(session, 510).path("elderId").longValue()).isEqualTo(110L);
 		mvc.perform(get("/api/visits/999").session(session)).andExpect(status().isNotFound());

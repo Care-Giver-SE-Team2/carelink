@@ -23,7 +23,6 @@ import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
-import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
@@ -31,13 +30,14 @@ import org.springframework.context.annotation.Primary;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.mock.web.MockHttpSession;
+import org.springframework.test.context.DynamicPropertyRegistry;
+import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
-import org.testcontainers.junit.jupiter.Container;
-import org.testcontainers.junit.jupiter.Testcontainers;
-import org.testcontainers.mysql.MySQLContainer;
 
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
+
+import sg.nus.carelink.testsupport.SharedMySql;
 
 /**
  * Family weekly summaries through real login sessions, current bindings, MySQL and auditing.
@@ -47,7 +47,6 @@ import tools.jackson.databind.json.JsonMapper;
 @SpringBootTest(properties = {"carelink.report.schedule-cron=-", "carelink.escalation.scan-initial-delay=PT1H"})
 @AutoConfigureMockMvc
 @Import(FamilyWeeklySummaryIT.FixedTime.class)
-@Testcontainers
 class FamilyWeeklySummaryIT {
 
 	private static final LocalDateTime NOW = LocalDateTime.of(2026, 9, 28, 0, 30);
@@ -56,9 +55,10 @@ class FamilyWeeklySummaryIT {
 			{"sections":[{"title":"Service completion","body":"Three visits completed."},{"title":"Observations","body":"Walked two laps."}],"dataComplete":true,"missingItems":[],"disclaimer":null,"generatedBy":"TEMPLATE"}
 			""";
 
-	@Container
-	@ServiceConnection
-	static final MySQLContainer MYSQL = new MySQLContainer("mysql:8.4").withCommand("--default-time-zone=+05:00");
+	@DynamicPropertySource
+	static void database(DynamicPropertyRegistry registry) {
+		SharedMySql.register(registry, FamilyWeeklySummaryIT.class, "+05:00");
+	}
 
 	@Autowired
 	private MockMvc mvc;
@@ -130,12 +130,12 @@ class FamilyWeeklySummaryIT {
 				"summaryText", "generatedBy", "disclaimer");
 		assertThat(body.path("reportId").longValue()).isEqualTo(301);
 		assertThat(body.path("elderId").longValue()).isEqualTo(101);
-		assertThat(body.path("periodStart").asText()).isEqualTo("2026-09-21");
-		assertThat(body.path("periodEnd").asText()).isEqualTo("2026-09-27");
-		assertThat(body.path("summaryText").asText())
+		assertThat(body.path("periodStart").asString()).isEqualTo("2026-09-21");
+		assertThat(body.path("periodEnd").asString()).isEqualTo("2026-09-27");
+		assertThat(body.path("summaryText").asString())
 				.isEqualTo("Service completion\nThree visits completed.\n\nObservations\nWalked two laps.");
-		assertThat(body.path("generatedBy").asText()).isEqualTo("TEMPLATE");
-		assertThat(body.path("disclaimer").asText()).isEqualTo(DISCLAIMER);
+		assertThat(body.path("generatedBy").asString()).isEqualTo("TEMPLATE");
+		assertThat(body.path("disclaimer").asString()).isEqualTo(DISCLAIMER);
 	}
 
 	@ParameterizedTest
@@ -164,7 +164,7 @@ class FamilyWeeklySummaryIT {
 		var generated = managerPost(loginAs("manager"), "/api/reports/generate",
 				Map.of("elderId", 101, "periodStart", "2026-09-21", "periodEnd", "2026-09-27"), 202);
 		assertThat(generated).hasSize(3);
-		assertThat(generated).filteredOn(node -> node.path("audience").asText().equals("FAMILY"))
+		assertThat(generated).filteredOn(node -> node.path("audience").asString().equals("FAMILY"))
 				.extracting(node -> node.path("id").longValue()).containsExactly(301L);
 		assertThat(jdbc.queryForList("SELECT * FROM report ORDER BY id")).isEqualTo(before);
 	}
@@ -193,8 +193,8 @@ class FamilyWeeklySummaryIT {
 		jdbc.update("UPDATE report SET period_start = ?, period_end = ? WHERE id = 301", start, end);
 		var body = readSummary(loginAs("family-a"), 101, start);
 		assertThat(body.path("reportId").longValue()).isEqualTo(301);
-		assertThat(body.path("periodStart").asText()).isEqualTo(start);
-		assertThat(body.path("periodEnd").asText()).isEqualTo(end);
+		assertThat(body.path("periodStart").asString()).isEqualTo(start);
+		assertThat(body.path("periodEnd").asString()).isEqualTo(end);
 	}
 
 	@Test
@@ -286,18 +286,18 @@ class FamilyWeeklySummaryIT {
 		var amendmentsBefore = jdbc.queryForList("SELECT * FROM report_amendment ORDER BY id");
 		var session = loginAs("family-a");
 		var summary = readSummary(session, 101, "2026-09-21");
-		assertThat(summary.path("summaryText").asText()).isEqualTo(
+		assertThat(summary.path("summaryText").asString()).isEqualTo(
 				"Observations\nMei: walked two laps.\n\nRecorded text: <b>steady</b>; BP < 140.\n\nVital signs\nSystolic 128–142 mmHg\n\nIncidents\n");
-		assertThat(summary.path("generatedBy").asText()).isEqualTo("TEMPLATE");
-		assertThat(summary.path("disclaimer").asText()).isEqualTo(DISCLAIMER);
+		assertThat(summary.path("generatedBy").asString()).isEqualTo("TEMPLATE");
+		assertThat(summary.path("disclaimer").asString()).isEqualTo(DISCLAIMER);
 		var detail = readDetail(session, summary.path("reportId").longValue());
-		assertThat(detail.path("sections")).extracting(node -> node.path("title").asText())
+		assertThat(detail.path("sections")).extracting(node -> node.path("title").asString())
 				.containsExactly("Observations", "Vital signs", "Incidents");
-		assertThat(detail.path("generatedBy").asText()).isEqualTo("MODEL");
+		assertThat(detail.path("generatedBy").asString()).isEqualTo("MODEL");
 		assertThat(detail.path("dataComplete").booleanValue()).isFalse();
-		assertThat(detail.path("missingItems")).extracting(JsonNode::asText).containsExactly("Visit 201 on 2026-09-22 not closed");
+		assertThat(detail.path("missingItems")).extracting(JsonNode::asString).containsExactly("Visit 201 on 2026-09-22 not closed");
 		assertThat(detail.path("amendments")).hasSize(1);
-		assertThat(detail.path("amendments").get(0).path("note").asText()).isEqualTo("Correction: three laps.");
+		assertThat(detail.path("amendments").get(0).path("note").asString()).isEqualTo("Correction: three laps.");
 		assertThat(jdbc.queryForList("SELECT * FROM report ORDER BY id")).isEqualTo(before);
 		assertThat(jdbc.queryForList("SELECT * FROM report_amendment ORDER BY id")).isEqualTo(amendmentsBefore);
 	}
@@ -360,7 +360,7 @@ class FamilyWeeklySummaryIT {
 		assertThat(generated).hasSize(3);
 		long familyId = 0;
 		for (JsonNode report : generated) {
-			if (report.path("audience").asText().equals("FAMILY")) {
+			if (report.path("audience").asString().equals("FAMILY")) {
 				familyId = report.path("id").longValue();
 			}
 		}
@@ -369,12 +369,12 @@ class FamilyWeeklySummaryIT {
 		var session = loginAs("family-a");
 		var body = readSummary(session, 101, "2026-09-14");
 		assertThat(body.path("reportId").longValue()).isEqualTo(familyId);
-		assertThat(body.path("summaryText").asText()).isEqualTo(
+		assertThat(body.path("summaryText").asString()).isEqualTo(
 				"Service completion\nNo visits were scheduled in this period.\n\n"
 				+ "Vital signs\nNo vital signs were recorded in this period.\n\n"
 				+ "Observations\nNo observations were recorded in this period.\n\n"
 				+ "Incidents\nNo incidents were reported in this period.");
-		assertThat(body.path("generatedBy").asText()).isEqualTo("TEMPLATE");
+		assertThat(body.path("generatedBy").asString()).isEqualTo("TEMPLATE");
 		assertThat(readDetail(session, familyId).path("sections")).hasSize(4);
 		assertThat(readSummary(session, 101, "2026-09-14")).isEqualTo(body);
 		assertThat(jdbc.queryForList("SELECT * FROM report ORDER BY id")).isEqualTo(before);

@@ -22,7 +22,6 @@ import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
-import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
@@ -30,13 +29,14 @@ import org.springframework.context.annotation.Primary;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.mock.web.MockHttpSession;
+import org.springframework.test.context.DynamicPropertyRegistry;
+import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
-import org.testcontainers.junit.jupiter.Container;
-import org.testcontainers.junit.jupiter.Testcontainers;
-import org.testcontainers.mysql.MySQLContainer;
 
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
+
+import sg.nus.carelink.testsupport.SharedMySql;
 
 /**
  * Verifies public caregiver credentials and current family access against MySQL.
@@ -46,16 +46,15 @@ import tools.jackson.databind.json.JsonMapper;
 @SpringBootTest
 @AutoConfigureMockMvc
 @Import(FamilyCaregiverCredentialsIT.FixedTime.class)
-@Testcontainers
 class FamilyCaregiverCredentialsIT {
 
 	private static final String PASSWORD = "test-password";
 	private static final LocalDateTime NOW = LocalDateTime.of(2026, 9, 28, 0, 30);
 
-	@Container
-	@ServiceConnection
-	static final MySQLContainer MYSQL = new MySQLContainer("mysql:8.4")
-			.withCommand("--default-time-zone=+05:00");
+	@DynamicPropertySource
+	static void database(DynamicPropertyRegistry registry) {
+		SharedMySql.register(registry, FamilyCaregiverCredentialsIT.class, "+05:00");
+	}
 
 	@Autowired
 	private MockMvc mvc;
@@ -161,43 +160,43 @@ class FamilyCaregiverCredentialsIT {
 			assertThat(item.path("caregiverId").longValue()).isEqualTo(201);
 		});
 		assertThat(body.get(0).path("credentialTypeId").longValue()).isEqualTo(701);
-		assertThat(body.get(0).path("credentialTypeName").asText()).isEqualTo("First Aid");
+		assertThat(body.get(0).path("credentialTypeName").asString()).isEqualTo("First Aid");
 		assertThat(body.get(3).path("credentialTypeId").longValue()).isEqualTo(702);
-		assertThat(body.get(3).path("credentialTypeName").asText()).isEqualTo("Mobility Support");
+		assertThat(body.get(3).path("credentialTypeName").asString()).isEqualTo("Mobility Support");
 		assertThat(body.get(7).path("credentialTypeId").longValue()).isEqualTo(703);
-		assertThat(body.get(7).path("credentialTypeName").asText()).isEqualTo("Vitals");
-		assertThat(body.get(0).path("issuingBody").asText()).isEqualTo("Training provider 902");
-		assertThat(body.get(0).path("validFrom").asText()).isEqualTo("2026-01-01");
+		assertThat(body.get(7).path("credentialTypeName").asString()).isEqualTo("Vitals");
+		assertThat(body.get(0).path("issuingBody").asString()).isEqualTo("Training provider 902");
+		assertThat(body.get(0).path("validFrom").asString()).isEqualTo("2026-01-01");
 	}
 
 	@Test
 	void publishedAndExpiringCredentialsExpireOnSingaporeCalendarAfterExpiryDay() throws Exception {
 		var body = readCredentials(loginAs("family-a"), 201);
-		assertThat(body.get(0).path("status").asText()).isEqualTo("EXPIRED");
-		assertThat(body.get(1).path("status").asText()).isEqualTo("EXPIRED");
-		assertThat(body.get(0).path("expiryDate").asText()).isEqualTo("2026-09-27");
-		assertThat(body.get(1).path("expiryDate").asText()).isEqualTo("2026-09-27");
-		assertThat(body.get(2).path("status").asText()).isEqualTo("PUBLISHED");
-		assertThat(body.get(4).path("status").asText()).isEqualTo("EXPIRING");
+		assertThat(body.get(0).path("status").asString()).isEqualTo("EXPIRED");
+		assertThat(body.get(1).path("status").asString()).isEqualTo("EXPIRED");
+		assertThat(body.get(0).path("expiryDate").asString()).isEqualTo("2026-09-27");
+		assertThat(body.get(1).path("expiryDate").asString()).isEqualTo("2026-09-27");
+		assertThat(body.get(2).path("status").asString()).isEqualTo("PUBLISHED");
+		assertThat(body.get(4).path("status").asString()).isEqualTo("EXPIRING");
 	}
 
 	@Test
 	void revokedAndExpiredStatusesArePreservedWithoutRevivingOrAutoWarning() throws Exception {
 		var body = readCredentials(loginAs("family-a"), 201);
-		assertThat(body.get(5).path("status").asText()).isEqualTo("REVOKED");
-		assertThat(body.get(6).path("status").asText()).isEqualTo("EXPIRED");
-		assertThat(body.get(6).path("expiryDate").asText()).isEqualTo("2027-01-01");
-		assertThat(body.get(9).path("status").asText()).isEqualTo("PUBLISHED");
-		assertThat(body.get(9).path("expiryDate").asText()).isEqualTo("2026-10-05");
+		assertThat(body.get(5).path("status").asString()).isEqualTo("REVOKED");
+		assertThat(body.get(6).path("status").asString()).isEqualTo("EXPIRED");
+		assertThat(body.get(6).path("expiryDate").asString()).isEqualTo("2027-01-01");
+		assertThat(body.get(9).path("status").asString()).isEqualTo("PUBLISHED");
+		assertThat(body.get(9).path("expiryDate").asString()).isEqualTo("2026-10-05");
 	}
 
 	@Test
 	void futureValidityAndPermanentCredentialsRetainDatesAndNullableFields() throws Exception {
 		var body = readCredentials(loginAs("family-a"), 201);
-		assertThat(body.get(7).path("status").asText()).isEqualTo("PUBLISHED");
-		assertThat(body.get(7).path("validFrom").asText()).isEqualTo("2026-10-01");
-		assertThat(body.get(8).path("status").asText()).isEqualTo("PUBLISHED");
-		assertThat(body.get(8).path("expiryDate").asText()).isEqualTo("9999-12-31");
+		assertThat(body.get(7).path("status").asString()).isEqualTo("PUBLISHED");
+		assertThat(body.get(7).path("validFrom").asString()).isEqualTo("2026-10-01");
+		assertThat(body.get(8).path("status").asString()).isEqualTo("PUBLISHED");
+		assertThat(body.get(8).path("expiryDate").asString()).isEqualTo("9999-12-31");
 		assertThat(body.get(8).has("issuingBody")).isTrue();
 		assertThat(body.get(8).get("issuingBody").isNull()).isTrue();
 		assertThat(body.get(8).has("validFrom")).isTrue();
@@ -226,7 +225,7 @@ class FamilyCaregiverCredentialsIT {
 		var body = readCredentials(session, 202);
 		assertThat(body).hasSize(1);
 		assertThat(body.get(0).path("id").longValue()).isEqualTo(920);
-		assertThat(body.get(0).path("status").asText()).isEqualTo("EXPIRING");
+		assertThat(body.get(0).path("status").asString()).isEqualTo("EXPIRING");
 		jdbc.update("UPDATE elder_family_binding SET expires_at = ? WHERE elder_id = 102", NOW);
 		mvc.perform(get(path("202")).session(session)).andExpect(status().isForbidden());
 	}
