@@ -248,7 +248,10 @@ class CarePlanServiceTest {
 	void announcesNothingWhenAPublishIsRejected() {
 		CarePlan draft = service.createDraft(42L, 7L);
 
-		assertThatThrownBy(() -> service.publish(draft.id(), null, List.of()));
+		assertThatThrownBy(() -> service.publish(draft.id(), null, List.of()))
+				.isInstanceOf(BusinessRuleViolation.class)
+				.extracting(ex -> ((BusinessRuleViolation) ex).code())
+				.isEqualTo("CARE_PLAN_START_DATE_REQUIRED");
 		assertThat(events).isEmpty();
 	}
 }

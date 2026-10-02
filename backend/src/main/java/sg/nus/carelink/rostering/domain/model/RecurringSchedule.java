@@ -37,21 +37,24 @@ public record RecurringSchedule(Long carePlanId, Long elderId, LocalDate effecti
 		LocalDate end = effectiveUntil == null || untilDay.isBefore(effectiveUntil) ? untilDay : effectiveUntil;
 		List<VisitSlot> slots = new ArrayList<>();
 		for (LocalDate day = first; day.isBefore(end); day = day.plusDays(1)) {
-			for (RecurringTask task : tasks) {
-				for (WeeklySlot weekly : task.slots()) {
-					if (weekly.day() != day.getDayOfWeek()) {
-						continue;
-					}
-					LocalDateTime start = day.atTime(weekly.startTime());
-					if (!start.isBefore(from)) {
-						slots.add(new VisitSlot(carePlanId, task.carePlanNodeId(), elderId, task.serviceType(),
-								start, start.plusMinutes(weekly.minutes())));
-					}
-				}
-			}
+			slots.addAll(visitsOn(day, from));
 		}
 		slots.sort(Comparator.comparing(VisitSlot::start).thenComparing(VisitSlot::carePlanNodeId));
 		return slots;
+	}
+
+	/** The visits one day calls for, leaving out any that start before {@code from}. */
+	private List<VisitSlot> visitsOn(LocalDate day, LocalDateTime from) {
+		return tasks.stream()
+				.flatMap(task -> task.slots().stream()
+						.filter(weekly -> weekly.day().equals(day.getDayOfWeek()))
+						.map(weekly -> {
+							LocalDateTime start = day.atTime(weekly.startTime());
+							return new VisitSlot(carePlanId, task.carePlanNodeId(), elderId, task.serviceType(),
+									start, start.plusMinutes(weekly.minutes()));
+						}))
+				.filter(slot -> !slot.start().isBefore(from))
+				.toList();
 	}
 
 	/**
