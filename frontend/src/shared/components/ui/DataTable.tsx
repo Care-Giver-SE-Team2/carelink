@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react'
+import type { KeyboardEvent, ReactNode } from 'react'
 import { cx } from './cx'
 import { Eyebrow } from './Typography'
 import styles from './DataTable.module.css'
@@ -10,6 +10,8 @@ export type DataTableColumn<T> = {
   width: string
   /** Defaults to the row's value at `key`. */
   render?: (row: T) => ReactNode
+  /** Right-align the header and cells — numbers, dates, state tags. */
+  align?: 'right'
 }
 
 export type RowTone = 'danger' | 'info' | null
@@ -18,6 +20,10 @@ export type RowTone = 'danger' | 'info' | null
  * Dense grid table: tracked uppercase headers over an ink rule, hairline row separators.
  * `rowTone` tints a row that needs attention (danger) or that the model can help with
  * (info). `footer` is a mono note under the last row ("79 further visits today").
+ *
+ * With `onRowClick` each row is a control — clicked, or Enter/Space when focused — that
+ * opens the row elsewhere (e.g. a detail rail); `selectedKey` marks the open one with the
+ * info tint.
  */
 export function DataTable<T>({
   columns,
@@ -27,6 +33,8 @@ export function DataTable<T>({
   footer,
   empty,
   label,
+  onRowClick,
+  selectedKey,
 }: {
   columns: DataTableColumn<T>[]
   rows: T[]
@@ -36,6 +44,8 @@ export function DataTable<T>({
   /** Shown in place of the rows when there are none. */
   empty?: ReactNode
   label: string
+  onRowClick?: (row: T) => void
+  selectedKey?: string | null
 }) {
   const gridTemplateColumns = columns.map((column) => column.width).join(' ')
 
@@ -44,22 +54,35 @@ export function DataTable<T>({
       <div role="table" aria-label={label}>
         <div role="row" className={cx(styles.row, styles.headerRow)} style={{ gridTemplateColumns }}>
           {columns.map((column) => (
-            <div key={column.key} role="columnheader" className={styles.headerCell}>
+            <div key={column.key} role="columnheader" className={cx(styles.headerCell, column.align && styles.right)}>
               <Eyebrow wide>{column.label}</Eyebrow>
             </div>
           ))}
         </div>
         {rows.map((row) => {
-          const tone = rowTone?.(row)
+          const key = rowKey(row)
+          const selected = onRowClick !== undefined && selectedKey === key
+          const tone = selected ? 'info' : rowTone?.(row)
           return (
             <div
-              key={rowKey(row)}
+              key={key}
               role="row"
-              className={cx(styles.row, styles.bodyRow, tone && styles[tone])}
+              className={cx(styles.row, styles.bodyRow, tone && styles[tone], onRowClick && styles.clickable)}
               style={{ gridTemplateColumns }}
+              {...(onRowClick && {
+                tabIndex: 0,
+                'aria-selected': selected,
+                onClick: () => onRowClick(row),
+                onKeyDown: (e: KeyboardEvent<HTMLDivElement>) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault()
+                    onRowClick(row)
+                  }
+                },
+              })}
             >
               {columns.map((column) => (
-                <div key={column.key} role="cell" className={styles.cell}>
+                <div key={column.key} role="cell" className={cx(styles.cell, column.align && styles.right)}>
                   {column.render ? column.render(row) : String((row as Record<string, unknown>)[column.key] ?? '')}
                 </div>
               ))}

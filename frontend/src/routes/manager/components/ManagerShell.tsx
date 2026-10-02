@@ -3,22 +3,20 @@ import { useNavigate } from 'react-router-dom'
 import { AppHeader, Eyebrow, MetaText, NavSidebar } from '../../../shared/components/ui'
 import type { NavItem } from '../../../shared/components/ui'
 import { useHeaderUser } from '../lib/useHeaderUser'
+import { useCertificationReviewCount } from '../lib/useCertifications'
 import { useOpenExceptionCount } from '../lib/useOpenExceptionCount'
 import styles from './ManagerShell.module.css'
 
 const POLICY_LINES = ['no-entry wait 10m', 'family window 2h', 'cert warning 30d']
 
-function navItems(openExceptions: number | undefined): NavItem[] {
+function navItems(openExceptions: number | undefined, certificationsToReview: number | undefined): NavItem[] {
   return [
     { label: 'Today', href: '/manager', end: true },
     { label: 'Roster', href: '/manager/roster' },
     { label: 'Exceptions', href: '/manager/exceptions', count: openExceptions, countTone: 'danger' },
     { label: 'Elders', href: '/manager/elders' },
     { label: 'Caregivers', href: '/manager/caregivers' },
-    // Placeholder until the profile module has a manager credentials endpoint. The count
-    // should be credentials needing manager action: SUBMITTED awaiting review, plus approved
-    // ones expired or within the 30-day warning threshold.
-    { label: 'Certifications', href: '/manager/certifications', count: 3, countTone: 'neutral' },
+    { label: 'Certifications', href: '/manager/certifications', count: certificationsToReview, countTone: 'neutral' },
     { label: 'Reports', href: '/manager/reports' },
     { label: 'Quality', href: '/manager/quality' },
   ]
@@ -31,7 +29,8 @@ function navItems(openExceptions: number | undefined): NavItem[] {
  *
  * `headerContext` replaces the header's live clock (e.g. a breadcrumb); `headerRight`
  * replaces its user block with page-specific status (e.g. the Care plan screen's publish
- * state). The Exceptions count is the number of incidents that still need attention.
+ * state). The Exceptions count is the number of incidents that still need attention; the
+ * Certifications count is the submitted certificates waiting for the manager's review.
  */
 export function ManagerShell({
   headerContext,
@@ -45,6 +44,7 @@ export function ManagerShell({
   const navigate = useNavigate()
   const user = useHeaderUser()
   const { data: openExceptions } = useOpenExceptionCount()
+  const { data: certificationsToReview } = useCertificationReviewCount()
 
   return (
     <div className={styles.shell}>
@@ -52,7 +52,7 @@ export function ManagerShell({
       <div className={styles.body}>
         <NavSidebar
           label="Manager console"
-          items={navItems(openExceptions)}
+          items={navItems(openExceptions, certificationsToReview)}
           footer={
             <>
               <Eyebrow wide>Policy</Eyebrow>

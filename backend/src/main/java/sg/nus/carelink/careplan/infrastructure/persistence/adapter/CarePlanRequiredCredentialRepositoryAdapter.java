@@ -1,5 +1,7 @@
 package sg.nus.carelink.careplan.infrastructure.persistence.adapter;
 
+import java.util.Collection;
+import java.util.List;
 import java.util.Optional;
 
 import org.springframework.stereotype.Repository;
@@ -25,6 +27,14 @@ class CarePlanRequiredCredentialRepositoryAdapter implements CarePlanRequiredCre
 	@Override
 	public Optional<CarePlanRequiredCredential> findById(CarePlanRequiredCredential.Id id) {
 		return jpa.findById(new CarePlanRequiredCredentialJpaEntity.Id(id.carePlanId(), id.credentialTypeId())).map(CarePlanRequiredCredentialMapper::toDomain);
+	}
+
+	@Override
+	public List<CarePlanRequiredCredential> findByCarePlanIds(Collection<Long> carePlanIds) {
+		if (carePlanIds.isEmpty()) {
+			return List.of();
+		}
+		return jpa.findByIdCarePlanIdIn(carePlanIds).stream().map(CarePlanRequiredCredentialMapper::toDomain).toList();
 	}
 
 	@Override

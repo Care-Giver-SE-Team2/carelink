@@ -88,3 +88,58 @@ export function assignPrimaryCaregiver(elderId: string, caregiverId: number): Pr
 export function removePrimaryCaregiver(elderId: string): Promise<void> {
   return api<void>(`/elders/${elderId}/primary-caregiver`, { method: 'DELETE' })
 }
+
+/**
+ * Where a certificate stands in the manager's register — profile.domain.service
+ * CredentialRegisterPolicy.State. REMINDED = published and inside the 30-day warning window.
+ */
+export type CertificationState =
+  | 'SUBMITTED'
+  | 'REJECTED'
+  | 'REMINDED'
+  | 'PUBLISHED'
+  | 'EXPIRED'
+  | 'REVOKED'
+
+/** One row of GET /api/credentials — profile.application.CredentialRegisterRow (manager only). */
+export type CredentialRegisterRow = {
+  id: number
+  caregiverId: number
+  caregiverName: string
+  credentialTypeId: number
+  credentialTypeName: string
+  /** Submitted as the renewal of `replacesId`, rather than as a first certificate of its type. */
+  renewal: boolean
+  state: CertificationState
+  /** The date the row is racing — the replaced certificate's expiry for a pending renewal; null when nothing is due. */
+  watchedExpiry: string | null
+  daysUntilExpiry: number | null
+  /** In the Expiring filter: due within the warning window, or already past it. */
+  expiring: boolean
+  certificateNo: string | null
+  issuingBody: string | null
+  validFrom: string | null
+  /** This certificate's own expiry ("valid until"); null when it never expires. */
+  expiryDate: string | null
+  submittedAt: string | null
+  /** The reason given for a rejection. */
+  reviewNote: string | null
+  reviewedAt: string | null
+  replacesId: number | null
+  replacesExpiryDate: string | null
+}
+
+/** The certification register: submitted rows first, then soonest to lapse (manager only). */
+export function fetchCredentialRegister(signal?: AbortSignal): Promise<CredentialRegisterRow[]> {
+  return api<CredentialRegisterRow[]>('/credentials', { signal })
+}
+
+/** Publishes a submitted certificate; a renewal supersedes the one it replaces. */
+export function publishCredential(id: number): Promise<void> {
+  return api<void>(`/credentials/${id}/publish`, { method: 'POST' })
+}
+
+/** Rejects a submitted certificate; the caregiver is told `reason`. */
+export function rejectCredential(id: number, reason: string): Promise<void> {
+  return api<void>(`/credentials/${id}/reject`, { method: 'POST', body: JSON.stringify({ reason: reason.trim() }) })
+}

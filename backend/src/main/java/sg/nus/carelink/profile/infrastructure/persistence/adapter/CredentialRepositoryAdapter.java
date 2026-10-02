@@ -3,6 +3,7 @@ package sg.nus.carelink.profile.infrastructure.persistence.adapter;
 import java.util.List;
 import java.util.Optional;
 
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Repository;
 
 import sg.nus.carelink.profile.domain.model.Credential;
@@ -31,6 +32,11 @@ class CredentialRepositoryAdapter implements CredentialRepository {
 	public List<Credential> findByCaregiverId(Long caregiverId) {
 		return jpa.findByCaregiverIdOrderByCredentialTypeIdAscIdAsc(caregiverId).stream()
 				.map(CredentialMapper::toDomain).toList();
+	}
+
+	@Override
+	public List<Credential> findAll() {
+		return jpa.findAll(Sort.by("id")).stream().map(CredentialMapper::toDomain).toList();
 	}
 
 	@Override

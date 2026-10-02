@@ -77,3 +77,32 @@ const VISIT_LABELS: Record<VisitState, string> = {
 export function VisitStateBadge({ state, className }: { state: VisitState; className?: string }) {
   return <span className={cx(styles.badge, styles.visit, styles[`visit_${state}`], className)}>{VISIT_LABELS[state]}</span>
 }
+
+export type CertificationTagState =
+  | 'SUBMITTED'
+  | 'REJECTED'
+  | 'REMINDED'
+  | 'PUBLISHED'
+  | 'EXPIRED'
+  | 'REVOKED'
+
+const CERTIFICATION_LABELS: Record<CertificationTagState, string> = {
+  SUBMITTED: 'SUBMITTED',
+  REJECTED: 'REJECTED',
+  REMINDED: 'PENDING',
+  PUBLISHED: 'PUBLISHED',
+  EXPIRED: 'EXPIRED',
+  REVOKED: 'REVOKED',
+}
+
+/**
+ * Where a caregiver's certificate stands: waiting for review (accent), pending the caregiver's
+ * renewal after a reminder (muted), published (green), or rejected, expired or revoked (red).
+ */
+export function CertificationStateTag({ state, className }: { state: CertificationTagState; className?: string }) {
+  return (
+    <span className={cx(styles.badge, styles.certification, styles[`cert_${state}`], className)}>
+      {CERTIFICATION_LABELS[state]}
+    </span>
+  )
+}

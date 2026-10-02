@@ -105,3 +105,30 @@
   border-color: var(--accent);
   color: var(--accent);
 }
+
+.certification {
+  padding: 3px 6px;
+  letter-spacing: normal;
+}
+
+.cert_SUBMITTED {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.cert_REMINDED {
+  border-color: var(--border-neutral);
+  color: var(--text-muted);
+}
+
+.cert_PUBLISHED {
+  border-color: var(--success);
+  color: var(--success);
+}
+
+.cert_REJECTED,
+.cert_EXPIRED,
+.cert_REVOKED {
+  border-color: var(--danger);
+  color: var(--danger);
+}
