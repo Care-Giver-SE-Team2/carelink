@@ -1,0 +1,16 @@
+.dateNav {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.dayPagination {
+  padding: 12px 20px 20px;
+}
+
+.status {
+  margin: 0;
+  padding: 20px;
+  font: 400 12px/1.5 var(--font);
+  color: var(--text-muted);
+}

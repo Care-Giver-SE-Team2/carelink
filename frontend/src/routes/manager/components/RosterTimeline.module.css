@@ -1,0 +1,54 @@
+.timeline {
+  padding: 20px 20px 8px;
+}
+
+.row {
+  display: grid;
+  grid-template-columns: 150px repeat(var(--hours), minmax(0, 1fr));
+  border-bottom: 1px solid var(--text);
+}
+
+.body {
+  align-items: center;
+  min-height: 52px;
+  border-bottom-color: #f0f0f0;
+}
+
+.body:last-child {
+  border-bottom: none;
+}
+
+/* Blocks that would collide in a column flow onto the row's next line; keep the label on the first. */
+.label {
+  grid-column: 1;
+  grid-row: 1;
+  padding: 10px 12px 10px 0;
+}
+
+.name {
+  font: 500 13px/1.3 var(--font);
+}
+
+.sub {
+  font: 400 10px/1.3 var(--font-mono);
+  color: var(--text-faint);
+}
+
+.cover {
+  color: var(--accent);
+}
+
+.hour {
+  padding: 0 0 7px;
+  font: 400 10px/1 var(--font-mono);
+  color: var(--text-faint);
+}
+
+.visuallyHidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}

@@ -24,14 +24,14 @@ const COLUMNS: DataTableColumn<Visit>[] = [
       v.caregiver ? (
         <span className={styles.caregiver}>{v.caregiver.name}</span>
       ) : (
-        <span className={styles.unassigned}>— unassigned</span>
+        <span className={styles.unassigned}>Unassigned</span>
       ),
   },
   { key: 'service', label: 'Service', width: '1fr', render: (v) => <span className={styles.service}>{v.service}</span> },
   { key: 'state', label: 'State', width: '150px', render: (v) => <VisitStateBadge state={v.state} /> },
 ]
 
-/** Today's visits, a missed check-in tinted danger and an unassigned visit tinted for the model. */
+/** Today's visits, an exception tinted danger and an unassigned visit tinted for the model. */
 export function VisitRosterTable({ visits, footer, empty }: { visits: Visit[]; footer?: ReactNode; empty?: ReactNode }) {
   return (
     <DataTable
@@ -39,7 +39,7 @@ export function VisitRosterTable({ visits, footer, empty }: { visits: Visit[]; f
       columns={COLUMNS}
       rows={visits}
       rowKey={(v) => v.id}
-      rowTone={(v) => (v.state === 'no_checkin' ? 'danger' : v.caregiver ? null : 'info')}
+      rowTone={(v) => (v.state === 'exception' ? 'danger' : v.caregiver ? null : 'info')}
       footer={footer}
       empty={empty}
     />

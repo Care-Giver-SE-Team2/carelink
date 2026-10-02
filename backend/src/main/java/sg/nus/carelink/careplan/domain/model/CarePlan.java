@@ -4,6 +4,7 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Objects;
+import java.util.Optional;
 
 import sg.nus.carelink.shared.error.BusinessRuleViolation;
 
@@ -88,6 +89,28 @@ public record CarePlan(
 				id, elderId, createdByUserId, supersedesPlanId, version, Status.PUBLISHED,
 				totalHours, LocalDateTime.now(), createdAt, updatedAt,
 				startDate, null, null, null, null);
+	}
+
+	/**
+	 * The days this version's weekly schedule applies to. A published plan runs from its start
+	 * date with no end; a stopped plan ends on its stop's effective date (the first day without
+	 * visits); a superseded plan ends when its successor starts, so a new version published
+	 * today with a start date next week leaves this one running until then. Empty for a draft,
+	 * and for a plan published before start dates existed.
+	 *
+	 * @param successor the plan whose supersedesPlanId is this plan, if any
+	 */
+	public Optional<EffectivePeriod> effectivePeriod(CarePlan successor) {
+		if (startDate == null) {
+			return Optional.empty();
+		}
+		return switch (status) {
+			case DRAFT -> Optional.empty();
+			case PUBLISHED -> Optional.of(new EffectivePeriod(startDate, null));
+			case STOPPED -> Optional.of(new EffectivePeriod(startDate, stopEffectiveDate));
+			case SUPERSEDED -> Optional.of(new EffectivePeriod(startDate,
+					successor == null || successor.startDate() == null ? startDate : successor.startDate()));
+		};
 	}
 
 	/** Marks a previously published plan as superseded once the plan that replaces it publishes. */

@@ -197,6 +197,41 @@ public class IncidentService {
         );
     }
 
+    /**
+     * UC-MG03: a visit reached its start time with nobody assigned. Raised by the roster's
+     * scan, not by a person, and routed like any other incident so it lands in the
+     * manager's queue with a responder and a countdown.
+     */
+    public Incident raiseForUncoveredVisit(
+            Long elderId,
+            Long visitId,
+            String description) {
+
+        Incident saved =
+                incidents.save(
+                        Incident.raisedForUncoveredVisit(
+                                elderId,
+                                visitId,
+                                description,
+                                now()
+                        )
+                );
+
+        timeline.save(
+                IncidentLog.entry(
+                        saved.id(),
+                        "system",
+                        IncidentLog.Action.REPORTED,
+                        "visit started with no caregiver assigned",
+                        now()
+                )
+        );
+
+        return escalation.routeNewIncident(
+                saved
+        );
+    }
+
     // ------------------------------------------------------------------ handling ---
 
     /**

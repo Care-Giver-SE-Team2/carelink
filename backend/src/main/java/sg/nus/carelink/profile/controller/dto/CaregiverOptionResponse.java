@@ -10,6 +10,8 @@ public record CaregiverOptionResponse(
 		Long id,
 		String fullName,
 		String sector,
+		/** Comma-separated, as stored; the roster shows them under the caregiver's name. */
+		String dialects,
 		Caregiver.Status status,
 		boolean assignable) {
 
@@ -18,6 +20,7 @@ public record CaregiverOptionResponse(
 				caregiver.id(),
 				caregiver.fullName(),
 				caregiver.sector(),
+				caregiver.dialects(),
 				caregiver.status(),
 				caregiver.isAssignable());
 	}

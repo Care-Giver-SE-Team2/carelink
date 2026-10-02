@@ -1,0 +1,25 @@
+.toggle {
+  display: flex;
+  gap: 14px;
+}
+
+.chip {
+  padding: 5px 9px;
+  border: 1px solid #ddd;
+  background: var(--bg);
+  color: var(--text-muted);
+  font: 500 10px/1 var(--font-mono);
+  letter-spacing: 0.06em;
+  cursor: pointer;
+}
+
+.chip:hover {
+  background: var(--bg-hover);
+}
+
+.active,
+.active:hover {
+  border-color: var(--text);
+  background: var(--text);
+  color: var(--bg);
+}
