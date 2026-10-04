@@ -22,6 +22,10 @@ spring:
 carelink:
   caregiver:
     credential-warning-days: 30
+    # SYS01. When the daily scan moves certificates to EXPIRING/EXPIRED and sends the alerts
+    # (Spring cron, read in expiry-scan-zone; "-" switches it off).
+    expiry-scan-cron: "0 0 0 * * *"
+    expiry-scan-zone: Asia/Singapore
   escalation:
     countdown:
       HIGH: PT5M

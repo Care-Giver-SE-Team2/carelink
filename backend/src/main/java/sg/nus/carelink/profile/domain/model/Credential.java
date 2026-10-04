@@ -85,6 +85,31 @@ public record Credential(
 		return reviewed(Status.REJECTED, reviewerId, reason.strip(), at);
 	}
 
+	/**
+	 * SYS01: the status the daily expiry scan stores for this certificate today. A published
+	 * certificate becomes EXPIRING once it is within {@code warningDays} of its expiry date and
+	 * EXPIRED the day after it; a certificate that was not seen in the window (published late,
+	 * or the scan did not run) goes straight to EXPIRED. Only ever forwards, and never for a
+	 * certificate that is not approved or never expires.
+	 *
+	 * @param today current date in Asia/Singapore
+	 * @return this certificate with its new status, or empty when today changes nothing
+	 */
+	public Optional<Credential> lapseOn(LocalDate today, int warningDays) {
+		if ((status != Status.PUBLISHED && status != Status.EXPIRING) || PERMANENT.equals(expiryDate)) {
+			return Optional.empty();
+		}
+		Status next = expiryDate.isBefore(today) ? Status.EXPIRED
+				: !expiryDate.isAfter(today.plusDays(warningDays)) ? Status.EXPIRING
+				: status;
+		return next == status ? Optional.empty() : Optional.of(withStatus(next));
+	}
+
+	private Credential withStatus(Status next) {
+		return new Credential(id, caregiverId, credentialTypeId, reviewedByUserId, certificateNo, issuingBody,
+				validFrom, expiryDate, next, createdAt, updatedAt, renewsCredentialId, reviewNote, reviewedAt);
+	}
+
 	private void requireAwaitingReview() {
 		if (!awaitsReview()) {
 			throw new BusinessRuleViolation("CREDENTIAL_NOT_SUBMITTED",
