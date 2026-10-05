@@ -3,6 +3,7 @@ package sg.nus.carelink.profile.application;
 import java.time.LocalDateTime;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
@@ -23,6 +24,24 @@ public class InMemoryIntakeApplicationRepository implements IntakeApplicationRep
 	@Override
 	public Optional<IntakeApplication> findById(Long id) {
 		return Optional.ofNullable(rows.get(id));
+	}
+
+	@Override
+	public List<IntakeApplication> findPending() {
+		return rows.values().stream()
+				.filter(IntakeApplication::isPending)
+				.sorted(Comparator.comparing(IntakeApplication::createdAt).thenComparing(IntakeApplication::id).reversed())
+				.toList();
+	}
+
+	@Override
+	public List<IntakeApplication> findPendingByPostalCode(String postalCode) {
+		return findPending().stream().filter(row -> postalCode.equals(row.postalCode())).toList();
+	}
+
+	@Override
+	public Optional<IntakeApplication> findByIdForUpdate(Long id) {
+		return findById(id);
 	}
 
 	@Override

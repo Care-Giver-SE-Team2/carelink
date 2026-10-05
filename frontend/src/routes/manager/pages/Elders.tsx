@@ -12,6 +12,7 @@ import {
   weeklyHoursOfTree,
 } from '../lib/planTree'
 import { useElders } from '../lib/useElders'
+import { ageLabel } from '../lib/age'
 import { formatDate, formatNextVisit } from '../lib/nextVisit'
 import { fetchCarePlanNodes, fetchLatestCarePlan } from '../../../shared/api/careplan'
 import { removePrimaryCaregiver } from '../../../shared/api/profile'
@@ -252,7 +253,7 @@ export default function Elders() {
         onClick={() => setSelectedId(e.id)}
         leading={<Avatar size={34} />}
         title={e.name}
-        meta={`${e.age} y.o. · ${e.street || 'no address on file'}`}
+        meta={`${ageLabel(e.age)} · ${e.street || 'no address on file'}`}
         cells={[
           <MetaText key="sector" as="span">
             {e.sector}
@@ -325,7 +326,7 @@ export default function Elders() {
           <Eyebrow>Selected</Eyebrow>
           <IdentityHeader
             name={selected.name}
-            meta={`${selected.age} y.o. · ${selected.street || 'no address on file'}`}
+            meta={`${ageLabel(selected.age)} · ${selected.street || 'no address on file'}`}
           />
         </div>,
         selected.planStatus === 'none' || !selectedLatestPlan ? (

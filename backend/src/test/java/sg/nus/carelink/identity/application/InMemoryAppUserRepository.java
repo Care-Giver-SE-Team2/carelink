@@ -4,7 +4,9 @@ import sg.nus.carelink.identity.domain.model.AppUser;
 import sg.nus.carelink.identity.domain.repository.AppUserRepository;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 /**
@@ -18,6 +20,7 @@ import java.util.Optional;
 public class InMemoryAppUserRepository implements AppUserRepository {
 
 	private final List<AppUser> users = new ArrayList<>();
+	private final Map<String, String> passwordHashes = new HashMap<>();
 
 	public InMemoryAppUserRepository with(AppUser user) {
 		users.add(user);
@@ -32,5 +35,19 @@ public class InMemoryAppUserRepository implements AppUserRepository {
 	@Override
 	public Optional<AppUser> findById(Long id) {
 		return users.stream().filter(u -> id.equals(u.id())).findFirst();
+	}
+
+	@Override
+	public AppUser add(AppUser user, String passwordHash) {
+		AppUser stored = new AppUser(1000L + users.size(), user.username(), user.displayName(), user.roles(),
+				user.enabled());
+		users.add(stored);
+		passwordHashes.put(stored.username(), passwordHash);
+		return stored;
+	}
+
+	/** The hash add() was given, so a test can check what was stored. */
+	public String passwordHashOf(String username) {
+		return passwordHashes.get(username);
 	}
 }

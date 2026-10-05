@@ -6,7 +6,8 @@ export type PlanStatus = 'published' | 'draft' | 'stopped' | 'none'
 export type ElderRow = {
   id: string
   name: string
-  age: number
+  /** Null when no date of birth is on record. */
+  age: number | null
   street: string
   sector: string
   planStatus: PlanStatus

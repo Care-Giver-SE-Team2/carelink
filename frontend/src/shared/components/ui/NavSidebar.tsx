@@ -10,7 +10,8 @@ export type NavItem = {
   end?: boolean
   /** Shown beside the label; hidden when 0, so the nav only draws the eye to real work. */
   count?: number
-  countTone?: 'danger' | 'neutral'
+  /** danger: needs action now; accent: waiting for an answer; neutral: for information. */
+  countTone?: 'danger' | 'accent' | 'neutral'
 }
 
 /**

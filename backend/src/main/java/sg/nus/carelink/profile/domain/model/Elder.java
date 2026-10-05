@@ -30,6 +30,12 @@ public record Elder(
 		LocalDateTime createdAt,
 		LocalDateTime updatedAt) {
 
+	/** This elder with a login account linked to it. */
+	public Elder withUserId(Long accountUserId) {
+		return new Elder(id, accountUserId, fullName, gender, dateOfBirth, phone, address, postalCode, sector,
+				preferredDialects, livesAlone, mobilityLevel, continuityPreference, medicalNotes, createdAt, updatedAt);
+	}
+
 	public enum Gender {
 		MALE, FEMALE, OTHER
 	}

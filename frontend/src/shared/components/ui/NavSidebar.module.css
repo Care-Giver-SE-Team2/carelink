@@ -46,8 +46,13 @@
   color: var(--text-muted);
 }
 
-/* Muted grey would vanish on the ink fill of the active item. */
-.active .neutral {
+.accent {
+  color: var(--accent);
+}
+
+/* Muted grey or accent would vanish on the ink fill of the active item. */
+.active .neutral,
+.active .accent {
   color: var(--bg);
 }
 

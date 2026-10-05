@@ -1,4 +1,4 @@
-import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -733,6 +733,35 @@ describe('Family intake submission', () => {
       }
     },
   )
+
+  it.each([
+    ['ELDER_ALREADY_REGISTERED', 'Already known to the care team', /Contact the care team/],
+    ['APPLICATION_ALREADY_SUBMITTED', 'Application already submitted', /already have an application for this person/],
+  ])('explains a %s refusal as not sent, keeping the entries', async (code, title, message) => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockImplementation((url: string) =>
+        Promise.resolve(
+          url.endsWith('/csrf')
+            ? new Response(null, { status: 200 })
+            : json({ status: 409, title: 'Operation not allowed by a business rule', detail: 'Refused', code }, 409),
+        ),
+      ),
+    )
+    openForm()
+    const user = await fillRequired()
+
+    await user.click(screen.getByRole('button', { name: 'Submit application' }))
+
+    const alert = await screen.findByRole('alert')
+    expect(alert).toHaveTextContent(title)
+    expect(alert).toHaveTextContent(message)
+    expect(alert).not.toHaveTextContent('Submission status unknown')
+    expect(screen.getByLabelText('Home address')).toHaveValue('  12 Example Road  ')
+    if (code === 'APPLICATION_ALREADY_SUBMITTED') {
+      expect(within(alert).getByRole('link', { name: 'View my applications' })).toHaveAttribute('href', '/family/intake')
+    }
+  })
 
   it('does not send the application when CSRF preparation fails', async () => {
     const fetchMock = vi

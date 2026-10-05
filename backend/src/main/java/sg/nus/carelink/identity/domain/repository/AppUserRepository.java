@@ -16,4 +16,10 @@ public interface AppUserRepository {
 	Optional<AppUser> findByUsername(String username);
 
 	Optional<AppUser> findById(Long id);
+
+	/**
+	 * Stores a new account and returns it with its id. The password hash is passed straight
+	 * through to storage; AppUser never holds it.
+	 */
+	AppUser add(AppUser user, String passwordHash);
 }

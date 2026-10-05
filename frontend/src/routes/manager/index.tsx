@@ -5,6 +5,7 @@ import Roster from './pages/Roster'
 import Exceptions from './pages/Exceptions'
 import ExceptionDetail from './pages/exceptions/ExceptionDetail'
 import Elders from './pages/Elders'
+import Applications from './pages/Applications'
 import CarePlan from './pages/CarePlan'
 import Caregivers from './pages/Caregivers'
 import Certifications from './pages/Certifications'
@@ -38,6 +39,7 @@ export default function ManagerHome() {
       <Route path="exceptions/:id" element={<ExceptionDetail />} />
       <Route path="elders" element={<Elders />} />
       <Route path="elders/:elderId" element={<CarePlanRoute />} />
+      <Route path="applications" element={<Applications />} />
       <Route path="caregivers" element={<Caregivers />} />
       <Route path="certifications" element={<Certifications />} />
       <Route path="reports" element={<Reports />} />

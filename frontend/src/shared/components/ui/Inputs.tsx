@@ -1,5 +1,5 @@
 import { useId } from 'react'
-import type { InputHTMLAttributes, ReactNode } from 'react'
+import type { InputHTMLAttributes, ReactNode, TextareaHTMLAttributes } from 'react'
 import { Eyebrow } from './Typography'
 import { SearchIcon } from './icons'
 import { cx } from './cx'
@@ -86,6 +86,29 @@ export function NumberInput({
         </span>
       )}
     </span>
+  )
+}
+
+/** Multi-line free text, growing from `rows` lines. `invalid` gives it the danger border. */
+export function TextArea({
+  value,
+  onChange,
+  invalid = false,
+  className,
+  ...rest
+}: Omit<TextareaHTMLAttributes<HTMLTextAreaElement>, 'value' | 'onChange' | 'style'> & {
+  value: string
+  onChange: (value: string) => void
+  invalid?: boolean
+}) {
+  return (
+    <textarea
+      className={cx(styles.input, styles.textArea, invalid && styles.invalid, className)}
+      value={value}
+      aria-invalid={invalid || undefined}
+      onChange={(e) => onChange(e.target.value)}
+      {...rest}
+    />
   )
 }
 
