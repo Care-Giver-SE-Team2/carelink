@@ -102,11 +102,17 @@ public class IntakeApplicationJpaEntity {
 	@Column(name = "review_remarks", length = 255)
 	private String reviewRemarks;
 
-	/** Store creation time in UTC regardless of the database session time zone. */
+	/**
+	 * Store creation time in UTC regardless of the database session time zone. Both times are read
+	 * and written as LocalDateTime, not through a Timestamp, which Connector/J would shift between
+	 * connectionTimeZone and a JVM running in another zone (staging: Asia/Singapore and UTC).
+	 */
 	@Generated(sql = "UTC_TIMESTAMP()")
+	@JdbcTypeCode(SqlTypes.LOCAL_DATE_TIME)
 	@Column(name = "created_at", nullable = false, insertable = false, updatable = false)
 	private LocalDateTime createdAt;
 
+	@JdbcTypeCode(SqlTypes.LOCAL_DATE_TIME)
 	@Column(name = "reviewed_at")
 	private LocalDateTime reviewedAt;
 
