@@ -3,6 +3,7 @@ package sg.nus.carelink.profile.application;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -17,11 +18,13 @@ import org.springframework.security.access.AccessDeniedException;
 
 import sg.nus.carelink.identity.application.UserDirectory;
 import sg.nus.carelink.identity.domain.model.AppUser;
+import sg.nus.carelink.profile.domain.model.Elder;
 import sg.nus.carelink.profile.domain.model.FamilyMember;
 import sg.nus.carelink.profile.domain.model.IntakeApplication;
 import sg.nus.carelink.profile.domain.model.IntakeApplicationPage;
 import sg.nus.carelink.profile.domain.model.IntakeSubmission;
 import sg.nus.carelink.profile.domain.repository.IntakeApplicationRepository;
+import sg.nus.carelink.shared.error.BusinessRuleViolation;
 import sg.nus.carelink.shared.security.Role;
 
 /**
@@ -49,7 +52,8 @@ class IntakeSubmissionServiceTest {
 	};
 	private final InMemoryFamilyMemberRepository families = new InMemoryFamilyMemberRepository();
 	private final InMemoryIntakeApplicationRepository applications = new InMemoryIntakeApplicationRepository();
-	private final IntakeSubmissionService service = new IntakeSubmissionService(users, families, applications);
+	private final InMemoryElderRepository elders = new InMemoryElderRepository();
+	private final IntakeSubmissionService service = new IntakeSubmissionService(users, families, applications, elders);
 
 	@BeforeEach
 	void prepareFamilyProfiles() {
@@ -98,10 +102,45 @@ class IntakeSubmissionServiceTest {
 			public IntakeApplication save(IntakeApplication application) {
 				throw failure;
 			}
+
+			@Override
+			public List<IntakeApplication> findPending() {
+				throw failure;
+			}
+
+			@Override
+			public List<IntakeApplication> findPendingByPostalCode(String postalCode) {
+				throw failure;
+			}
+
+			@Override
+			public Optional<IntakeApplication> findByIdForUpdate(Long id) {
+				throw failure;
+			}
 		};
-		var failingService = new IntakeSubmissionService(users, families, unavailableStorage);
+		var failingService = new IntakeSubmissionService(users, families, unavailableStorage, elders);
 
 		assertThatThrownBy(() -> failingService.submit("family-a", minimumDetails())).isSameAs(failure);
+	}
+
+	@Test
+	void refusesAPersonAlreadyOnRecordAtThatPostcode() {
+		elders.save(new Elder(null, null, "Tan  mei", null, null, null, null, "123456", null, null, null, null,
+				Elder.ContinuityPreference.PREFERRED, null, null, null));
+
+		assertThatThrownBy(() -> service.submit("family-a", minimumDetails()))
+				.isInstanceOfSatisfying(BusinessRuleViolation.class,
+						e -> assertThat(e.code()).isEqualTo("ELDER_ALREADY_REGISTERED"));
+		assertThat(applications.findPending()).isEmpty();
+	}
+
+	@Test
+	void refusesASecondApplicationFromTheSameFamilyForTheSamePerson() {
+		service.submit("family-a", minimumDetails());
+
+		assertThatThrownBy(() -> service.submit("family-a", minimumDetails()))
+				.isInstanceOfSatisfying(BusinessRuleViolation.class,
+						e -> assertThat(e.code()).isEqualTo("APPLICATION_ALREADY_SUBMITTED"));
 	}
 
 	private IntakeSubmission minimumDetails() {

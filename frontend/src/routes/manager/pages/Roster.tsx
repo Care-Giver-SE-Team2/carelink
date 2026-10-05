@@ -1,6 +1,6 @@
 import { useMemo } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { Button, Pagination } from '../../../shared/components/ui'
+import { Button, Pagination, RowTitle } from '../../../shared/components/ui'
 import { ManagerShell } from '../components/ManagerShell'
 import { RosterTimeline } from '../components/RosterTimeline'
 import { RosterToolbar } from '../components/RosterToolbar'
@@ -30,7 +30,8 @@ import styles from './Roster.module.css'
  * cell opens that day. Visits nobody has yet sit in a "Needs cover" row. Caregivers are
  * shown a page at a time, and Day and Week share the page. The view, date and page live in
  * the URL (?view=week&date=2026-10-05&page=2), so a reload or a shared link lands on the
- * same roster.
+ * same roster. The header keeps the live clock, as on the other screens; the day or week being
+ * looked at is named in the toolbar, beside the controls that change it.
  */
 export default function Roster() {
   const [params, setParams] = useSearchParams()
@@ -44,7 +45,7 @@ export default function Roster() {
   const unit = view === 'week' ? 'week' : 'day'
 
   return (
-    <ManagerShell headerContext={<>Roster / {view === 'week' ? weekContext(date) : dayContext(date)}</>}>
+    <ManagerShell>
       <RosterToolbar view={view} onViewChange={(next) => go({ view: next })}>
         <div className={styles.dateNav}>
           <Button aria-label={`Previous ${unit}`} onClick={() => go({ date: addDays(date, -step) })}>
@@ -56,6 +57,9 @@ export default function Roster() {
           <Button aria-label={`Next ${unit}`} onClick={() => go({ date: addDays(date, step) })}>
             ›
           </Button>
+          <span className={styles.dateLabel} aria-live="polite">
+            <RowTitle>{view === 'week' ? weekContext(date) : dayContext(date)}</RowTitle>
+          </span>
         </div>
       </RosterToolbar>
       {view === 'week' ? (

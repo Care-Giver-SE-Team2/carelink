@@ -433,7 +433,7 @@ export default function CarePlan() {
           <Eyebrow>Elder</Eyebrow>
           <IdentityHeader
             name={elder.name}
-            meta={[elder.age, elder.id, elder.sector].filter((part) => part !== '').join(' · ')}
+            meta={[elder.age, elder.id, elder.sector].filter((part) => part !== '' && part !== null).join(' · ')}
           />
         </div>,
         profile && (

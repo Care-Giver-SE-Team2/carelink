@@ -40,6 +40,11 @@ class ElderRepositoryAdapter implements ElderRepository {
     }
 
     @Override
+    public List<Elder> findByPostalCode(String postalCode) {
+        return jpa.findByPostalCode(postalCode).stream().map(ElderMapper::toDomain).toList();
+    }
+
+    @Override
     public List<Elder> findByIds(Set<Long> elderIds) {
         return jpa.findByIdInOrderByIdAsc(elderIds).stream().map(ElderMapper::toDomain).toList();
     }

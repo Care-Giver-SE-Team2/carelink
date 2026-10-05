@@ -23,4 +23,6 @@ public interface ElderJpaRepository extends JpaRepository<ElderJpaEntity, Long> 
      * the userId property of ElderJpaEntity.
      */
     Optional<ElderJpaEntity> findByUserId(Long userId);
+
+    List<ElderJpaEntity> findByPostalCode(String postalCode);
 }

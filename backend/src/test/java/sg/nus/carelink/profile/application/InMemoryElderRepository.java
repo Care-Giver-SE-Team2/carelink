@@ -46,6 +46,11 @@ class InMemoryElderRepository implements ElderRepository {
     }
 
     @Override
+    public List<Elder> findByPostalCode(String postalCode) {
+        return rows.values().stream().filter(elder -> postalCode.equals(elder.postalCode())).toList();
+    }
+
+    @Override
     public Elder save(Elder elder) {
 
         Elder stored = elder.id() == null

@@ -1,5 +1,6 @@
 package sg.nus.carelink.profile.controller;
 
+import static org.mockito.Mockito.mock;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -21,6 +22,7 @@ import sg.nus.carelink.profile.application.InMemoryIntakeApplicationRepository;
 import sg.nus.carelink.profile.application.IntakeSubmissionService;
 import sg.nus.carelink.profile.application.IntakeQueryService;
 import sg.nus.carelink.profile.domain.model.FamilyMember;
+import sg.nus.carelink.profile.domain.repository.ElderRepository;
 import sg.nus.carelink.shared.security.Role;
 
 /**
@@ -49,7 +51,8 @@ class IntakeApplicationControllerTest {
 		var families = new InMemoryFamilyMemberRepository();
 		families.save(new FamilyMember(42L, 7L, "Family A", null, null, null, null));
 		var applications = new InMemoryIntakeApplicationRepository();
-		var submissions = new IntakeSubmissionService(users, families, applications);
+		// No elder on record, so the duplicate check never refuses here.
+		var submissions = new IntakeSubmissionService(users, families, applications, mock(ElderRepository.class));
 		var queries = new IntakeQueryService(users, families, applications);
 		mvc = MockMvcBuilders.standaloneSetup(new IntakeApplicationController(submissions, queries)).build();
 	}

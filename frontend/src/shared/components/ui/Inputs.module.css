@@ -34,6 +34,20 @@
   font: 400 12px/1.2 var(--font);
 }
 
+.textArea {
+  display: block;
+  width: 100%;
+  min-height: 52px;
+  padding: 10px;
+  border-color: var(--filter-border);
+  font: 400 12.5px/1.45 var(--font);
+  resize: vertical;
+}
+
+.invalid {
+  border-color: var(--danger);
+}
+
 .date {
   padding: 4px 7px;
   font: 500 11.5px/1.2 var(--font);

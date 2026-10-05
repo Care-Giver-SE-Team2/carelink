@@ -88,17 +88,17 @@ it('lays a day out by caregiver and hour, with unassigned visits in Needs cover'
 
   const coverRow = screen.getByRole('rowheader', { name: /Needs cover/ }).closest('[role="row"]') as HTMLElement
   expect(within(coverRow).getByText('Tan H.S. · Bathing assistance')).toBeInTheDocument()
-  expect(screen.getByText(/Roster \/ Mon 5 Oct/)).toBeInTheDocument()
+  expect(screen.getByText('Mon 5 Oct')).toBeInTheDocument()
 })
 
 it('shows the week as daily load and opens a day from a cell', async () => {
   const user = userEvent.setup()
   renderAt('/manager/roster?view=week&date=2026-10-05')
 
-  expect(await screen.findByText(/Roster \/ Week 41 · 5–11 Oct/)).toBeInTheDocument()
+  expect(await screen.findByText('Week 41 · 5–11 Oct')).toBeInTheDocument()
   await user.click(await screen.findByRole('button', { name: /Mon 5: 1 visits, 0\.5 h\. Open in Day view/ }))
 
-  expect(await screen.findByText(/Roster \/ Mon 5 Oct/)).toBeInTheDocument()
+  expect(await screen.findByText('Mon 5 Oct')).toBeInTheDocument()
   expect(screen.getByRole('button', { name: 'DAY' })).toHaveAttribute('aria-pressed', 'true')
 })
 
@@ -108,7 +108,10 @@ it('steps to the next week', async () => {
 
   await user.click(await screen.findByRole('button', { name: 'Next week' }))
 
-  expect(await screen.findByText(/Roster \/ Week 42 · 12–18 Oct/)).toBeInTheDocument()
+  expect(await screen.findByText('Week 42 · 12–18 Oct')).toBeInTheDocument()
+  // The week shown is named in the toolbar; the header keeps the live clock, as on other screens.
+  expect(screen.getByRole('banner')).not.toHaveTextContent('Roster')
+  expect(screen.getByRole('banner')).not.toHaveTextContent('Week')
 })
 
 it('shows ten caregivers a page and keeps the page when switching to Week', async () => {

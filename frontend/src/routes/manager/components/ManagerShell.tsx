@@ -5,16 +5,22 @@ import type { NavItem } from '../../../shared/components/ui'
 import { useHeaderUser } from '../lib/useHeaderUser'
 import { useCertificationReviewCount } from '../lib/useCertifications'
 import { useOpenExceptionCount } from '../lib/useOpenExceptionCount'
+import { usePendingApplicationCount } from '../lib/useApplications'
 import styles from './ManagerShell.module.css'
 
 const POLICY_LINES = ['no-entry wait 10m', 'family window 2h', 'cert warning 30d']
 
-function navItems(openExceptions: number | undefined, certificationsToReview: number | undefined): NavItem[] {
+function navItems(
+  openExceptions: number | undefined,
+  pendingApplications: number | undefined,
+  certificationsToReview: number | undefined,
+): NavItem[] {
   return [
     { label: 'Today', href: '/manager', end: true },
     { label: 'Roster', href: '/manager/roster' },
     { label: 'Exceptions', href: '/manager/exceptions', count: openExceptions, countTone: 'danger' },
     { label: 'Elders', href: '/manager/elders' },
+    { label: 'Applications', href: '/manager/applications', count: pendingApplications, countTone: 'accent' },
     { label: 'Caregivers', href: '/manager/caregivers' },
     { label: 'Certifications', href: '/manager/certifications', count: certificationsToReview, countTone: 'neutral' },
     { label: 'Reports', href: '/manager/reports' },
@@ -30,7 +36,8 @@ function navItems(openExceptions: number | undefined, certificationsToReview: nu
  * `headerContext` replaces the header's live clock (e.g. a breadcrumb); `headerRight`
  * replaces its user block with page-specific status (e.g. the Care plan screen's publish
  * state). The Exceptions count is the number of incidents that still need attention; the
- * Certifications count is the submitted certificates waiting for the manager's review.
+ * Applications count is the family applications waiting for an answer; the Certifications count
+ * is the submitted certificates waiting for the manager's review.
  */
 export function ManagerShell({
   headerContext,
@@ -44,6 +51,7 @@ export function ManagerShell({
   const navigate = useNavigate()
   const user = useHeaderUser()
   const { data: openExceptions } = useOpenExceptionCount()
+  const { data: pendingApplications } = usePendingApplicationCount()
   const { data: certificationsToReview } = useCertificationReviewCount()
 
   return (
@@ -52,7 +60,7 @@ export function ManagerShell({
       <div className={styles.body}>
         <NavSidebar
           label="Manager console"
-          items={navItems(openExceptions, certificationsToReview)}
+          items={navItems(openExceptions, pendingApplications, certificationsToReview)}
           footer={
             <>
               <Eyebrow wide>Policy</Eyebrow>

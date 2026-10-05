@@ -34,5 +34,8 @@ public interface ElderRepository {
      */
     Optional<Elder> findByUserId(Long userId);
 
+    /** Elders registered at a postcode, for the one-elder-one-record check. */
+    List<Elder> findByPostalCode(String postalCode);
+
     Elder save(Elder elder);
 }

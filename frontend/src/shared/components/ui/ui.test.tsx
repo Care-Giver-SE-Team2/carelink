@@ -16,6 +16,7 @@ import {
   NumberInput,
   PlanTreeView,
   Select,
+  TextArea,
   Timeline,
   VisitStateBadge,
 } from './index'
@@ -95,6 +96,7 @@ describe('NavSidebar', () => {
             { label: 'Today', href: '/app', end: true },
             { label: 'Exceptions', href: '/app/exceptions', count: 4, countTone: 'danger' },
             { label: 'Elders', href: '/app/elders' },
+            { label: 'Applications', href: '/app/applications', count: 2, countTone: 'accent' },
           ]}
         />
       </MemoryRouter>,
@@ -102,6 +104,7 @@ describe('NavSidebar', () => {
     expect(screen.getByRole('link', { name: /Elders/ })).toHaveAttribute('aria-current', 'page')
     expect(screen.getByRole('link', { name: /Today/ })).not.toHaveAttribute('aria-current')
     expect(within(screen.getByRole('link', { name: /Exceptions/ })).getByText('4')).toBeInTheDocument()
+    expect(within(screen.getByRole('link', { name: /Applications/ })).getByText('2')).toBeInTheDocument()
   })
 
   it('hides a count of zero', () => {
@@ -207,6 +210,17 @@ describe('FilterChips', () => {
     expect(screen.getByRole('button', { name: 'TO REVIEW · 2' })).toHaveAttribute('aria-pressed', 'true')
     await userEvent.click(screen.getByRole('button', { name: 'ALL · 41' }))
     expect(onChange).toHaveBeenCalledWith('all')
+  })
+})
+
+describe('TextArea', () => {
+  it('reports each edit and flags itself invalid', () => {
+    const onChange = vi.fn()
+    render(<TextArea aria-label="Message" value="" invalid onChange={onChange} />)
+    const box = screen.getByRole('textbox', { name: 'Message' })
+    expect(box).toHaveAttribute('aria-invalid', 'true')
+    fireEvent.change(box, { target: { value: 'Hello' } })
+    expect(onChange).toHaveBeenCalledWith('Hello')
   })
 })
 
