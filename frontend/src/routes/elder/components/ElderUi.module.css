@@ -1,0 +1,622 @@
+/*
+ * Elder client look: square corners, 1px ink borders, no shadows, type and touch targets
+ * larger than any other role. No text under 12.5px. The help colour (--danger) is only
+ * used for asking for help; --success only for done/completed status.
+ *
+ * Sizes are custom properties on .shell so tablet can raise them ~10% in one place.
+ * Breakpoints: phone < 600px, tablet 600–1023px, desktop ≥ 1024px (two columns).
+ *
+ * Buttons reset the global `button` rule in shared/theme/theme.css (radius, min-height,
+ * padding), since these components set their own. Hover colours (#333, #f4f4f2, #a94434)
+ * are the handoff's exact values; there are no theme tokens for them.
+ */
+
+/* ---- shell ---- */
+
+.shell {
+  /* Side padding of the content column. */
+  --gutter: 22px;
+  /* How far header/footer rules reach past the gutter: full-bleed on phone, none above. */
+  --bleed: 22px;
+  --focus: var(--text);
+
+  --title: 30px;
+  --title-back: 24px;
+  --subtitle: 20px;
+  --eyebrow: 15px;
+  --action-label: 24px;
+  --choice-label: 21px;
+  --choice-pad: 26px 20px;
+  --hint: 13px;
+  --note: 15px;
+  --note-mono: 12.5px;
+  --wide: 20px;
+  --wide-pad: 24px;
+  --speak: 16px;
+  --speak-box: 40px;
+
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font);
+}
+
+.shellHelp {
+  --focus: #fff;
+
+  background: var(--danger);
+  color: #fff;
+}
+
+/* Desktop only: a thin wordmark bar above the two columns. */
+.appBar {
+  display: none;
+}
+
+.column {
+  flex: 1;
+  width: 100%;
+  margin: 0 auto;
+  padding: 24px var(--gutter) 40px;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ---- columns ---- */
+
+.columns {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+}
+
+/* Below desktop the two sides dissolve, so every Slot orders itself in one column. */
+.left,
+.right {
+  display: contents;
+}
+
+.slot {
+  min-width: 0;
+}
+
+/* Last in the single column, pushed to the bottom of the screen. */
+.footerArea {
+  order: 100;
+  margin-top: auto;
+}
+
+/* ---- screen header ---- */
+
+.screenHeader {
+  margin: 0 calc(-1 * var(--bleed));
+  padding: 0 var(--bleed) 18px;
+  border-bottom: 1px solid var(--text);
+}
+
+.withBack {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+/* With an eyebrow above the title, line the back box up with the title, not the block. */
+.withEyebrow {
+  align-items: flex-end;
+}
+
+.headerText {
+  min-width: 0;
+}
+
+.back {
+  width: 44px;
+  height: 44px;
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--text);
+  color: var(--text);
+  font: 600 22px/1 var(--font);
+  text-decoration: none;
+}
+
+.back:hover {
+  background: #f4f4f2;
+}
+
+.eyebrow {
+  margin-bottom: 8px;
+  font: 400 var(--eyebrow)/1.3 var(--font);
+  color: var(--text-muted);
+}
+
+.eyebrowLabel {
+  margin-bottom: 9px;
+  font: 500 12.5px/1 var(--font-mono);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.title {
+  margin: 0;
+  font: 700 var(--title)/1.1 var(--font);
+  letter-spacing: -0.02em;
+  text-wrap: pretty;
+}
+
+.withBack .title {
+  font-size: var(--title-back);
+}
+
+.subtitle {
+  margin: 8px 0 0;
+  font: 500 var(--subtitle)/1.3 var(--font);
+  color: var(--text-secondary);
+}
+
+/* ---- footer ---- */
+
+.footer {
+  margin: 0 calc(-1 * var(--bleed));
+  padding: 20px var(--bleed) 0;
+  border-top: 1px solid var(--border-light);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* ---- focus: 3px ink ring (white on the help screen), offset 3px ---- */
+
+.back:focus-visible,
+.action:focus-visible,
+.choice:focus-visible,
+.choice:has(input:focus-visible),
+.choiceTile:has(input:focus-visible),
+.wide:focus-visible,
+.speak:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 3px;
+}
+
+/* ---- big action ---- */
+
+.action {
+  width: 100%;
+  min-height: 0;
+  box-sizing: border-box;
+  margin: 0;
+  padding: 30px 20px;
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  border: 1px solid var(--text);
+  border-radius: 0;
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.action:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.actionTile {
+  width: 56px;
+  height: 56px;
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font: 700 30px/1 var(--font);
+}
+
+.actionLabel {
+  font: 700 var(--action-label)/1.2 var(--font);
+}
+
+.actionPrimary {
+  background: var(--text);
+  color: #fff;
+}
+
+.actionPrimary .actionTile {
+  background: #fff;
+  color: var(--text);
+}
+
+.actionPrimary:hover:not(:disabled) {
+  border-color: #333;
+  background: #333;
+}
+
+.actionSecondary {
+  background: var(--bg);
+  color: var(--text);
+}
+
+.actionSecondary .actionTile {
+  border: 1px solid var(--text);
+}
+
+.actionSecondary:hover:not(:disabled) {
+  background: #f4f4f2;
+}
+
+.actionHelp {
+  border-color: var(--danger);
+  background: var(--danger);
+  color: #fff;
+}
+
+.actionHelp .actionTile {
+  background: #fff;
+  color: var(--danger);
+  font-size: 34px;
+}
+
+.actionHelp:hover:not(:disabled) {
+  border-color: #a94434;
+  background: #a94434;
+}
+
+/* ---- wide button ---- */
+
+.wide {
+  width: 100%;
+  min-height: 0;
+  margin: 0;
+  padding: var(--wide-pad) 16px;
+  border: 1px solid var(--text);
+  border-radius: 0;
+  font: 700 var(--wide)/1.2 var(--font);
+  cursor: pointer;
+}
+
+.widePrimary {
+  background: var(--text);
+  color: #fff;
+}
+
+.widePrimary:hover:not(:disabled) {
+  border-color: #333;
+  background: #333;
+}
+
+.wideSecondary {
+  padding: 20px 16px;
+  background: var(--bg);
+  color: var(--text);
+  font-weight: 600;
+  font-size: 18px;
+}
+
+.wideSecondary:hover:not(:disabled) {
+  background: #f4f4f2;
+}
+
+.wide:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+/* ---- choices ---- */
+
+.choice {
+  width: 100%;
+  min-height: 0;
+  box-sizing: border-box;
+  margin: 0;
+  padding: var(--choice-pad);
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  border: 1px solid var(--text);
+  border-radius: 0;
+  background: var(--bg);
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+}
+
+.choiceTile {
+  flex: 1;
+  min-width: 0;
+  min-height: 64px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--text);
+  background: var(--bg);
+  color: var(--text);
+  cursor: pointer;
+}
+
+.choice:not(.choiceSelected):hover,
+.choiceTile:not(.choiceSelected):hover {
+  background: #f4f4f2;
+}
+
+.choiceSelected {
+  background: var(--text);
+  color: #fff;
+}
+
+.choiceIcon {
+  width: 44px;
+  height: 44px;
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid currentColor;
+  font: 700 24px/1 var(--font);
+}
+
+.choiceLabel {
+  flex: 1;
+  font: 600 var(--choice-label)/1.2 var(--font);
+}
+
+.choiceTile .choiceLabel {
+  flex: none;
+}
+
+.choiceHint {
+  flex: none;
+  font: 400 var(--hint)/1 var(--font-mono);
+  color: var(--text-muted);
+}
+
+.choiceSelected .choiceHint {
+  color: inherit;
+  opacity: 0.7;
+}
+
+.visuallyHidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+/* ---- notes and cards ---- */
+
+.infoNote {
+  padding: 15px 16px;
+  border: 1px solid var(--border-light);
+  background: var(--surface-2);
+  font: 500 var(--note)/1.5 var(--font);
+  color: var(--text-tertiary);
+}
+
+.statusNote {
+  padding: 16px 18px;
+  border: 1px solid;
+  font: 600 18px/1.4 var(--font);
+}
+
+.statusSuccess {
+  border-color: var(--success);
+  color: var(--success);
+}
+
+.statusProblem {
+  border-color: var(--danger);
+  background: var(--danger-tint);
+  color: var(--text);
+}
+
+.card {
+  padding: 18px;
+  border: 1px solid var(--text);
+}
+
+/* ---- speak ---- */
+
+.speak {
+  flex: 1 1 0;
+  min-width: 0;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  border: none;
+  border-radius: 0;
+  background: none;
+  color: var(--text-secondary);
+  font: 500 var(--speak)/1.4 var(--font);
+  text-align: left;
+  cursor: pointer;
+}
+
+.speakIcon {
+  width: var(--speak-box);
+  height: var(--speak-box);
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--text);
+  color: var(--text);
+  font: 600 15px/1 var(--font);
+}
+
+/* ---- sign out ---- */
+
+.signOut {
+  flex: none;
+  height: 44px;
+  min-height: 0;
+  margin: 0;
+  padding: 0 14px;
+  border: 1px solid var(--filter-border);
+  border-radius: 0;
+  background: var(--bg);
+  color: var(--text-secondary);
+  font: 500 15px/1 var(--font);
+  cursor: pointer;
+}
+
+.signOut:hover:not(:disabled) {
+  border-color: var(--text);
+  color: var(--text);
+}
+
+.signOut:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 3px;
+}
+
+.signOut:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.signOutError {
+  flex-basis: 100%;
+  margin: 0;
+  color: var(--danger);
+  font: 500 15px/1.4 var(--font);
+}
+
+/* The bar placement only exists on desktop, where the bar does. */
+.signOutBar {
+  display: none;
+}
+
+/* ==========================================================================
+   Tablet 600–1023px: one centred column, max 560px, type +10%.
+   ========================================================================== */
+
+@media (min-width: 600px) {
+  .shell {
+    --gutter: 32px;
+    --bleed: 0px;
+
+    --title: 33px;
+    --title-back: 26px;
+    --subtitle: 22px;
+    --eyebrow: 16px;
+    --action-label: 26px;
+    --choice-label: 23px;
+    --choice-pad: 28px 22px;
+    --hint: 14px;
+    --note: 17px;
+    --note-mono: 13.5px;
+    --wide: 22px;
+    --wide-pad: 26px;
+    --speak: 17px;
+    --speak-box: 44px;
+  }
+
+  .column {
+    max-width: calc(560px + 2 * var(--gutter));
+    padding-top: 40px;
+  }
+}
+
+/* ==========================================================================
+   Desktop ≥1024px: full-width bar, then two columns inside 1040px. The help
+   screen keeps one centred column on its full-bleed red.
+   ========================================================================== */
+
+@media (min-width: 1024px) {
+  .shell {
+    --title: 36px;
+    --title-back: 28px;
+    --action-label: 24px;
+  }
+
+  .appBar {
+    display: flex;
+    flex: none;
+    align-items: center;
+    justify-content: space-between;
+    height: 56px;
+    padding: 0 32px;
+    border-bottom: 1px solid var(--text);
+  }
+
+  .wordmark {
+    font: 700 17px/1 var(--font);
+    letter-spacing: -0.02em;
+  }
+
+  .signOutFooter {
+    display: none;
+  }
+
+  .signOutBar {
+    display: block;
+    padding: 0 16px;
+  }
+
+  .column {
+    max-width: calc(1040px + 2 * var(--gutter));
+    padding-top: 48px;
+  }
+
+  .shellHelp .column {
+    max-width: calc(560px + 2 * var(--gutter));
+  }
+
+  /* Footer goes under the left column; the 1fr row absorbs the extra height of a tall
+     right column, so the footer stays right under the left content. */
+  .columns {
+    flex: none;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 440px;
+    grid-template-rows: auto 1fr;
+    align-items: start;
+    gap: 24px 48px;
+  }
+
+  .left,
+  .right {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+  }
+
+  .left {
+    grid-column: 1;
+    grid-row: 1;
+  }
+
+  .right {
+    grid-column: 2;
+    grid-row: 1 / span 2;
+  }
+
+  .footerArea {
+    grid-column: 1;
+    grid-row: 2;
+    margin-top: 0;
+  }
+
+  /* The read-aloud row sits under the left column's content, not on a rule of its own. */
+  .footer {
+    padding-top: 0;
+    border-top: none;
+  }
+}

@@ -27,9 +27,9 @@ vi.mock(
 )
 
 vi.mock(
-  '../../../shared/components/RoleShell',
+  '../components/ElderShell',
   () => ({
-    RoleShell: ({
+    ElderShell: ({
       children,
     }: {
       children: React.ReactNode
@@ -81,7 +81,7 @@ describe('Emergency page', () => {
       screen.getByRole(
         'button',
         {
-          name: 'SOS — GET HELP NOW',
+          name: 'Send for help now',
         },
       ),
     )
@@ -94,7 +94,7 @@ describe('Emergency page', () => {
       await screen.findByRole(
         'heading',
         {
-          name: 'SOS sent',
+          name: 'Help is coming',
         },
       ),
     ).toBeInTheDocument()
@@ -121,7 +121,7 @@ describe('Emergency page', () => {
       screen.queryByRole(
         'button',
         {
-          name: 'SOS — GET HELP NOW',
+          name: 'Send for help now',
         },
       ),
     ).not.toBeInTheDocument()
@@ -141,7 +141,7 @@ describe('Emergency page', () => {
       screen.getByRole(
         'button',
         {
-          name: 'SOS — GET HELP NOW',
+          name: 'Send for help now',
         },
       ),
     )
@@ -167,7 +167,7 @@ describe('Emergency page', () => {
       screen.getByRole(
         'button',
         {
-          name: 'SOS — GET HELP NOW',
+          name: 'Send for help now',
         },
       ),
     )
@@ -193,7 +193,7 @@ describe('Emergency page', () => {
       screen.getByRole(
         'button',
         {
-          name: 'SOS — GET HELP NOW',
+          name: 'Send for help now',
         },
       ),
     )
@@ -219,7 +219,7 @@ describe('Emergency page', () => {
       screen.getByRole(
         'button',
         {
-          name: 'SOS — GET HELP NOW',
+          name: 'Send for help now',
         },
       ),
     )
@@ -242,7 +242,7 @@ describe('Emergency page', () => {
       screen.getByRole(
         'button',
         {
-          name: 'SOS — GET HELP NOW',
+          name: 'Send for help now',
         },
       ),
     )

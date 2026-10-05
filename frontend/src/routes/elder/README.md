@@ -22,7 +22,8 @@
 - 业务逻辑放 `src/features/<模块>/`，不要堆在页面组件里。
 - 老人端与其他三端的差别（字号、对比度、点击区大小）已经做在
   `shared/theme/theme.css` 的 `[data-theme="elder"]` 里，
-  用 `<RoleShell theme="elder">` 就能拿到，不用自己写一套。
+  老人端页面统一用 `components/ElderShell`（已套上 elder 主题，没有顶部栏），
+  每屏顶部用 `ScreenHeader`，按钮和选项用 `components/ElderUi.tsx` 里的组件。
 
 ## 现阶段
 
