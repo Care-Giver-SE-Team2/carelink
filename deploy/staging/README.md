@@ -46,6 +46,17 @@ so this is a one-off; run it again only if the database volume is ever recreated
 
 It only inserts, never deletes, and is written to be safe to run twice.
 
+The manager's Absences and Quality screens have a scenario of their own, loaded the same
+way after the seed above:
+
+```
+ssh -i ~/.ssh/care-link.pem ubuntu@HOST 'sudo /opt/carelink/load-demo-data.sh'     < backend/src/main/resources/db/demo/manager-absences-and-spot-checks.sql
+```
+
+It is dated from the day it is loaded - the absence to re-roster starts two days later - so
+load it the day before a demonstration. Loading it again after a rehearsal has re-rostered
+the absence lays out a fresh one after the first; until then a second load changes nothing.
+
 Deliberately not part of start-up. The seed was a Flyway migration once, and a single
 INSERT that clashed with data already in the database left the application unable to
 start at all - Flyway records the failure and refuses to boot afterwards until the
