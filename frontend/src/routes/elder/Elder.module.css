@@ -1,225 +1,245 @@
-.home {
-  display: grid;
-  gap: 24px;
-}
+/*
+ * Page-level placement for the elder screens. The look of buttons, choices, notes and
+ * cards lives in components/ElderUi.module.css; this file only arranges them.
+ */
 
-.intro {
+/* ---- shared text pieces ---- */
+
+.lead {
   margin: 0;
+  font: 500 19px/1.45 var(--font);
   color: var(--text-muted);
-}
-
-.menu {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 20px;
-}
-
-.card {
-  min-height: 150px;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  justify-content: center;
-  gap: 8px;
-  padding: 24px;
-  text-decoration: none;
-  color: var(--text);
-  border: 2px solid var(--border);
-  border-radius: var(--radius);
-  background: var(--bg);
-}
-
-.card:hover,
-.card:focus-visible {
-  border-color: var(--accent);
-  background: #f6f9fc;
-  outline: 3px solid transparent;
-}
-
-.icon {
-  font-size: 42px;
-  line-height: 1;
-}
-
-.cardTitle {
-  font-size: 26px;
-  font-weight: 750;
-}
-
-.cardHint {
-  font-size: 18px;
-  color: var(--text-muted);
-}
-
-.sos {
-  border-color: var(--danger);
-  background: var(--danger-tint);
-}
-
-.page {
-  display: grid;
-  gap: 22px;
-}
-
-.back {
-  color: var(--accent);
-  font-weight: 700;
-  font-size: 20px;
-}
-
-.panel {
-  border: 2px solid var(--border);
-  border-radius: var(--radius);
-  padding: 22px;
-  display: grid;
-  gap: 16px;
-}
-
-.panel h2,
-.panel p {
-  margin: 0;
-}
-
-.actions {
-  display: grid;
-  gap: 14px;
-}
-
-.primary {
-  background: var(--accent);
-  color: white;
-  border-color: var(--accent);
-  font-weight: 750;
-}
-
-.danger {
-  background: var(--danger);
-  color: white;
-  border-color: var(--danger);
-  font-weight: 800;
-  min-height: 88px;
-  font-size: 28px;
-}
-
-.secondary {
-  font-weight: 700;
-}
-
-.option {
-  display: flex;
-  gap: 14px;
-  align-items: center;
-  min-height: var(--tap);
-  border: 2px solid var(--border);
-  border-radius: var(--radius);
-  padding: 8px 16px;
-}
-
-.option input {
-  width: 26px;
-  height: 26px;
-}
-
-textarea,
-select {
-  width: 100%;
-  box-sizing: border-box;
-  min-height: var(--tap);
-  font: inherit;
-  border: 2px solid var(--border);
-  border-radius: var(--radius);
-  padding: 12px;
-  background: white;
-  color: var(--text);
-}
-
-textarea {
-  min-height: 120px;
-  resize: vertical;
-}
-
-.success {
-  border: 2px solid var(--success);
-  border-radius: var(--radius);
-  padding: 18px;
-  font-weight: 700;
-}
-
-.warning {
-  border: 2px solid var(--warning);
-  border-radius: var(--radius);
-  padding: 18px;
 }
 
 .meta {
+  margin: 0;
+  font: 500 15px/1.4 var(--font);
+  font-variant-numeric: tabular-nums;
   color: var(--text-muted);
-  font-size: 18px;
 }
 
-.binding {
-  border-top: 1px solid var(--border);
-  padding-top: 14px;
+.sectionTitle {
+  margin: 0;
+  font: 700 22px/1.2 var(--font);
 }
 
-.code {
-  font-family: var(--font-mono);
-  font-size: 36px;
-  letter-spacing: 6px;
-  font-weight: 800;
-  text-align: center;
-  padding: 16px;
-  border: 2px dashed var(--accent);
-  border-radius: var(--radius);
-}
-
-.bindingForm {
-  display: grid;
-  gap: 16px;
-}
-
-.field {
+.fieldLabel {
   display: grid;
   gap: 8px;
-  font-weight: 700;
+  font: 600 18px/1.3 var(--font);
 }
 
-.field input {
+/* Inputs keep the elder tap height, with the elder card's light border and rounding. */
+.fieldLabel input,
+.fieldLabel select,
+.fieldLabel textarea {
   width: 100%;
   box-sizing: border-box;
   min-height: var(--tap);
-  padding: 12px;
-  border: 2px solid var(--border);
-  border-radius: var(--radius);
-  background: white;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: var(--bg);
   color: var(--text);
-  font: inherit;
+  font: 400 19px/1.4 var(--font);
 }
 
-.field input:focus,
-.field select:focus {
-  border-color: var(--accent);
-  outline: 3px solid transparent;
+.fieldLabel textarea {
+  min-height: 110px;
+  resize: vertical;
+}
+
+.fieldLabel input:focus-visible,
+.fieldLabel select:focus-visible,
+.fieldLabel textarea:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 3px;
+}
+
+.hint {
+  font-weight: 400;
+  color: var(--text-muted);
 }
 
 .checkboxField {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 14px;
   min-height: var(--tap);
-  font-weight: 700;
+  font: 600 18px/1.3 var(--font);
 }
 
 .checkboxField input {
-  width: 24px;
-  height: 24px;
+  width: 28px;
+  height: 28px;
+  margin: 0;
+  accent-color: var(--accent);
 }
 
-@media (max-width: 620px) {
-  .menu {
-    grid-template-columns: 1fr;
-  }
+/* ---- confirm visit ---- */
 
-  .card {
-    min-height: 125px;
-  }
+.visitService {
+  margin: 8px 0 0;
+  font: 700 26px/1.15 var(--font);
+}
+
+.visitTimes {
+  margin: 6px 0 0;
+  font: 500 17px/1.4 var(--font);
+  color: var(--text-muted);
+}
+
+.fieldset {
+  margin: 0;
+  padding: 0;
+  border: none;
+  min-width: 0;
+}
+
+.legend {
+  padding: 0;
+  margin-bottom: 10px;
+  font: 600 18px/1.3 var(--font);
+}
+
+.ratingRow {
+  display: flex;
+  gap: 8px;
+}
+
+/* ---- extra services ---- */
+
+.requestPreview {
+  margin: 0;
+  font: 400 var(--note)/1.5 var(--font);
+  color: var(--text);
+}
+
+.requestAudience {
+  margin: 9px 0 0;
+  font: 400 var(--note-small)/1.6 var(--font);
+  font-variant-numeric: tabular-nums;
+  color: var(--text-muted);
+}
+
+/* ---- emergency: help is coming (one column at every size; the shell sets the gutter) ---- */
+
+.helpTitle {
+  margin: 0;
+  font: 700 40px/1.05 var(--font);
+  letter-spacing: -0.02em;
+}
+
+.helpLead {
+  margin: 18px 0 0;
+  font: 500 20px/1.5 var(--font);
+  opacity: 0.92;
+}
+
+.helpCard {
+  margin: 34px 0 0;
+  padding: 22px;
+  border-radius: 20px;
+  background: #fff;
+  color: var(--text);
+}
+
+.helpCardEyebrow {
+  font: 500 15px/1 var(--font);
+  font-variant-numeric: tabular-nums;
+  color: var(--text-muted);
+}
+
+.helpCardTitle {
+  margin: 7px 0 0;
+  font: 700 24px/1.15 var(--font);
+}
+
+.statusList {
+  margin: 20px 0 0;
+  padding: 18px 0 0;
+  list-style: none;
+  border-top: 1px solid var(--border-light);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.statusItem {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  font: 500 15px/1.3 var(--font);
+  font-variant-numeric: tabular-nums;
+  color: var(--text-muted);
+}
+
+.statusDone {
+  font: 500 17px/1.3 var(--font);
+  color: var(--text);
+}
+
+.statusMark {
+  width: 14px;
+  height: 14px;
+  flex: none;
+  border-radius: 50%;
+  background: var(--success);
+}
+
+.helpActions {
+  margin-top: auto;
+  padding-top: 34px;
+}
+
+/* `min-height`/`border-radius` reset the global button rule in shared/theme/theme.css. */
+.helpHome {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 20px 0;
+  border: 1px solid rgba(255, 255, 255, 0.75);
+  border-radius: 20px;
+  color: #fff;
+  font: 600 18px/1 var(--font);
+  text-align: center;
+  text-decoration: none;
+}
+
+.helpHome:hover {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.helpHome:focus-visible {
+  outline: 3px solid #fff;
+  outline-offset: 3px;
+}
+
+/* ---- family ---- */
+
+.familyName {
+  margin: 0;
+  font: 600 21px/1.2 var(--font);
+}
+
+.familyMeta {
+  margin: 6px 0 0;
+  font: 400 14px/1.5 var(--font);
+  font-variant-numeric: tabular-nums;
+  color: var(--text-muted);
+}
+
+.familyRelation {
+  margin: 10px 0 0;
+  font: 500 17px/1.4 var(--font);
+}
+
+.cardAction {
+  margin-top: 16px;
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
 }

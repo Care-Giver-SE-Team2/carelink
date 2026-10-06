@@ -37,13 +37,13 @@ vi.mock(
 )
 
 /*
- * RoleShell already has its own test suite.
+ * ElderShell (session handling) is not under test here.
  * These tests focus on EL04 Elder-side behaviour.
  */
 vi.mock(
-  '../../../shared/components/RoleShell',
+  '../components/ElderShell',
   () => ({
-    RoleShell: ({
+    ElderShell: ({
       children,
     }: {
       children:

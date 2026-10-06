@@ -5,7 +5,6 @@ import {
 import type {
   FormEvent,
 } from 'react'
-import { Link } from 'react-router-dom'
 
 import {
   createFamilyBinding,
@@ -18,7 +17,18 @@ import type {
   Relationship,
 } from '../../../features/family-binding/types'
 import { ApiError } from '../../../shared/api/client'
-import { RoleShell } from '../../../shared/components/RoleShell'
+import { ElderShell } from '../components/ElderShell'
+import {
+  InfoCard,
+  InfoNote,
+  ScreenColumns,
+  ScreenFooter,
+  ScreenHeader,
+  Slot,
+  SpeakButton,
+  StatusNote,
+  WideButton,
+} from '../components/ElderUi'
 import styles from '../Elder.module.css'
 
 function relationshipLabel(
@@ -248,264 +258,211 @@ export default function FamilyBindings() {
     )
 
   return (
-    <RoleShell
-      title="My family"
-      theme="elder"
-    >
-      <div className={styles.page}>
-        <Link
-          className={styles.back}
-          to="/elder"
-        >
-          ← Back
-        </Link>
+    <ElderShell>
+      <ScreenColumns
+        left={
+          <>
+            <Slot order={1}>
+              <ScreenHeader
+                backTo="/elder"
+                eyebrow="Family"
+                eyebrowStyle="label"
+                title="My family"
+              />
+            </Slot>
 
-        <h1>Family members</h1>
+            <Slot order={2}>
+              {error && (
+                <StatusNote tone="problem">
+                  {error}
+                </StatusNote>
+              )}
+            </Slot>
 
-        <p className={styles.meta}>
-          View and manage the family
-          members connected to your
-          CareLink account.
-        </p>
+            <Slot order={3}>
+              {success && (
+                <StatusNote tone="success">
+                  {success}
+                </StatusNote>
+              )}
+            </Slot>
 
-        {error && (
-          <div
-            role="alert"
-            className={styles.warning}
-          >
-            {error}
-          </div>
-        )}
+            <Slot order={4}>
+              <div className={styles.form}>
+                {loading ? (
+                  <p className={styles.lead}>
+                    Loading family members…
+                  </p>
+                ) : visibleBindings.length === 0 ? (
+                  <InfoNote>
+                    You do not have any family
+                    members linked yet.
+                  </InfoNote>
+                ) : (
+                  visibleBindings.map(
+                    (binding) => (
+                      <InfoCard key={binding.id}>
+                        <h2 className={styles.familyName}>
+                          {binding.familyMemberName}
+                        </h2>
 
-        {success && (
-          <div
-            className={styles.success}
-          >
-            {success}
-          </div>
-        )}
+                        <p className={styles.familyMeta}>
+                          {relationshipLabel(
+                            binding.relationship,
+                          )}
+                          {binding.primaryContact
+                            ? ' · Primary contact'
+                            : ''}
+                        </p>
 
-        {loading ? (
-          <p>Loading family members…</p>
-        ) : visibleBindings.length === 0 ? (
-          <section
-            className={styles.panel}
-          >
-            <p>
-              You do not have any family
-              members linked yet.
-            </p>
-          </section>
-        ) : (
-          visibleBindings.map(
-            (binding) => (
-              <section
-                key={binding.id}
-                className={styles.panel}
+                        <p className={styles.familyRelation}>
+                          Access:{' '}
+                          {binding.accessScope === 'FULL'
+                            ? 'Full'
+                            : 'Read only'}
+                          {' · '}
+                          Status:{' '}
+                          {statusLabel(binding.status)}
+                        </p>
+
+                        <div className={styles.cardAction}>
+                          <WideButton
+                            variant="secondary"
+                            disabled={revokingId !== null}
+                            onClick={() =>
+                              handleRevoke(binding.id)
+                            }
+                          >
+                            {revokingId === binding.id
+                              ? 'Removing…'
+                              : 'Remove family member'}
+                          </WideButton>
+                        </div>
+                      </InfoCard>
+                    ),
+                  )
+                )}
+              </div>
+            </Slot>
+
+            <Slot order={6}>
+              <p className={styles.meta}>
+                You can stop this at any time. A care
+                manager can help you.
+              </p>
+            </Slot>
+          </>
+        }
+        right={
+          <Slot order={5}>
+            <InfoCard>
+              <form
+                className={styles.form}
+                onSubmit={handleCreate}
               >
-                <h2>
-                  {
-                    binding.familyMemberName
-                  }
+                <h2 className={styles.sectionTitle}>
+                  Bind another family member
                 </h2>
 
-                <p>
-                  {relationshipLabel(
-                    binding.relationship,
-                  )}
-
-                  {binding.primaryContact
-                    ? ' · Primary contact'
-                    : ''}
+                <p className={styles.lead}>
+                  Enter the username of their
+                  CareLink family account.
                 </p>
 
-                <p
-                  className={
-                    styles.meta
-                  }
-                >
-                  Access:{' '}
-                  {binding.accessScope ===
-                  'FULL'
-                    ? 'Full'
-                    : 'Read only'}
-                  {' · '}
-                  Status:{' '}
-                  {statusLabel(
-                    binding.status,
-                  )}
-                </p>
+                <label className={styles.fieldLabel}>
+                  <span>Family username</span>
 
-                <button
-                  type="button"
-                  className={
-                    styles.secondary
-                  }
+                  <input
+                    type="text"
+                    value={familyUsername}
+                    autoCapitalize="none"
+                    spellCheck={false}
+                    maxLength={64}
+                    required
+                    disabled={submitting}
+                    onChange={(event) =>
+                      setFamilyUsername(
+                        event.target.value,
+                      )
+                    }
+                  />
+                </label>
+
+                <label className={styles.fieldLabel}>
+                  <span>Relationship</span>
+
+                  <select
+                    value={relationship}
+                    disabled={submitting}
+                    onChange={(event) =>
+                      setRelationship(
+                        event.target
+                          .value as Relationship,
+                      )
+                    }
+                  >
+                    <option value="SON">Son</option>
+                    <option value="DAUGHTER">Daughter</option>
+                    <option value="SPOUSE">Spouse</option>
+                    <option value="GUARDIAN">Guardian</option>
+                    <option value="OTHER">Other</option>
+                  </select>
+                </label>
+
+                <label className={styles.fieldLabel}>
+                  <span>Access</span>
+
+                  <select
+                    value={accessScope}
+                    disabled={submitting}
+                    onChange={(event) =>
+                      setAccessScope(
+                        event.target
+                          .value as AccessScope,
+                      )
+                    }
+                  >
+                    <option value="FULL">Full</option>
+                    <option value="READ_ONLY">Read only</option>
+                  </select>
+                </label>
+
+                <label className={styles.checkboxField}>
+                  <input
+                    type="checkbox"
+                    checked={primaryContact}
+                    disabled={submitting}
+                    onChange={(event) =>
+                      setPrimaryContact(
+                        event.target.checked,
+                      )
+                    }
+                  />
+
+                  <span>Primary contact</span>
+                </label>
+
+                <WideButton
+                  type="submit"
                   disabled={
-                    revokingId !== null
-                  }
-                  onClick={() =>
-                    handleRevoke(
-                      binding.id,
-                    )
+                    submitting ||
+                    !familyUsername.trim()
                   }
                 >
-                  {revokingId ===
-                  binding.id
-                    ? 'Removing…'
-                    : 'Remove family member'}
-                </button>
-              </section>
-            ),
-          )
-        )}
-
-        <section
-          className={styles.panel}
-        >
-          <h2>
-            Bind another family member
-          </h2>
-
-          <p>
-            Enter the username of an
-            existing CareLink family
-            account.
-          </p>
-
-          <form
-            className={
-              styles.bindingForm
-            }
-            onSubmit={handleCreate}
-          >
-            <label
-              className={
-                styles.field
-              }
-            >
-              <span>
-                Family username
-              </span>
-
-              <input
-                type="text"
-                value={familyUsername}
-                autoCapitalize="none"
-                spellCheck={false}
-                maxLength={64}
-                required
-                disabled={submitting}
-                onChange={(event) =>
-                  setFamilyUsername(
-                    event.target.value,
-                  )
-                }
-              />
-            </label>
-
-            <label
-              className={
-                styles.field
-              }
-            >
-              <span>Relationship</span>
-
-              <select
-                value={relationship}
-                disabled={submitting}
-                onChange={(event) =>
-                  setRelationship(
-                    event.target
-                      .value as Relationship,
-                  )
-                }
-              >
-                <option value="SON">
-                  Son
-                </option>
-
-                <option value="DAUGHTER">
-                  Daughter
-                </option>
-
-                <option value="SPOUSE">
-                  Spouse
-                </option>
-
-                <option value="GUARDIAN">
-                  Guardian
-                </option>
-
-                <option value="OTHER">
-                  Other
-                </option>
-              </select>
-            </label>
-
-            <label
-              className={
-                styles.field
-              }
-            >
-              <span>Access</span>
-
-              <select
-                value={accessScope}
-                disabled={submitting}
-                onChange={(event) =>
-                  setAccessScope(
-                    event.target
-                      .value as AccessScope,
-                  )
-                }
-              >
-                <option value="FULL">
-                  Full
-                </option>
-
-                <option value="READ_ONLY">
-                  Read only
-                </option>
-              </select>
-            </label>
-
-            <label
-              className={
-                styles.checkboxField
-              }
-            >
-              <input
-                type="checkbox"
-                checked={primaryContact}
-                disabled={submitting}
-                onChange={(event) =>
-                  setPrimaryContact(
-                    event.target.checked,
-                  )
-                }
-              />
-
-              <span>
-                Primary contact
-              </span>
-            </label>
-
-            <button
-              className={styles.primary}
-              type="submit"
-              disabled={
-                submitting ||
-                !familyUsername.trim()
-              }
-            >
-              {submitting
-                ? 'Sending request…'
-                : 'Send binding request'}
-            </button>
-          </form>
-        </section>
-      </div>
-    </RoleShell>
+                  {submitting
+                    ? 'Sending request…'
+                    : 'Send binding request'}
+                </WideButton>
+              </form>
+            </InfoCard>
+          </Slot>
+        }
+        footer={
+          <ScreenFooter>
+            <SpeakButton />
+          </ScreenFooter>
+        }
+      />
+    </ElderShell>
   )
 }
