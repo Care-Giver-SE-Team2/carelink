@@ -48,4 +48,20 @@ class VisitAssignmentRepositoryAdapterTest {
 
 		assertThat(saved).isNotNull();
 	}
+
+	@Test
+	void findsTheCurrentAssignmentAndTheWholeHistory() {
+		VisitAssignmentJpaEntity active = new VisitAssignmentJpaEntity();
+		active.setId(8L);
+		active.setStatus(VisitAssignmentJpaEntity.Status.ACTIVE);
+		VisitAssignmentJpaEntity replaced = new VisitAssignmentJpaEntity();
+		replaced.setId(7L);
+		replaced.setStatus(VisitAssignmentJpaEntity.Status.REPLACED);
+		when(jpa.findFirstByVisitIdAndStatusOrderByIdDesc(30L, VisitAssignmentJpaEntity.Status.ACTIVE))
+				.thenReturn(Optional.of(active));
+		when(jpa.findByVisitIdOrderByIdAsc(30L)).thenReturn(java.util.List.of(replaced, active));
+
+		assertThat(adapter.findActiveByVisitId(30L)).get().extracting(VisitAssignment::id).isEqualTo(8L);
+		assertThat(adapter.findByVisitId(30L)).extracting(VisitAssignment::id).containsExactly(7L, 8L);
+	}
 }

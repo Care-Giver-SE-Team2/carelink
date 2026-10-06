@@ -38,6 +38,8 @@ tags:
   - name: Notifications
     description: The current user's notification inbox and notification read state.
 
+  - name: Absences
+    description: Caregiver absences and the re-rostering they trigger (UC-MG04, with the family's part, the former UC-FM06, and the caregiver's request, UC-CG02).
 paths:
   /caregivers/me:
     get:
@@ -1890,6 +1892,294 @@ paths:
       x-family-response-schema:
         $ref: '#/components/schemas/FamilyNotification'
 
+  /absences:
+    get:
+      tags:
+        - Absences
+      summary: List absences with how far their re-rostering has got
+      operationId: listAbsences
+      x-status: implemented
+      x-use-cases:
+        - UC-MG04
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [PENDING, APPROVED, REJECTED]
+      responses:
+        '200':
+          description: Absences, latest start first.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/AbsenceSummary'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+      security:
+        - sessionCookie: []
+    post:
+      tags:
+        - Absences
+      summary: Record a caregiver's absence (UC-MG04 step 1)
+      description: >-
+        A manager records an absence they were told about, e.g. a caregiver ringing in sick. It is
+        approved at once, because the manager is the reviewer. 409 ABSENCE_OVERLAPS when it shares a
+        day with an absence already on record that was not rejected.
+      operationId: recordAbsence
+      x-status: implemented
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RecordAbsenceRequest'
+      responses:
+        '201':
+          description: The absence, approved.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AbsenceSummary'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+      security:
+        - sessionCookie: []
+  /absences/{id}:
+    parameters:
+      - $ref: '#/components/parameters/AbsenceId'
+    get:
+      tags:
+        - Absences
+      summary: One absence, its unhandled visits and every change with its candidates
+      description: >-
+        For each vacated visit: where its change stands, and every caregiver the latest search
+        considered, suggested or excluded, with every rule result behind them - the answer to "why
+        was she not suggested".
+      operationId: getAbsence
+      x-status: implemented
+      responses:
+        '200':
+          description: The absence in full.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AbsenceCase'
+        '404':
+          $ref: '#/components/responses/NotFound'
+      security:
+        - sessionCookie: []
+  /absences/{id}/approve:
+    parameters:
+      - $ref: '#/components/parameters/AbsenceId'
+    post:
+      tags:
+        - Absences
+      summary: Approve an absence a caregiver asked for
+      operationId: approveAbsence
+      x-status: implemented
+      responses:
+        '200':
+          description: The absence, approved.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AbsenceSummary'
+        '409':
+          $ref: '#/components/responses/Conflict'
+      security:
+        - sessionCookie: []
+  /absences/{id}/reject:
+    parameters:
+      - $ref: '#/components/parameters/AbsenceId'
+    post:
+      tags:
+        - Absences
+      summary: Reject an absence a caregiver asked for
+      operationId: rejectAbsence
+      x-status: implemented
+      responses:
+        '200':
+          description: The absence, rejected.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AbsenceSummary'
+        '409':
+          $ref: '#/components/responses/Conflict'
+      security:
+        - sessionCookie: []
+  /absences/{id}/rerostering-runs:
+    parameters:
+      - $ref: '#/components/parameters/AbsenceId'
+    post:
+      tags:
+        - Absences
+      summary: Re-roster now (UC-MG04 steps 2-4)
+      description: >-
+        Searches every visit the absence vacates that has no change yet, ranked by the chosen
+        objective. A visit somebody can take is offered to the family, or settled by the default plan
+        at once when it starts too soon to ask; a visit nobody can take becomes an exception with an
+        incident. Visits left uncovered earlier are searched again and taken straight away when
+        somebody has become free. Safe to repeat. 409 OBJECTIVE_NOT_SUPPORTED for COST, 409
+        ABSENCE_NOT_APPROVED for an absence still waiting for review.
+      operationId: rerosterAbsence
+      x-status: implemented
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                objective:
+                  type: string
+                  enum: [CONTINUITY, EVEN_WORKLOAD, TRAVEL_TIME]
+                  default: CONTINUITY
+      responses:
+        '201':
+          description: What the run did, and the absence as it now stands.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReRostered'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+      security:
+        - sessionCookie: []
+  /absences/{id}/coverage-confirmation:
+    parameters:
+      - $ref: '#/components/parameters/AbsenceId'
+    post:
+      tags:
+        - Absences
+      summary: Confirm every vacated visit is accounted for (UC-MG04 step 7)
+      description: >-
+        409 FAMILY_STILL_DECIDING while a family is still answering, 409 VISITS_NOT_REROSTERED while
+        vacated visits have not been searched.
+      operationId: confirmAbsenceCoverage
+      x-status: implemented
+      responses:
+        '200':
+          description: The absence in full, with the confirmation.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AbsenceCase'
+        '409':
+          $ref: '#/components/responses/Conflict'
+      security:
+        - sessionCookie: []
+  /caregivers/me/absences:
+    get:
+      tags:
+        - Absences
+      summary: The signed-in caregiver's own absences (UC-CG02)
+      operationId: listOwnAbsences
+      x-status: implemented
+      responses:
+        '200':
+          description: Own absences, latest first.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/OwnAbsence'
+      security:
+        - sessionCookie: []
+    post:
+      tags:
+        - Absences
+      summary: Ask for leave (UC-CG02); a manager reviews it
+      operationId: requestAbsence
+      x-status: implemented
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RequestAbsenceRequest'
+      responses:
+        '201':
+          description: The request, waiting for review.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OwnAbsence'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '409':
+          $ref: '#/components/responses/Conflict'
+      security:
+        - sessionCookie: []
+  /roster-changes:
+    get:
+      tags:
+        - Absences
+      summary: Changes to the family's elders' visits (UC-MG04 steps 4-5, the former UC-FM06)
+      description: >-
+        Only elders the family member has an active binding to. Those still waiting for an answer
+        come first, each with up to three suggestions and their reasons; other caregivers' leave and
+        certificates are never included.
+      operationId: listFamilyRosterChanges
+      x-status: implemented
+      responses:
+        '200':
+          description: The family's changes.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/FamilyRosterChange'
+      security:
+        - sessionCookie: []
+  /roster-changes/{id}/decision:
+    parameters:
+      - $ref: '#/components/parameters/RosterChangeId'
+    post:
+      tags:
+        - Absences
+      summary: The family answers a change
+      description: >-
+        Keep the suggestion or pick another of the options, move the visit, or skip it. The chosen
+        caregiver is checked again against the roster as it is now; if they are no longer free the
+        best available takes the visit and the note says so. 403 for an elder the caller is not bound
+        to; 409 ROSTER_CHANGE_NOT_OPEN when already settled, FAMILY_WINDOW_CLOSED after the deadline
+        (the default plan applies), NOT_ONE_OF_THE_OPTIONS, NEW_TIME_TOO_SOON, ELDER_BUSY_THEN or
+        NOBODY_FREE_THEN for a move.
+      operationId: decideRosterChange
+      x-status: implemented
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FamilyDecisionRequest'
+      responses:
+        '200':
+          description: The change as it now stands.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FamilyRosterChange'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+      security:
+        - sessionCookie: []
 components:
   schemas:
     CaregiverSelfProfile:
@@ -3555,6 +3845,182 @@ components:
           type: string
           format: date-time
           nullable: true
+    AbsenceSummary:
+      type: object
+      description: An absence and how far its re-rostering has got (UC-MG04).
+      properties:
+        id: {type: integer, format: int64}
+        caregiverId: {type: integer, format: int64}
+        caregiverName: {type: string}
+        type: {type: string, enum: [SICK, ANNUAL, EMERGENCY, OTHER]}
+        startDate: {type: string, format: date}
+        endDate: {type: string, format: date}
+        reason: {type: string, nullable: true}
+        status: {type: string, enum: [PENDING, APPROVED, REJECTED]}
+        reviewedByUserId: {type: integer, format: int64, nullable: true}
+        coverageConfirmedAt: {type: string, format: date-time, nullable: true}
+        notYetRerostered: {type: integer, description: Vacated visits nobody has searched for yet.}
+        awaitingFamily: {type: integer}
+        uncovered: {type: integer}
+        settled: {type: integer}
+    VacatedVisit:
+      type: object
+      properties:
+        visitId: {type: integer, format: int64}
+        elderId: {type: integer, format: int64}
+        elderName: {type: string}
+        serviceType: {type: string, nullable: true}
+        start: {type: string, format: date-time}
+        end: {type: string, format: date-time, nullable: true}
+    RosterPerson:
+      type: object
+      nullable: true
+      properties:
+        caregiverId: {type: integer, format: int64}
+        name: {type: string}
+    RosterCheck:
+      type: object
+      description: One rule's result for one candidate.
+      properties:
+        code: {type: string, example: CERTIFICATION_VALID}
+        name: {type: string}
+        kind: {type: string, enum: [HARD, SOFT]}
+        result: {type: string, enum: [PASS, FAIL, NOT_APPLICABLE]}
+        detail: {type: string, nullable: true, example: Nursing valid to 2027-01-01}
+    RosterCandidate:
+      type: object
+      properties:
+        caregiverId: {type: integer, format: int64}
+        name: {type: string}
+        rank: {type: integer, nullable: true, description: 1 for the best suggestion; null when excluded.}
+        score: {type: number, nullable: true}
+        reason: {type: string, nullable: true, description: The match reason, or why a hard rule excluded them.}
+        outcome: {type: string, enum: [SELECTED, SUGGESTED, EXCLUDED]}
+        excludedBy: {type: string, nullable: true}
+        checks:
+          type: array
+          items:
+            $ref: '#/components/schemas/RosterCheck'
+    RosterChangeView:
+      type: object
+      description: One vacated visit as the manager sees it.
+      properties:
+        id: {type: integer, format: int64}
+        visitId: {type: integer, format: int64}
+        elderId: {type: integer, format: int64}
+        elderName: {type: string}
+        visitStart: {type: string, format: date-time}
+        visitEnd: {type: string, format: date-time, nullable: true}
+        status: {type: string, enum: [AWAITING_FAMILY, UNCOVERED, RESOLVED]}
+        outcome: {type: string, nullable: true, enum: [REPLACED, RESCHEDULED, SKIPPED, WITHDRAWN]}
+        decidedBy: {type: string, nullable: true, enum: [FAMILY, DEFAULT_PLAN, MANAGER]}
+        decidedAt: {type: string, format: date-time, nullable: true}
+        respondBy: {type: string, format: date-time, nullable: true}
+        note: {type: string, nullable: true}
+        absentCaregiver: {$ref: '#/components/schemas/RosterPerson'}
+        proposedCaregiver: {$ref: '#/components/schemas/RosterPerson'}
+        assignedCaregiver: {$ref: '#/components/schemas/RosterPerson'}
+        rescheduledVisitId: {type: integer, format: int64, nullable: true}
+        rescheduledStart: {type: string, format: date-time, nullable: true}
+        incidentId: {type: integer, format: int64, nullable: true}
+        rosteringRunId: {type: integer, format: int64, nullable: true}
+        objective: {type: string, nullable: true, enum: [CONTINUITY, EVEN_WORKLOAD, TRAVEL_TIME]}
+        candidates:
+          type: array
+          items:
+            $ref: '#/components/schemas/RosterCandidate'
+    AbsenceCase:
+      type: object
+      properties:
+        absence: {$ref: '#/components/schemas/AbsenceSummary'}
+        notYetRerostered:
+          type: array
+          items:
+            $ref: '#/components/schemas/VacatedVisit'
+        changes:
+          type: array
+          items:
+            $ref: '#/components/schemas/RosterChangeView'
+    ReRostered:
+      type: object
+      properties:
+        outcome:
+          type: object
+          properties:
+            absenceId: {type: integer, format: int64}
+            runId: {type: integer, format: int64, nullable: true}
+            searched: {type: integer}
+            offered: {type: integer}
+            settled: {type: integer}
+            uncovered: {type: integer}
+        absence: {$ref: '#/components/schemas/AbsenceCase'}
+    RecordAbsenceRequest:
+      type: object
+      required: [caregiverId, startDate, endDate]
+      properties:
+        caregiverId: {type: integer, format: int64}
+        type: {type: string, enum: [SICK, ANNUAL, EMERGENCY, OTHER], default: OTHER}
+        startDate: {type: string, format: date}
+        endDate: {type: string, format: date}
+        reason: {type: string, maxLength: 255}
+    RequestAbsenceRequest:
+      type: object
+      required: [startDate, endDate]
+      properties:
+        type: {type: string, enum: [SICK, ANNUAL, EMERGENCY, OTHER], default: OTHER}
+        startDate: {type: string, format: date}
+        endDate: {type: string, format: date}
+        reason: {type: string, maxLength: 255}
+    OwnAbsence:
+      type: object
+      properties:
+        id: {type: integer, format: int64}
+        type: {type: string, enum: [SICK, ANNUAL, EMERGENCY, OTHER]}
+        startDate: {type: string, format: date}
+        endDate: {type: string, format: date}
+        reason: {type: string, nullable: true}
+        status: {type: string, enum: [PENDING, APPROVED, REJECTED]}
+    FamilyRosterChange:
+      type: object
+      description: A change as the family sees it.
+      properties:
+        id: {type: integer, format: int64}
+        elderId: {type: integer, format: int64}
+        elderName: {type: string}
+        visitStart: {type: string, format: date-time}
+        visitEnd: {type: string, format: date-time, nullable: true}
+        usualCaregiverName: {type: string}
+        status: {type: string, enum: [AWAITING_FAMILY, UNCOVERED, RESOLVED]}
+        respondBy: {type: string, format: date-time, nullable: true}
+        suggestedCaregiverId: {type: integer, format: int64, nullable: true}
+        options:
+          type: array
+          items:
+            type: object
+            properties:
+              caregiverId: {type: integer, format: int64}
+              name: {type: string}
+              rank: {type: integer}
+              reason: {type: string, nullable: true}
+        outcome: {type: string, nullable: true, enum: [REPLACED, RESCHEDULED, SKIPPED, WITHDRAWN]}
+        decidedBy: {type: string, nullable: true, enum: [FAMILY, DEFAULT_PLAN, MANAGER]}
+        decidedAt: {type: string, format: date-time, nullable: true}
+        assignedCaregiver: {$ref: '#/components/schemas/RosterPerson'}
+        rescheduledStart: {type: string, format: date-time, nullable: true}
+        note: {type: string, nullable: true}
+    FamilyDecisionRequest:
+      type: object
+      required: [choice]
+      properties:
+        choice: {type: string, enum: [CHANGE_CAREGIVER, RESCHEDULE, SKIP]}
+        caregiverId:
+          type: integer
+          format: int64
+          description: For CHANGE_CAREGIVER, one of the options offered; omitted keeps the suggestion.
+        newStart:
+          type: string
+          format: date-time
+          description: For RESCHEDULE, Singapore local time without an offset.
   parameters:
     Page:
       name: page
@@ -3593,6 +4059,20 @@ components:
         type: integer
         format: int64
 
+    AbsenceId:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
+    RosterChangeId:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
   responses:
     FamilyValidationError:
       description: >-
@@ -3654,6 +4134,18 @@ components:
 
     Forbidden:
       description: Authenticated, but not permitted to act on this resource (e.g. an elder outside the caller's scope).
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetail'
+    BadRequest:
+      description: The request body or a parameter is malformed.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetail'
+    Conflict:
+      description: A business rule refused the request; the detail says which.
       content:
         application/problem+json:
           schema:

@@ -81,6 +81,64 @@ public record Visit(
 		return withAssignmentAndStatus(null, Status.EXCEPTION);
 	}
 
+	/**
+	 * True for a visit an absence left with nobody on it (UC-MG04 exception 3a): the one kind of
+	 * exception a replacement can still fix, as long as nobody has checked in. Not named isX, for
+	 * the reason given on {@link #hasNotStarted}.
+	 */
+	public boolean leftUncoveredByAbsence() {
+		return status == Status.EXCEPTION && caregiverId == null && absenceId != null && checkedInAt == null;
+	}
+
+	/**
+	 * UC-MG04: gives the visit to another caregiver because its own is absent. Also takes back a
+	 * visit an absence left uncovered, once somebody is free to do it.
+	 */
+	public Visit reassignedForAbsence(Long newCaregiverId, Long forAbsenceId) {
+		java.util.Objects.requireNonNull(newCaregiverId, "newCaregiverId");
+		requireOpenToAbsenceChange("reassigned");
+		return withAbsence(newCaregiverId, Status.SCHEDULED, forAbsenceId);
+	}
+
+	/** UC-MG04 exception 3a: nobody can take the visit, so it becomes an exception rather than a gap. */
+	public Visit uncoveredForAbsence(Long forAbsenceId) {
+		if (!hasNotStarted()) {
+			throw new IllegalStateException("Visit " + id + " is " + status + " and can no longer be uncovered");
+		}
+		return withAbsence(null, Status.EXCEPTION, forAbsenceId);
+	}
+
+	/** UC-MG04 alternatives 4b and 4c: called off because of an absence, to be skipped or moved. */
+	public Visit calledOffForAbsence(Long forAbsenceId) {
+		requireOpenToAbsenceChange("called off");
+		return withAbsence(caregiverId, Status.CANCELLED, forAbsenceId);
+	}
+
+	/**
+	 * UC-MG04 alternative 4b: the same visit at another time, as a new visit for whoever covers it
+	 * then - same elder, plan, task and length. This visit is called off on its own.
+	 */
+	public Visit movedTo(LocalDateTime newStart, Long newCaregiverId, Long forAbsenceId) {
+		java.util.Objects.requireNonNull(newStart, "newStart");
+		LocalDateTime newEnd = scheduledEnd == null
+				? null
+				: newStart.plus(java.time.Duration.between(scheduledStart, scheduledEnd));
+		return new Visit(null, elderId, newCaregiverId, carePlanNodeId, forAbsenceId, serviceType, newStart, newEnd,
+				null, null, Status.SCHEDULED, null, carePlanId, null, null, null);
+	}
+
+	private void requireOpenToAbsenceChange(String verb) {
+		if (!hasNotStarted() && !leftUncoveredByAbsence()) {
+			throw new IllegalStateException("Visit " + id + " is " + status + " and can no longer be " + verb);
+		}
+	}
+
+	private Visit withAbsence(Long newCaregiverId, Status newStatus, Long forAbsenceId) {
+		return new Visit(id, elderId, newCaregiverId, carePlanNodeId, forAbsenceId, serviceType, scheduledStart,
+				scheduledEnd, checkedInAt, checkedOutAt, newStatus, stateDeadline, carePlanId, version,
+				createdAt, updatedAt);
+	}
+
 	private Visit withAssignmentAndStatus(Long newCaregiverId, Status newStatus) {
 		return new Visit(id, elderId, newCaregiverId, carePlanNodeId, absenceId, serviceType, scheduledStart,
 				scheduledEnd, checkedInAt, checkedOutAt, newStatus, stateDeadline, carePlanId, version,

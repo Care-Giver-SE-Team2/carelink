@@ -1,5 +1,7 @@
 package sg.nus.carelink.rostering.infrastructure.persistence.adapter;
 
+import java.util.Collection;
+import java.util.List;
 import java.util.Optional;
 
 import org.springframework.stereotype.Repository;
@@ -29,5 +31,15 @@ class RosteringCandidateCheckRepositoryAdapter implements RosteringCandidateChec
 	@Override
 	public RosteringCandidateCheck save(RosteringCandidateCheck rosteringCandidateCheck) {
 		return RosteringCandidateCheckMapper.toDomain(jpa.save(RosteringCandidateCheckMapper.toEntity(rosteringCandidateCheck)));
+	}
+
+	@Override
+	public List<RosteringCandidateCheck> findByCandidateIds(Collection<Long> rosteringCandidateIds) {
+		if (rosteringCandidateIds.isEmpty()) {
+			return List.of();
+		}
+		return jpa.findByRosteringCandidateIdInOrderByIdAsc(rosteringCandidateIds).stream()
+				.map(RosteringCandidateCheckMapper::toDomain)
+				.toList();
 	}
 }

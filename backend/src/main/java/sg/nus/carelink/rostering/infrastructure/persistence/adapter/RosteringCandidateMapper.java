@@ -21,7 +21,8 @@ final class RosteringCandidateMapper {
 				e.getOptionRank(),
 				e.getScore(),
 				e.getOutcome() == null ? null : RosteringCandidate.Outcome.valueOf(e.getOutcome().name()),
-				e.getExcludedByCode());
+				e.getExcludedByCode(),
+				e.getMatchReason());
 	}
 
 	static RosteringCandidateJpaEntity toEntity(RosteringCandidate d) {
@@ -34,6 +35,7 @@ final class RosteringCandidateMapper {
 		e.setScore(d.score());
 		e.setOutcome(d.outcome() == null ? null : RosteringCandidateJpaEntity.Outcome.valueOf(d.outcome().name()));
 		e.setExcludedByCode(d.excludedByCode());
+		e.setMatchReason(d.matchReason());
 		return e;
 	}
 }

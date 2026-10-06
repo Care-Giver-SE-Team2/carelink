@@ -1,7 +1,9 @@
 package sg.nus.carelink.rostering.infrastructure.persistence.adapter;
 
+import java.util.List;
 import java.util.Optional;
 
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Repository;
 
 import sg.nus.carelink.rostering.domain.model.RosteringConstraint;
@@ -29,5 +31,10 @@ class RosteringConstraintRepositoryAdapter implements RosteringConstraintReposit
 	@Override
 	public RosteringConstraint save(RosteringConstraint rosteringConstraint) {
 		return RosteringConstraintMapper.toDomain(jpa.save(RosteringConstraintMapper.toEntity(rosteringConstraint)));
+	}
+
+	@Override
+	public List<RosteringConstraint> findAll() {
+		return jpa.findAll(Sort.by("id")).stream().map(RosteringConstraintMapper::toDomain).toList();
 	}
 }

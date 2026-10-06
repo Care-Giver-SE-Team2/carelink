@@ -44,6 +44,16 @@ carelink:
     # How often a visit still unassigned at its start time is turned into an exception.
     uncovered-scan-interval: PT60S
     uncovered-scan-initial-delay: PT30S
+  # UC-MG04. How long a family has to answer a change before the default plan runs (the use
+  # case: two hours by default, never a constant), how long before a visit its replacement
+  # must know, how far back visits to an elder count as continuity, and how often the scan
+  # looks for families whose time is up.
+  rerostering:
+    family-window: PT2H
+    decision-lead: PT1H
+    continuity-lookback: P180D
+    scan-interval: PT60S
+    scan-initial-delay: PT45S
 
 management:
   endpoints:

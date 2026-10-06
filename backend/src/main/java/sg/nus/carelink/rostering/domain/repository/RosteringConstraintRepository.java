@@ -1,5 +1,6 @@
 package sg.nus.carelink.rostering.domain.repository;
 
+import java.util.List;
 import java.util.Optional;
 
 import sg.nus.carelink.rostering.domain.model.RosteringConstraint;
@@ -14,4 +15,7 @@ public interface RosteringConstraintRepository {
 	Optional<RosteringConstraint> findById(Long id);
 
 	RosteringConstraint save(RosteringConstraint rosteringConstraint);
+
+	/** The whole rule set, switched-off rules included, in id order. */
+	List<RosteringConstraint> findAll();
 }
