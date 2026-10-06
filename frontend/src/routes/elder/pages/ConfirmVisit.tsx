@@ -348,7 +348,7 @@ export default function ConfirmVisit() {
 
                   {selectedVisit && (
                     <InfoCard>
-                      <h2 className={styles.mono}>
+                      <h2 className={styles.meta}>
                         Completed visit
                       </h2>
 

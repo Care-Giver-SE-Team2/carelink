@@ -346,7 +346,7 @@ export default function FamilyBindings() {
             </Slot>
 
             <Slot order={6}>
-              <p className={styles.mono}>
+              <p className={styles.meta}>
                 You can stop this at any time. A care
                 manager can help you.
               </p>

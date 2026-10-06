@@ -39,7 +39,7 @@ export default function ValueAddedServices() {
               )}
             </Slot>
             <Slot order={5}>
-              <p className={styles.mono}>No payment is taken here.</p>
+              <p className={styles.meta}>No payment is taken here.</p>
             </Slot>
           </>
         }

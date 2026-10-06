@@ -8,7 +8,7 @@ import styles from './ElderUi.module.css'
 /**
  * Building blocks for the elder client. Every task takes three taps or fewer and should
  * work without reading: few choices per screen, full-width buttons at least 80px tall,
- * square corners, ink on white, and the help colour reserved for asking for help.
+ * rounded white cards on a tinted page, and the help colour reserved for asking for help.
  */
 
 export function ScreenHeader({
@@ -19,11 +19,11 @@ export function ScreenHeader({
   backTo,
 }: {
   eyebrow?: string
-  /** `label` is the small uppercase mono variant (e.g. "FAMILY"). */
+  /** `label` is the small uppercase accent variant (e.g. "FAMILY"). */
   eyebrowStyle?: 'plain' | 'label'
   title: string
   subtitle?: string
-  /** Shows the square back button, linking here. */
+  /** Shows the boxed back button, linking here. */
   backTo?: string
 }) {
   return (
@@ -286,7 +286,7 @@ export function ChoiceRadio({
   )
 }
 
-/** Quiet grey note, e.g. who will see an answer. */
+/** Quiet tinted note, e.g. who will see an answer. */
 export function InfoNote({ children }: { children: ReactNode }) {
   return <div className={styles.infoNote}>{children}</div>
 }
@@ -309,7 +309,7 @@ export function StatusNote({
   )
 }
 
-/** Visit, family member or other key thing on the screen, in a 1px ink frame. */
+/** Visit, family member or other key thing on the screen, on a white card. */
 export function InfoCard({ children }: { children: ReactNode }) {
   return <section className={styles.card}>{children}</section>
 }

@@ -1,24 +1,53 @@
 /*
- * Elder client look: square corners, 1px ink borders, no shadows, type and touch targets
- * larger than any other role. No text under 12.5px. The help colour (--danger) is only
- * used for asking for help; --success only for done/completed status.
+ * Elder client look (shared with the family member app): white cards on a tinted page,
+ * rounded corners, 1px light borders, no shadows, type and touch targets larger than any
+ * other role. No text under 12.5px. One typeface; numbers use tabular figures. The help
+ * colour (--danger) is only used for asking for help; --success only for done/completed
+ * status; --accent for primary actions and selected states.
  *
  * Sizes are custom properties on .shell so tablet can raise them ~10% in one place.
  * Breakpoints: phone < 600px, tablet 600–1023px, desktop ≥ 1024px (two columns).
  *
  * Buttons reset the global `button` rule in shared/theme/theme.css (radius, min-height,
- * padding), since these components set their own. Hover colours (#333, #f4f4f2, #a94434)
- * are the handoff's exact values; there are no theme tokens for them.
+ * padding), since these components set their own.
  */
 
 /* ---- shell ---- */
+
+/*
+ * The elder palette, scoped to the elder screens. The shell element also carries
+ * data-theme="elder", so the attribute in the selector keeps these ahead of the theme's
+ * own [data-theme="elder"] values regardless of stylesheet order. The values are the
+ * handoff's exact colours; the standard theme has no equivalents.
+ */
+[data-theme='elder'].shell {
+  --text: #1f3a33;
+  --text-secondary: #5c6e68;
+  --text-tertiary: #5c6e68;
+  --text-muted: #5c6e68;
+  --text-faint: #7d8f89;
+  --bg: #ffffff;
+  /* Hover on white buttons: greener than the page tint so it reads as a change. */
+  --bg-hover: #d9eae2;
+  --page: #f3f7f5;
+  --border: #d5e2dc;
+  --border-light: #e2e9e6;
+  --accent: #1a6b5a;
+  --accent-hover: #145646;
+  --accent-tint: #e6f0ec;
+  --danger-hover: #a94434;
+}
 
 .shell {
   /* Side padding of the content column. */
   --gutter: 22px;
   /* How far header/footer rules reach past the gutter: full-bleed on phone, none above. */
   --bleed: 22px;
-  --focus: var(--text);
+  /* Phone: the white header band owns the top inset, so the column has none. */
+  --top: 0px;
+  /* Space under the content; the phone footer band reaches down through it. */
+  --bottom: 40px;
+  --focus: var(--accent);
 
   --title: 30px;
   --title-back: 24px;
@@ -29,22 +58,24 @@
   --choice-pad: 26px 20px;
   --hint: 13px;
   --note: 15px;
-  --note-mono: 12.5px;
+  --note-small: 12.5px;
   --wide: 20px;
   --wide-pad: 24px;
   --speak: 16px;
   --speak-box: 40px;
+  --speak-radius: 11px;
 
   min-height: 100dvh;
   display: flex;
   flex-direction: column;
-  background: var(--bg);
+  background: var(--page);
   color: var(--text);
   font-family: var(--font);
 }
 
 .shellHelp {
   --focus: #fff;
+  --top: 24px;
 
   background: var(--danger);
   color: #fff;
@@ -59,7 +90,7 @@
   flex: 1;
   width: 100%;
   margin: 0 auto;
-  padding: 24px var(--gutter) 40px;
+  padding: var(--top) var(--gutter) var(--bottom);
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
@@ -92,10 +123,12 @@
 
 /* ---- screen header ---- */
 
+/* Phone: a full-bleed white band under the status bar. Above phone it is plain text on a rule. */
 .screenHeader {
   margin: 0 calc(-1 * var(--bleed));
-  padding: 0 var(--bleed) 18px;
-  border-bottom: 1px solid var(--text);
+  padding: 24px var(--bleed) 18px;
+  border-bottom: 1px solid var(--border-light);
+  background: var(--bg);
 }
 
 .withBack {
@@ -117,17 +150,20 @@
   width: 44px;
   height: 44px;
   flex: none;
+  box-sizing: border-box;
   display: flex;
   align-items: center;
   justify-content: center;
-  border: 1px solid var(--text);
+  border: 1px solid var(--accent);
+  border-radius: 12px;
   color: var(--text);
   font: 600 22px/1 var(--font);
   text-decoration: none;
 }
 
 .back:hover {
-  background: #f4f4f2;
+  background: var(--bg-hover);
+  border-color: var(--accent-hover);
 }
 
 .eyebrow {
@@ -138,10 +174,11 @@
 
 .eyebrowLabel {
   margin-bottom: 9px;
-  font: 500 12.5px/1 var(--font-mono);
-  letter-spacing: 0.1em;
+  font: 600 12.5px/1 var(--font);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: var(--text-muted);
+  color: var(--accent);
 }
 
 .title {
@@ -158,15 +195,18 @@
 .subtitle {
   margin: 8px 0 0;
   font: 500 var(--subtitle)/1.3 var(--font);
-  color: var(--text-secondary);
+  color: var(--text);
 }
 
 /* ---- footer ---- */
 
+/* Phone: a full-bleed white band to the bottom edge, mirroring the header band at the top.
+   Above phone it is a white card at the foot of the column. */
 .footer {
-  margin: 0 calc(-1 * var(--bleed));
-  padding: 20px var(--bleed) 0;
+  margin: 0 calc(-1 * var(--bleed)) calc(-1 * var(--bottom));
+  padding: 18px var(--bleed) 24px;
   border-top: 1px solid var(--border-light);
+  background: var(--bg);
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -180,7 +220,7 @@
   gap: 16px;
 }
 
-/* ---- focus: 3px ink ring (white on the help screen), offset 3px ---- */
+/* ---- focus: 3px accent ring (white on the help screen), offset 3px ---- */
 
 .back:focus-visible,
 .action:focus-visible,
@@ -204,8 +244,8 @@
   display: flex;
   align-items: center;
   gap: 20px;
-  border: 1px solid var(--text);
-  border-radius: 0;
+  border: 1px solid var(--border);
+  border-radius: 20px;
   text-align: left;
   text-decoration: none;
   cursor: pointer;
@@ -220,9 +260,11 @@
   width: 56px;
   height: 56px;
   flex: none;
+  box-sizing: border-box;
   display: flex;
   align-items: center;
   justify-content: center;
+  border-radius: 16px;
   font: 700 30px/1 var(--font);
 }
 
@@ -231,7 +273,8 @@
 }
 
 .actionPrimary {
-  background: var(--text);
+  border-color: var(--accent);
+  background: var(--accent);
   color: #fff;
 }
 
@@ -241,8 +284,8 @@
 }
 
 .actionPrimary:hover:not(:disabled) {
-  border-color: #333;
-  background: #333;
+  border-color: var(--accent-hover);
+  background: var(--accent-hover);
 }
 
 .actionSecondary {
@@ -251,11 +294,12 @@
 }
 
 .actionSecondary .actionTile {
-  border: 1px solid var(--text);
+  border: 1px solid var(--accent);
 }
 
 .actionSecondary:hover:not(:disabled) {
-  background: #f4f4f2;
+  border-color: var(--accent);
+  background: var(--bg-hover);
 }
 
 .actionHelp {
@@ -271,8 +315,8 @@
 }
 
 .actionHelp:hover:not(:disabled) {
-  border-color: #a94434;
-  background: #a94434;
+  border-color: var(--danger-hover);
+  background: var(--danger-hover);
 }
 
 /* ---- wide button ---- */
@@ -282,32 +326,34 @@
   min-height: 0;
   margin: 0;
   padding: var(--wide-pad) 16px;
-  border: 1px solid var(--text);
-  border-radius: 0;
+  border: 1px solid var(--accent);
+  border-radius: 20px;
   font: 700 var(--wide)/1.2 var(--font);
   cursor: pointer;
 }
 
 .widePrimary {
-  background: var(--text);
+  background: var(--accent);
   color: #fff;
 }
 
 .widePrimary:hover:not(:disabled) {
-  border-color: #333;
-  background: #333;
+  border-color: var(--accent-hover);
+  background: var(--accent-hover);
 }
 
 .wideSecondary {
   padding: 20px 16px;
+  border-color: var(--border);
   background: var(--bg);
   color: var(--text);
   font-weight: 600;
-  font-size: 18px;
+  font-size: 17px;
 }
 
 .wideSecondary:hover:not(:disabled) {
-  background: #f4f4f2;
+  border-color: var(--accent);
+  background: var(--bg-hover);
 }
 
 .wide:disabled {
@@ -326,8 +372,8 @@
   display: flex;
   align-items: center;
   gap: 16px;
-  border: 1px solid var(--text);
-  border-radius: 0;
+  border: 1px solid var(--border);
+  border-radius: 20px;
   background: var(--bg);
   color: var(--text);
   text-align: left;
@@ -341,7 +387,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  border: 1px solid var(--text);
+  border: 1px solid var(--border);
+  border-radius: 16px;
   background: var(--bg);
   color: var(--text);
   cursor: pointer;
@@ -349,11 +396,13 @@
 
 .choice:not(.choiceSelected):hover,
 .choiceTile:not(.choiceSelected):hover {
-  background: #f4f4f2;
+  border-color: var(--accent);
+  background: var(--bg-hover);
 }
 
 .choiceSelected {
-  background: var(--text);
+  border-color: var(--accent);
+  background: var(--accent);
   color: #fff;
 }
 
@@ -361,11 +410,20 @@
   width: 44px;
   height: 44px;
   flex: none;
+  box-sizing: border-box;
   display: flex;
   align-items: center;
   justify-content: center;
-  border: 1px solid currentColor;
+  border: 1px solid var(--accent);
+  border-radius: 12px;
   font: 700 24px/1 var(--font);
+}
+
+/* Selected: a white tile with an ink glyph, like a primary BigAction. */
+.choiceSelected .choiceIcon {
+  border-color: #fff;
+  background: #fff;
+  color: var(--text);
 }
 
 .choiceLabel {
@@ -379,7 +437,8 @@
 
 .choiceHint {
   flex: none;
-  font: 400 var(--hint)/1 var(--font-mono);
+  font: 400 var(--hint)/1 var(--font);
+  font-variant-numeric: tabular-nums;
   color: var(--text-muted);
 }
 
@@ -401,15 +460,18 @@
 
 .infoNote {
   padding: 15px 16px;
-  border: 1px solid var(--border-light);
-  background: var(--surface-2);
+  border: 1px solid var(--accent-tint);
+  border-radius: 16px;
+  background: var(--accent-tint);
   font: 500 var(--note)/1.5 var(--font);
-  color: var(--text-tertiary);
+  color: var(--text-muted);
 }
 
 .statusNote {
   padding: 16px 18px;
   border: 1px solid;
+  border-radius: 16px;
+  background: var(--bg);
   font: 600 18px/1.4 var(--font);
 }
 
@@ -426,7 +488,9 @@
 
 .card {
   padding: 18px;
-  border: 1px solid var(--text);
+  border: 1px solid var(--border-light);
+  border-radius: 20px;
+  background: var(--bg);
 }
 
 /* ---- speak ---- */
@@ -443,7 +507,7 @@
   border: none;
   border-radius: 0;
   background: none;
-  color: var(--text-secondary);
+  color: var(--text);
   font: 500 var(--speak)/1.4 var(--font);
   text-align: left;
   cursor: pointer;
@@ -453,12 +517,18 @@
   width: var(--speak-box);
   height: var(--speak-box);
   flex: none;
+  box-sizing: border-box;
   display: flex;
   align-items: center;
   justify-content: center;
-  border: 1px solid var(--text);
+  border: 1px solid var(--accent);
+  border-radius: var(--speak-radius);
   color: var(--text);
   font: 600 15px/1 var(--font);
+}
+
+.speak:hover .speakIcon {
+  background: var(--bg-hover);
 }
 
 /* ---- sign out ---- */
@@ -469,17 +539,17 @@
   min-height: 0;
   margin: 0;
   padding: 0 14px;
-  border: 1px solid var(--filter-border);
-  border-radius: 0;
+  border: 1px solid var(--border);
+  border-radius: 20px;
   background: var(--bg);
-  color: var(--text-secondary);
+  color: var(--text);
   font: 500 15px/1 var(--font);
   cursor: pointer;
 }
 
 .signOut:hover:not(:disabled) {
-  border-color: var(--text);
-  color: var(--text);
+  border-color: var(--accent);
+  background: var(--bg-hover);
 }
 
 .signOut:focus-visible {
@@ -505,13 +575,15 @@
 }
 
 /* ==========================================================================
-   Tablet 600–1023px: one centred column, max 560px, type +10%.
+   Tablet 600–1023px: one centred column, max 560px, type +10%. The header is
+   plain text on a rule inside the column rather than a full-bleed band.
    ========================================================================== */
 
 @media (min-width: 600px) {
   .shell {
     --gutter: 32px;
     --bleed: 0px;
+    --top: 40px;
 
     --title: 33px;
     --title-back: 26px;
@@ -522,16 +594,28 @@
     --choice-pad: 28px 22px;
     --hint: 14px;
     --note: 17px;
-    --note-mono: 13.5px;
+    --note-small: 13.5px;
     --wide: 22px;
     --wide-pad: 26px;
     --speak: 17px;
     --speak-box: 44px;
+    --speak-radius: 12px;
   }
 
   .column {
     max-width: calc(560px + 2 * var(--gutter));
-    padding-top: 40px;
+  }
+
+  .screenHeader {
+    padding-top: 0;
+    background: none;
+  }
+
+  .footer {
+    margin: 0;
+    padding: 16px 18px;
+    border: 1px solid var(--border-light);
+    border-radius: 20px;
   }
 }
 
@@ -542,6 +626,8 @@
 
 @media (min-width: 1024px) {
   .shell {
+    --top: 48px;
+
     --title: 36px;
     --title-back: 28px;
     --action-label: 24px;
@@ -554,7 +640,8 @@
     justify-content: space-between;
     height: 56px;
     padding: 0 32px;
-    border-bottom: 1px solid var(--text);
+    border-bottom: 1px solid var(--border-light);
+    background: var(--bg);
   }
 
   .wordmark {
@@ -573,7 +660,6 @@
 
   .column {
     max-width: calc(1040px + 2 * var(--gutter));
-    padding-top: 48px;
   }
 
   .shellHelp .column {
@@ -612,11 +698,5 @@
     grid-column: 1;
     grid-row: 2;
     margin-top: 0;
-  }
-
-  /* The read-aloud row sits under the left column's content, not on a rule of its own. */
-  .footer {
-    padding-top: 0;
-    border-top: none;
   }
 }
