@@ -1,0 +1,24 @@
+/*
+ * The white screen header that sits under the family app bar: back link, eyebrow, title and meta.
+ * Page modules pull it in with `composes: band from ...` so their markup stays unchanged.
+ * The background bleeds to the viewport edges without widening the page (border-image outsets
+ * are not scrollable overflow), and the bottom 1px of the image is the card line.
+ */
+.band {
+  margin-bottom: 18px;
+  padding: 14px 0 18px;
+  border-image: linear-gradient(to top, var(--fm-line-card) 1px, var(--fm-card) 1px) fill 0 / / 0 100vmax;
+}
+
+/* Consecutive bands (a back link above the page title) read as one header. */
+.band:has(+ .band),
+.band:has(+ article > .band:first-child) {
+  margin-bottom: 0;
+  padding-bottom: 0;
+  border-image-source: linear-gradient(var(--fm-card) 0 0);
+}
+
+.band:has(+ .band) + .band,
+.band:has(+ article > .band:first-child) + article > .band {
+  padding-top: 12px;
+}

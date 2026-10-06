@@ -1,5 +1,7 @@
-import { useEffect } from 'react'
-import { Link, NavLink, Outlet, useLocation } from 'react-router-dom'
+import { useEffect, useState } from 'react'
+import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
+import { signOut } from '../../../features/auth/api'
+import { ApiError } from '../../../shared/api/client'
 import { FamilyIcon } from './FamilyIcon'
 import styles from '../intake/FamilyIntake.module.css'
 import layout from './FamilyLayout.module.css'
@@ -11,6 +13,9 @@ import layout from './FamilyLayout.module.css'
  */
 export function FamilyLayout({ title = 'My applications' }: { title?: string }) {
   const { pathname, search } = useLocation()
+  const navigate = useNavigate()
+  const [signingOut, setSigningOut] = useState(false)
+  const [signOutError, setSignOutError] = useState('')
   useEffect(() => {
     window.scrollTo({ top: 0, left: 0, behavior: 'instant' })
   }, [pathname, search])
@@ -21,6 +26,25 @@ export function FamilyLayout({ title = 'My applications' }: { title?: string }) 
       document.title = previous
     }
   }, [title])
+
+  async function handleSignOut() {
+    if (signingOut) return
+    setSigningOut(true)
+    setSignOutError('')
+    try {
+      await signOut()
+      navigate('/', { replace: true })
+    } catch (failure) {
+      // An already-expired session means the family member is signed out anyway.
+      if (failure instanceof ApiError && failure.status === 401) {
+        navigate('/', { replace: true })
+        return
+      }
+      setSignOutError('Unable to sign out. Please try again.')
+    } finally {
+      setSigningOut(false)
+    }
+  }
 
   return (
     <div className={styles.portal}>
@@ -45,7 +69,20 @@ export function FamilyLayout({ title = 'My applications' }: { title?: string }) 
           <NavLink to="/family/intake">My applications</NavLink>
           <NavLink to="/family/schedule">Weekly schedule</NavLink>
           <NavLink to="/family/reports">Care reports</NavLink>
+          <button
+            type="button"
+            className={layout.signOut}
+            onClick={handleSignOut}
+            disabled={signingOut}
+          >
+            {signingOut ? 'Signing out…' : 'Sign out'}
+          </button>
         </nav>
+        {signOutError && (
+          <p className={layout.signOutError} role="alert">
+            {signOutError}
+          </p>
+        )}
       </header>
       <main id="family-content" className={styles.main}>
         <Outlet />

@@ -2,26 +2,35 @@
   overflow-wrap: anywhere;
 }
 .hero {
-  margin-bottom: 26px;
+  composes: band from '../components/FamilyScreen.module.css';
 }
-.hero > p:last-child,
 .hero > .intro {
-  margin-top: 12px;
-  color: #60776f;
-  font-size: 14px;
+  margin-top: 6px;
+  color: var(--fm-muted);
+  font-size: 13.5px;
+}
+.hero h1 {
+  font-variant-numeric: tabular-nums;
+}
+.hero > p:not(.reference, .source, .timestamp, .eyebrow, .intro) {
+  margin-top: 6px;
+  color: var(--fm-muted);
+  font-size: 13.5px;
 }
 .eyebrow {
-  font-size: 10px;
-  font-weight: 750;
-  letter-spacing: 1.8px;
-  color: #48786b;
-  margin-bottom: 12px !important;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  line-height: 1;
+  text-transform: uppercase;
+  color: var(--fm-accent);
+  margin-bottom: 8px !important;
 }
 .toolbar {
   display: flex;
   align-items: end;
-  gap: 14px;
-  margin-bottom: 24px;
+  gap: 10px;
+  margin-bottom: 16px;
 }
 .toolbar > button {
   flex-shrink: 0;
@@ -30,55 +39,60 @@
   flex: 1;
   min-width: 0;
 }
-.elderPicker label {
+.elderPicker label,
+.datePicker label {
   display: block;
-  font-size: 12px;
-  font-weight: 650;
-  color: #496d60;
+  font-size: 13.5px;
+  font-weight: 600;
   margin-bottom: 7px;
 }
-.elderPicker select {
+.elderPicker select,
+.datePicker input {
+  display: block;
   width: 100%;
   min-width: 0;
-  min-height: 46px;
-  padding: 10px 12px;
-  border: 1px solid #cadbd7;
-  border-radius: 12px;
+  min-height: 48px;
+  padding: 11px 14px;
+  border: 1px solid var(--fm-line-control);
+  border-radius: 14px;
   font: inherit;
   font-size: 16px;
-  color: #203a36;
-  background: white;
-  text-overflow: ellipsis;
+  color: var(--fm-ink);
+  background: var(--fm-card);
+  color-scheme: light;
+  font-variant-numeric: tabular-nums;
 }
-.elderPicker select:focus-visible {
-  outline: 3px solid #14947f;
-  outline-offset: 3px;
+.elderPicker select {
+  text-overflow: ellipsis;
 }
 .summary {
   display: flex;
   justify-content: space-between;
+  align-items: baseline;
   flex-wrap: wrap;
   gap: 6px;
-  color: #597367;
-  font-size: 12px;
-  margin-bottom: 14px;
+  color: var(--fm-muted);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  margin-bottom: 10px;
 }
 .summary strong {
-  color: #294e40;
-  font-size: 14px;
+  color: var(--fm-ink);
+  font-size: 14.5px;
+  font-weight: 600;
 }
 .cards {
   list-style: none;
   margin: 0;
   padding: 0;
   display: grid;
-  gap: 14px;
+  gap: 10px;
 }
 .card {
-  background: white;
-  border: 1px solid #dfe9e4;
+  background: var(--fm-card);
+  border: 1px solid var(--fm-line-card);
   border-radius: 18px;
-  padding: 20px;
+  padding: 16px 18px;
 }
 .cardTop {
   display: flex;
@@ -86,76 +100,77 @@
   justify-content: space-between;
   gap: 8px;
   flex-wrap: wrap;
-  margin-bottom: 13px;
+  margin-bottom: 11px;
 }
 .reference {
-  font-size: 10px;
-  letter-spacing: 1px;
-  color: #60776f;
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  color: var(--fm-faint);
+  font-variant-numeric: tabular-nums;
 }
 .badge {
-  font-size: 11px;
-  padding: 4px 8px;
-  border-radius: 7px;
-  color: #356c59;
-  background: #e9f3ef;
+  border: 1px solid var(--fm-accent-tint);
+  border-radius: 999px;
+  padding: 6px 10px;
+  font-size: 11.5px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  line-height: 1;
+  text-transform: uppercase;
+  white-space: nowrap;
+  color: var(--fm-accent);
+  background: var(--fm-accent-tint);
 }
 .badge[data-status='ARCHIVED'] {
-  color: #58645e;
-  background: #edf0ee;
+  color: var(--fm-muted);
+  background: var(--fm-note);
+  border-color: var(--fm-note);
 }
 .card h2 {
-  font-size: 19px;
+  font-size: 17px;
+  font-variant-numeric: tabular-nums;
 }
 .source {
-  margin-top: 7px !important;
-  color: #60776f;
-  font-size: 12px;
+  margin-top: 6px !important;
+  color: var(--fm-muted);
+  font-size: 13.5px;
 }
+/* Completeness note: accent tint when complete, the waiting palette when records are missing. */
 .completeness {
-  margin-top: 18px;
-  padding: 12px;
-  border-radius: 10px;
-  font-size: 12px;
-  color: #356c59;
-  background: #edf5f1;
+  margin-top: 14px;
+  padding: 12px 13px;
+  border: 1px solid var(--fm-accent-tint);
+  border-radius: 14px;
+  font-size: 13.5px;
+  color: var(--fm-good);
+  background: var(--fm-accent-tint);
+}
+.completeness > p {
+  font-weight: 600;
 }
 .completeness[data-complete='false'] {
-  color: #79591d;
-  background: #fff4df;
+  color: var(--fm-pending);
+  background: var(--fm-pending-tint);
+  border-color: var(--fm-pending-line);
 }
 .completeness ul {
-  margin: 8px 0 0;
+  margin: 6px 0 0;
   padding-left: 18px;
+  color: var(--fm-ink);
 }
 .state {
-  margin-top: 18px;
-  border: 1px solid #dfe9e4;
+  margin-top: 12px;
+  border: 1px solid var(--fm-line-card);
   border-radius: 18px;
-  padding: 30px 22px;
+  padding: 28px 20px;
   text-align: center;
-  background: white;
-}
-.pagination {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  margin-top: 24px;
-}
-.pagination button {
-  font-size: 12px;
-  padding: 10px;
-}
-.pagination > span {
-  font-size: 12px;
-  text-align: center;
+  background: var(--fm-card);
 }
 .state p {
-  color: #63796e;
-  font-size: 14px;
-  margin: 12px 0 20px;
+  color: var(--fm-muted);
+  font-size: 13.5px;
+  margin: 8px 0 18px;
 }
 .state button {
   margin: 4px;
@@ -164,102 +179,134 @@
   display: inline-flex;
   align-items: center;
   min-height: 44px;
-  font-size: 14px;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--fm-accent);
+}
+.pagination {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 18px;
+}
+.pagination > span {
+  font-size: 13px;
+  color: var(--fm-muted);
+  text-align: center;
+  font-variant-numeric: tabular-nums;
 }
 .loading {
   min-height: 190px;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #60776f;
-  font-size: 14px;
+  color: var(--fm-muted);
+  font-size: 13.5px;
 }
 .body {
   white-space: pre-wrap;
-  margin-top: 14px !important;
-  line-height: 1.8;
+  margin-top: 10px !important;
+  font-size: 15.5px;
+  line-height: 1.6;
+  text-wrap: pretty;
 }
-.readLink,
-.backLink {
+/* Link-action ("read →"): inline, in the waiting/attention colour as in the mock. */
+.readLink {
   display: inline-flex;
   align-items: center;
   min-height: 44px;
-  font-size: 14px;
-}
-.readLink {
-  margin-top: 14px;
-}
-.backLink {
+  margin-top: 6px;
+  font-size: 13.5px;
+  font-weight: 500;
+  color: var(--fm-pending) !important;
   text-decoration: none;
 }
+.readLink:hover {
+  text-decoration: underline;
+}
 .detailNav {
+  composes: band from '../components/FamilyScreen.module.css';
   display: flex;
   justify-content: space-between;
   align-items: center;
   flex-wrap: wrap;
   gap: 12px;
-  margin-bottom: 24px;
+  padding-top: 4px;
+}
+.backLink {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  font-size: 13.5px;
+  font-weight: 500;
+  text-decoration: none;
+  color: var(--fm-muted) !important;
+}
+.backLink::before {
+  content: '←' / '';
+  margin-right: 6px;
 }
 .timestamp {
-  color: #60776f;
-  font-size: 12px;
-  margin-top: 12px !important;
+  color: var(--fm-faint);
+  font-size: 12.5px;
+  margin-top: 8px !important;
+  font-variant-numeric: tabular-nums;
 }
 .correction {
-  margin-top: 16px;
-  padding-top: 16px;
-  border-top: 1px solid #dfe9e4;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--fm-line-row);
+}
+.correction > .timestamp {
+  display: block;
+  margin-top: 0 !important;
 }
 .disclaimer {
   white-space: pre-wrap;
-  padding: 20px 0 8px;
-  font-size: 13px;
-  color: #496d60;
+  margin-top: 6px !important;
+  padding: 12px 13px;
+  border-radius: 14px;
+  background: var(--fm-accent-tint);
+  font-size: 13.5px;
+  color: var(--fm-muted);
+}
+.reports > article > .disclaimer {
+  margin-top: 16px !important;
 }
 .weekPanel {
-  border: 1px solid #dfe9e4;
+  border: 1px solid var(--fm-line-card);
   border-radius: 18px;
-  padding: 18px;
-  margin-bottom: 24px;
-  background: #edf5f1;
+  padding: 16px;
+  margin-bottom: 18px;
+  background: var(--fm-card);
+}
+.weekPanel > h2 {
+  font-size: 19px;
+  font-variant-numeric: tabular-nums;
 }
 .datePicker {
-  margin: 18px 0;
-}
-.datePicker label {
-  display: block;
-  font-size: 13px;
-  margin-bottom: 6px;
-}
-.datePicker input {
-  width: 100%;
-  min-width: 0;
-  min-height: 46px;
-  border: 1px solid #cadbd7;
-  border-radius: 12px;
-  padding: 10px 12px;
-  font: inherit;
-  font-size: 16px;
-  color: #203a36;
-  background: white;
+  margin: 14px 0;
+  padding-top: 13px;
+  border-top: 1px solid var(--fm-line-row);
 }
 .datePicker p {
-  margin-top: 6px;
-  font-size: 12px;
-  color: #60776f;
+  margin-top: 7px;
+  font-size: 12.5px;
+  color: var(--fm-faint);
 }
 .weekControls {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
 }
-.weekControls button {
+.weekPanel .weekControls button {
   flex: 1;
-  font-size: 12px;
-  padding: 10px;
+  padding-inline: 6px;
+  font-size: 13px;
+  white-space: nowrap;
 }
-@media (max-width: 400px) {
-  .card {
-    padding: 16px;
-  }
+.weekPanel > .timestamp {
+  text-align: center;
 }

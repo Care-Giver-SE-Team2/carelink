@@ -1,10 +1,14 @@
+/* Page tabs under the brand row: one row of pills, the current page filled with the accent.
+   Very narrow phones scroll the row sideways rather than wrapping it. */
 .navigation {
   display: flex;
-  flex-wrap: wrap;
-  gap: 4px 12px;
-  max-width: 712px;
+  align-items: center;
+  gap: 6px;
+  max-width: 600px;
   margin: auto;
-  padding: 0 24px 12px;
+  padding: 0 20px 4px;
+  overflow-x: auto;
+  scrollbar-width: none;
 }
 
 .navigation a {
@@ -12,25 +16,51 @@
   align-items: center;
   justify-content: center;
   min-height: 44px;
-  border-radius: 10px;
-  padding: 10px 14px;
+  border: 1px solid var(--fm-line-card);
+  flex: none;
+  border-radius: 999px;
+  padding: 9px 13px;
   text-decoration: none;
-  font-size: 13px;
+  color: var(--fm-ink);
+  white-space: nowrap;
+  font-size: 12.5px;
   font-weight: 600;
 }
 
 .navigation a[aria-current='page'] {
-  background: #e6f1eb;
-  color: #176a59;
+  background: var(--fm-accent);
+  border-color: var(--fm-accent);
+  color: #fff;
 }
 
-.navigation a:hover {
-  background: #edf5f2;
+.navigation a:not([aria-current='page']):hover {
+  background: var(--fm-note);
 }
 
-@media (max-width: 400px) {
-  .navigation {
-    padding: 0 18px 12px;
-    gap: 4px;
-  }
+/* Lifted into the brand row (the header is its containing block, not the scrolling tab row)
+   and aligned to the right edge of the centred column, so the tabs keep a row to themselves. */
+.navigation .signOut {
+  position: absolute;
+  top: 18px;
+  right: max(8px, calc(50% - 292px));
+  min-height: 44px;
+  border: 0;
+  border-radius: 999px;
+  padding: 10px 12px;
+  background: transparent;
+  color: var(--fm-muted);
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.navigation .signOut:disabled {
+  color: var(--fm-disabled);
+}
+
+.signOutError {
+  max-width: 600px;
+  margin: 0 auto;
+  padding: 4px 20px 0;
+  color: var(--fm-urgent);
+  font-size: 13px;
 }
