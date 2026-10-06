@@ -1,0 +1,79 @@
+@startuml UC-MG07-sequence
+' UC-MG07 Generate and archive periodic reports, as built on main.
+' Render: java -jar plantuml.jar -tpng UC-MG07-sequence.puml
+skinparam backgroundColor white
+skinparam defaultFontName "Segoe UI"
+skinparam defaultFontSize 14
+skinparam sequence {
+  ArrowColor #444444
+  LifeLineBorderColor #9A9A9A
+  ParticipantBorderColor #444444
+  ParticipantBackgroundColor #FFFFFF
+  ActorBorderColor #444444
+  ActorBackgroundColor #FFFFFF
+  GroupBorderColor #9A9A9A
+  GroupBackgroundColor #F8F8F6
+  DividerBorderColor #9A9A9A
+  DividerBackgroundColor #F8F8F6
+}
+skinparam database {
+  BorderColor #444444
+  BackgroundColor #FFFFFF
+}
+hide footbox
+title UC-MG07  Generate and archive periodic reports\n(one set of facts, three readers)
+
+actor Manager
+participant "Manager console" as UI
+participant "ReportController" as C
+participant "ReportScheduler" as Sch
+participant "ReportService" as S
+participant "ReportFactsSource\n(JDBC)" as F
+participant "ReportAssembler\n(3 readers)" as A
+participant "ReportContentBuilder" as B
+participant "ReportRepository" as R
+database "MySQL" as DB
+
+== Generate: by the manager, or by the weekly schedule ==
+alt the manager
+  Manager -> UI : period, elder; Generate
+  UI -> C : POST /api/reports/generate
+  C -> S : generate(elder, period, manager)
+else the weekly schedule, Sunday 23:00 Asia/Singapore
+  Sch -> S : generateForLastWeek()
+end
+opt no elder chosen
+  S -> F : eldersWithVisitsIn(period)
+end
+loop each elder
+  S -> R : findFor(elder, reader, period), for each reader
+  alt all three already on file
+    S -> S : keep them; file nothing again
+  else
+    S -> F : gather(elder, period)
+    F -> DB : visits, vitals, notes, incidents
+    F --> S : ReportFacts, gathered once
+    loop each reader not yet on file
+      S -> A : forAudience(reader).assemble(facts)
+      A -> B : completeness, four sections,\ndisclaimer, build()
+      B --> A : ReportContent
+      A --> S : this reader's content
+      S -> R : save(Report.generate(...)), published
+      R -> DB : insert report
+    end
+  end
+end
+C --> UI : 202 Accepted, the reports on file
+
+== Read and correct ==
+Manager -> UI : open a report
+UI -> C : GET /api/reports/{id}
+C -> S : findDetail(id)
+S -> R : findById(id)
+C --> UI : the report and its corrections
+Manager -> UI : append a correction
+UI -> C : POST /api/reports/{id}/amendments
+C -> S : amend(id, note, manager)
+S -> R : saveAmendment(amendment)
+C --> UI : 201 Created; report unchanged
+@enduml

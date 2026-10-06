@@ -1,0 +1,98 @@
+@startuml UC-MG05-sequence
+' UC-MG05 Take over and handle a care exception, with the UC-SYS02 timeout escalation, as
+' built on main. The raising use cases are every caller of IncidentService that routes.
+' Render: java -jar plantuml.jar -tpng UC-MG05-sequence.puml
+skinparam backgroundColor white
+skinparam defaultFontName "Segoe UI"
+skinparam defaultFontSize 14
+skinparam sequence {
+  ArrowColor #444444
+  LifeLineBorderColor #9A9A9A
+  ParticipantBorderColor #444444
+  ParticipantBackgroundColor #FFFFFF
+  ActorBorderColor #444444
+  ActorBackgroundColor #FFFFFF
+  GroupBorderColor #9A9A9A
+  GroupBackgroundColor #F8F8F6
+  DividerBorderColor #9A9A9A
+  DividerBackgroundColor #F8F8F6
+}
+skinparam database {
+  BorderColor #444444
+  BackgroundColor #FFFFFF
+}
+skinparam note {
+  BackgroundColor #F8F8F6
+  BorderColor #9A9A9A
+}
+hide footbox
+title UC-MG05  Take over and handle a care exception\n(with UC-SYS02 automatic escalation on timeout)
+
+participant "Raising\nuse case" as Raise
+actor Manager
+participant "Manager console" as UI
+participant "Incident\nController" as C
+participant "IncidentService" as S
+participant "EscalationService" as E
+participant "EscalationChain\nBuilder" as B
+participant "ResponderHandler\nchain" as H
+participant "Escalation\nscan (SYS02)" as Scan
+participant "IncidentAlert" as A
+database "MySQL" as DB
+
+== Raise and route ==
+Raise -> S : raise (UC-EL01 dispute, UC-CG04 report,\nUC-MG03 visit uncovered at start,\nUC-MG04 nobody free after an absence,\nUC-MG08 caregiver missed a spot check)
+S -> DB : save incident (OPEN); timeline: REPORTED
+S -> E : routeNewIncident(incident)
+E -> A : broadcastRaised(incident)
+A -> DB : notify managers, family,\nlast caregiver
+E -> B : forIncident(incident)...build()
+B --> E : chain for this incident
+E -> H : handle(EscalationRequest.routing)
+H --> E : EscalationOutcome (responder, countdown)
+E -> DB : assign responder, set respond-by;\ntimeline: ASSIGNED
+E -> A : handedOver(incident, previous, new)
+
+== UC-SYS02: the countdown expires (scan every 60 s) ==
+Scan -> DB : findAwaitingTakeOverPastDeadline(now)
+loop each overdue incident, in its own transaction
+  Scan -> E : escalateIfStillOverdue(id, scanStartedAt)
+  E -> DB : read the incident again
+  alt taken over in the meantime
+    E -> DB : timeline: ESCALATION_CANCELLED (near miss)
+  else still overdue
+    E -> B : rebuild the chain
+    E -> H : handle(afterTimeout),\nskipping earlier responders
+    alt a next level exists
+      E -> DB : assign the next responder;\ntimeline: ESCALATED, ASSIGNED
+      E -> A : handedOver(...)
+    else the chain is exhausted
+      E -> DB : UNRESOLVED_ESCALATED, pinned;\ntimeline: CHAIN_EXHAUSTED
+      E -> A : chainExhausted: tell the family
+    end
+  end
+end
+
+== Take over and handle ==
+Manager -> UI : Take over, from the exception queue
+UI -> C : POST /api/incidents/{id}/claim
+C -> S : claim(id, manager)
+S -> DB : claimed, countdown stopped;\ntimeline: CLAIMED
+C --> UI : incident
+Manager -> UI : record the call to the family
+UI -> C : POST /api/incidents/{id}/contact-attempts
+C -> S : recordContactAttempt(...)
+S -> DB : timeline: CONTACT_ATTEMPTED
+alt family not reached
+  S --> UI : the standard playbook for the category
+  Manager -> UI : apply the playbook
+  UI -> C : POST /api/incidents/{id}/playbook
+  C -> S : applyPlaybook(id, code, manager)
+  S -> DB : timeline: PLAYBOOK_APPLIED
+end
+Manager -> UI : resolve, with a note
+UI -> C : POST /api/incidents/{id}/resolve
+C -> S : resolve(id, manager, note, outcome)
+S -> DB : RESOLVED; timeline: RESOLVED
+C --> UI : incident
+@enduml
