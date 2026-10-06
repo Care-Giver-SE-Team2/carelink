@@ -42,7 +42,7 @@ public interface ScoringObjective {
 	}
 
 	/** Clamps to [0, 100] at two decimals, the shape of rostering_candidate.score. */
-	static BigDecimal bounded(double raw) {
+	static BigDecimal bounded(int raw) {
 		return BigDecimal.valueOf(Math.max(0, Math.min(100, raw))).setScale(2, RoundingMode.HALF_UP);
 	}
 

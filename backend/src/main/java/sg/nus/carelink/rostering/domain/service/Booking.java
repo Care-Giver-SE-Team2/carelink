@@ -30,6 +30,6 @@ public record Booking(Long visitId, Long elderId, Long caregiverId, LocalDateTim
 	}
 
 	public long minutes() {
-		return java.time.Duration.between(start, end).toMinutes();
+		return java.time.Duration.between(start.atZone(VacatedSlot.ZONE), end.atZone(VacatedSlot.ZONE)).toMinutes();
 	}
 }

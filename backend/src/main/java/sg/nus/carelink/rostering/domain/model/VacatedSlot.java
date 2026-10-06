@@ -3,6 +3,7 @@ package sg.nus.carelink.rostering.domain.model;
 import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.Objects;
 
 /**
@@ -27,6 +28,12 @@ public record VacatedSlot(
 	/** What a visit with no recorded end is taken to last, for clashes and daily hours. */
 	public static final Duration DEFAULT_LENGTH = Duration.ofMinutes(60);
 
+	/**
+	 * The zone every visit time is a wall-clock time in. Lengths are measured in it, so that a
+	 * visit's length is what a clock in the elder's home would show.
+	 */
+	public static final ZoneId ZONE = ZoneId.of("Asia/Singapore");
+
 	public VacatedSlot {
 		Objects.requireNonNull(visitId, "visitId");
 		Objects.requireNonNull(elderId, "elderId");
@@ -39,7 +46,7 @@ public record VacatedSlot(
 	}
 
 	public Duration length() {
-		return Duration.between(start, effectiveEnd());
+		return Duration.between(start.atZone(ZONE), effectiveEnd().atZone(ZONE));
 	}
 
 	public LocalDate day() {

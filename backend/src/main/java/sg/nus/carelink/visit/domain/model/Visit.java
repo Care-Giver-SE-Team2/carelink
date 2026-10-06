@@ -122,10 +122,14 @@ public record Visit(
 		java.util.Objects.requireNonNull(newStart, "newStart");
 		LocalDateTime newEnd = scheduledEnd == null
 				? null
-				: newStart.plus(java.time.Duration.between(scheduledStart, scheduledEnd));
+				: newStart.plus(java.time.Duration.between(scheduledStart.atZone(WALL_CLOCK),
+						scheduledEnd.atZone(WALL_CLOCK)));
 		return new Visit(null, elderId, newCaregiverId, carePlanNodeId, forAbsenceId, serviceType, newStart, newEnd,
 				null, null, Status.SCHEDULED, null, carePlanId, null, null, null);
 	}
+
+	/** The zone visit times are wall-clock times in; a moved visit keeps its length as a clock there shows it. */
+	private static final java.time.ZoneId WALL_CLOCK = java.time.ZoneId.of("Asia/Singapore");
 
 	private void requireOpenToAbsenceChange(String verb) {
 		if (!hasNotStarted() && !leftUncoveredByAbsence()) {

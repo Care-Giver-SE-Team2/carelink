@@ -220,6 +220,7 @@ final class ReRosteringFakes {
 	static final class Visits implements VisitReassignment {
 
 		private static final Set<String> BOOKED = Set.of("SCHEDULED", "ARRIVED", "IN_PROGRESS", "COMPLETED");
+		private static final java.time.ZoneId SINGAPORE = java.time.ZoneId.of("Asia/Singapore");
 
 		final Map<Long, VisitSlot> rows = new LinkedHashMap<>();
 		final Map<Long, Map<Long, Integer>> history = new HashMap<>();
@@ -297,7 +298,8 @@ final class ReRosteringFakes {
 			callOff(visitId, why);
 			Long id = nextId++;
 			rows.put(id, new VisitSlot(id, v.elderId(), toCaregiverId, v.carePlanId(), v.serviceType(), newStart,
-					newStart.plus(java.time.Duration.between(v.start(), v.end())), "SCHEDULED", why.absenceId()));
+					newStart.plus(java.time.Duration.between(v.start().atZone(SINGAPORE), v.end().atZone(SINGAPORE))),
+					"SCHEDULED", why.absenceId()));
 			calls.add("move " + visitId + " to " + id);
 			return id;
 		}
