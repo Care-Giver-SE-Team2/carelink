@@ -5,6 +5,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Objects;
@@ -14,6 +15,7 @@ import java.util.stream.Collectors;
 import org.springframework.stereotype.Component;
 
 import sg.nus.carelink.careplan.application.CarePlanRequirements;
+import sg.nus.carelink.incident.application.SpotCheckHistory;
 import sg.nus.carelink.profile.application.CredentialRegister;
 import sg.nus.carelink.profile.application.RosteringProfiles;
 import sg.nus.carelink.rostering.domain.model.VacatedSlot;
@@ -22,6 +24,7 @@ import sg.nus.carelink.rostering.domain.service.Booking;
 import sg.nus.carelink.rostering.domain.service.CandidateCard;
 import sg.nus.carelink.rostering.domain.service.ElderCard;
 import sg.nus.carelink.rostering.domain.service.RosterSnapshot;
+import sg.nus.carelink.rostering.domain.service.SpotCheckRecord;
 import sg.nus.carelink.visit.application.VisitReassignment;
 
 /**
@@ -41,17 +44,20 @@ class RosterSnapshotLoader {
 	private final CarePlanRequirements requirements;
 	private final AbsenceReportRepository absences;
 	private final VisitReassignment visits;
-	private final ContinuityLookback lookback;
+	private final SpotCheckHistory spotChecks;
+	private final RosterLookbacks lookbacks;
 	private final Clock clock;
 
 	RosterSnapshotLoader(RosteringProfiles profiles, CredentialRegister register, CarePlanRequirements requirements,
-			AbsenceReportRepository absences, VisitReassignment visits, ContinuityLookback lookback, Clock clock) {
+			AbsenceReportRepository absences, VisitReassignment visits, SpotCheckHistory spotChecks,
+			RosterLookbacks lookbacks, Clock clock) {
 		this.profiles = profiles;
 		this.register = register;
 		this.requirements = requirements;
 		this.absences = absences;
 		this.visits = visits;
-		this.lookback = lookback;
+		this.spotChecks = spotChecks;
+		this.lookbacks = lookbacks;
 		this.clock = clock;
 	}
 
@@ -84,11 +90,14 @@ class RosterSnapshotLoader {
 
 		LocalDateTime now = LocalDateTime.now(clock);
 		slots.stream().map(VacatedSlot::elderId).distinct().forEach(elderId -> {
-			Map<Long, Integer> prior = visits.finishedVisitsWith(elderId, now.minus(lookback.period()), now);
+			Map<Long, Integer> prior = visits.finishedVisitsWith(elderId, now.minus(lookbacks.continuity()), now);
 			snapshot.elder(profiles.elder(elderId)
 					.map(e -> ElderCard.of(elderId, e.fullName(), e.sector(), e.preferredDialects(), prior))
 					.orElseGet(() -> ElderCard.of(elderId, null, null, null, prior)));
 		});
-		return snapshot.build();
+		Map<Long, SpotCheckRecord> conclusions = new HashMap<>();
+		spotChecks.recentConclusions(now.minus(lookbacks.spotChecks())).forEach((caregiverId, c) ->
+				conclusions.put(caregiverId, new SpotCheckRecord(c.metStandard(), c.needsImprovement())));
+		return snapshot.spotChecks(conclusions).build();
 	}
 }

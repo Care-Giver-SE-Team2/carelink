@@ -40,6 +40,8 @@ tags:
 
   - name: Absences
     description: Caregiver absences and the re-rostering they trigger (UC-MG04, with the family's part, the former UC-FM06, and the caregiver's request, UC-CG02).
+  - name: Spot checks
+    description: Home service spot checks with the family's consent and the caregiver's answer (UC-MG08, with the former UC-FM07).
 paths:
   /caregivers/me:
     get:
@@ -2180,6 +2182,312 @@ paths:
           $ref: '#/components/responses/Conflict'
       security:
         - sessionCookie: []
+  /spot-checks:
+    get:
+      tags:
+        - Spot checks
+      summary: The spot checks the caller may see (UC-MG08)
+      description: >-
+        A manager sees every spot check and may narrow by stage, caregiver or elder. A family member
+        sees those of the elders they have an active binding to, waiting ones first (the former
+        UC-FM07). A caregiver sees their own concluded checks only; a request is not announced to
+        the person being checked.
+      operationId: listSpotChecks
+      x-status: implemented
+      parameters:
+        - name: stage
+          in: query
+          schema:
+            type: string
+            enum: [AWAITING_FAMILY, SCHEDULED, DECLINED, COMPLETED, CAREGIVER_NO_SHOW, WITHDRAWN]
+        - name: caregiverId
+          in: query
+          schema: {type: integer, format: int64}
+        - name: elderId
+          in: query
+          schema: {type: integer, format: int64}
+      responses:
+        '200':
+          description: Spot checks, latest visit first.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/SpotCheckView'
+      security:
+        - sessionCookie: []
+    post:
+      tags:
+        - Spot checks
+      summary: Ask to watch a visit (UC-MG08 steps 1-2)
+      description: >-
+        The visit must not have started and must have a caregiver; the family is asked. 409
+        SPOT_CHECK_ALREADY_REQUESTED while the visit has an open request, SPOT_CHECK_VISIT_NOT_OPEN
+        for a visit already under way or called off.
+      operationId: requestSpotCheck
+      x-status: implemented
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [visitId, purpose]
+              properties:
+                visitId: {type: integer, format: int64}
+                purpose: {type: string, maxLength: 255}
+      responses:
+        '201':
+          description: The request, waiting for the family.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SpotCheckView'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+      security:
+        - sessionCookie: []
+  /spot-checks/visits:
+    get:
+      tags:
+        - Spot checks
+      summary: The elder's visits a manager may choose to check
+      operationId: listVisitsToCheck
+      x-status: implemented
+      parameters:
+        - name: elderId
+          in: query
+          required: true
+          schema: {type: integer, format: int64}
+      responses:
+        '200':
+          description: Visits with a caregiver that have not started, in the next two weeks.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    visitId: {type: integer, format: int64}
+                    start: {type: string, format: date-time}
+                    serviceType: {type: string, nullable: true}
+                    caregiverId: {type: integer, format: int64}
+                    caregiverName: {type: string}
+      security:
+        - sessionCookie: []
+  /spot-checks/{id}/decision:
+    parameters:
+      - $ref: '#/components/parameters/SpotCheckId'
+    post:
+      tags:
+        - Spot checks
+      summary: The family agrees, or declines and says why (UC-MG08 step 3 and 3a)
+      description: >-
+        Only a family member with an active binding to the elder (403 otherwise), only while the
+        request waits for them, and only before the visit starts (409 SPOT_CHECK_TIME_PASSED). A
+        decline needs a reason (409 SPOT_CHECK_REASON_REQUIRED).
+      operationId: decideSpotCheck
+      x-status: implemented
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [approve]
+              properties:
+                approve: {type: boolean}
+                reason: {type: string, maxLength: 255}
+      responses:
+        '200':
+          description: The check as it now stands.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SpotCheckView'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+      security:
+        - sessionCookie: []
+  /spot-checks/{id}/conclusion:
+    parameters:
+      - $ref: '#/components/parameters/SpotCheckId'
+    post:
+      tags:
+        - Spot checks
+      summary: Record the conclusion on site (UC-MG08 steps 4-5)
+      description: 409 SPOT_CHECK_NOT_APPROVED while the family has not agreed.
+      operationId: concludeSpotCheck
+      x-status: implemented
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [result]
+              properties:
+                result: {type: string, enum: [MEETS_STANDARD, NEEDS_IMPROVEMENT]}
+                notes: {type: string, maxLength: 500}
+      responses:
+        '200':
+          description: The concluded check; the family and the caregiver are told.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SpotCheckView'
+        '409':
+          $ref: '#/components/responses/Conflict'
+      security:
+        - sessionCookie: []
+  /spot-checks/{id}/no-show:
+    parameters:
+      - $ref: '#/components/parameters/SpotCheckId'
+    post:
+      tags:
+        - Spot checks
+      summary: The caregiver did not turn up (UC-MG08 exception 4a)
+      description: The check closes and the missed visit becomes an incident in the exception queue (UC-MG05).
+      operationId: reportSpotCheckNoShow
+      x-status: implemented
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                notes: {type: string, maxLength: 500}
+      responses:
+        '200':
+          description: The closed check, with the incident id.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SpotCheckView'
+        '409':
+          $ref: '#/components/responses/Conflict'
+      security:
+        - sessionCookie: []
+  /spot-checks/{id}/move:
+    parameters:
+      - $ref: '#/components/parameters/SpotCheckId'
+    post:
+      tags:
+        - Spot checks
+      summary: The elder was out; move the check to another of their visits (UC-MG08 exception 4b)
+      description: >-
+        Not held against the caregiver. The family is asked again, because they agreed to a time.
+        409 SPOT_CHECK_OTHER_ELDER for another elder's visit.
+      operationId: moveSpotCheck
+      x-status: implemented
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [visitId]
+              properties:
+                visitId: {type: integer, format: int64}
+      responses:
+        '200':
+          description: The moved check, waiting for the family again.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SpotCheckView'
+        '409':
+          $ref: '#/components/responses/Conflict'
+      security:
+        - sessionCookie: []
+  /spot-checks/{id}/withdrawal:
+    parameters:
+      - $ref: '#/components/parameters/SpotCheckId'
+    post:
+      tags:
+        - Spot checks
+      summary: Withdraw an open request, with the reason
+      operationId: withdrawSpotCheck
+      x-status: implemented
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [reason]
+              properties:
+                reason: {type: string, maxLength: 255}
+      responses:
+        '200':
+          description: The withdrawn check; the family is told.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SpotCheckView'
+        '409':
+          $ref: '#/components/responses/Conflict'
+      security:
+        - sessionCookie: []
+  /spot-checks/{id}/response:
+    parameters:
+      - $ref: '#/components/parameters/SpotCheckId'
+    post:
+      tags:
+        - Spot checks
+      summary: The checked caregiver answers the conclusion
+      description: 409 SPOT_CHECK_NOT_YOURS for anybody but the caregiver who was checked.
+      operationId: respondToSpotCheck
+      x-status: implemented
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [response]
+              properties:
+                response: {type: string, maxLength: 500}
+      responses:
+        '200':
+          description: The check with the response.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SpotCheckView'
+        '409':
+          $ref: '#/components/responses/Conflict'
+      security:
+        - sessionCookie: []
+  /caregivers/{caregiverId}/spot-checks:
+    parameters:
+      - $ref: '#/components/parameters/CaregiverId'
+    get:
+      tags:
+        - Spot checks
+      summary: The concluded checks on a caregiver's record (UC-MG08 step 5)
+      operationId: listCaregiverSpotChecks
+      x-status: implemented
+      responses:
+        '200':
+          description: Concluded checks, latest first.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/SpotCheckView'
+      security:
+        - sessionCookie: []
 components:
   schemas:
     CaregiverSelfProfile:
@@ -4021,6 +4329,26 @@ components:
           type: string
           format: date-time
           description: For RESCHEDULE, Singapore local time without an offset.
+    SpotCheckView:
+      type: object
+      description: A home service spot check (UC-MG08) as the screens show it.
+      properties:
+        id: {type: integer, format: int64}
+        elderId: {type: integer, format: int64}
+        elderName: {type: string}
+        caregiverId: {type: integer, format: int64}
+        caregiverName: {type: string}
+        visitId: {type: integer, format: int64}
+        visitTime: {type: string, format: date-time}
+        purpose: {type: string}
+        stage: {type: string, enum: [AWAITING_FAMILY, SCHEDULED, DECLINED, COMPLETED, CAREGIVER_NO_SHOW, WITHDRAWN]}
+        decidedAt: {type: string, format: date-time, nullable: true}
+        result: {type: string, nullable: true, enum: [MEETS_STANDARD, NEEDS_IMPROVEMENT]}
+        notes: {type: string, nullable: true}
+        checkedAt: {type: string, format: date-time, nullable: true}
+        closingReason: {type: string, nullable: true, description: Why the family declined or the manager withdrew.}
+        incidentId: {type: integer, format: int64, nullable: true, description: The missed-visit incident of a no-show.}
+        caregiverResponse: {type: string, nullable: true}
   parameters:
     Page:
       name: page
@@ -4067,6 +4395,13 @@ components:
         type: integer
         format: int64
     RosterChangeId:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
+    SpotCheckId:
       name: id
       in: path
       required: true

@@ -22,6 +22,9 @@ public class ReRosteringProperties {
 	/** How far back a caregiver's finished visits count towards continuity. */
 	private Duration continuityLookback = Duration.ofDays(180);
 
+	/** How far back spot-check conclusions (UC-MG08) count in the search. */
+	private Duration spotCheckLookback = Duration.ofDays(90);
+
 	public Duration getFamilyWindow() {
 		return familyWindow;
 	}
@@ -44,5 +47,13 @@ public class ReRosteringProperties {
 
 	public void setContinuityLookback(Duration continuityLookback) {
 		this.continuityLookback = continuityLookback;
+	}
+
+	public Duration getSpotCheckLookback() {
+		return spotCheckLookback;
+	}
+
+	public void setSpotCheckLookback(Duration spotCheckLookback) {
+		this.spotCheckLookback = spotCheckLookback;
 	}
 }

@@ -46,12 +46,14 @@ carelink:
     uncovered-scan-initial-delay: PT30S
   # UC-MG04. How long a family has to answer a change before the default plan runs (the use
   # case: two hours by default, never a constant), how long before a visit its replacement
-  # must know, how far back visits to an elder count as continuity, and how often the scan
+  # must know, how far back visits to an elder count as continuity and spot-check conclusions
+  # count at all (UC-MG08: they feed rostering, never on their own), and how often the scan
   # looks for families whose time is up.
   rerostering:
     family-window: PT2H
     decision-lead: PT1H
     continuity-lookback: P180D
+    spot-check-lookback: P90D
     scan-interval: PT60S
     scan-initial-delay: PT45S
 

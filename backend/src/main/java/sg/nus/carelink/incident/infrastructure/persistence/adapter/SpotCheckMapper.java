@@ -27,7 +27,11 @@ final class SpotCheckMapper {
 				e.getFinding(),
 				e.getCaregiverResponse(),
 				e.getCheckedAt(),
-				e.getCreatedAt());
+				e.getCreatedAt(),
+				e.getResult() == null ? null : SpotCheck.Result.valueOf(e.getResult().name()),
+				e.getOutcome() == null ? null : SpotCheck.Outcome.valueOf(e.getOutcome().name()),
+				e.getClosingReason(),
+				e.getIncidentId());
 	}
 
 	static SpotCheckJpaEntity toEntity(SpotCheck d) {
@@ -45,6 +49,10 @@ final class SpotCheckMapper {
 		e.setFinding(d.finding());
 		e.setCaregiverResponse(d.caregiverResponse());
 		e.setCheckedAt(d.checkedAt());
+		e.setResult(d.result() == null ? null : SpotCheckJpaEntity.Result.valueOf(d.result().name()));
+		e.setOutcome(d.outcome() == null ? null : SpotCheckJpaEntity.Outcome.valueOf(d.outcome().name()));
+		e.setClosingReason(d.closingReason());
+		e.setIncidentId(d.incidentId());
 		return e;
 	}
 }

@@ -4,7 +4,7 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
-import sg.nus.carelink.rostering.application.ContinuityLookback;
+import sg.nus.carelink.rostering.application.RosterLookbacks;
 import sg.nus.carelink.rostering.domain.model.FamilyResponseWindow;
 
 /**
@@ -21,7 +21,7 @@ public class ReRosteringConfig {
 	}
 
 	@Bean
-	ContinuityLookback continuityLookback(ReRosteringProperties properties) {
-		return new ContinuityLookback(properties.getContinuityLookback());
+	RosterLookbacks rosterLookbacks(ReRosteringProperties properties) {
+		return new RosterLookbacks(properties.getContinuityLookback(), properties.getSpotCheckLookback());
 	}
 }

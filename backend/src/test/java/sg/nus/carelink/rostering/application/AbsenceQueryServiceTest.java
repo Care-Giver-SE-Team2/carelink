@@ -75,7 +75,7 @@ class AbsenceQueryServiceTest {
 		visits.history.put(7L, Map.of(9L, 3, 5L, 5));
 
 		RosterSnapshotLoader loader = new RosterSnapshotLoader(profiles, () -> covers,
-				planIds -> Map.of(4L, Set.of(2L)), absences, visits, ContinuityLookback.DEFAULT, clock);
+				planIds -> Map.of(4L, Set.of(2L)), absences, visits, since -> Map.of(), RosterLookbacks.DEFAULT, clock);
 		reRostering = new AbsenceReRosteringService(absences, changes, runs, candidates, checks, constraints, loader,
 				visits, profiles, incidents, family, users, new ReRosteringFakes.Alerts(), new ReRosteringFakes.Audit(),
 				FamilyResponseWindow.DEFAULT, clock);

@@ -5,7 +5,10 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 import org.junit.jupiter.api.Test;
 
@@ -47,5 +50,24 @@ class SpotCheckRepositoryAdapterTest {
 		SpotCheck saved = adapter.save(SpotCheckMapper.toDomain(entity));
 
 		assertThat(saved).isNotNull();
+	}
+
+	@Test
+	void findersPickTheirQueryAndAnEmptyElderListAsksNothing() {
+		SpotCheckJpaEntity row = new SpotCheckJpaEntity();
+		row.setId(7L);
+		row.setApprovalStatus(SpotCheckJpaEntity.ApprovalStatus.APPROVED);
+		LocalDateTime since = LocalDateTime.of(2026, 7, 1, 0, 0);
+		when(jpa.findAllByOrderByProposedTimeDescIdDesc()).thenReturn(List.of(row));
+		when(jpa.findByElderIdInOrderByProposedTimeDescIdDesc(Set.of(2L))).thenReturn(List.of(row));
+		when(jpa.findByCaregiverIdOrderByProposedTimeDescIdDesc(3L)).thenReturn(List.of(row, row));
+		when(jpa.findByOutcomeAndCheckedAtGreaterThanEqual(SpotCheckJpaEntity.Outcome.COMPLETED, since))
+				.thenReturn(List.of(row));
+
+		assertThat(adapter.findAll()).hasSize(1);
+		assertThat(adapter.findByElderIds(Set.of(2L))).hasSize(1);
+		assertThat(adapter.findByElderIds(Set.of())).isEmpty();
+		assertThat(adapter.findByCaregiverId(3L)).hasSize(2);
+		assertThat(adapter.findConcludedSince(since)).extracting(SpotCheck::id).containsExactly(7L);
 	}
 }
