@@ -1,0 +1,291 @@
+/*
+ * Absences and re-rostering (UC-MG04).
+ *
+ * The manager console's vocabulary, as on the exception screens: square
+ * corners, 1px rules, mono for what a person reads as data (dates, times,
+ * scores, rule results) and the sans face for the sentences. Tokens come from
+ * shared/theme/theme.css; nothing here invents a colour.
+ */
+
+.page {
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.pageHead {
+  display: flex;
+  align-items: baseline;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.pageHead h1 {
+  margin: 0;
+}
+
+.meta {
+  font: 400 12px/1.4 var(--font-mono);
+  color: var(--text-muted);
+  flex: 1;
+}
+
+.crumbs {
+  font: 400 12px/1 var(--font-mono);
+  color: var(--text-muted);
+}
+
+.crumbs a {
+  color: var(--link);
+}
+
+.textButton {
+  min-height: auto;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  font: 500 12px/1 var(--font-mono);
+  color: var(--text-secondary);
+  text-decoration: underline;
+}
+
+.filters {
+  display: flex;
+  gap: 24px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+.filters label,
+.panel label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font: 500 10px/1 var(--font-mono);
+  letter-spacing: 0.1em;
+  color: var(--text-faint);
+  text-transform: uppercase;
+}
+
+.filters select,
+.panel select,
+.panel input {
+  min-height: var(--tap);
+  padding: 0 8px;
+  border: 1px solid var(--filter-border);
+  border-radius: var(--radius);
+  background: var(--bg);
+  font: 400 13.5px/1 var(--font);
+  color: var(--text);
+  text-transform: none;
+  letter-spacing: normal;
+}
+
+.panel {
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.formRow {
+  display: flex;
+  align-items: flex-end;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.formActions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.secondary {
+  background: var(--bg);
+  color: var(--text);
+  border: 1px solid var(--line);
+}
+
+.note {
+  margin: 0;
+  font: 400 13px/1.6 var(--font);
+  color: var(--text-muted);
+}
+
+.inlineError {
+  margin: 0;
+  border-left: 2px solid var(--danger);
+  padding: 6px 12px;
+  background: var(--danger-tint);
+  font: 400 13.5px/1.5 var(--font);
+}
+
+.sectionTitle {
+  margin: 8px 0 10px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--border);
+  font: 500 10px/1.4 var(--font-mono);
+  letter-spacing: 0.1em;
+  color: var(--text-faint);
+  text-transform: uppercase;
+}
+
+.mono {
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+}
+
+/* ------------------------------------------------------------------ list --- */
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font: 400 13.5px/1.4 var(--font);
+}
+
+.table th {
+  text-align: left;
+  padding: 8px;
+  border-bottom: 1px solid var(--border);
+  font: 500 10px/1 var(--font-mono);
+  letter-spacing: 0.1em;
+  color: var(--text-faint);
+  text-transform: uppercase;
+}
+
+.table td {
+  padding: 8px;
+  border-bottom: 1px solid var(--border-light);
+  vertical-align: top;
+}
+
+.table tr[data-outcome='EXCLUDED'] td {
+  color: var(--text-muted);
+}
+
+.table tr[data-outcome='SELECTED'] td {
+  background: var(--row-tint);
+}
+
+.progress {
+  color: var(--text-secondary);
+}
+
+.rowActions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+}
+
+.linkButton {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--tap);
+  padding: 0 var(--gap);
+  border: 1px solid var(--border);
+  font: 400 13.5px/1 var(--font);
+  color: var(--text);
+  text-decoration: none;
+}
+
+/* ------------------------------------------------------------------ detail --- */
+
+.plainList {
+  margin: 0;
+  padding-left: 18px;
+  font: 400 13.5px/1.8 var(--font);
+}
+
+.cards {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.card {
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--text);
+  padding: 14px 16px;
+  background: var(--bg);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.cardHead {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.cardTitle {
+  font: 600 15px/1.3 var(--font);
+}
+
+.statusTag {
+  margin-left: auto;
+  padding: 3px 6px;
+  border: 1px solid var(--border-neutral);
+  font: 500 10px/1 var(--font-mono);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.statusTag[data-status='UNCOVERED'] {
+  border-color: var(--danger);
+  color: var(--danger-text);
+}
+
+.statusTag[data-status='AWAITING_FAMILY'] {
+  border-color: var(--warning);
+  color: var(--warning-text);
+}
+
+.statusTag[data-status='RESOLVED'] {
+  border-color: var(--success);
+  color: var(--success);
+}
+
+.cardMeta {
+  margin: 0;
+  font: 400 13px/1.6 var(--font);
+  color: var(--text-secondary);
+}
+
+.cardMeta a {
+  color: var(--link);
+}
+
+.cardNote {
+  margin: 0;
+  font: 400 12px/1.5 var(--font-mono);
+  color: var(--text-muted);
+}
+
+.selected {
+  font: 500 11px/1 var(--font-mono);
+  color: var(--success);
+}
+
+.checks {
+  list-style: none;
+  margin: 6px 0 0;
+  padding: 0;
+  font: 400 12.5px/1.7 var(--font);
+}
+
+.checks li[data-result='FAIL'] {
+  color: var(--danger-text);
+}
+
+.checks li[data-result='NOT_APPLICABLE'] {
+  color: var(--text-faint);
+}

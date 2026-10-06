@@ -44,6 +44,7 @@ export function FamilyLayout({ title = 'My applications' }: { title?: string }) 
         <nav className={layout.navigation} aria-label="Family pages">
           <NavLink to="/family/intake">My applications</NavLink>
           <NavLink to="/family/schedule">Weekly schedule</NavLink>
+          <NavLink to="/family/changes">Visit changes</NavLink>
           <NavLink to="/family/reports">Care reports</NavLink>
         </nav>
       </header>

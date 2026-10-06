@@ -1,0 +1,155 @@
+/* Visit changes: the family portal's palette and shapes, as on the weekly schedule. */
+
+.changes {
+  overflow-wrap: anywhere;
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+}
+
+.hero > p:last-child {
+  margin-top: 12px;
+  color: #60776f;
+  font-size: 14px;
+}
+
+.eyebrow {
+  font-size: 10px;
+  font-weight: 750;
+  letter-spacing: 1.8px;
+  color: #48786b;
+  margin-bottom: 12px;
+}
+
+.heading {
+  font-size: 17px;
+  margin-bottom: 12px;
+}
+
+.state {
+  padding: 20px;
+  background: #e7f1ed;
+  border: 1px solid #d3e4db;
+  border-radius: 18px;
+  color: #36574d;
+}
+
+.card {
+  padding: 20px;
+  margin-bottom: 14px;
+  background: white;
+  border: 1px solid #d3e4db;
+  border-radius: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  color: #203a36;
+}
+
+.when {
+  font-weight: 700;
+  font-size: 16px;
+}
+
+.deadline {
+  font-size: 13px;
+  font-weight: 650;
+  color: #8c6c1f;
+}
+
+.block {
+  padding-top: 12px;
+  border-top: 1px solid #e3ece8;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.block fieldset {
+  border: 0;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.block legend,
+.block > label {
+  font-size: 12px;
+  font-weight: 650;
+  color: #496d60;
+  margin-bottom: 6px;
+}
+
+.option {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  padding: 10px 12px;
+  border: 1px solid #cadbd7;
+  border-radius: 12px;
+}
+
+.option span {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.option small {
+  color: #60776f;
+}
+
+.inline {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.inline input {
+  min-height: 46px;
+  padding: 10px 12px;
+  border: 1px solid #cadbd7;
+  border-radius: 12px;
+  font: inherit;
+  color: #203a36;
+  background: white;
+}
+
+.quiet {
+  background: transparent;
+  color: #36574d;
+  border: 1px solid #cadbd7;
+}
+
+.error {
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: #fbf1ef;
+  color: #a13f30;
+}
+
+.history {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.history li {
+  padding: 14px 16px;
+  background: #f6faf8;
+  border: 1px solid #e0ebe6;
+  border-radius: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.history span {
+  color: #4f6b62;
+  font-size: 14px;
+}
