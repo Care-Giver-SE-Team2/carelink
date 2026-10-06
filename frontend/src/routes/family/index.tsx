@@ -9,14 +9,25 @@ import { FamilyReportListPage } from './reports/FamilyReportListPage'
 import { FamilyReportDetailPage } from './reports/FamilyReportDetailPage'
 import { FamilyWeeklySummaryPage } from './reports/FamilyWeeklySummaryPage'
 import { FamilyVisitProgressPage } from './visits/FamilyVisitProgressPage'
+import { FamilyHomePage } from './home/FamilyHomePage'
+import { FamilyAccountPage } from './account/FamilyAccountPage'
+import { SelectedElderProvider } from './components/FamilyElderContext'
 
 /**
- * Family application, schedule, visit progress and care report routes.
+ * Family home, application, schedule, visit progress and care report routes.
  * @author Wang Zhili
  */
 export default function FamilyHome() {
   return (
+    <SelectedElderProvider>
     <Routes>
+      <Route index element={<Navigate to="home" replace />} />
+      <Route element={<FamilyLayout title="Home" />}>
+        <Route path="home" element={<FamilyHomePage />} />
+      </Route>
+      <Route element={<FamilyLayout title="Account" />}>
+        <Route path="account" element={<FamilyAccountPage />} />
+      </Route>
       <Route element={<FamilyLayout title="Visit progress" />}>
         <Route path="visits/:visitId" element={<FamilyVisitProgressPage />} />
       </Route>
@@ -33,7 +44,6 @@ export default function FamilyHome() {
         <Route path="schedule" element={<FamilySchedulePage />} />
       </Route>
       <Route element={<IntakeLayout />}>
-        <Route index element={<Navigate to="intake" replace />} />
         <Route path="intake" element={<IntakeListPage />} />
         <Route path="intake/new" element={<IntakeCreatePage />} />
         <Route path="intake/:id" element={<IntakeDetailPage />} />
@@ -48,5 +58,6 @@ export default function FamilyHome() {
         />
       </Route>
     </Routes>
+    </SelectedElderProvider>
   )
 }

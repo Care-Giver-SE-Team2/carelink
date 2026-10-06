@@ -91,51 +91,8 @@
 .portal button:not(:disabled):hover {
   background: var(--fm-note);
 }
-.header {
-  position: relative;
-  background: var(--fm-card);
-}
-.headerInner {
-  max-width: 600px;
-  margin: auto;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 18px 20px 12px;
-}
-.brand {
-  display: inline-flex;
-  align-items: center;
-  gap: 10px;
-  font-weight: 700;
-  font-size: 21px;
-  letter-spacing: -0.03em;
-  text-decoration: none;
-  min-height: 44px;
-}
-.brandMark {
-  display: grid;
-  place-items: center;
-  width: 34px;
-  height: 34px;
-  background: var(--fm-accent);
-  border-radius: 50%;
-  color: #fff;
-}
-.brandMark svg {
-  width: 18px;
-  height: 18px;
-}
-.familyTag {
-  font-size: 11px;
-  font-weight: 500;
-  letter-spacing: 0.08em;
-  line-height: 1;
-  color: var(--fm-accent);
-  background: var(--fm-card);
-  border: 1px solid var(--fm-line-control);
-  border-radius: 999px;
-  padding: 6px 10px;
+.page {
+  composes: page from '../components/FamilyScreen.module.css';
 }
 .main {
   max-width: 600px;
@@ -150,7 +107,7 @@
   gap: 14px;
 }
 .eyebrow {
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 600;
   letter-spacing: 0.12em;
   line-height: 1;
@@ -177,37 +134,12 @@
   width: 24px;
   height: 24px;
 }
-.filters {
-  display: flex;
-  gap: 6px;
-  overflow-x: auto;
-  padding: 5px 4px 12px;
-  margin: -5px -4px 6px;
-  scrollbar-width: thin;
-  scrollbar-color: var(--fm-line-control) transparent;
-}
-.portal .filters button {
-  flex: 0 0 auto;
-  min-height: 44px;
-  border-radius: 999px;
-  border-color: var(--fm-line-card);
-  padding: 10px 16px;
-  color: var(--fm-ink);
-  font-size: 13px;
-  white-space: nowrap;
-}
-.portal .filters button[aria-pressed='true'],
-.portal .filters button[aria-pressed='true']:hover {
-  background: var(--fm-accent);
-  border-color: var(--fm-accent);
-  color: #fff;
-}
 .toolbar {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
-  margin-bottom: 10px;
+  gap: 10px;
+  margin: 2px 0 12px;
   font-size: 13.5px;
   color: var(--fm-muted);
   font-variant-numeric: tabular-nums;
@@ -356,19 +288,6 @@
   font-size: 12.5px;
   color: var(--fm-faint);
 }
-.footer {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  gap: 7px;
-  color: var(--fm-faint);
-  font-size: 12px;
-  padding: 16px 20px 40px;
-}
-.footer svg {
-  width: 13px;
-  height: 13px;
-}
 .state {
   background: var(--fm-card);
   border: 1px solid var(--fm-line-card);
@@ -430,7 +349,6 @@
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  padding-top: 4px;
 }
 .backLink {
   display: inline-flex;
@@ -671,4 +589,70 @@
   .spinner {
     animation: none;
   }
+}
+/* Desktop: the list on the left, a sticky "start a new application" card on the right. */
+.split {
+  composes: split from '../components/FamilyScreen.module.css';
+}
+.splitMain {
+  min-width: 0;
+}
+.createCard {
+  position: sticky;
+  top: 26px;
+  display: grid;
+  gap: 8px;
+  border: 1px solid var(--fm-line-card);
+  border-radius: 18px;
+  background: var(--fm-card);
+  padding: 22px;
+}
+.createCard h2 {
+  font-size: 18px;
+}
+.createCard > p:not(.eyebrow) {
+  color: var(--fm-muted);
+  font-size: 13.5px;
+  line-height: 1.5;
+}
+.createCard > .eyebrow {
+  margin-bottom: 0 !important;
+}
+.createCard > .createLink {
+  margin: 8px 0 0;
+}
+/* Refresh: the same bordered secondary button as on the report pages. */
+.toolbar .refreshButton {
+  flex-shrink: 0;
+  min-height: 44px;
+  padding: 0 14px;
+  border-radius: 14px;
+  font-size: 13px;
+}
+/* Status filter: a native select beside the count, so it never runs off a narrow screen. */
+.srOnly {
+  composes: visuallyHidden from '../components/FamilyScreen.module.css';
+}
+.toolbar > span:first-child {
+  flex: 1 0 auto;
+  white-space: nowrap;
+}
+.toolbar .statusFilter {
+  flex: 0 1 auto;
+  width: auto;
+  min-width: 0;
+  min-height: 44px;
+  border: 1px solid var(--fm-line-control);
+  border-radius: 14px;
+  background: var(--fm-card);
+  padding: 0 12px;
+  color: var(--fm-ink);
+  color-scheme: light;
+  font: inherit;
+  font-size: 13.5px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.toolbar .statusFilter:hover {
+  border-color: var(--fm-accent);
 }

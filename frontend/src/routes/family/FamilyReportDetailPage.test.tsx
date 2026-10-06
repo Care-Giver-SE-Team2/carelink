@@ -41,7 +41,10 @@ function CurrentUrl() {
 function openReport(path = '/family/reports/301') {
   return render(<MemoryRouter initialEntries={[path]}>
     <CurrentUrl />
-    <Routes><Route path="/family/*" element={<FamilyHome />} /></Routes>
+    <Routes>
+      <Route path="/" element={<h1>Landing</h1>} />
+      <Route path="/family/*" element={<FamilyHome />} />
+    </Routes>
   </MemoryRouter>)
 }
 beforeEach(() => vi.stubGlobal('scrollTo', vi.fn()))
@@ -110,11 +113,11 @@ describe('Family care report reading', () => {
       await screen.findByRole('article')
       denied = true
       await userEvent.setup().click(screen.getByRole('button', { name: 'Refresh' }))
-      expect(await screen.findByRole('heading', { name: status === 401 ? 'Sign in to continue' : 'Report access unavailable' })).toBeInTheDocument()
+      expect(await screen.findByRole('heading', { name: status === 401 ? 'Landing' : 'Report access unavailable' })).toBeInTheDocument()
       expect(screen.queryByRole('article')).not.toBeInTheDocument()
       expect(screen.queryByText('Elder profile #21')).not.toBeInTheDocument()
       expect(screen.queryByText('Internal access details')).not.toBeInTheDocument()
-      expect(screen.getByRole('link', { name: 'Back to reports' })).toBeInTheDocument()
+      if (status === 403) expect(screen.getByRole('link', { name: 'Back to reports' })).toBeInTheDocument()
     },
   )
 
@@ -192,40 +195,20 @@ describe('Family care report reading', () => {
     expect(screen.queryByRole('article')).not.toBeInTheDocument()
   })
 
-  it.each([401, 403].flatMap((initialStatus) => [true, false].map((allowed) => ({ initialStatus, allowed }))))(
-    'rechecks the same report after signing in from $initialStatus (access: $allowed)', async ({ initialStatus, allowed }) => {
-      let signedIn = false
-      const fetchMock = installApi((url, init) => {
-        if (url.pathname === '/api/auth/csrf') {
-          document.cookie = 'XSRF-TOKEN=detail-login; path=/'
-          return new Response(null)
-        }
-        if (url.pathname === '/api/auth/login') {
-          expect(JSON.parse(init.body as string)).toEqual({ username: 'family_b', password: 'test-password' })
-          expect(new Headers(init.headers).get('X-XSRF-TOKEN')).toBe('detail-login')
-          signedIn = true
-          return json({ ...family, id: 12 })
-        }
-        if (url.pathname === '/api/auth/me') return json(signedIn ? { ...family, id: 12, roles: ['ROLE_FAMILY'] } : family)
-        if (url.pathname === '/api/reports/301' && (!signedIn || !allowed)) return new Response(null, { status: signedIn ? 403 : initialStatus })
-        return undefined
-      })
-      openReport('/family/reports/301?elderId=21&page=1')
-      const user = userEvent.setup()
-      if (initialStatus === 403) await user.click(await screen.findByRole('button', { name: 'Sign in with another account' }))
-      await user.type(await screen.findByLabelText('Username'), 'family_b')
-      await user.type(screen.getByLabelText('Password'), 'test-password')
-      await user.click(screen.getByRole('button', { name: 'Sign in' }))
-      if (allowed) expect(await screen.findByRole('article')).toBeInTheDocument()
-      else {
-        expect(await screen.findByRole('heading', { name: 'Report access unavailable' })).toBeInTheDocument()
-        expect(screen.queryByRole('article')).not.toBeInTheDocument()
-      }
-      expect(screen.getByLabelText('Current URL')).toHaveTextContent('/family/reports/301?elderId=21&page=1')
-      expect(fetchMock.mock.calls.filter(([path]) => path.startsWith('/api/reports')).map(([path]) => path)).toEqual(['/api/reports/301', '/api/reports/301'])
-      expect(fetchMock.mock.calls.filter(([path]) => path === '/api/auth/me')).toHaveLength(2)
-    },
-  )
+  it('returns to the landing page on 401 and never shows the report', async () => {
+    installApi((url) => url.pathname === '/api/reports/301' ? new Response(null, { status: 401 }) : undefined)
+    openReport('/family/reports/301?elderId=21&page=1')
+    expect(await screen.findByRole('heading', { name: 'Landing' })).toBeInTheDocument()
+    expect(screen.queryByRole('article')).not.toBeInTheDocument()
+    expect(screen.queryByLabelText('Username')).not.toBeInTheDocument()
+  })
+
+  it('links to the landing page to sign in with another account on 403', async () => {
+    installApi((url) => url.pathname === '/api/reports/301' ? new Response(null, { status: 403 }) : undefined)
+    openReport('/family/reports/301?elderId=21&page=1')
+    expect(await screen.findByRole('link', { name: 'Sign in with another account' })).toHaveAttribute('href', '/')
+    expect(screen.queryByRole('article')).not.toBeInTheDocument()
+  })
 
   it('retries a connection failure without presenting an empty report', async () => {
     let failed = true
@@ -250,7 +233,7 @@ describe('Family care report reading', () => {
     expect(screen.getByRole('status')).toHaveTextContent('Loading your report')
     expect(screen.queryByRole('article')).not.toBeInTheDocument()
     await act(async () => finish(new Response(null, { status: 401 })))
-    expect(await screen.findByRole('heading', { name: 'Sign in to continue' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'Landing' })).toBeInTheDocument()
   })
 
   it('cancels a previous report and never restores stale text when navigating back', async () => {

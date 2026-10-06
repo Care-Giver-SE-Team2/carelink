@@ -4,6 +4,7 @@ import { Link, useNavigate } from 'react-router-dom'
 
 import caregiverImage from '../../assets/Caregiver.png'
 import { signInWithSession } from '../../features/auth/api'
+import { homePathFor } from '../../features/auth/roles'
 import { ApiError } from '../../shared/api/client'
 import { IconCalendar, IconClock, IconDocCheck, IconHeart, IconUsers } from './icons'
 import styles from './Landing.module.css'
@@ -65,23 +66,9 @@ export default function LandingHome() {
         password,
       })
 
-      if (user.roles.includes('ELDER')) {
-        navigate('/elder')
-        return
-      }
-
-      if (user.roles.includes('FAMILY')) {
-        navigate('/family')
-        return
-      }
-
-      if (user.roles.includes('CAREGIVER')) {
-        navigate('/caregiver')
-        return
-      }
-
-      if (user.roles.includes('MANAGER')) {
-        navigate('/manager')
+      const home = homePathFor(user.roles)
+      if (home) {
+        navigate(home)
         return
       }
 

@@ -1,8 +1,24 @@
 .reports {
+  composes: page from '../components/FamilyScreen.module.css';
+}
+/* The weekly summary is a two-column page on desktop, so it does not take the 640px column. */
+.weekly {
   overflow-wrap: anywhere;
 }
 .hero {
   composes: band from '../components/FamilyScreen.module.css';
+}
+/* Tab-root header: title block on the left, a link-action on the right. */
+.hero:has(> div) {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+}
+.hero:has(> div) > .readLink {
+  flex: none;
+  min-height: 32px;
+  margin: 0;
 }
 .hero > .intro {
   margin-top: 6px;
@@ -18,7 +34,7 @@
   font-size: 13.5px;
 }
 .eyebrow {
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 600;
   letter-spacing: 0.12em;
   line-height: 1;
@@ -28,41 +44,43 @@
 }
 .toolbar {
   display: flex;
-  align-items: end;
+  align-items: center;
   gap: 10px;
-  margin-bottom: 16px;
+  margin: 12px 0 18px;
 }
 .toolbar > button {
   flex-shrink: 0;
+  min-height: 44px;
+  padding: 0 14px;
+  border-radius: 14px;
+  font-size: 13px;
 }
 .elderPicker {
   flex: 1;
   min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
-.elderPicker label,
-.datePicker label {
-  display: block;
+.elderPicker label {
+  flex: none;
+  color: var(--fm-muted);
   font-size: 13.5px;
-  font-weight: 600;
-  margin-bottom: 7px;
 }
-.elderPicker select,
-.datePicker input {
-  display: block;
+.elderPicker select {
+  flex: 1;
   width: 100%;
   min-width: 0;
-  min-height: 48px;
-  padding: 11px 14px;
+  min-height: 44px;
+  padding: 0 12px;
   border: 1px solid var(--fm-line-control);
-  border-radius: 14px;
+  border-radius: 12px;
   font: inherit;
-  font-size: 16px;
+  font-size: 15px;
+  font-weight: 600;
   color: var(--fm-ink);
   background: var(--fm-card);
   color-scheme: light;
-  font-variant-numeric: tabular-nums;
-}
-.elderPicker select {
   text-overflow: ellipsis;
 }
 .summary {
@@ -233,7 +251,6 @@
   align-items: center;
   flex-wrap: wrap;
   gap: 12px;
-  padding-top: 4px;
 }
 .backLink {
   display: inline-flex;
@@ -266,47 +283,276 @@
 .disclaimer {
   white-space: pre-wrap;
   margin-top: 6px !important;
-  padding: 12px 13px;
+  padding: 14px 16px;
   border-radius: 14px;
-  background: var(--fm-accent-tint);
-  font-size: 13.5px;
+  background: var(--fm-note);
+  font-size: 13px;
+  line-height: 1.5;
   color: var(--fm-muted);
 }
 .reports > article > .disclaimer {
   margin-top: 16px !important;
 }
+.hidden {
+  composes: visuallyHidden from '../components/FamilyScreen.module.css';
+}
 .weekPanel {
-  border: 1px solid var(--fm-line-card);
-  border-radius: 18px;
-  padding: 16px;
-  margin-bottom: 18px;
-  background: var(--fm-card);
+  composes: weekStepper from '../components/FamilyScreen.module.css';
 }
-.weekPanel > h2 {
-  font-size: 19px;
-  font-variant-numeric: tabular-nums;
+.stepper {
+  composes: stepper from '../components/FamilyScreen.module.css';
 }
-.datePicker {
-  margin: 14px 0;
-  padding-top: 13px;
-  border-top: 1px solid var(--fm-line-row);
+.weekCenter {
+  composes: weekCenter from '../components/FamilyScreen.module.css';
 }
-.datePicker p {
-  margin-top: 7px;
-  font-size: 12.5px;
-  color: var(--fm-faint);
+.weekFoot {
+  composes: weekFoot from '../components/FamilyScreen.module.css';
 }
-.weekControls {
+/* Weekly summary: tag row, prose card, note, corrections, then actions. */
+.summaryArticle {
+  display: grid;
+  gap: 12px;
+}
+.summaryArticle > .disclaimer {
+  margin-top: 0 !important;
+}
+.tagRow {
   display: flex;
+  align-items: center;
   flex-wrap: wrap;
   gap: 8px;
+  color: var(--fm-muted);
+  font-size: 12.5px;
 }
-.weekPanel .weekControls button {
-  flex: 1;
-  padding-inline: 6px;
-  font-size: 13px;
-  white-space: nowrap;
+.modelTag {
+  border-radius: 999px;
+  background: var(--fm-accent);
+  padding: 4px 10px;
+  color: #fff;
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
-.weekPanel > .timestamp {
+.summaryArticle .body {
+  margin-top: 0 !important;
+  font-size: 16px;
+}
+.cardFoot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 14px;
+  border-top: 1px solid var(--fm-line-row);
+  padding-top: 12px;
+}
+.actions {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  gap: 10px;
+}
+.secondary {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 52px;
+  border: 1px solid var(--fm-line-control);
+  border-radius: 16px;
+  background: var(--fm-card);
+  color: var(--fm-accent) !important;
+  font-size: 13.5px;
+  font-weight: 600;
+  text-decoration: none;
+}
+.secondary:hover {
+  background: var(--fm-note);
+}
+.summaryArticle > .timestamp {
+  margin-top: 0 !important;
   text-align: center;
+}
+/* Header actions (desktop): secondary buttons that fill with the accent on hover. */
+.headerActions {
+  display: flex;
+  flex: none;
+  gap: 10px;
+}
+.headerAction {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid var(--fm-line-control);
+  border-radius: 14px;
+  background: var(--fm-card);
+  padding: 12px 18px;
+  color: var(--fm-accent) !important;
+  font-size: 13.5px;
+  font-weight: 600;
+  line-height: 1.2;
+  text-decoration: none;
+}
+.headerAction:hover {
+  border-color: var(--fm-accent);
+  background: var(--fm-accent);
+  color: #fff !important;
+}
+.sectionLabel {
+  margin-bottom: 12px !important;
+  color: var(--fm-accent);
+  font-size: 12px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.12em !important;
+  line-height: 1 !important;
+  text-transform: uppercase;
+}
+/* Desktop weekly summary: the summary at reading width, the week's controls and visits beside it. */
+.split {
+  composes: split from '../components/FamilyScreen.module.css';
+}
+.splitMain,
+.splitSide {
+  display: grid;
+  gap: 18px;
+  min-width: 0;
+}
+.splitSide > .toolbar {
+  justify-content: flex-end;
+  margin: -6px 0 0;
+}
+.splitMain .card {
+  padding: 26px 30px;
+}
+.splitMain .body {
+  max-width: 60ch;
+  font-size: 17px;
+  line-height: 1.65;
+}
+.splitMain .state,
+.splitMain .loading {
+  margin-top: 0;
+}
+.visitRows {
+  margin: 0;
+  overflow: hidden;
+  border: 1px solid var(--fm-line-card);
+  border-radius: 18px;
+  background: var(--fm-card);
+  padding: 0;
+  list-style: none;
+}
+/* Rows run edge to edge so a tinted row fills the card; dividers stay inset with the text. */
+.visitRows li {
+  position: relative;
+  display: grid;
+  grid-template-columns: 52px minmax(0, 1fr) minmax(70px, auto);
+  column-gap: 12px;
+  align-items: center;
+  padding: 13px 20px;
+  font-size: 14.5px;
+  line-height: 1.3;
+}
+.visitRows li + li::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 20px;
+  left: 20px;
+  border-top: 1px solid var(--fm-line-row);
+}
+/* No divider against a tinted row: the tint itself separates it. */
+.visitRows li[data-status='EXCEPTION']::before,
+.visitRows li[data-status='EXCEPTION'] + li::before {
+  display: none;
+}
+.visitRows li[data-status='EXCEPTION'] {
+  background: var(--fm-urgent-tint);
+}
+.visitDay {
+  color: var(--fm-muted);
+  font-size: 13.5px;
+}
+.visitStatus {
+  color: var(--fm-ink);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-align: right;
+  text-transform: uppercase;
+}
+.visitRows li:is([data-status='COMPLETED'], [data-status='VERIFIED'], [data-status='AUTO_CLOSED']) .visitStatus {
+  color: var(--fm-good);
+}
+.visitRows li[data-status='EXCEPTION'] .visitStatus {
+  color: var(--fm-urgent);
+}
+.visitRows li[data-status='CANCELLED'] {
+  color: var(--fm-faint);
+}
+@media (min-width: 900px) {
+  .hero:has(> div) {
+    align-items: flex-end;
+  }
+  .hero > div > .intro {
+    font-size: 13.5px;
+  }
+}
+/* Refresh: bordered secondary button, on the count row (list) or beside the summary tag (weekly). */
+.summary {
+  align-items: center;
+}
+.summaryText {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  min-width: 0;
+}
+.reports .refresh,
+.weekly .refresh {
+  flex-shrink: 0;
+  min-height: 44px;
+  padding: 0 14px;
+  border-radius: 14px;
+  font-size: 13px;
+}
+.tagRow > .refresh {
+  margin-left: auto;
+}
+/* Refresh on its own row (on the page, not in a card) when there is no count or summary row to share. */
+.refreshBar {
+  display: flex;
+  justify-content: flex-end;
+  margin: 12px 0 10px;
+}
+.refreshBar + .state {
+  margin-top: 0;
+}
+.refreshBar .refresh {
+  min-height: 44px;
+  padding: 0 14px;
+  border-radius: 14px;
+  font-size: 13px;
+}
+.splitMain > .refreshBar {
+  margin: 0;
+}
+.sideLink {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 48px;
+  border: 1px solid var(--fm-line-control);
+  border-radius: 14px;
+  background: var(--fm-card);
+  color: var(--fm-accent) !important;
+  font-size: 13.5px;
+  font-weight: 600;
+  text-decoration: none;
+}
+.sideLink:hover {
+  border-color: var(--fm-accent);
+  background: var(--fm-accent);
+  color: #fff !important;
 }

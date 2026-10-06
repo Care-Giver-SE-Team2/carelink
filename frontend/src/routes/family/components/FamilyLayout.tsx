@@ -1,21 +1,55 @@
-import { useEffect, useState } from 'react'
-import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
-import { signOut } from '../../../features/auth/api'
-import { ApiError } from '../../../shared/api/client'
-import { FamilyIcon } from './FamilyIcon'
+import { useEffect } from 'react'
+import { Link, Outlet, useLocation } from 'react-router-dom'
 import styles from '../intake/FamilyIntake.module.css'
+import { useSelectedElder } from './selectedElder'
+import { FamilySideRail } from './FamilySideRail'
+import type { RailItem } from './FamilySideRail'
+import { useIsDesktop } from './useIsDesktop'
 import layout from './FamilyLayout.module.css'
 
+const iconProps = {
+  width: 24, height: 24, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor',
+  strokeWidth: 1.8, strokeLinecap: 'round', strokeLinejoin: 'round', 'aria-hidden': true,
+} as const
+
+/** Global tabs. Pages reached from a tab (visit progress, a report, an application) keep it active. */
+const tabs: RailItem[] = [
+  {
+    label: 'Home', to: '/family/home', match: ['/family/home'],
+    icon: <svg {...iconProps}><path d="M4 11 12 4l8 7v9a1 1 0 0 1-1 1h-4v-6h-6v6H5a1 1 0 0 1-1-1z" /></svg>,
+  },
+  {
+    label: 'Schedule', to: '/family/schedule', match: ['/family/schedule', '/family/visits'],
+    icon: <svg {...iconProps}><rect x="4" y="5" width="16" height="15" rx="2" /><path d="M4 10h16M9 3v4M15 3v4" /></svg>,
+  },
+  {
+    label: 'Reports', to: '/family/reports/weekly', match: ['/family/reports'],
+    icon: <svg {...iconProps}><path d="M7 3h7l4 4v13a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z" /><path d="M14 3v4h4M9 13h6M9 17h6" /></svg>,
+  },
+  {
+    label: 'Services', to: '/family/intake', match: ['/family/intake'],
+    icon: <svg {...iconProps}><circle cx="12" cy="12" r="8.5" /><path d="M12 8v8M8 12h8" /></svg>,
+  },
+  {
+    label: 'Account', to: '/family/account', match: ['/family/account'],
+    icon: <svg {...iconProps}><circle cx="12" cy="8.5" r="3.8" /><path d="M4.5 20c1.2-3.6 4-5.4 7.5-5.4s6.3 1.8 7.5 5.4" /></svg>,
+  },
+]
+
 /**
- * Displays family navigation and the current page in a mobile workspace.
+ * Displays the current page with the family app's navigation: the bottom tab bar on a phone, the
+ * side rail (Account pinned to its foot) from 900px.
  * @param title Sets the browser page title
  * @author Wang Zhili
  */
 export function FamilyLayout({ title = 'My applications' }: { title?: string }) {
   const { pathname, search } = useLocation()
-  const navigate = useNavigate()
-  const [signingOut, setSigningOut] = useState(false)
-  const [signOutError, setSignOutError] = useState('')
+  const desktop = useIsDesktop()
+  const { elderId } = useSelectedElder()
+  const isActive = (tab: RailItem) => tab.match.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`))
+  // Reports keep their elder in the URL, so the tab opens the elder currently followed.
+  const links = tabs.map((tab) => tab.label === 'Reports' && elderId !== null
+    ? { ...tab, to: `${tab.to}?elderId=${elderId}` } : tab)
   useEffect(() => {
     window.scrollTo({ top: 0, left: 0, behavior: 'instant' })
   }, [pathname, search])
@@ -27,69 +61,23 @@ export function FamilyLayout({ title = 'My applications' }: { title?: string }) 
     }
   }, [title])
 
-  async function handleSignOut() {
-    if (signingOut) return
-    setSigningOut(true)
-    setSignOutError('')
-    try {
-      await signOut()
-      navigate('/', { replace: true })
-    } catch (failure) {
-      // An already-expired session means the family member is signed out anyway.
-      if (failure instanceof ApiError && failure.status === 401) {
-        navigate('/', { replace: true })
-        return
-      }
-      setSignOutError('Unable to sign out. Please try again.')
-    } finally {
-      setSigningOut(false)
-    }
-  }
-
   return (
-    <div className={styles.portal}>
+    <div className={`${styles.portal} ${layout.shell}`} data-desktop={desktop || undefined}>
       <a className={styles.skip} href="#family-content">
         Skip to content
       </a>
-      <header className={styles.header}>
-        <div className={styles.headerInner}>
-          <Link
-            className={styles.brand}
-            to="/family/intake"
-            aria-label="CareLink family applications"
-          >
-            <span className={styles.brandMark}>
-              <FamilyIcon name="heart" />
-            </span>
-            CareLink
-          </Link>
-          <span className={styles.familyTag}>FAMILY PORTAL</span>
-        </div>
-        <nav className={layout.navigation} aria-label="Family pages">
-          <NavLink to="/family/intake">My applications</NavLink>
-          <NavLink to="/family/schedule">Weekly schedule</NavLink>
-          <NavLink to="/family/reports">Care reports</NavLink>
-          <button
-            type="button"
-            className={layout.signOut}
-            onClick={handleSignOut}
-            disabled={signingOut}
-          >
-            {signingOut ? 'Signing out…' : 'Sign out'}
-          </button>
-        </nav>
-        {signOutError && (
-          <p className={layout.signOutError} role="alert">
-            {signOutError}
-          </p>
-        )}
-      </header>
+      {desktop && <FamilySideRail items={links.slice(0, 4)} account={links[4]} isActive={isActive} />}
       <main id="family-content" className={styles.main}>
         <Outlet />
       </main>
-      <footer className={styles.footer}>
-        <FamilyIcon name="heart" /> Care, with you every step.
-      </footer>
+      {!desktop && <nav className={layout.tabBar} aria-label="Family pages">
+        {links.map((tab) => (
+          <Link key={tab.label} to={tab.to} aria-current={isActive(tab) ? 'page' : undefined}>
+            {tab.icon}
+            {tab.label}
+          </Link>
+        ))}
+      </nav>}
     </div>
   )
 }
