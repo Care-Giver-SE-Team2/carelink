@@ -1,5 +1,7 @@
 package sg.nus.carelink.rostering.infrastructure.persistence.adapter;
 
+import java.util.Comparator;
+import java.util.List;
 import java.util.Optional;
 
 import org.springframework.stereotype.Repository;
@@ -29,5 +31,15 @@ class RosteringCandidateRepositoryAdapter implements RosteringCandidateRepositor
 	@Override
 	public RosteringCandidate save(RosteringCandidate rosteringCandidate) {
 		return RosteringCandidateMapper.toDomain(jpa.save(RosteringCandidateMapper.toEntity(rosteringCandidate)));
+	}
+
+	/** Suggestions by rank, then the excluded in the order they were considered. */
+	@Override
+	public List<RosteringCandidate> findByRunAndVisit(Long rosteringRunId, Long visitId) {
+		return jpa.findByRosteringRunIdAndVisitIdOrderByIdAsc(rosteringRunId, visitId).stream()
+				.map(RosteringCandidateMapper::toDomain)
+				.sorted(Comparator.comparing((RosteringCandidate c) -> c.optionRank() == null)
+						.thenComparing(c -> c.optionRank() == null ? Integer.MAX_VALUE : c.optionRank()))
+				.toList();
 	}
 }

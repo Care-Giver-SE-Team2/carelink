@@ -1,14 +1,10 @@
-import { ManagerShell } from '../components/ManagerShell'
-import styles from './Placeholder.module.css'
+import SpotChecks from './quality/SpotChecks'
 
 /**
  * MG08 — carry out on-site service spot checks.
- * Placeholder; see README.md.
+ * The screen is in ./quality; this keeps the sidebar's route where index.tsx
+ * expects to find it.
  */
 export default function Quality() {
-  return (
-    <ManagerShell>
-      <p className={styles.placeholder}>Quality — placeholder.</p>
-    </ManagerShell>
-  )
+  return <SpotChecks />
 }

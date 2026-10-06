@@ -23,8 +23,10 @@ class RosteringCandidateMapperTest {
 		entity.setScore(new BigDecimal("6.5"));
 		entity.setOutcome(RosteringCandidateJpaEntity.Outcome.SELECTED);
 		entity.setExcludedByCode("v8");
+		entity.setMatchReason("v9");
 
 		RosteringCandidate domain = RosteringCandidateMapper.toDomain(entity);
+		assertThat(domain.matchReason()).isEqualTo(entity.getMatchReason());
 		assertThat(domain.id()).isEqualTo(entity.getId());
 		assertThat(domain.rosteringRunId()).isEqualTo(entity.getRosteringRunId());
 		assertThat(domain.visitId()).isEqualTo(entity.getVisitId());
@@ -43,5 +45,6 @@ class RosteringCandidateMapperTest {
 		assertThat(back.getScore()).isEqualTo(entity.getScore());
 		assertThat(back.getOutcome()).isEqualTo(entity.getOutcome());
 		assertThat(back.getExcludedByCode()).isEqualTo(entity.getExcludedByCode());
+		assertThat(back.getMatchReason()).isEqualTo(entity.getMatchReason());
 	}
 }

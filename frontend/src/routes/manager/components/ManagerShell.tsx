@@ -18,6 +18,7 @@ function navItems(
   return [
     { label: 'Today', href: '/manager', end: true },
     { label: 'Roster', href: '/manager/roster' },
+    { label: 'Absences', href: '/manager/absences' },
     { label: 'Exceptions', href: '/manager/exceptions', count: openExceptions, countTone: 'danger' },
     { label: 'Elders', href: '/manager/elders' },
     { label: 'Applications', href: '/manager/applications', count: pendingApplications, countTone: 'accent' },

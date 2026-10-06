@@ -28,8 +28,16 @@ class SpotCheckMapperTest {
 		entity.setFinding("v11");
 		entity.setCaregiverResponse("v12");
 		entity.setCheckedAt(LocalDateTime.of(2026, 9, 6, 10, 13));
+		entity.setResult(SpotCheckJpaEntity.Result.NEEDS_IMPROVEMENT);
+		entity.setOutcome(SpotCheckJpaEntity.Outcome.COMPLETED);
+		entity.setClosingReason("v15");
+		entity.setIncidentId(16L);
 
 		SpotCheck domain = SpotCheckMapper.toDomain(entity);
+		assertThat(domain.result().name()).isEqualTo(entity.getResult().name());
+		assertThat(domain.outcome().name()).isEqualTo(entity.getOutcome().name());
+		assertThat(domain.closingReason()).isEqualTo(entity.getClosingReason());
+		assertThat(domain.incidentId()).isEqualTo(entity.getIncidentId());
 		assertThat(domain.id()).isEqualTo(entity.getId());
 		assertThat(domain.elderId()).isEqualTo(entity.getElderId());
 		assertThat(domain.caregiverId()).isEqualTo(entity.getCaregiverId());
@@ -58,5 +66,9 @@ class SpotCheckMapperTest {
 		assertThat(back.getFinding()).isEqualTo(entity.getFinding());
 		assertThat(back.getCaregiverResponse()).isEqualTo(entity.getCaregiverResponse());
 		assertThat(back.getCheckedAt()).isEqualTo(entity.getCheckedAt());
+		assertThat(back.getResult()).isEqualTo(entity.getResult());
+		assertThat(back.getOutcome()).isEqualTo(entity.getOutcome());
+		assertThat(back.getClosingReason()).isEqualTo(entity.getClosingReason());
+		assertThat(back.getIncidentId()).isEqualTo(entity.getIncidentId());
 	}
 }

@@ -23,7 +23,9 @@ final class AbsenceReportMapper {
 				e.getReason(),
 				e.getStatus() == null ? null : AbsenceReport.Status.valueOf(e.getStatus().name()),
 				e.getCreatedAt(),
-				e.getUpdatedAt());
+				e.getUpdatedAt(),
+				e.getCoverageConfirmedAt(),
+				e.getCoverageConfirmedByUserId());
 	}
 
 	static AbsenceReportJpaEntity toEntity(AbsenceReport d) {
@@ -36,6 +38,8 @@ final class AbsenceReportMapper {
 		e.setEndDate(d.endDate());
 		e.setReason(d.reason());
 		e.setStatus(d.status() == null ? null : AbsenceReportJpaEntity.Status.valueOf(d.status().name()));
+		e.setCoverageConfirmedAt(d.coverageConfirmedAt());
+		e.setCoverageConfirmedByUserId(d.coverageConfirmedByUserId());
 		return e;
 	}
 }

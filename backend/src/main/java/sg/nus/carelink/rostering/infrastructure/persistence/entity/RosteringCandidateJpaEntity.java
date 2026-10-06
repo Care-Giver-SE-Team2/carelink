@@ -64,6 +64,10 @@ public class RosteringCandidateJpaEntity {
 	@Column(name = "excluded_by_code", length = 40)
 	private String excludedByCode;
 
+	/** why this candidate ranks where it does, in words (V12) */
+	@Column(name = "match_reason", length = 120)
+	private String matchReason;
+
 	public RosteringCandidateJpaEntity() {
 	}
 
@@ -129,5 +133,13 @@ public class RosteringCandidateJpaEntity {
 
 	public void setExcludedByCode(String excludedByCode) {
 		this.excludedByCode = excludedByCode;
+	}
+
+	public String getMatchReason() {
+		return matchReason;
+	}
+
+	public void setMatchReason(String matchReason) {
+		this.matchReason = matchReason;
 	}
 }

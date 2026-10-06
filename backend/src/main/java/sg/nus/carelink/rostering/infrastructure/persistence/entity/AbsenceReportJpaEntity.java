@@ -67,6 +67,14 @@ public class AbsenceReportJpaEntity {
 	@Column(name = "status", nullable = false)
 	private Status status = Status.PENDING;
 
+	/** UC-MG04 step 7: the manager confirmed every vacated visit is accounted for (V12) */
+	@Column(name = "coverage_confirmed_at")
+	private LocalDateTime coverageConfirmedAt;
+
+	/** soft FK to app_user.id (V12) */
+	@Column(name = "coverage_confirmed_by_user_id")
+	private Long coverageConfirmedByUserId;
+
 	@Column(name = "created_at", nullable = false, insertable = false, updatable = false)
 	private LocalDateTime createdAt;
 
@@ -138,6 +146,22 @@ public class AbsenceReportJpaEntity {
 
 	public void setStatus(Status status) {
 		this.status = status;
+	}
+
+	public LocalDateTime getCoverageConfirmedAt() {
+		return coverageConfirmedAt;
+	}
+
+	public void setCoverageConfirmedAt(LocalDateTime coverageConfirmedAt) {
+		this.coverageConfirmedAt = coverageConfirmedAt;
+	}
+
+	public Long getCoverageConfirmedByUserId() {
+		return coverageConfirmedByUserId;
+	}
+
+	public void setCoverageConfirmedByUserId(Long coverageConfirmedByUserId) {
+		this.coverageConfirmedByUserId = coverageConfirmedByUserId;
 	}
 
 	public LocalDateTime getCreatedAt() {

@@ -232,6 +232,81 @@ public class IncidentService {
         );
     }
 
+    /**
+     * UC-MG04 exception 3a: an absence vacated a visit and nobody is free to take it. Raised by
+     * the re-rostering, before the visit is due, and routed like any other incident: the gap
+     * gets a named responder and a countdown, and cannot fade out of sight when a timer runs
+     * out ("待办不因超时而消失").
+     *
+     * <p>It is the same kind of incident as {@link #raiseForUncoveredVisit} - a visit nobody
+     * will check in to - and only the timeline says how it came about.
+     */
+    public Incident raiseForUnfilledAbsence(
+            Long elderId,
+            Long visitId,
+            String description) {
+
+        Incident saved =
+                incidents.save(
+                        Incident.raisedForUncoveredVisit(
+                                elderId,
+                                visitId,
+                                description,
+                                now()
+                        )
+                );
+
+        timeline.save(
+                IncidentLog.entry(
+                        saved.id(),
+                        "system",
+                        IncidentLog.Action.REPORTED,
+                        "caregiver absent and nobody free to replace them",
+                        now()
+                )
+        );
+
+        return escalation.routeNewIncident(
+                saved
+        );
+    }
+
+    /**
+     * UC-MG08 exception 4a: a manager went to watch a visit and the caregiver never came. The
+     * spot check turns into a missed-visit exception and takes the UC-MG05 route, like any
+     * other visit nobody checked in to; the manager who saw it is on the timeline.
+     */
+    public Incident raiseForMissedSpotCheck(
+            Long elderId,
+            Long visitId,
+            String description,
+            String actor) {
+
+        Incident saved =
+                incidents.save(
+                        Incident.raisedForUncoveredVisit(
+                                elderId,
+                                visitId,
+                                description,
+                                now()
+                        )
+                );
+
+        timeline.save(
+                IncidentLog.entry(
+                        saved.id(),
+                        actor,
+                        IncidentLog.Action.REPORTED,
+                        "caregiver did not turn up for a spot-checked visit",
+                        now()
+                )
+        );
+
+        return escalation.routeNewIncident(
+                saved
+        );
+    }
+
     // ------------------------------------------------------------------ handling ---
 
     /**

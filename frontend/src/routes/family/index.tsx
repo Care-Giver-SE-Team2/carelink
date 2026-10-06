@@ -12,6 +12,8 @@ import { FamilyVisitProgressPage } from './visits/FamilyVisitProgressPage'
 import { FamilyHomePage } from './home/FamilyHomePage'
 import { FamilyAccountPage } from './account/FamilyAccountPage'
 import { SelectedElderProvider } from './components/FamilyElderContext'
+import { FamilyRosterChangesPage } from './changes/FamilyRosterChangesPage'
+import { FamilySpotChecksPage } from './spot-checks/FamilySpotChecksPage'
 
 /**
  * Family home, application, schedule, visit progress and care report routes.
@@ -42,6 +44,12 @@ export default function FamilyHome() {
       </Route>
       <Route element={<FamilyLayout title="Weekly schedule" />}>
         <Route path="schedule" element={<FamilySchedulePage />} />
+      </Route>
+      <Route element={<FamilyLayout title="Visit changes" />}>
+        <Route path="changes" element={<FamilyRosterChangesPage />} />
+      </Route>
+      <Route element={<FamilyLayout title="Spot checks" />}>
+        <Route path="spot-checks" element={<FamilySpotChecksPage />} />
       </Route>
       <Route element={<IntakeLayout />}>
         <Route path="intake" element={<IntakeListPage />} />

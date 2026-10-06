@@ -12,8 +12,11 @@ const iconProps = {
   strokeWidth: 1.8, strokeLinecap: 'round', strokeLinejoin: 'round', 'aria-hidden': true,
 } as const
 
-/** Global tabs. Pages reached from a tab (visit progress, a report, an application) keep it active. */
-const tabs: RailItem[] = [
+/**
+ * Global tabs, Account last. Pages reached from a tab (visit progress, a report, an application) keep
+ * it active. The phone tab bar has room for five, so `phone: false` sections appear only on the rail.
+ */
+const tabs: (RailItem & { phone?: false })[] = [
   {
     label: 'Home', to: '/family/home', match: ['/family/home'],
     icon: <svg {...iconProps}><path d="M4 11 12 4l8 7v9a1 1 0 0 1-1 1h-4v-6h-6v6H5a1 1 0 0 1-1-1z" /></svg>,
@@ -21,6 +24,14 @@ const tabs: RailItem[] = [
   {
     label: 'Schedule', to: '/family/schedule', match: ['/family/schedule', '/family/visits'],
     icon: <svg {...iconProps}><rect x="4" y="5" width="16" height="15" rx="2" /><path d="M4 10h16M9 3v4M15 3v4" /></svg>,
+  },
+  {
+    label: 'Visit changes', to: '/family/changes', match: ['/family/changes'], phone: false,
+    icon: <svg {...iconProps}><path d="M4 9h13l-3-3M20 15H7l3 3" /></svg>,
+  },
+  {
+    label: 'Spot checks', to: '/family/spot-checks', match: ['/family/spot-checks'], phone: false,
+    icon: <svg {...iconProps}><path d="M12 3 5 6v5c0 4.5 3 8.3 7 10 4-1.7 7-5.5 7-10V6z" /><path d="m9 12 2 2 4-4" /></svg>,
   },
   {
     label: 'Reports', to: '/family/reports/weekly', match: ['/family/reports'],
@@ -66,12 +77,12 @@ export function FamilyLayout({ title = 'My applications' }: { title?: string }) 
       <a className={styles.skip} href="#family-content">
         Skip to content
       </a>
-      {desktop && <FamilySideRail items={links.slice(0, 4)} account={links[4]} isActive={isActive} />}
+      {desktop && <FamilySideRail items={links.slice(0, -1)} account={links[links.length - 1]} isActive={isActive} />}
       <main id="family-content" className={styles.main}>
         <Outlet />
       </main>
       {!desktop && <nav className={layout.tabBar} aria-label="Family pages">
-        {links.map((tab) => (
+        {links.filter((tab) => tab.phone !== false).map((tab) => (
           <Link key={tab.label} to={tab.to} aria-current={isActive(tab) ? 'page' : undefined}>
             {tab.icon}
             {tab.label}

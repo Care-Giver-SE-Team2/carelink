@@ -23,8 +23,12 @@ class AbsenceReportMapperTest {
 		entity.setEndDate(LocalDate.of(2026, 9, 7));
 		entity.setReason("v7");
 		entity.setStatus(AbsenceReportJpaEntity.Status.PENDING);
+		entity.setCoverageConfirmedAt(LocalDate.of(2026, 9, 7).atTime(15, 0));
+		entity.setCoverageConfirmedByUserId(9L);
 
 		AbsenceReport domain = AbsenceReportMapper.toDomain(entity);
+		assertThat(domain.coverageConfirmedAt()).isEqualTo(entity.getCoverageConfirmedAt());
+		assertThat(domain.coverageConfirmedByUserId()).isEqualTo(entity.getCoverageConfirmedByUserId());
 		assertThat(domain.id()).isEqualTo(entity.getId());
 		assertThat(domain.caregiverId()).isEqualTo(entity.getCaregiverId());
 		assertThat(domain.reviewedByUserId()).isEqualTo(entity.getReviewedByUserId());
@@ -43,5 +47,7 @@ class AbsenceReportMapperTest {
 		assertThat(back.getEndDate()).isEqualTo(entity.getEndDate());
 		assertThat(back.getReason()).isEqualTo(entity.getReason());
 		assertThat(back.getStatus()).isEqualTo(entity.getStatus());
+		assertThat(back.getCoverageConfirmedAt()).isEqualTo(entity.getCoverageConfirmedAt());
+		assertThat(back.getCoverageConfirmedByUserId()).isEqualTo(entity.getCoverageConfirmedByUserId());
 	}
 }

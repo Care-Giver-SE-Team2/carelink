@@ -37,6 +37,14 @@ SELECT e.id
 CREATE TEMPORARY TABLE demo_fam_visit_id AS
 SELECT v.id FROM visit v WHERE v.elder_id IN (SELECT id FROM demo_fam_elder);
 
+-- Rows from family-changes-spot-checks.sql, which reference these visits.
+DELETE FROM roster_change          WHERE visit_id IN (SELECT id FROM demo_fam_visit_id);
+DELETE FROM rostering_candidate_check
+ WHERE rostering_candidate_id IN (SELECT id FROM rostering_candidate
+                                   WHERE visit_id IN (SELECT id FROM demo_fam_visit_id));
+DELETE FROM rostering_candidate    WHERE visit_id IN (SELECT id FROM demo_fam_visit_id);
+DELETE FROM spot_check             WHERE elder_id IN (SELECT id FROM demo_fam_elder);
+
 DELETE FROM visit_task             WHERE visit_id IN (SELECT id FROM demo_fam_visit_id);
 DELETE FROM vital_sign             WHERE visit_id IN (SELECT id FROM demo_fam_visit_id);
 DELETE FROM visit_evidence         WHERE visit_id IN (SELECT id FROM demo_fam_visit_id);

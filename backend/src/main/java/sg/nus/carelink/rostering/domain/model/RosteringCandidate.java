@@ -3,13 +3,11 @@ package sg.nus.carelink.rostering.domain.model;
 import java.math.BigDecimal;
 
 /**
- * Domain model for rostering_candidate.
+ * One caregiver considered for one visit in one run, suggested or excluded (rostering_candidate).
+ * "Suggestion 1 of 4" is {@code optionRank} 1; an excluded candidate has no rank and names the
+ * hard rule that excluded them. The one put on the visit becomes SELECTED.
  *
- * <p>Generated starting point: the same fields as the table, and nothing else. This is
- * where the business rules and the design patterns go — reshape it into a proper
- * aggregate (add behaviour, fold child tables in, drop columns the domain does not
- * care about). identity.domain.model.AppUser is the template. Must not import JPA or
- * Spring Data; ArchUnit rejects the build if it does.
+ * @param matchReason the reason shown beside a suggestion, or why an excluded one could not go
  */
 public record RosteringCandidate(
 		Long id,
@@ -19,7 +17,27 @@ public record RosteringCandidate(
 		Integer optionRank,
 		BigDecimal score,
 		RosteringCandidate.Outcome outcome,
-		String excludedByCode) {
+		String excludedByCode,
+		String matchReason) {
+
+	/** The width of rostering_candidate.match_reason. */
+	public static final int REASON_LENGTH = 120;
+
+	public RosteringCandidate {
+		matchReason = matchReason == null || matchReason.length() <= REASON_LENGTH
+				? matchReason
+				: matchReason.substring(0, REASON_LENGTH - 3) + "...";
+	}
+
+	/** This candidate is the one put on the visit. */
+	public RosteringCandidate selected() {
+		return new RosteringCandidate(id, rosteringRunId, visitId, caregiverId, optionRank, score, Outcome.SELECTED,
+				excludedByCode, matchReason);
+	}
+
+	public boolean isSuggestion() {
+		return outcome != Outcome.EXCLUDED;
+	}
 
 	public enum Outcome {
 		SELECTED, SUGGESTED, EXCLUDED

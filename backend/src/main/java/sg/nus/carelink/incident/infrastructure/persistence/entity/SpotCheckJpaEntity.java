@@ -38,6 +38,14 @@ public class SpotCheckJpaEntity {
 		PENDING_APPROVAL, APPROVED, REJECTED
 	}
 
+	public enum Result {
+		MEETS_STANDARD, NEEDS_IMPROVEMENT
+	}
+
+	public enum Outcome {
+		COMPLETED, CAREGIVER_NO_SHOW, WITHDRAWN
+	}
+
 	@Id
 	@GeneratedValue(strategy = GenerationType.IDENTITY)
 	private Long id;
@@ -84,7 +92,57 @@ public class SpotCheckJpaEntity {
 	@Column(name = "created_at", nullable = false, insertable = false, updatable = false)
 	private LocalDateTime createdAt;
 
+	/** the conclusion recorded on site (V13) */
+	@Enumerated(EnumType.STRING)
+	@Column(name = "result")
+	private Result result;
+
+	/** how the request ended; null while it is open, and for a declined one (V13) */
+	@Enumerated(EnumType.STRING)
+	@Column(name = "outcome")
+	private Outcome outcome;
+
+	/** why the family declined, or why the manager withdrew (V13) */
+	@Column(name = "closing_reason", length = 255)
+	private String closingReason;
+
+	/** the missed-visit incident when the caregiver did not turn up (V13) */
+	@Column(name = "incident_id")
+	private Long incidentId;
+
 	public SpotCheckJpaEntity() {
+	}
+
+	public Result getResult() {
+		return result;
+	}
+
+	public void setResult(Result result) {
+		this.result = result;
+	}
+
+	public Outcome getOutcome() {
+		return outcome;
+	}
+
+	public void setOutcome(Outcome outcome) {
+		this.outcome = outcome;
+	}
+
+	public String getClosingReason() {
+		return closingReason;
+	}
+
+	public void setClosingReason(String closingReason) {
+		this.closingReason = closingReason;
+	}
+
+	public Long getIncidentId() {
+		return incidentId;
+	}
+
+	public void setIncidentId(Long incidentId) {
+		this.incidentId = incidentId;
 	}
 
 	public Long getId() {
