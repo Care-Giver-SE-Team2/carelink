@@ -10,6 +10,7 @@ import { FamilyReportDetailPage } from './reports/FamilyReportDetailPage'
 import { FamilyWeeklySummaryPage } from './reports/FamilyWeeklySummaryPage'
 import { FamilyVisitProgressPage } from './visits/FamilyVisitProgressPage'
 import { FamilyRosterChangesPage } from './changes/FamilyRosterChangesPage'
+import { FamilySpotChecksPage } from './spot-checks/FamilySpotChecksPage'
 
 /**
  * Family application, schedule, visit progress and care report routes.
@@ -35,6 +36,9 @@ export default function FamilyHome() {
       </Route>
       <Route element={<FamilyLayout title="Visit changes" />}>
         <Route path="changes" element={<FamilyRosterChangesPage />} />
+      </Route>
+      <Route element={<FamilyLayout title="Spot checks" />}>
+        <Route path="spot-checks" element={<FamilySpotChecksPage />} />
       </Route>
       <Route element={<IntakeLayout />}>
         <Route index element={<Navigate to="intake" replace />} />

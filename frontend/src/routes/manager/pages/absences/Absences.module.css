@@ -1,5 +1,5 @@
 /*
- * Absences and re-rostering (UC-MG04).
+ * Absences and re-rostering (UC-MG04), and spot checks (UC-MG08), which share it.
  *
  * The manager console's vocabulary, as on the exception screens: square
  * corners, 1px rules, mono for what a person reads as data (dates, times,
@@ -288,4 +288,27 @@
 
 .checks li[data-result='NOT_APPLICABLE'] {
   color: var(--text-faint);
+}
+
+/* A labelled input outside a panel, e.g. the reason to withdraw a spot check. */
+.inlineLabel {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font: 500 10px/1 var(--font-mono);
+  letter-spacing: 0.1em;
+  color: var(--text-faint);
+  text-transform: uppercase;
+}
+
+.inlineLabel input {
+  min-height: var(--tap);
+  padding: 0 8px;
+  border: 1px solid var(--filter-border);
+  border-radius: var(--radius);
+  background: var(--bg);
+  font: 400 13.5px/1 var(--font);
+  color: var(--text);
+  text-transform: none;
+  letter-spacing: normal;
 }

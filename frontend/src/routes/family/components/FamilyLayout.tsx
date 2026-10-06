@@ -45,6 +45,7 @@ export function FamilyLayout({ title = 'My applications' }: { title?: string }) 
           <NavLink to="/family/intake">My applications</NavLink>
           <NavLink to="/family/schedule">Weekly schedule</NavLink>
           <NavLink to="/family/changes">Visit changes</NavLink>
+          <NavLink to="/family/spot-checks">Spot checks</NavLink>
           <NavLink to="/family/reports">Care reports</NavLink>
         </nav>
       </header>
