@@ -7,6 +7,7 @@ import SchedulePage from './SchedulePage'
 import WorkPackPage from './WorkPackPage'
 import AbsencesPage from './AbsencesPage'
 import CaregiverNavigation from './CaregiverNavigation'
+import SpotChecksPage from './SpotChecksPage'
 import styles from './Caregiver.module.css'
 
 export default function CaregiverHome() {
@@ -18,6 +19,7 @@ export default function CaregiverHome() {
       {result.status === 'success' && <div key={result.data.userId ?? result.data.id}><CaregiverNavigation /><Routes>
         <Route index element={<SchedulePage />} />
         <Route path="absences" element={<AbsencesPage />} />
+        <Route path="spot-checks" element={<SpotChecksPage />} />
         <Route path="visits/:visitId" element={<WorkPackPage />} />
         <Route path="*" element={<p>Page not found. <Link to="/caregiver">My schedule</Link></p>} />
       </Routes></div>}
