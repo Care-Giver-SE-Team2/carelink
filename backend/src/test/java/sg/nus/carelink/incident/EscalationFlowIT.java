@@ -354,6 +354,24 @@ class EscalationFlowIT {
 				"CONTACT_ATTEMPTED", "PLAYBOOK_APPLIED", "RESOLVED");
 	}
 
+	/** The elder's one-tap call is routed like every other incident: told to everyone, owned by a named manager. */
+	@Test
+	void anElderEmergencyCallIsRoutedAndBroadcastLikeAnyOtherIncident() {
+		Incident raised = incidents.createElderEmergency(elder, null, null, null, "Blk 123", "Pressed the SOS button");
+
+		assertThat(raised.responderUserId()).isNotNull();
+		assertThat(raised.respondBy()).isNotNull();
+		Integer told = jdbc.queryForObject(
+				"select count(*) from notification where resource_id = ? and event_type = 'INCIDENT_RAISED'",
+				Integer.class, raised.id());
+		assertThat(told).as("every manager is told at once").isGreaterThanOrEqualTo(3);
+		assertThat(incidents.timelineOf(raised.id()).stream().map(IncidentLog::action))
+				.containsSubsequence("REPORTED", "BROADCAST", "ASSIGNED");
+
+		// Taken over, so its countdown does not run on into another test's sweep.
+		incidents.claim(raised.id(), raised.responderUserId(), "test");
+	}
+
 	/**
 	 * A take-over refused because somebody else got there first is written to the timeline
 	 * before the refusal is thrown; the rule keeps refused attempts, not only the one that

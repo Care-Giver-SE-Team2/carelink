@@ -111,16 +111,18 @@ class IncidentServiceTest {
 	}
 
 	/**
-	 * Records the gap rather than papering over it. UC-EL03 belongs to the elder module and
-	 * still stops at "saved"; routing it is one line in that module's own method, and is
-	 * raised there rather than changed from here.
+	 * The most urgent incident of all goes the same way as every other one: on the timeline,
+	 * to a named responder, with the countdown running.
 	 */
 	@Test
-	void anElderSosIsNotRoutedYetAndThatIsTheKnownGap() {
+	void anElderSosIsRoutedLikeEveryOtherIncident() {
 		Incident raised = service.createElderEmergency(7L, 99L, null, null, "Blk 123", "fell");
 
-		assertThat(raised.responderUserId()).isNull();
-		assertThat(raised.respondBy()).isNull();
+		assertThat(raised.responderUserId()).isNotNull();
+		assertThat(raised.respondBy()).isNotNull();
+		assertThat(service.timelineOf(raised.id()).stream().map(IncidentLog::action))
+				.startsWith("REPORTED")
+				.contains("ASSIGNED");
 	}
 
 	@Test

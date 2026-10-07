@@ -80,15 +80,11 @@ public class IncidentService {
     /**
      * UC-EL03: an elder triggers the one-tap emergency call.
      *
-     * <p>Owned by the elder module. Left exactly as it was written there: it records the
-     * incident and stops.
-     *
-     * <p><strong>The incident is not routed here.</strong> An SOS with no responder and no
-     * countdown sits in the table until a human notices it, which is the failure UC-MG05's
-     * escalation chain exists to prevent. Closing that gap is one line -
-     * {@code return escalation.routeNewIncident(saved);} - but it belongs to whoever owns
-     * this use case, not to the manager module, so it is raised on the pull request rather
-     * than made here.
+     * <p>Recording the call is the elder module's, written there and kept as it was. What
+     * follows is UC-MG05's trigger and step 1, the same as for every other incident: the
+     * call goes on its timeline and is routed - everyone who could act is told at once, a
+     * named manager is made responsible and the countdown starts, so an SOS can never sit
+     * in the table waiting for somebody to notice it.
      */
     public Incident createElderEmergency(
             Long elderId,
@@ -108,8 +104,25 @@ public class IncidentService {
                         description
                 );
 
-        return incidents.save(
+        Incident saved = incidents.save(
                 incident
+        );
+
+        timeline.save(
+                IncidentLog.entry(
+                        saved.id(),
+                        actorLabel(
+                                reportedByUserId,
+                                "elder"
+                        ),
+                        IncidentLog.Action.REPORTED,
+                        "emergency call by the elder",
+                        now()
+                )
+        );
+
+        return escalation.routeNewIncident(
+                saved
         );
     }
 
