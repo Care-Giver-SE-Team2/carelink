@@ -43,7 +43,7 @@ class FamilyAccessQueryServiceTest {
 	private final UserDirectory users = mock(UserDirectory.class);
 	private final InMemoryFamilyMemberRepository families = new InMemoryFamilyMemberRepository();
 	private final ElderFamilyBindingRepository bindings = mock(ElderFamilyBindingRepository.class);
-	private final FamilyAccessQuery service = new FamilyAccessQueryService(users, families, bindings, CLOCK);
+	private final FamilyAccessQueryService service = new FamilyAccessQueryService(users, families, bindings, CLOCK);
 
 	@BeforeEach
 	void prepareAccounts() {
@@ -74,6 +74,9 @@ class FamilyAccessQueryServiceTest {
 
 	@Test
 	void resolvesBindingsByFamilyProfileIdRatherThanAccountId() {
+		FamilyIdentityQuery identity = service;
+		assertThat(identity.requireFamilyMemberId("family-a")).isEqualTo(42L);
+		assertThat(identity.requireFamilyMemberId("family-b")).isEqualTo(7L);
 		var own = binding(101L, ElderFamilyBinding.Status.ACTIVE, null);
 		when(bindings.findByFamilyMemberId(42L)).thenReturn(List.of(own));
 		when(bindings.findByFamilyMemberId(7L)).thenReturn(List.of(
@@ -134,6 +137,7 @@ class FamilyAccessQueryServiceTest {
 	@NullAndEmptySource
 	@ValueSource(strings = { " ", "unknown", "manager", "disabled", "no-profile" })
 	void deniesMissingOrIneligibleAccountsBeforeReadingBindings(String username) {
+		assertThatThrownBy(() -> service.requireFamilyMemberId(username)).isInstanceOf(AccessDeniedException.class);
 		assertThatThrownBy(() -> service.readableElderIds(username)).isInstanceOf(AccessDeniedException.class);
 		assertThatThrownBy(() -> service.requireReadableElder(username, 101L)).isInstanceOf(AccessDeniedException.class);
 		verifyNoInteractions(bindings);

@@ -23,7 +23,7 @@ import sg.nus.carelink.shared.security.Role;
  */
 @Service
 @Transactional(readOnly = true)
-class FamilyAccessQueryService implements FamilyAccessQuery {
+class FamilyAccessQueryService implements FamilyAccessQuery, FamilyIdentityQuery {
 
 	private static final ZoneId CARELINK_ZONE = ZoneId.of("Asia/Singapore");
 
@@ -62,7 +62,8 @@ class FamilyAccessQueryService implements FamilyAccessQuery {
 				.orElseThrow(() -> new AccessDeniedException("A readable elder binding is required"));
 	}
 
-	private Long requireFamilyMemberId(String authenticatedUsername) {
+	@Override
+	public Long requireFamilyMemberId(String authenticatedUsername) {
 		if (authenticatedUsername == null || authenticatedUsername.isBlank()) {
 			throw new AccessDeniedException("An authenticated family account is required");
 		}
