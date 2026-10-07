@@ -11,4 +11,15 @@ public interface AbsenceAlert {
 
 	/** A caregiver has asked for leave; every manager hears it, since any of them may review it. */
 	void requested(AbsenceReport absence, String caregiverName);
+
+	/**
+	 * The roster has since put more visits on the days of an absence whose coverage a manager
+	 * had confirmed, and the nightly run re-rostered them; a manager reviews what it did and
+	 * confirms coverage again.
+	 */
+	void visitsRerostered(AbsenceReport absence, String caregiverName, Rerostered what);
+
+	/** What the nightly run did with the added visits. */
+	record Rerostered(int offered, int settled, int uncovered) {
+	}
 }

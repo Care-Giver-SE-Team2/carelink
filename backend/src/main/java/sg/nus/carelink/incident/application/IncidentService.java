@@ -285,6 +285,44 @@ public class IncidentService {
     }
 
     /**
+     * UC-MG03 / UC-MG04: a visit falls on a caregiver's approved leave, is due soon, and is
+     * still theirs because nobody has re-rostered it. Raised by the roster's reminder scan
+     * before the visit, so the gap reaches the manager's queue while there is time to act.
+     *
+     * <p>The same kind of incident as {@link #raiseForUncoveredVisit} - a visit nobody will
+     * check in to unless somebody acts - and only the timeline says how it came about.
+     */
+    public Incident raiseForUnrosteredLeaveVisit(
+            Long elderId,
+            Long visitId,
+            String description) {
+
+        Incident saved =
+                incidents.save(
+                        Incident.raisedForUncoveredVisit(
+                                elderId,
+                                visitId,
+                                description,
+                                now()
+                        )
+                );
+
+        timeline.save(
+                IncidentLog.entry(
+                        saved.id(),
+                        "system",
+                        IncidentLog.Action.REPORTED,
+                        "visit due soon is still with a caregiver on leave",
+                        now()
+                )
+        );
+
+        return escalation.routeNewIncident(
+                saved
+        );
+    }
+
+    /**
      * UC-MG08 exception 4a: a manager went to watch a visit and the caregiver never came. The
      * spot check turns into a missed-visit exception and takes the UC-MG05 route, like any
      * other visit nobody checked in to; the manager who saw it is on the timeline.
