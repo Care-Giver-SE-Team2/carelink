@@ -56,6 +56,12 @@ carelink:
     spot-check-lookback: P90D
     scan-interval: PT60S
     scan-initial-delay: PT45S
+  # UC-MG08 with the family's side (FM07 exception 1a): a request the family has not answered
+  # stays open, never taken as a yes, and they are asked again once the last ask is this old.
+  spot-checks:
+    consent-reminder-after: P1D
+    reminder-scan-interval: PT1H
+    reminder-scan-initial-delay: PT3M
 
 management:
   endpoints:
