@@ -5,6 +5,7 @@ import java.time.Clock;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 
@@ -30,7 +31,7 @@ class NotificationTableAbsenceAlert implements AbsenceAlert {
 	private static final String INSERT = """
 			insert into notification
 			    (recipient_user_id, event_type, channel, title, body, resource_type, resource_id, status, created_at)
-			values (:userId, 'ABSENCE_REQUESTED', 'IN_APP', :title, :body, 'ABSENCE', :absenceId, 'PENDING', :createdAt)
+			values (:userId, :eventType, 'IN_APP', :title, :body, 'ABSENCE', :absenceId, 'PENDING', :createdAt)
 			""";
 
 	private static final DateTimeFormatter DAY = DateTimeFormatter.ofPattern("EEE d MMM", Locale.ENGLISH);
@@ -50,13 +51,41 @@ class NotificationTableAbsenceAlert implements AbsenceAlert {
 		String body = "%s leave%s. Approve or reject it on the Absences screen; approving it vacates their visits"
 				+ " those days for re-rostering.";
 		String reason = absence.reason() == null || absence.reason().isBlank() ? "" : ": " + absence.reason().strip();
+		tellManagers("ABSENCE_REQUESTED", absence, title, body.formatted(type(absence.type()), reason));
+	}
+
+	@Override
+	public void visitsRerostered(AbsenceReport absence, String caregiverName, Rerostered what) {
+		String who = caregiverName == null ? "a caregiver" : caregiverName;
+		String title = "New visits on %s's leave were re-rostered: %s".formatted(who, days(absence.startDate(),
+				absence.endDate()));
+		int total = what.offered() + what.settled() + what.uncovered();
+		List<String> parts = new ArrayList<>();
+		if (what.offered() > 0) {
+			parts.add(what.offered() + " offered to families");
+		}
+		if (what.settled() > 0) {
+			parts.add(what.settled() + " given to the best replacement");
+		}
+		if (what.uncovered() > 0) {
+			parts.add(what.uncovered() + " left uncovered with an incident");
+		}
+		String body = ("Since coverage was confirmed, the roster added visits on these days, and the nightly run"
+				+ " re-rostered %d visit%s: %s. Review them on the Absences screen, reassign any you want to, then"
+				+ " confirm coverage again.")
+				.formatted(total, total == 1 ? "" : "s", String.join(", ", parts));
+		tellManagers("ABSENCE_VISITS_REROSTERED", absence, title, body);
+	}
+
+	private void tellManagers(String eventType, AbsenceReport absence, String title, String body) {
 		List<Long> managers = jdbc.sql(MANAGERS).query(Long.class).list();
 		Timestamp now = Timestamp.valueOf(LocalDateTime.now(clock));
 		for (Long manager : managers) {
 			jdbc.sql(INSERT)
 					.param("userId", manager)
+					.param("eventType", eventType)
 					.param("title", trim(title, 150))
-					.param("body", trim(body.formatted(type(absence.type()), reason), 1000))
+					.param("body", trim(body, 1000))
 					.param("absenceId", absence.id())
 					.param("createdAt", now)
 					.update();
