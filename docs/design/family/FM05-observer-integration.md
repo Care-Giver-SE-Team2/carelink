@@ -67,3 +67,14 @@ This is an in-process after-commit design, without an outbox or a persistent eve
 The shared Page/Size schemas specify nonnegative page and size 1–200. The existing service normalizes page=-1 to 0, size=0 to 1 and size=201 to 200. Compatibility tests record this existing clamping policy; no frontend should rely on sending invalid values. Changing that policy is the notification owner's decision, not an FM05 implementation change.
 
 Notification source activation, old family generator handoff and bell navigation remain pending as described above. Successful consumer/inbox tests do not replace real CG04 source acceptance. The family detail frontend can proceed independently while the inbox owner resolves INBOX-01/02.
+
+
+## Family detail frontend
+
+The family-owned route `/family/incidents/:id` reads only `GET /api/family/incidents/{id}` after checking the current FAMILY session. It renders the authorized projection and the current recipient's receipts, with Singapore timestamps and plain text. There is no internal handling timeline in this projection, so the page does not request or invent one.
+
+A viewing command runs only after the successful detail is rendered; explicit awareness requires the `I am aware` action. Both commands recheck the session and initialize CSRF. Awareness accepts only the optional responseNote (up to the backend's 255 string-length limit); IDs, roles, status and times are not request fields. Failures do not show success, and acknowledgement failures retain the note for explicit retry. Personal deadline expiry, a missing window or a resolved incident do not disable legitimate awareness.
+
+The request lifecycle cancels obsolete reads/commands and clears content on access failures or account changes. Concurrent view/ack responses preserve the already known first awareness receipt. Cancellation does not undo a command already committed on the server; reloading reads the authoritative receipt. No notification read request is made by this page.
+
+The bell owner can route a FAMILY notification with resourceType=INCIDENT to `/family/incidents/{resourceId}`. The bell itself, its read policy, old notification generators and source hooks are unchanged by FM05. Direct route tests and local fixture previews do not establish real CG04-to-bell acceptance. Browser visibility/network recovery remains the next family-owned step.
