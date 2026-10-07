@@ -361,6 +361,11 @@ final class ReRosteringFakes {
 				throw new AccessDeniedException("A readable elder binding is required");
 			}
 		}
+
+		@Override
+		public void requireWritableElder(String username, Long elderId) {
+			requireReadableElder(username, elderId);
+		}
 	}
 
 	static final class Alerts implements RosterChangeAlert {
