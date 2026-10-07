@@ -1741,7 +1741,7 @@ paths:
       tags:
         - Notifications
       summary: My notification inbox
-      x-status: draft
+      x-status: implemented
       description: >-
         In-application and email only; there is no push infrastructure, so this is a pull inbox.
 
@@ -1758,6 +1758,12 @@ paths:
         remains in-app and email; no family send-email, subscription-settings or push API is
         introduced here. Other account roles retain the original notification response/filter
         behaviour.
+
+        Implementation: every role reads its own messages through this operation and gets the
+        FamilyNotification shape (FAMILY callers additionally under the binding rule above). It is a
+        pull inbox: the caller's PENDING in-app rows are delivered (SENT, sentAt set) when their
+        client asks for the inbox or its unread count, so SENT and READ are the only statuses shown.
+        The unread count and "mark all read" are the two operations under /notifications/me below.
 
 
         Family callers are identified from the authenticated session, never a caller-supplied
@@ -1820,6 +1826,62 @@ paths:
       operationId: listMyNotifications
       x-family-response-schema:
         $ref: '#/components/schemas/FamilyNotificationPage'
+  /notifications/me/unread-count:
+    get:
+      tags:
+        - Notifications
+      summary: How many of my messages are unread
+      description: >-
+        What the bell in every client's header shows, polled. Delivers the caller's PENDING in-app
+        messages first, then counts the SENT ones the caller may see - for a FAMILY caller, under the
+        same binding rule as /notifications/me. Not audited: it returns a number, no care content.
+      operationId: countMyUnreadNotifications
+      x-status: implemented
+      security:
+        - sessionCookie: []
+      responses:
+        '200':
+          description: The unread count
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [unread]
+                properties:
+                  unread: {type: integer, format: int64, minimum: 0}
+        '401':
+          $ref: '#/components/responses/FamilyUnauthorized'
+  /notifications/me/read-all:
+    post:
+      tags:
+        - Notifications
+      summary: Mark all my messages read
+      description: >-
+        Every SENT message the caller may see becomes READ at the server's time; one already READ keeps
+        its first readAt. Same CSRF requirement as the other state-changing calls.
+      operationId: markAllMyNotificationsRead
+      x-status: implemented
+      security:
+        - sessionCookie: []
+      parameters:
+        - name: X-XSRF-TOKEN
+          in: header
+          required: true
+          schema:
+            type: string
+            minLength: 1
+      responses:
+        '200':
+          description: How many were marked
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [updated]
+                properties:
+                  updated: {type: integer, minimum: 0}
+        '401':
+          $ref: '#/components/responses/FamilyUnauthorized'
   /notifications/{id}/read:
     parameters:
       - name: id
@@ -1832,7 +1894,7 @@ paths:
       tags:
         - Notifications
       summary: Mark a notification read
-      x-status: draft
+      x-status: implemented
       responses:
         '200':
           description: >-
