@@ -23,7 +23,7 @@ export function IntakeCreatePage() {
   const [values, setValues] = useState<IntakeFormValues>(emptyIntakeForm)
   const [errors, setErrors] = useState<IntakeFormErrors>({})
   const validationSummary = useRef<HTMLDivElement>(null)
-  const { state, submit, dismissError } = useIntakeSubmission()
+  const { state, submit } = useIntakeSubmission()
   const busy = state.status === 'submitting'
 
   function update<K extends keyof IntakeFormValues>(field: K, value: IntakeFormValues[K]) {
@@ -63,7 +63,7 @@ export function IntakeCreatePage() {
   }
 
   return (
-    <>
+    <div className={styles.page}>
       <div className={styles.detailNav}>
         <Link className={styles.backLink} to="/family/intake">
           <IntakeIcon name="back" />
@@ -80,7 +80,7 @@ export function IntakeCreatePage() {
         can be left blank.
       </p>
       {state.status === 'error' && (
-        <IntakeSubmissionFeedback failure={state} onSignedIn={dismissError} />
+        <IntakeSubmissionFeedback failure={state} />
       )}
       <form
         className={formStyles.form}
@@ -235,7 +235,7 @@ export function IntakeCreatePage() {
           </div>
         </fieldset>
       </form>
-    </>
+    </div>
   )
 }
 

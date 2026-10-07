@@ -4,9 +4,18 @@ import { Link, useNavigate } from 'react-router-dom'
 
 import caregiverImage from '../../assets/Caregiver.png'
 import { signInWithSession } from '../../features/auth/api'
+import { homePathFor } from '../../features/auth/roles'
 import { ApiError } from '../../shared/api/client'
 import { IconCalendar, IconClock, IconDocCheck, IconHeart, IconUsers } from './icons'
 import styles from './Landing.module.css'
+
+const DEV_ROLE_LINKS = [
+  { path: '/manager', label: 'Manager' },
+  { path: '/caregiver', label: 'Caregiver' },
+  { path: '/family', label: 'Family' },
+  { path: '/elder', label: 'Elder' },
+  { path: '/admin', label: 'Admin' },
+]
 
 const FEATURES = [
   {
@@ -57,23 +66,9 @@ export default function LandingHome() {
         password,
       })
 
-      if (user.roles.includes('ELDER')) {
-        navigate('/elder')
-        return
-      }
-
-      if (user.roles.includes('FAMILY')) {
-        navigate('/family')
-        return
-      }
-
-      if (user.roles.includes('CAREGIVER')) {
-        navigate('/caregiver')
-        return
-      }
-
-      if (user.roles.includes('MANAGER')) {
-        navigate('/manager')
+      const home = homePathFor(user.roles)
+      if (home) {
+        navigate(home)
         return
       }
 
@@ -359,6 +354,19 @@ export default function LandingHome() {
             </Link>
           </div>
         </form>
+      </div>
+
+      {/* Temporary dev shortcuts — remove before shipping. */}
+      <div className={styles.devRoleLinks}>
+        {DEV_ROLE_LINKS.map((role) => (
+          <Link
+            key={role.path}
+            to={role.path}
+            className={styles.devRoleLink}
+          >
+            {role.label}
+          </Link>
+        ))}
       </div>
     </div>
   )

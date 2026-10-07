@@ -6,6 +6,10 @@ import type {
   FormEvent,
 } from 'react'
 import {
+  Link,
+} from 'react-router-dom'
+
+import {
   getVisitsAwaitingConfirmation,
   submitVisitConfirmation,
 } from '../../../features/visit-confirmation/api'
@@ -16,24 +20,10 @@ import type {
 import {
   ApiError,
 } from '../../../shared/api/client'
-import { ElderShell } from '../components/ElderShell'
 import {
-  ActionStack,
-  ChoiceRadio,
-  InfoCard,
-  InfoNote,
-  ScreenColumns,
-  ScreenFooter,
-  ScreenHeader,
-  Slot,
-  SpeakButton,
-  StatusNote,
-  WideButton,
-} from '../components/ElderUi'
+  RoleShell,
+} from '../../../shared/components/RoleShell'
 import styles from '../Elder.module.css'
-
-/** The answer controls sit in the right column; the visit picker on the left joins them by id. */
-const FORM_ID = 'visit-confirmation'
 
 function formatDateTime(
   value: string,
@@ -47,41 +37,6 @@ function formatDateTime(
   ).format(
     new Date(value),
   )
-}
-
-function formatTime(
-  value: string,
-): string {
-  return new Intl.DateTimeFormat(
-    undefined,
-    {
-      timeStyle: 'short',
-    },
-  ).format(
-    new Date(value),
-  )
-}
-
-/** "24 Sep 2026 · 10:00 to 10:55", or just the date and start time before check-out. */
-function formatVisitTimes(
-  visit: PendingElderVisit,
-): string {
-  const day = new Intl.DateTimeFormat(
-    undefined,
-    {
-      dateStyle: 'medium',
-    },
-  ).format(
-    new Date(visit.scheduledStart),
-  )
-
-  const start = formatTime(
-    visit.scheduledStart,
-  )
-
-  return visit.checkedOutAt
-    ? `${day} · ${start} to ${formatTime(visit.checkedOutAt)}`
-    : `${day} · ${start}`
 }
 
 export default function ConfirmVisit() {
@@ -267,214 +222,306 @@ export default function ConfirmVisit() {
     }
   }
 
-  const hasVisits =
-    !loading && visits.length > 0
-
   return (
-    <ElderShell>
-      <ScreenColumns
-        left={
-          <>
-            <Slot order={1}>
-              <ScreenHeader
-                backTo="/elder"
-                title="Was the visit alright?"
-              />
-            </Slot>
+    <RoleShell
+      title="Confirm service"
+      theme="elder"
+    >
+      <div className={styles.page}>
+        <Link
+          className={styles.back}
+          to="/elder"
+        >
+          ← Back
+        </Link>
 
-            <Slot order={2}>
-              {error && (
-                <StatusNote tone="problem">
-                  {error}
-                </StatusNote>
-              )}
-            </Slot>
+        <h1>
+          Was the service completed?
+        </h1>
 
-            <Slot order={3}>
-              {success && (
-                <StatusNote tone="success">
-                  {success}
-                </StatusNote>
-              )}
-            </Slot>
+        {error && (
+          <div
+            role="alert"
+            className={
+              styles.warning
+            }
+          >
+            {error}
+          </div>
+        )}
 
-            <Slot order={4}>
-              {loading ? (
-                <p className={styles.lead}>
-                  Loading visits…
-                </p>
-              ) : visits.length === 0 ? (
-                <InfoCard>
-                  <h2 className={styles.sectionTitle}>
-                    Nothing to confirm
-                  </h2>
+        {success && (
+          <div
+            className={
+              styles.success
+            }
+          >
+            {success}
+          </div>
+        )}
 
-                  <p className={styles.lead}>
-                    You have no finished visits
-                    waiting for your answer.
-                  </p>
-                </InfoCard>
-              ) : (
-                <div className={styles.form}>
-                  {visits.length > 1 && (
-                    <label className={styles.fieldLabel}>
-                      Which visit?
-                      <select
-                        form={FORM_ID}
-                        value={selectedVisitId ?? ''}
-                        disabled={submitting}
-                        onChange={(event) =>
-                          setSelectedVisitId(
-                            Number(event.target.value),
-                          )
-                        }
-                      >
-                        {visits.map((visit) => (
-                          <option
-                            key={visit.visitId}
-                            value={visit.visitId}
-                          >
-                            {visit.serviceType ??
-                              'Care service'}
-                            {' · '}
-                            {formatDateTime(
-                              visit.scheduledStart,
-                            )}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                  )}
+        {loading ? (
+          <p>
+            Loading visits…
+          </p>
+        ) : visits.length === 0 ? (
+          <section
+            className={
+              styles.panel
+            }
+          >
+            <h2>
+              Nothing to confirm
+            </h2>
 
-                  {selectedVisit && (
-                    <InfoCard>
-                      <h2 className={styles.meta}>
-                        Completed visit
-                      </h2>
-
-                      <p className={styles.visitService}>
-                        {selectedVisit.serviceType ??
-                          'Care service'}
-                      </p>
-
-                      <p className={styles.visitTimes}>
-                        {formatVisitTimes(selectedVisit)}
-                      </p>
-                    </InfoCard>
-                  )}
-                </div>
-              )}
-            </Slot>
-
-            <Slot order={6}>
-              {hasVisits && (
-                <InfoNote>
-                  Your answer closes the visit. If it
-                  was not so good, your care manager
-                  will follow up.
-                </InfoNote>
-              )}
-            </Slot>
-          </>
-        }
-        right={
-          hasVisits && (
-            <Slot order={5}>
-              <form
-                id={FORM_ID}
-                className={styles.form}
-                onSubmit={handleSubmit}
-              >
-                <ActionStack>
-                  <ChoiceRadio
-                    name="confirmation"
-                    icon="✓"
-                    label="Yes, good"
-                    checked={response === 'CONFIRMED'}
-                    disabled={submitting}
-                    onChange={() =>
-                      setResponse('CONFIRMED')
-                    }
-                  />
-
-                  <ChoiceRadio
-                    name="confirmation"
-                    icon="–"
-                    label="Not so good"
-                    checked={response === 'DISPUTED'}
-                    disabled={submitting}
-                    onChange={() =>
-                      setResponse('DISPUTED')
-                    }
-                  />
-                </ActionStack>
-
-                <fieldset
-                  className={styles.fieldset}
-                  disabled={submitting}
-                >
-                  <legend className={styles.legend}>
-                    How many stars?{' '}
-                    <span className={styles.hint}>
-                      (you can skip this)
-                    </span>
-                  </legend>
-
-                  <div className={styles.ratingRow}>
-                    {[1, 2, 3, 4, 5].map((value) => (
-                      <ChoiceRadio
-                        key={value}
-                        compact
-                        name="rating"
-                        label={String(value)}
-                        checked={rating === value}
-                        onChange={() =>
-                          setRating(value)
-                        }
-                      />
-                    ))}
-                  </div>
-                </fieldset>
-
-                <label className={styles.fieldLabel}>
-                  <span>
-                    Anything to tell us?{' '}
-                    <span className={styles.hint}>
-                      (you can skip this)
-                    </span>
-                  </span>
-
-                  <textarea
-                    value={notes}
-                    disabled={submitting}
-                    onChange={(event) =>
-                      setNotes(event.target.value)
-                    }
-                    placeholder="Tell us how the visit went"
-                  />
-                </label>
-
-                <WideButton
-                  type="submit"
+            <p>
+              You do not currently
+              have any completed
+              visits awaiting your
+              confirmation.
+            </p>
+          </section>
+        ) : (
+          <form
+            onSubmit={
+              handleSubmit
+            }
+          >
+            {visits.length > 1 && (
+              <label>
+                Visit
+                <select
+                  value={
+                    selectedVisitId ??
+                    ''
+                  }
                   disabled={
-                    submitting ||
-                    selectedVisit === null
+                    submitting
+                  }
+                  onChange={(
+                    event,
+                  ) =>
+                    setSelectedVisitId(
+                      Number(
+                        event
+                          .target
+                          .value,
+                      ),
+                    )
                   }
                 >
-                  {submitting
-                    ? 'Sending…'
-                    : 'Send my answer'}
-                </WideButton>
-              </form>
-            </Slot>
-          )
-        }
-        footer={
-          <ScreenFooter>
-            <SpeakButton />
-          </ScreenFooter>
-        }
-      />
-    </ElderShell>
+                  {visits.map(
+                    (visit) => (
+                      <option
+                        key={
+                          visit.visitId
+                        }
+                        value={
+                          visit.visitId
+                        }
+                      >
+                        {visit.serviceType ??
+                          'Care service'}
+                        {' · '}
+                        {formatDateTime(
+                          visit.scheduledStart,
+                        )}
+                      </option>
+                    ),
+                  )}
+                </select>
+              </label>
+            )}
+
+            {selectedVisit && (
+              <section
+                className={
+                  styles.panel
+                }
+              >
+                <h2>
+                  Completed visit
+                </h2>
+
+                <p>
+                  <strong>
+                    {selectedVisit
+                      .serviceType ??
+                      'Care service'}
+                  </strong>
+                </p>
+
+                <p
+                  className={
+                    styles.meta
+                  }
+                >
+                  Scheduled:{' '}
+                  {formatDateTime(
+                    selectedVisit
+                      .scheduledStart,
+                  )}
+                </p>
+
+                {selectedVisit
+                  .checkedOutAt && (
+                  <p
+                    className={
+                      styles.meta
+                    }
+                  >
+                    Completed:{' '}
+                    {formatDateTime(
+                      selectedVisit
+                        .checkedOutAt,
+                    )}
+                  </p>
+                )}
+              </section>
+            )}
+
+            <div
+              className={
+                styles.actions
+              }
+            >
+              <label
+                className={
+                  styles.option
+                }
+              >
+                <input
+                  type="radio"
+                  name="confirmation"
+                  checked={
+                    response ===
+                    'CONFIRMED'
+                  }
+                  disabled={
+                    submitting
+                  }
+                  onChange={() =>
+                    setResponse(
+                      'CONFIRMED',
+                    )
+                  }
+                />
+
+                Yes, service was
+                completed
+              </label>
+
+              <label
+                className={
+                  styles.option
+                }
+              >
+                <input
+                  type="radio"
+                  name="confirmation"
+                  checked={
+                    response ===
+                    'DISPUTED'
+                  }
+                  disabled={
+                    submitting
+                  }
+                  onChange={() =>
+                    setResponse(
+                      'DISPUTED',
+                    )
+                  }
+                />
+
+                No, there was a
+                problem
+              </label>
+            </div>
+
+            <fieldset
+              disabled={
+                submitting
+              }
+            >
+              <legend>
+                Rating
+              </legend>
+
+              <div
+                className={
+                  styles.actions
+                }
+              >
+                {[1, 2, 3, 4, 5]
+                  .map(
+                    (value) => (
+                      <label
+                        key={
+                          value
+                        }
+                        className={
+                          styles.option
+                        }
+                      >
+                        <input
+                          type="radio"
+                          name="rating"
+                          checked={
+                            rating ===
+                            value
+                          }
+                          onChange={() =>
+                            setRating(
+                              value,
+                            )
+                          }
+                        />
+
+                        {value}
+                      </label>
+                    ),
+                  )}
+              </div>
+            </fieldset>
+
+            <label>
+              Optional feedback
+
+              <textarea
+                value={notes}
+                disabled={
+                  submitting
+                }
+                onChange={(
+                  event,
+                ) =>
+                  setNotes(
+                    event.target
+                      .value,
+                  )
+                }
+                placeholder="Tell us how the visit went"
+              />
+            </label>
+
+            <button
+              className={
+                styles.primary
+              }
+              type="submit"
+              disabled={
+                submitting ||
+                selectedVisit ===
+                  null
+              }
+            >
+              {submitting
+                ? 'Submitting…'
+                : 'Submit confirmation'}
+            </button>
+          </form>
+        )}
+      </div>
+    </RoleShell>
   )
 }

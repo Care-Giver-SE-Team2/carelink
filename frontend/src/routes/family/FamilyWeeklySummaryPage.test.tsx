@@ -38,7 +38,10 @@ function installApi(override?: (url: URL, init: RequestInit) => Response | Promi
 function openSummary(path = '/family/reports/weekly?elderId=21&weekStart=2026-09-21') {
   return render(<MemoryRouter initialEntries={[path]}>
     <CurrentUrl />
-    <Routes><Route path="/family/*" element={<FamilyHome />} /></Routes>
+    <Routes>
+      <Route path="/" element={<h1>Landing</h1>} />
+      <Route path="/family/*" element={<FamilyHome />} />
+    </Routes>
   </MemoryRouter>)
 }
 function CurrentUrl() {
@@ -149,7 +152,7 @@ describe('Family weekly care summary', () => {
       await screen.findByRole('article')
       denied = true
       await userEvent.setup().click(screen.getByRole('button', { name: 'Refresh' }))
-      expect(await screen.findByRole('heading', { name: status === 401 ? 'Sign in to continue' : 'Report access unavailable' })).toBeInTheDocument()
+      expect(await screen.findByRole('heading', { name: status === 401 ? 'Landing' : 'Report access unavailable' })).toBeInTheDocument()
       expect(screen.queryByRole('article')).not.toBeInTheDocument()
       expect(screen.queryByText('Tan Mei')).not.toBeInTheDocument()
       expect(screen.queryByText('One visit record is missing.')).not.toBeInTheDocument()
@@ -366,37 +369,18 @@ describe('Family weekly care summary', () => {
     expect(await screen.findByRole('heading', { name: 'Report access unavailable' })).toBeInTheDocument()
   })
 
-  it.each([401, 403])('signs in from %s with CSRF and loads the new account’s elder for the same week', async (status) => {
-    let signedIn = false
-    const fetchMock = installApi((url, init) => {
-      if (url.pathname === '/api/auth/csrf') {
-        document.cookie = 'XSRF-TOKEN=weekly-login; path=/'
-        return new Response(null)
-      }
-      if (url.pathname === '/api/auth/login') {
-        expect(JSON.parse(init.body as string)).toEqual({ username: 'family_b', password: 'test-password' })
-        expect(new Headers(init.headers).get('X-XSRF-TOKEN')).toBe('weekly-login')
-        signedIn = true
-        return json({ ...family, id: 12 })
-      }
-      if (url.pathname === '/api/auth/me') return json({ ...family, roles: ['ROLE_FAMILY'] })
-      if (signedIn && url.pathname === '/api/elders') return json([elders[1]])
-      if (url.pathname === '/api/elders/21/weekly-summary') return new Response(null, { status })
-      if (url.pathname === '/api/elders/22/weekly-summary') return json({ ...summary, elderId: 22, reportId: 302, summaryText: 'New account care summary.' })
-      if (url.pathname === '/api/reports/302') return json({ ...detail, elderId: 22, id: 302, dataComplete: true, missingItems: [], amendments: [] })
-      return undefined
-    })
+  it('returns to the landing page on 401 and links there to switch account on 403', async () => {
+    let status = 401
+    installApi((url) => url.pathname === '/api/elders/21/weekly-summary' ? new Response(null, { status }) : undefined)
+    const { unmount } = openSummary('/family/reports/weekly?elderId=21&page=3&weekStart=2026-09-21')
+    expect(await screen.findByRole('heading', { name: 'Landing' })).toBeInTheDocument()
+    expect(screen.queryByLabelText('Username')).not.toBeInTheDocument()
+    unmount()
+
+    status = 403
     openSummary('/family/reports/weekly?elderId=21&page=3&weekStart=2026-09-21')
-    const user = userEvent.setup()
-    if (status === 403) await user.click(await screen.findByRole('button', { name: 'Sign in with another account' }))
-    await user.type(await screen.findByLabelText('Username'), 'family_b')
-    await user.type(screen.getByLabelText('Password'), 'test-password')
-    await user.click(screen.getByRole('button', { name: 'Sign in' }))
-    await screen.findByText('New account care summary.')
-    expect(screen.getByRole('combobox', { name: 'Care for' })).toHaveValue('22')
-    expect(screen.queryByText('Tan Mei')).not.toBeInTheDocument()
-    expect(screen.getByLabelText('Current URL')).toHaveTextContent('/family/reports/weekly?weekStart=2026-09-21')
-    expect(fetchMock.mock.calls.filter(([path]) => path.startsWith('/api/reports/')).map(([path]) => path)).toEqual(['/api/reports/302'])
+    expect(await screen.findByRole('link', { name: 'Sign in with another account' })).toHaveAttribute('href', '/')
+    expect(screen.queryByRole('article')).not.toBeInTheDocument()
   })
 
   it('reloads available elders after a binding is revoked, keeping the chosen week', async () => {
