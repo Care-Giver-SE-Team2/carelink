@@ -22,7 +22,7 @@ export function linkFor(item: Pick<NotificationItem, 'resourceType' | 'resourceI
     INCIDENT: { manager: item.resourceId == null ? '/manager/exceptions' : `/manager/exceptions/${item.resourceId}` },
     ABSENCE: { manager: item.resourceId == null ? '/manager/absences' : `/manager/absences/${item.resourceId}` },
     ROSTER_CHANGE: { manager: '/manager/absences', family: '/family/changes', caregiver: '/caregiver' },
-    SPOT_CHECK: { manager: '/manager/quality', family: '/family/spot-checks' },
+    SPOT_CHECK: { manager: '/manager/quality', family: '/family/spot-checks', caregiver: item.resourceId == null ? '/caregiver/spot-checks' : `/caregiver/spot-checks?spotCheckId=${item.resourceId}` },
     CREDENTIAL: { manager: '/manager/certifications', caregiver: '/caregiver' },
   }
   return (item.resourceType && routes[item.resourceType]?.[portal]) || null
