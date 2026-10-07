@@ -12,9 +12,12 @@ import java.util.Map;
 import java.util.Optional;
 
 import org.junit.jupiter.api.Test;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.web.server.ResponseStatusException;
 
 import sg.nus.carelink.notification.domain.model.Inbox;
 import sg.nus.carelink.notification.domain.model.InboxItem;
+import sg.nus.carelink.notification.domain.model.InboxReader;
 import sg.nus.carelink.notification.domain.model.Notification;
 import sg.nus.carelink.shared.audit.application.AccessAuditEntry;
 import sg.nus.carelink.shared.error.ResourceNotFound;
@@ -30,13 +33,13 @@ class NotificationServiceTest {
 	private static final Long FIONA = 2L;
 	private static final Long ALICE = 11L;
 	private static final Long GRACE = 7L;
-	private static final Map<String, Long> ACCOUNTS = Map.of("fiona", FIONA, "alice", ALICE);
+	private static final Map<String, InboxReader> ACCOUNTS = Map.of("fiona", new InboxReader(FIONA, true), "alice", new InboxReader(ALICE, false));
 
 	private final InMemoryNotificationRepository repository = new InMemoryNotificationRepository();
 	private final InMemoryNotificationInbox inbox = new InMemoryNotificationInbox();
 	private final List<AccessAuditEntry> audited = new ArrayList<>();
 	private final NotificationService service = new NotificationService(repository, inbox,
-			username -> Optional.ofNullable(ACCOUNTS.get(username)), audited::add,
+			(username, family) -> Optional.ofNullable(ACCOUNTS.get(username)), audited::add,
 			Clock.fixed(NOW.atZone(SINGAPORE).toInstant(), SINGAPORE));
 
 	@Test
@@ -62,7 +65,8 @@ class NotificationServiceTest {
 		assertThat(fionas.totalElements()).isEqualTo(2);
 		assertThat(inbox.statusOf(pending)).isEqualTo(Notification.Status.SENT);
 		assertThat(service.unreadCount("fiona", false)).isEqualTo(1);
-		assertThat(audited).as("staff reads are not family care reads").isEmpty();
+		assertThat(audited).as("only the current family reader is audited").singleElement()
+				.satisfies(entry -> assertThat(entry.actorUserId()).isEqualTo(FIONA));
 	}
 
 	@Test
@@ -140,7 +144,30 @@ class NotificationServiceTest {
 
 	@Test
 	void anAccountThatDoesNotExistHasNoInbox() {
-		assertThatThrownBy(() -> service.unreadCount("nobody", false)).isInstanceOf(ResourceNotFound.class);
+		assertThatThrownBy(() -> service.unreadCount("nobody", false)).isInstanceOf(AccessDeniedException.class);
+	}
+
+	@Test
+	void aSessionPredatingTheFamilyRoleStillUsesCurrentFamilyScope() {
+		long id = inbox.add(FIONA, "Unbound elder", Notification.Status.PENDING, NOW, GRACE);
+		assertThat(service.inbox("fiona", false, null, 0, 20).items()).isEmpty();
+		assertThat(service.unreadCount("fiona", false)).isZero();
+		assertThatThrownBy(() -> service.markRead(id, "fiona", false)).isInstanceOf(ResourceNotFound.class);
+		assertThat(service.markAllRead("fiona", false)).isZero();
+		assertThat(inbox.statusOf(id)).isEqualTo(Notification.Status.PENDING);
+		assertThatThrownBy(() -> service.inbox("fiona", false, Notification.Status.PENDING, 0, 20))
+				.isInstanceOf(ResponseStatusException.class);
+	}
+
+	@Test
+	void aUtcClockStillWritesSingaporeDeliveryAndReadTime() {
+		var utcService = new NotificationService(repository, inbox,
+				(username, family) -> Optional.ofNullable(ACCOUNTS.get(username)), audited::add,
+				Clock.fixed(NOW.atZone(SINGAPORE).toInstant(), ZoneId.of("UTC")));
+		long id = inbox.add(FIONA, "Account notice", Notification.Status.PENDING, NOW.minusHours(1), null);
+		InboxItem item = utcService.markRead(id, "fiona", true);
+		assertThat(item.notification().sentAt()).isEqualTo(NOW);
+		assertThat(item.notification().readAt()).isEqualTo(NOW);
 	}
 
 	@Test

@@ -4,6 +4,10 @@ import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes, useNavigate } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import FamilyHome from './index'
+import { NotificationBell } from '../../shared/components/notifications/NotificationBell'
+import { NotificationsProvider } from '../../shared/components/notifications/NotificationsProvider'
+import { NOTIFICATIONS_CHANGED_EVENT } from '../../features/notifications/api'
+import { FamilyIncidentPage } from './incidents/FamilyIncidentPage'
 import type { FamilyIncidentAcknowledgement } from '../../features/incidents/familyTypes'
 
 const family = { id: 7, username: 'family-a', displayName: 'Family A', roles: ['FAMILY'] }
@@ -35,8 +39,8 @@ function Navigation() {
   const navigate = useNavigate()
   return <><button onClick={() => navigate('/family/incidents/602')}>Another incident</button><button onClick={() => navigate('/')}>Leave</button></>
 }
-function open(path = '/family/incidents/601', strict = false) {
-  const app = <MemoryRouter initialEntries={[path]}><Navigation /><Routes>
+function open(path = '/family/incidents/601', strict = false, state?: unknown) {
+  const app = <MemoryRouter initialEntries={[{ pathname: path.split('?')[0], search: path.includes('?') ? path.slice(path.indexOf('?')) : '', state }]}><Navigation /><Routes>
     <Route path="/" element={<h1>Landing</h1>} /><Route path="/family/*" element={<FamilyHome />} />
   </Routes></MemoryRouter>
   return render(strict ? <StrictMode>{app}</StrictMode> : app)
@@ -430,5 +434,160 @@ describe('FM05 family incident page', () => {
     const fetchMock = installApi(); open('/family/incidents/601', true)
     await screen.findByText(/First viewed/)
     expect(fetchMock.mock.calls.filter(([path]) => path.endsWith('/view'))).toHaveLength(1)
+  })
+})
+
+const notice = { id: 801, elderId: 101, eventType: 'INCIDENT_RAISED', channel: 'IN_APP', title: 'HIGH: FALL', body: 'A care incident was reported.',
+  resourceType: 'INCIDENT', resourceId: 601, status: 'SENT', createdAt: detail.reportedAt, sentAt: detail.reportedAt, readAt: null }
+const context = { familyIncidentNotification: { id: 801, incidentId: 601 } }
+function notificationApi(override?: (url: URL, init: RequestInit) => Response | Promise<Response> | undefined) {
+  let read = false
+  return installApi((url, init) => {
+    const response = override?.(url, init)
+    if (response !== undefined) return response
+    if (url.pathname === '/api/notifications/me/unread-count') return json({ unread: read ? 0 : 1 })
+    if (url.pathname === '/api/notifications/me') return json({ items: [{ ...notice, status: read ? 'READ' : 'SENT' }], page: 0, size: 20, totalElements: 1 })
+    if (url.pathname === '/api/notifications/801/read') { read = true; return json({ ...notice, status: 'READ', readAt: viewed.viewedAt }) }
+    return undefined
+  })
+}
+function bellAndDetail() {
+  return render(<NotificationsProvider><MemoryRouter initialEntries={['/family/start']}>
+    <NotificationBell /><Navigation /><Routes>
+      <Route path="/family/start" element={<h1>Family inbox</h1>} />
+      <Route path="/family/incidents/:id" element={<FamilyIncidentPage />} />
+      <Route path="/" element={<h1>Landing</h1>} />
+    </Routes>
+  </MemoryRouter></NotificationsProvider>)
+}
+async function chooseIncident() {
+  await userEvent.click(await screen.findByRole('button', { name: 'Notifications, 1 unread' }))
+  await userEvent.click(await screen.findByRole('button', { name: /HIGH: FALL/ }))
+}
+
+describe('FM05 bell to authorized detail', () => {
+  it('renders authorized details before independent read/view writes and refreshes the bell only on confirmed read', async () => {
+    const response = deferred<Response>()
+    let loaded = false
+    const fetchMock = notificationApi((url) => {
+      if (url.pathname === '/api/family/incidents/601' && !loaded) return response.promise
+      if (url.pathname.endsWith('/view') || url.pathname === '/api/notifications/801/read') {
+        expect(screen.getByRole('article', { name: 'Incident #601' })).toBeInTheDocument()
+      }
+      return undefined
+    })
+    bellAndDetail(); await chooseIncident()
+    expect(await screen.findByText('Loading incident details…')).toBeInTheDocument()
+    expect(fetchMock.mock.calls.some(([path]) => path.endsWith('/view') || path.endsWith('/read'))).toBe(false)
+    expect(screen.getByRole('button', { name: 'Notifications, 1 unread' })).toBeInTheDocument()
+    loaded = true; await act(async () => response.resolve(json(detail)))
+    await screen.findByText('Notification marked as read.'); await screen.findByText(/First viewed/)
+    await screen.findByRole('button', { name: 'Notifications' })
+    expect(fetchMock.mock.calls.filter(([path]) => path === '/api/notifications/801/read')).toHaveLength(1)
+    expect(fetchMock.mock.calls.filter(([path]) => path.endsWith('/view'))).toHaveLength(1)
+    expect(fetchMock.mock.calls.some(([path]) => path.endsWith('/acknowledge'))).toBe(false)
+    expect(screen.getByRole('button', { name: 'I am aware' })).toBeInTheDocument()
+    const command = fetchMock.mock.calls.find(([path]) => path === '/api/notifications/801/read')![1]
+    expect(command.body).toBeUndefined(); expect(command.method).toBe('POST')
+    expect(new Headers(command.headers).get('X-XSRF-TOKEN')).toBe('test-token')
+  })
+
+  it('failed read keeps the bell unread, permits independent awareness and retries only on explicit click', async () => {
+    let fail = true
+    const fetchMock = notificationApi((url) => url.pathname === '/api/notifications/801/read' && fail ? json({ detail: 'Private notification fault' }, 503) : undefined)
+    bellAndDetail(); await chooseIncident()
+    await screen.findByRole('button', { name: 'Retry notification read' }); await screen.findByText(/First viewed/)
+    expect(screen.getByRole('button', { name: 'Notifications, 1 unread' })).toBeInTheDocument()
+    expect(screen.queryByText('Notification marked as read.')).not.toBeInTheDocument()
+    expect(screen.queryByText('Private notification fault')).not.toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: 'I am aware' }))
+    await screen.findByText('Awareness confirmed')
+    expect(fetchMock.mock.calls.filter(([path]) => path === '/api/notifications/801/read')).toHaveLength(1)
+    fail = false; await userEvent.click(screen.getByRole('button', { name: 'Retry notification read' }))
+    await screen.findByText('Notification marked as read.'); await screen.findByRole('button', { name: 'Notifications' })
+    expect(fetchMock.mock.calls.filter(([path]) => path === '/api/notifications/801/read')).toHaveLength(2)
+    expect(fetchMock.mock.calls.filter(([path]) => path.endsWith('/view'))).toHaveLength(1)
+    expect(fetchMock.mock.calls.filter(([path]) => path.endsWith('/acknowledge'))).toHaveLength(1)
+    expect(screen.getByText('7 Oct 2026, 18:00')).toBeInTheDocument()
+  })
+
+  it('a failed view does not undo confirmed notification read or invent awareness', async () => {
+    notificationApi((url) => url.pathname.endsWith('/view') ? json({}, 503) : undefined)
+    open('/family/incidents/601', true, context)
+    await screen.findByText('Notification marked as read.')
+    await screen.findByRole('button', { name: 'Retry viewing receipt' })
+    expect(screen.queryByText(/First viewed/)).not.toBeInTheDocument()
+    expect(screen.queryByText('Awareness confirmed')).not.toBeInTheDocument()
+  })
+
+  it.each([401, 403, 404, 503])('denied or failed detail %s never marks notification read or viewed', async (status) => {
+    const fetchMock = notificationApi((url) => url.pathname === '/api/family/incidents/601' ? json({}, status) : undefined)
+    bellAndDetail(); await chooseIncident()
+    await screen.findByRole('heading', { name: status === 401 ? 'Landing' : status === 403 ? 'Incident access unavailable' : status === 404 ? 'Incident not found' : 'Unable to load this incident' })
+    expect(fetchMock.mock.calls.some(([path]) => path.endsWith('/view') || path.endsWith('/read') || path.endsWith('/acknowledge'))).toBe(false)
+    expect(screen.queryByRole('article')).not.toBeInTheDocument()
+  })
+
+  it.each([403, 404])('loss of notification access %s clears care content until reauthorized', async (status) => {
+    notificationApi((url) => url.pathname === '/api/notifications/801/read' ? json({}, status) : undefined)
+    open('/family/incidents/601', false, context)
+    await screen.findByRole('heading', { name: 'Incident access unavailable' })
+    expect(screen.queryByRole('article')).not.toBeInTheDocument()
+    expect(screen.queryByText('Notification marked as read.')).not.toBeInTheDocument()
+  })
+
+  it.each([null, { familyIncidentNotification: { id: 0, incidentId: 601 } }, { familyIncidentNotification: { id: 801, incidentId: 602 } },
+    { familyIncidentNotification: { id: '801', incidentId: 601 } }, { familyIncidentNotification: { id: Number.MAX_SAFE_INTEGER + 1, incidentId: 601 } }])(
+    'ignores invalid or mismatched notification context %j', async (state) => {
+      const fetchMock = notificationApi(); open('/family/incidents/601', false, state)
+      await screen.findByText(/First viewed/)
+      expect(fetchMock.mock.calls.some(([path]) => path.includes('/notifications/'))).toBe(false)
+    })
+
+  it.each([{ id: 802 }, { resourceId: 602 }, { status: 'SENT' }])('rejects an unconfirmed notification receipt %j without refreshing the bell', async (change) => {
+    const changed = vi.fn()
+    window.addEventListener(NOTIFICATIONS_CHANGED_EVENT, changed)
+    try {
+      const fetchMock = notificationApi((url) => url.pathname === '/api/notifications/801/read' ? json({ ...notice, status: 'READ', ...change }) : undefined)
+      open('/family/incidents/601', false, context)
+      await screen.findByRole('button', { name: 'Retry notification read' }); await screen.findByText(/First viewed/)
+      expect(changed).not.toHaveBeenCalled()
+      expect(screen.queryByText('Notification marked as read.')).not.toBeInTheDocument()
+      expect(fetchMock.mock.calls.some(([path]) => path.endsWith('/acknowledge'))).toBe(false)
+    } finally { window.removeEventListener(NOTIFICATIONS_CHANGED_EVENT, changed) }
+  })
+
+  it.each(['offline', 'hidden'] as const)('cancels a pending notification read when %s and reauthorizes before resuming', async (reason) => {
+    const environment = activity(); const response = deferred<Response>(); let hold = true
+    const fetchMock = notificationApi((url) => hold && url.pathname === '/api/notifications/801/read' ? response.promise : undefined)
+    open('/family/incidents/601', false, context)
+    await waitFor(() => expect(fetchMock.mock.calls.some(([path]) => path === '/api/notifications/801/read')).toBe(true))
+    const signal = fetchMock.mock.calls.find(([path]) => path === '/api/notifications/801/read')![1].signal!
+    await pause(environment, reason); expect(signal.aborted).toBe(true)
+    expect(screen.queryByRole('article')).not.toBeInTheDocument()
+    const count = fetchMock.mock.calls.length
+    hold = false; await resume(environment); await screen.findByText('Notification marked as read.')
+    const resumed = fetchMock.mock.calls.slice(count).map(([path]) => path)
+    expect(resumed.slice(0, 2)).toEqual(['/api/auth/me', '/api/family/incidents/601'])
+    await act(async () => response.resolve(json({}, 403)))
+    expect(screen.getByRole('article')).toBeInTheDocument()
+    expect(screen.getByText('Notification marked as read.')).toBeInTheDocument()
+    expect(fetchMock.mock.calls.some(([path]) => path.endsWith('/acknowledge'))).toBe(false)
+  })
+
+  it('aborts notification read on leaving and ignores its late success', async () => {
+    const response = deferred<Response>(); const changed = vi.fn()
+    window.addEventListener(NOTIFICATIONS_CHANGED_EVENT, changed)
+    try {
+      const fetchMock = notificationApi((url) => url.pathname === '/api/notifications/801/read' ? response.promise : undefined)
+      open('/family/incidents/601', false, context); await screen.findByText('Marking notification as read…')
+      await waitFor(() => expect(fetchMock.mock.calls.some(([path]) => path === '/api/notifications/801/read')).toBe(true))
+      await userEvent.click(screen.getByRole('button', { name: 'Leave' }))
+      const signal = fetchMock.mock.calls.find(([path]) => path === '/api/notifications/801/read')![1].signal!
+      expect(signal.aborted).toBe(true)
+      await act(async () => response.resolve(json({ ...notice, status: 'READ' })))
+      expect(changed).not.toHaveBeenCalled()
+      expect(screen.queryByText('Notification marked as read.')).not.toBeInTheDocument()
+    } finally { window.removeEventListener(NOTIFICATIONS_CHANGED_EVENT, changed) }
   })
 })

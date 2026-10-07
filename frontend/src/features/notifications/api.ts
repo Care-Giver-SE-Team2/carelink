@@ -2,6 +2,9 @@ import { initialiseCsrf } from '../auth/api'
 import { api } from '../../shared/api/client'
 import type { Inbox, NotificationItem } from './types'
 
+/** Refresh the bell after an independent detail page receives a successful read receipt. */
+export const NOTIFICATIONS_CHANGED_EVENT = 'carelink:notifications-changed'
+
 /**
  * One function per endpoint of the in-app inbox: the two the contract drafted for UC-FM05
  * (/notifications/me, /notifications/{id}/read) and the two the bell adds. The server answers for

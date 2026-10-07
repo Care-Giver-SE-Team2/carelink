@@ -1,10 +1,11 @@
 import { useEffect } from 'react'
 import type { FormEvent } from 'react'
-import { Link, Navigate, useParams } from 'react-router-dom'
+import { Link, Navigate, useLocation, useParams } from 'react-router-dom'
 import { ApiError } from '../../../shared/api/client'
 import { useFamilyIncident } from '../../../features/incidents/useFamilyIncident'
 import type { FamilyIncidentDetail } from '../../../features/incidents/familyTypes'
 import type { IncidentStatus } from '../../../features/incidents/types'
+import { familyIncidentNotificationId } from '../../../features/notifications/presentation'
 import styles from './FamilyIncident.module.css'
 
 const statusLabels: Record<IncidentStatus, string> = {
@@ -21,12 +22,13 @@ const timeFormat = new Intl.DateTimeFormat('en-SG', { timeZone: 'Asia/Singapore'
  */
 export function FamilyIncidentPage() {
   const { id = '' } = useParams()
-  const incident = useFamilyIncident(id)
+  const notificationId = familyIncidentNotificationId(useLocation().state, id)
+  const incident = useFamilyIncident(id, notificationId)
   const { resource } = incident
   return <div className={styles.page}>
     <div className={styles.navigation}>
       <Link to="/family/home">Back to home</Link>
-      {resource.status === 'success' && <button onClick={incident.refresh} disabled={!!incident.pause || incident.view === 'saving' || incident.acknowledgement === 'saving'}>Refresh</button>}
+      {resource.status === 'success' && <button onClick={incident.refresh} disabled={!!incident.pause || incident.view === 'saving' || incident.notification === 'saving' || incident.acknowledgement === 'saving'}>Refresh</button>}
     </div>
     {incident.pause && <p className={styles.loading} role="status">{incident.pause === 'offline' ? 'Updates paused while offline.' : 'Updates paused while this tab is hidden.'} Details will be checked again when this page is visible and online.</p>}
     {!incident.pause && resource.status === 'loading' && <p className={styles.loading} role="status">Loading incident details…</p>}
@@ -36,9 +38,9 @@ export function FamilyIncidentPage() {
 }
 
 function IncidentContent({ detail, incident }: { detail: FamilyIncidentDetail; incident: ReturnType<typeof useFamilyIncident> }) {
-  const { recordView, note, setNote } = incident
+  const { recordView, recordNotificationRead, note, setNote } = incident
   // This effect runs only after the successful detail has been committed to the screen.
-  useEffect(() => { recordView() }, [recordView])
+  useEffect(() => { recordView(); recordNotificationRead() }, [recordView, recordNotificationRead])
   const receipt = detail.acknowledgement
   const confirming = incident.acknowledgement === 'saving'
   function confirm(event: FormEvent) {
@@ -70,6 +72,12 @@ function IncidentContent({ detail, incident }: { detail: FamilyIncidentDetail; i
       {detail.acknowledgeBy ? <p className={styles.deadline}>Your response time: <IncidentTime value={detail.acknowledgeBy} />. You can still confirm awareness after this time.</p>
         : <p className={styles.muted}>No personal response time is recorded. You can still confirm awareness.</p>}
       {receipt.viewedAt && <p className={styles.timestamp}>First viewed <IncidentTime value={receipt.viewedAt} /></p>}
+      {incident.notification === 'saving' && <p className={styles.muted} role="status">Marking notification as read…</p>}
+      {incident.notification === 'saved' && <p className={styles.timestamp}>Notification marked as read.</p>}
+      {incident.notification === 'error' && <div className={styles.error} role="alert">
+        <p>The notification could not be marked as read. You can still confirm awareness.</p>
+        <button onClick={incident.recordNotificationRead}>Retry notification read</button>
+      </div>}
       {incident.view === 'saving' && <p className={styles.muted} role="status">Saving your viewing receipt…</p>}
       {incident.view === 'error' && <div className={styles.error} role="alert">
         <p>Your viewing receipt could not be saved. You can still confirm awareness.</p>

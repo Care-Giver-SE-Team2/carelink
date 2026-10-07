@@ -2,9 +2,13 @@ package sg.nus.carelink.notification.application;
 
 import java.time.Clock;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.Optional;
 
 import org.springframework.stereotype.Service;
+import org.springframework.http.HttpStatus;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.web.server.ResponseStatusException;
 import org.springframework.transaction.annotation.Transactional;
 
 import sg.nus.carelink.notification.domain.model.Inbox;
@@ -34,6 +38,7 @@ public class NotificationService {
 
 	/** The contract's page-size ceiling. */
 	static final int MAX_PAGE_SIZE = 200;
+	private static final ZoneId SINGAPORE = ZoneId.of("Asia/Singapore");
 
 	private static final String INBOX = "notification_inbox";
 	private static final String NOTIFICATION = "notification";
@@ -61,13 +66,16 @@ public class NotificationService {
 	/** My messages, newest first; {@code status} null means SENT and READ both. */
 	public Inbox inbox(String username, boolean family, Notification.Status status, int page, int size) {
 		InboxReader reader = reader(username, family);
+		if (reader.family() && status != null && !Notification.DISPLAYABLE.contains(status)) {
+			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "A family inbox holds SENT and READ messages only");
+		}
 		LocalDateTime now = now();
-		inbox.deliverPending(reader.userId(), now);
+		inbox.deliverPending(reader, now);
 		int safePage = Math.max(0, page);
 		int safeSize = Math.clamp(size, 1, MAX_PAGE_SIZE);
 		Inbox mine = new Inbox(inbox.page(reader, status, safePage, safeSize, now), safePage, safeSize,
 				inbox.count(reader, status, now));
-		if (family) {
+		if (reader.family()) {
 			audit.append(new AccessAuditEntry(reader.userId(), "READ", INBOX, null, AccessAuditEntry.Outcome.OK,
 					"page=" + safePage + ";size=" + safeSize));
 		}
@@ -78,7 +86,7 @@ public class NotificationService {
 	public long unreadCount(String username, boolean family) {
 		InboxReader reader = reader(username, family);
 		LocalDateTime now = now();
-		inbox.deliverPending(reader.userId(), now);
+		inbox.deliverPending(reader, now);
 		return inbox.count(reader, Notification.Status.SENT, now);
 	}
 
@@ -89,13 +97,13 @@ public class NotificationService {
 	public InboxItem markRead(Long id, String username, boolean family) {
 		InboxReader reader = reader(username, family);
 		LocalDateTime now = now();
-		inbox.deliverPending(reader.userId(), now);
+		inbox.deliverPending(reader, now);
 		InboxItem item = inbox.find(reader, id, now).orElseThrow(() -> new ResourceNotFound("Notification", id));
 		if (item.notification().unread()) {
 			inbox.markRead(id, now);
 			item = inbox.find(reader, id, now).orElse(item);
 		}
-		if (family) {
+		if (reader.family()) {
 			audit.append(new AccessAuditEntry(reader.userId(), "READ", NOTIFICATION, id, AccessAuditEntry.Outcome.OK,
 					"marked read"));
 		}
@@ -106,16 +114,16 @@ public class NotificationService {
 	public int markAllRead(String username, boolean family) {
 		InboxReader reader = reader(username, family);
 		LocalDateTime now = now();
-		inbox.deliverPending(reader.userId(), now);
+		inbox.deliverPending(reader, now);
 		return inbox.markAllRead(reader, now);
 	}
 
 	private InboxReader reader(String username, boolean family) {
-		Long userId = recipients.userIdOf(username).orElseThrow(() -> new ResourceNotFound("Account", username));
-		return new InboxReader(userId, family);
+		return recipients.readerOf(username, family)
+				.orElseThrow(() -> new AccessDeniedException("Current account is not authorized to use the inbox"));
 	}
 
 	private LocalDateTime now() {
-		return LocalDateTime.now(clock);
+		return LocalDateTime.ofInstant(clock.instant(), SINGAPORE);
 	}
 }

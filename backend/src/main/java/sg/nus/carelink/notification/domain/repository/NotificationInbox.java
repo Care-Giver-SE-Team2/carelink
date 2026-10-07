@@ -15,8 +15,8 @@ import sg.nus.carelink.notification.domain.model.Notification;
  */
 public interface NotificationInbox {
 
-	/** Delivers the reader's PENDING in-app messages: SENT at {@code now}. Returns how many. */
-	int deliverPending(Long userId, LocalDateTime now);
+	/** Delivers only currently visible PENDING in-app messages: SENT at {@code now}. */
+	int deliverPending(InboxReader reader, LocalDateTime now);
 
 	/** One page; {@code status} null means every displayable status. */
 	List<InboxItem> page(InboxReader reader, Notification.Status status, int page, int size, LocalDateTime now);

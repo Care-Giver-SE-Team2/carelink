@@ -48,10 +48,12 @@ class InMemoryNotificationInbox implements NotificationInbox {
 	}
 
 	@Override
-	public int deliverPending(Long userId, LocalDateTime now) {
+	public int deliverPending(InboxReader reader, LocalDateTime now) {
 		List<InboxItem> pending = rows.values().stream()
-				.filter(item -> item.notification().recipientUserId().equals(userId))
+				.filter(item -> item.notification().recipientUserId().equals(reader.userId()))
 				.filter(item -> item.notification().status() == Notification.Status.PENDING)
+				.filter(item -> !reader.family() || item.elderId() == null
+						|| bindings.contains(reader.userId() + ":" + item.elderId()))
 				.toList();
 		pending.forEach(item -> rows.put(item.notification().id(), with(item, Notification.Status.SENT, now, null)));
 		return pending.size();

@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 
-import { isRead, linkFor, portalOf, when } from '../../../features/notifications/presentation'
+import { isRead, linkFor, portalOf, validId, when } from '../../../features/notifications/presentation'
+import { NOTIFICATIONS_CHANGED_EVENT } from '../../../features/notifications/api'
 import type { NotificationItem } from '../../../features/notifications/types'
 import { useNotificationsSource } from './notificationsSource'
 import type { NotificationsSource } from './notificationsSource'
@@ -14,9 +15,9 @@ const PAGE_SIZE = 20
 
 /**
  * The in-app inbox for whoever is signed in, in any client's header: a bell with the unread
- * count, and a list that opens under it. Opening a message marks it read and, where this client
- * has a screen for it, goes there - a family member's roster change to Visit changes, a manager's
- * incident to its exception.
+ * count, and a list that opens under it. Reads are shown only after a successful server receipt.
+ * Family incident messages go to their detail screen, which checks access and renders before
+ * recording the notification read. Other messages keep their existing destination.
  *
  * `floating` pins it to the top-right corner of the window, for a client with no shared header
  * (the family app, whose pages each draw their own).
@@ -35,6 +36,10 @@ function Bell({ source, floating }: { source: NotificationsSource; floating: boo
   const [open, setOpen] = useState(false)
   const [items, setItems] = useState<NotificationItem[] | null>(null)
   const [failed, setFailed] = useState(false)
+  const [readFailure, setReadFailure] = useState<NotificationItem | 'all' | 'invalid' | null>(null)
+  const [reading, setReading] = useState(false)
+  const [revision, setRevision] = useState(0)
+  const writing = useRef<AbortController | null>(null)
   const root = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -44,6 +49,7 @@ function Bell({ source, floating }: { source: NotificationsSource; floating: boo
     const poll = () => {
       source.unreadCount(controller.signal).then(
         (count) => {
+          if (controller.signal.aborted) return
           setUnread(count)
           delay = POLL_MS
         },
@@ -59,17 +65,19 @@ function Bell({ source, floating }: { source: NotificationsSource; floating: boo
       controller.abort()
       clearTimeout(timer)
     }
-  }, [source])
+  }, [source, revision])
 
   const load = useCallback(
     async (signal?: AbortSignal) => {
       try {
         const inbox = await source.inbox(0, PAGE_SIZE, signal)
+        if (signal?.aborted) return
         setItems(inbox.items)
         setFailed(false)
-        setUnread(await source.unreadCount(signal))
+        const count = await source.unreadCount(signal)
+        if (!signal?.aborted) setUnread(count)
       } catch (error) {
-        if (!(error instanceof DOMException && error.name === 'AbortError')) {
+        if (!signal?.aborted && !(error instanceof DOMException && error.name === 'AbortError')) {
           setFailed(true)
         }
       }
@@ -87,7 +95,13 @@ function Bell({ source, floating }: { source: NotificationsSource; floating: boo
     void load(controller.signal)
   }, [load])
 
-  useEffect(() => () => pending.current?.abort(), [])
+  useEffect(() => () => { pending.current?.abort(); writing.current?.abort() }, [source])
+
+  useEffect(() => {
+    const refresh = () => { setRevision((value) => value + 1); if (open) fetchList() }
+    window.addEventListener(NOTIFICATIONS_CHANGED_EVENT, refresh)
+    return () => window.removeEventListener(NOTIFICATIONS_CHANGED_EVENT, refresh)
+  }, [open, fetchList])
 
   useEffect(() => {
     if (!open) return undefined
@@ -109,15 +123,38 @@ function Bell({ source, floating }: { source: NotificationsSource; floating: boo
     }
   }, [open])
 
-  function choose(item: NotificationItem) {
-    if (!isRead(item)) {
-      setItems(
-        (current) => current?.map((each) => (each.id === item.id ? { ...each, status: 'READ' as const } : each)) ?? null,
-      )
-      setUnread((count) => Math.max(0, count - 1))
-      source.markRead(item.id).catch(() => undefined)
-    }
+  async function choose(item: NotificationItem) {
+    if (writing.current) return
     const link = linkFor(item, portal)
+    if (portal === 'family' && item.resourceType === 'INCIDENT') {
+      // The destination checks access and renders before making its independent read/view writes.
+      if (!link || !validId(item.id)) { setReadFailure('invalid'); return }
+      pending.current?.abort()
+      setOpen(false)
+      navigate(link, { state: { familyIncidentNotification: { id: item.id, incidentId: item.resourceId } } })
+      return
+    }
+    if (!isRead(item)) {
+      const controller = new AbortController()
+      writing.current = controller
+      pending.current?.abort()
+      setReading(true)
+      setReadFailure(null)
+      try {
+        const receipt = await source.markRead(item.id, controller.signal)
+        if (controller.signal.aborted) return
+        if (receipt.id !== item.id || receipt.status !== 'READ') throw new Error('Read was not confirmed')
+        setItems((current) => current?.map((each) => each.id === item.id ? receipt : each) ?? null)
+        setUnread((count) => Math.max(0, count - 1))
+        setRevision((value) => value + 1)
+      } catch {
+        if (!controller.signal.aborted) setReadFailure(item)
+        return
+      } finally {
+        if (writing.current === controller) { writing.current = null; setReading(false) }
+      }
+      if (controller.signal.aborted) return
+    }
     if (link) {
       pending.current?.abort()
       setOpen(false)
@@ -132,6 +169,7 @@ function Bell({ source, floating }: { source: NotificationsSource; floating: boo
       return
     }
     setFailed(false)
+    setReadFailure(null)
     setOpen(true)
     fetchList()
   }
@@ -142,12 +180,22 @@ function Bell({ source, floating }: { source: NotificationsSource; floating: boo
   }
 
   async function readAll() {
+    if (writing.current) return
+    const controller = new AbortController()
+    writing.current = controller
+    pending.current?.abort()
+    setReading(true)
+    setReadFailure(null)
     try {
-      await source.markAllRead()
+      await source.markAllRead(controller.signal)
+      if (controller.signal.aborted) return
       setItems((current) => current?.map((each) => ({ ...each, status: 'READ' as const })) ?? null)
       setUnread(0)
+      setRevision((value) => value + 1)
     } catch {
-      setFailed(true)
+      if (!controller.signal.aborted) setReadFailure('all')
+    } finally {
+      if (writing.current === controller) { writing.current = null; setReading(false) }
     }
   }
 
@@ -172,11 +220,16 @@ function Bell({ source, floating }: { source: NotificationsSource; floating: boo
         <div className={styles.panel} role="dialog" aria-label="Notifications">
           <div className={styles.panelHead}>
             <span className={styles.panelTitle}>Notifications</span>
-            <button type="button" className={styles.textButton} disabled={unread === 0} onClick={() => void readAll()}>
+            <button type="button" className={styles.textButton} disabled={unread === 0 || reading} onClick={() => void readAll()}>
               Mark all as read
             </button>
           </div>
-          <PanelBody items={items} failed={failed} onRetry={retry} onChoose={choose} />
+          {readFailure && <p className={styles.note} role="alert">
+            {readFailure === 'invalid' ? 'This incident notification has an invalid link.' : 'Your notifications could not be marked as read.'}{' '}
+            {readFailure !== 'invalid' && <button type="button" className={styles.textButton} disabled={reading}
+              onClick={() => { if (readFailure === 'all') void readAll(); else void choose(readFailure) }}>Try again</button>}
+          </p>}
+          <PanelBody items={items} failed={failed} disabled={reading} onRetry={retry} onChoose={(item) => void choose(item)} />
         </div>
       )}
     </div>
@@ -186,11 +239,13 @@ function Bell({ source, floating }: { source: NotificationsSource; floating: boo
 function PanelBody({
   items,
   failed,
+  disabled,
   onRetry,
   onChoose,
 }: {
   items: NotificationItem[] | null
   failed: boolean
+  disabled: boolean
   onRetry: () => void
   onChoose: (item: NotificationItem) => void
 }) {
@@ -217,6 +272,7 @@ function PanelBody({
           <button
             type="button"
             className={isRead(item) ? styles.item : `${styles.item} ${styles.unread}`}
+            disabled={disabled}
             onClick={() => onChoose(item)}
           >
             <span className={styles.itemTitle}>

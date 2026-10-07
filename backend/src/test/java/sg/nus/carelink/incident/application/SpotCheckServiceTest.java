@@ -35,6 +35,7 @@ import sg.nus.carelink.incident.support.InMemoryIncidentLogRepository;
 import sg.nus.carelink.incident.support.InMemoryIncidentRepository;
 import sg.nus.carelink.incident.support.IncidentFixtures;
 import sg.nus.carelink.incident.support.RecordingAlert;
+import sg.nus.carelink.incident.support.RecordingIncidentFamilyEvents;
 import sg.nus.carelink.profile.application.CaregiverWorkDirectory;
 import sg.nus.carelink.profile.application.FamilyAccessQuery;
 import sg.nus.carelink.profile.application.RosteringProfiles;
@@ -66,7 +67,7 @@ class SpotCheckServiceTest {
 	@BeforeEach
 	void setUp() {
 		EscalationService escalation = new EscalationService(incidentRows, timeline,
-				FakeManagerDirectory.with(IncidentFixtures.ALICE, IncidentFixtures.BEN), new RecordingAlert(),
+				FakeManagerDirectory.with(IncidentFixtures.ALICE, IncidentFixtures.BEN), new RecordingAlert(), new RecordingIncidentFamilyEvents(),
 				EscalationPolicy.defaults(), clock);
 		IncidentService incidents = new IncidentService(incidentRows, timeline, escalation, clock);
 		service = new SpotCheckService(checks, lookups, alerts, incidents, new Family(), users, caregivers,

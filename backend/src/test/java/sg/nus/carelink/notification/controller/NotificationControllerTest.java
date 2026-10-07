@@ -1,11 +1,6 @@
 package sg.nus.carelink.notification.controller;
 
-import static org.mockito.ArgumentMatchers.anyBoolean;
-import static org.mockito.ArgumentMatchers.anyInt;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -18,6 +13,8 @@ import java.util.List;
 import java.util.Optional;
 
 import org.junit.jupiter.api.Test;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.server.ResponseStatusException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.test.web.servlet.MockMvc;
@@ -75,10 +72,12 @@ class NotificationControllerTest {
 
 	@Test
 	void aFamilyMemberCannotAskForUndeliveredMessages() throws Exception {
+		when(service.inbox("fiona", true, Notification.Status.PENDING, 0, 20))
+				.thenThrow(new ResponseStatusException(HttpStatus.BAD_REQUEST, "Undelivered status is unavailable"));
 		mvc.perform(get("/api/notifications/me").param("status", "PENDING").with(as("fiona", "FAMILY")))
 				.andExpect(status().isBadRequest());
 
-		verify(service, never()).inbox(anyString(), anyBoolean(), any(), anyInt(), anyInt());
+		verify(service).inbox("fiona", true, Notification.Status.PENDING, 0, 20);
 	}
 
 	@Test

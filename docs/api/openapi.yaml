@@ -1964,13 +1964,19 @@ paths:
 
         Implementation: every role reads its own messages through this operation and gets the
         FamilyNotification shape (FAMILY callers additionally under the binding rule above). It is a
-        pull inbox: the caller's PENDING in-app rows are delivered (SENT, sentAt set) when their
-        client asks for the inbox or its unread count, so SENT and READ are the only statuses shown.
+        pull inbox: the caller's currently authorized PENDING in-app rows are delivered (SENT,
+        sentAt set) when their client asks for the inbox or its unread count, so SENT and READ are
+        the only statuses shown.
         The unread count and "mark all read" are the two operations under /notifications/me below.
 
 
-        Family callers are identified from the authenticated session, never a caller-supplied
-        familyMemberId. For family callers, care resources require an ACTIVE binding to their actual
+        Identity comes from the authenticated session, never a caller-supplied familyMemberId.
+        Each self-inbox operation rechecks current account enablement and roles before mutation;
+        disabled/deleted accounts or a revoked FAMILY session role return 403. Current FAMILY accounts
+        use family scope even in multi-role or older staff sessions. Only notifications with both
+        resource type and resource ID absent are account-only; unknown or unresolved care resources
+        are excluded from delivery, paging, counts and read operations. For family callers, care
+        resources require an ACTIVE binding to their actual
         elder, with no revocation and no elapsed expiresAt, and the applicable access scope at request
         time. Revocation/expiry takes effect on subsequent reads and writes, including historical
         content. Reading a family care resource records the caller, resource and server access time in
@@ -2037,7 +2043,9 @@ paths:
       description: >-
         What the bell in every client's header shows, polled. Delivers the caller's PENDING in-app
         messages first, then counts the SENT ones the caller may see - for a FAMILY caller, under the
-        same binding rule as /notifications/me. Not audited: it returns a number, no care content.
+        same current account/role and resource/binding rule as /notifications/me. Only visible rows
+        are delivered; sentAt uses Singapore business time regardless of the Clock zone. Not audited:
+        it returns a number, no care content.
       operationId: countMyUnreadNotifications
       x-status: implemented
       security:
@@ -2054,6 +2062,8 @@ paths:
                   unread: {type: integer, format: int64, minimum: 0}
         '401':
           $ref: '#/components/responses/FamilyUnauthorized'
+        '403':
+          $ref: '#/components/responses/FamilyForbidden'
   /notifications/me/read-all:
     post:
       tags:
@@ -2061,7 +2071,9 @@ paths:
       summary: Mark all my messages read
       description: >-
         Every SENT message the caller may see becomes READ at the server's time; one already READ keeps
-        its first readAt. Same CSRF requirement as the other state-changing calls.
+        its first readAt. Current account/role and resource/binding authorization is rechecked as in
+        /notifications/me. Excluded messages are neither delivered nor marked read. Server times use
+        Singapore business time. Same CSRF requirement as the other state-changing calls.
       operationId: markAllMyNotificationsRead
       x-status: implemented
       security:
@@ -2085,6 +2097,8 @@ paths:
                   updated: {type: integer, minimum: 0}
         '401':
           $ref: '#/components/responses/FamilyUnauthorized'
+        '403':
+          $ref: '#/components/responses/FamilyForbidden'
   /notifications/{id}/read:
     parameters:
       - name: id
@@ -2133,8 +2147,13 @@ paths:
         retain their existing notification read behaviour.
 
 
-        Family callers are identified from the authenticated session, never a caller-supplied
-        familyMemberId. For family callers, care resources require an ACTIVE binding to their actual
+        Identity comes from the authenticated session, never a caller-supplied familyMemberId.
+        Each self-inbox operation rechecks current account enablement and roles before mutation;
+        disabled/deleted accounts or a revoked FAMILY session role return 403. Current FAMILY accounts
+        use family scope even in multi-role or older staff sessions. Only notifications with both
+        resource type and resource ID absent are account-only; unknown or unresolved care resources
+        are excluded from delivery, paging, counts and read operations. For family callers, care
+        resources require an ACTIVE binding to their actual
         elder, with no revocation and no elapsed expiresAt, and the applicable access scope at request
         time. Revocation/expiry takes effect on subsequent reads and writes, including historical
         content. Reading a family care resource records the caller, resource and server access time in
