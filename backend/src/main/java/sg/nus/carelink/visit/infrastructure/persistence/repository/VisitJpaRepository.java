@@ -5,6 +5,8 @@ import java.util.Set;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 import sg.nus.carelink.visit.infrastructure.persistence.entity.VisitJpaEntity;
 
@@ -48,4 +50,8 @@ public interface VisitJpaRepository
             Set<Long> elderIds,
             Long caregiverId
     );
+
+    @Query("select distinct v.caregiverId from VisitJpaEntity v "
+            + "where v.elderId = :elderId and v.caregiverId is not null order by v.caregiverId")
+    List<Long> findDistinctCaregiverIdsByElderId(@Param("elderId") Long elderId);
 }
