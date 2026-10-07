@@ -47,16 +47,18 @@ class JdbcNotificationInbox implements NotificationInbox {
 	/**
 	 * The family rule. A message about a care record is shown while the reader is bound to its
 	 * elder - ACTIVE and not expired - and not otherwise; one whose elder cannot be found is not
-	 * shown at all. A message about no care record (the account itself) always is.
+	 * shown at all. Only a message with neither resource type nor resource ID is account-only;
+	 * unknown resource types must not bypass the care-content authorization rule.
 	 */
 	private static final String FAMILY_SCOPE = """
-			  and (coalesce(n.resource_type, '') not in ('INCIDENT', 'ROSTER_CHANGE', 'SPOT_CHECK')
-			       or exists (select 1 from elder_family_binding b
+			  and ((n.resource_type is null and n.resource_id is null)
+			       or (n.resource_type in ('INCIDENT', 'ROSTER_CHANGE', 'SPOT_CHECK')
+			           and exists (select 1 from elder_family_binding b
 			                  join family_member f on f.id = b.family_member_id
 			                  where f.user_id = :userId
 			                    and b.elder_id = coalesce(i.elder_id, rc.elder_id, sc.elder_id)
 			                    and b.status = 'ACTIVE'
-			                    and (b.expires_at is null or b.expires_at > :now)))
+			                    and (b.expires_at is null or b.expires_at > :now))))
 			""";
 
 	private static final String NEWEST_FIRST = " order by n.created_at desc, n.id desc limit :size offset :offset";
@@ -73,6 +75,14 @@ class JdbcNotificationInbox implements NotificationInbox {
 			update notification set status = 'SENT', sent_at = :now
 			where recipient_user_id = :userId and channel = 'IN_APP' and status = 'PENDING'
 			""";
+	private static final String DELIVER_FAMILY = """
+			update notification n
+			left join incident i on n.resource_type = 'INCIDENT' and i.id = n.resource_id
+			left join roster_change rc on n.resource_type = 'ROSTER_CHANGE' and rc.id = n.resource_id
+			left join spot_check sc on n.resource_type = 'SPOT_CHECK' and sc.id = n.resource_id
+			set n.status = 'SENT', n.sent_at = :now
+			where n.recipient_user_id = :userId and n.channel = 'IN_APP' and n.status = 'PENDING'
+			""" + FAMILY_SCOPE;
 
 	private static final String MARK_READ = """
 			update notification set status = 'READ', read_at = :now where id = :id and status = 'SENT'
@@ -101,8 +111,9 @@ class JdbcNotificationInbox implements NotificationInbox {
 	}
 
 	@Override
-	public int deliverPending(Long userId, LocalDateTime now) {
-		return jdbc.sql(DELIVER).param("userId", userId).param("now", Timestamp.valueOf(now)).update();
+	public int deliverPending(InboxReader reader, LocalDateTime now) {
+		return jdbc.sql(reader.family() ? DELIVER_FAMILY : DELIVER)
+				.param("userId", reader.userId()).param("now", Timestamp.valueOf(now)).update();
 	}
 
 	@Override

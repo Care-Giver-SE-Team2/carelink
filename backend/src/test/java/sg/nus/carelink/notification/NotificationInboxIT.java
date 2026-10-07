@@ -53,8 +53,8 @@ class NotificationInboxIT {
 
 	@Test
 	void staffReadOnlyTheirOwnMessagesDeliveredOnAskingAndOpeningThemIsRemembered() throws Exception {
-		long alice = account("it-inbox-alice");
-		long ben = account("it-inbox-ben");
+		long alice = account("it-inbox-alice", "MANAGER");
+		long ben = account("it-inbox-ben", "MANAGER");
 		long older = write(alice, "Older", NINE, null, null);
 		long newer = write(alice, "Newer", NINE.plusHours(1), null, null);
 		long bens = write(ben, "Not Alice's", NINE.plusHours(2), null, null);
@@ -87,7 +87,7 @@ class NotificationInboxIT {
 
 	@Test
 	void aFamilyMemberSeesMessagesAboutAnElderOnlyWhileBoundAndEachReadIsAudited() throws Exception {
-		long fiona = account("it-inbox-fiona");
+		long fiona = account("it-inbox-fiona", "FAMILY");
 		long elder = elder();
 		long binding = bind(elder, familyMember(fiona));
 		long aboutElder = write(fiona, "About the elder", NINE, "SPOT_CHECK", spotCheck(elder));
@@ -127,10 +127,12 @@ class NotificationInboxIT {
 		return JsonPath.<Integer>read(read(username, role, "/api/notifications/me/unread-count"), "$.unread");
 	}
 
-	private long account(String username) {
+	private long account(String username, String role) {
 		jdbc.update("insert into app_user (username, password_hash, display_name) values (?, '{noop}unused', ?)",
 				username, username);
-		return jdbc.queryForObject("select id from app_user where username = ?", Long.class, username);
+		long id = jdbc.queryForObject("select id from app_user where username = ?", Long.class, username);
+		jdbc.update("insert into user_role(user_id, role) values (?, ?)", id, role);
+		return id;
 	}
 
 	private long elder() {

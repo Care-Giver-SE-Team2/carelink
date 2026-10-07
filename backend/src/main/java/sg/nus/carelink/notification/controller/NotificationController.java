@@ -1,6 +1,5 @@
 package sg.nus.carelink.notification.controller;
 
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
@@ -10,7 +9,6 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
-import org.springframework.web.server.ResponseStatusException;
 
 import sg.nus.carelink.notification.application.NotificationService;
 import sg.nus.carelink.notification.controller.dto.NotificationResponses;
@@ -42,11 +40,7 @@ public class NotificationController {
 	public NotificationResponses.InboxPage inbox(@RequestParam(defaultValue = "0") int page,
 			@RequestParam(defaultValue = "20") int size, @RequestParam(required = false) Notification.Status status,
 			Authentication who) {
-		boolean family = isFamily(who);
-		if (family && status != null && !Notification.DISPLAYABLE.contains(status)) {
-			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "A family inbox holds SENT and READ messages only");
-		}
-		return NotificationResponses.InboxPage.of(service.inbox(who.getName(), family, status, page, size));
+		return NotificationResponses.InboxPage.of(service.inbox(who.getName(), isFamily(who), status, page, size));
 	}
 
 	/** GET /api/notifications/me/unread-count : the number on the bell, polled. */
