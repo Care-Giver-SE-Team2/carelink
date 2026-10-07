@@ -307,7 +307,28 @@ class AbsenceReRosteringServiceTest {
 		assertThat(visits.rows.get(30L).status()).isEqualTo("CANCELLED");
 		assertThat(visits.rows.get(500L).start()).isEqualTo(saturday);
 		assertThat(visits.rows.get(500L).end()).isEqualTo(saturday.plusMinutes(45));
-		assertThat(alerts.notices.get(alerts.notices.size() - 1).newStart()).isEqualTo(saturday);
+		assertThat(alerts.notices.get(alerts.sent.indexOf("settled RESCHEDULED visit 30")).newStart()).isEqualTo(saturday);
+	}
+
+	/** Back to step 3 for the new time: the family chooses who comes, as they did the first time. */
+	@Test
+	void afterAMoveTheFamilyChoosesAgainForTheNewTime() {
+		service.reroster(absenceId, null, 11L);
+		LocalDateTime saturday = LocalDateTime.of(2026, 10, 10, 9, 0);
+
+		service.decide(changes.forVisit(30L).id(), "alex", FamilyChoice.moveTo(saturday));
+
+		RosterChange offer = changes.forVisit(500L);
+		assertThat(offer.status()).isEqualTo(RosterChange.Status.AWAITING_FAMILY);
+		assertThat(offer.proposedCaregiverId()).as("the person pencilled in at the new time").isEqualTo(5L);
+		assertThat(offer.respondBy()).isAfter(NOW);
+		assertThat(alerts.sent).endsWith("settled RESCHEDULED visit 30", "offered visit 500");
+
+		RosterChange kept = service.decide(offer.id(), "alex", FamilyChoice.keepSuggestion());
+
+		assertThat(kept.outcome()).isEqualTo(RosterChange.Outcome.REPLACED);
+		assertThat(kept.decidedBy()).isEqualTo(RosterChange.DecidedBy.FAMILY);
+		assertThat(visits.rows.get(500L).caregiverId()).isEqualTo(5L);
 	}
 
 	@Test
