@@ -17,6 +17,8 @@ describe('linkFor', () => {
   it('sends each message to the screen this client has for it', () => {
     expect(linkFor({ resourceType: 'INCIDENT', resourceId: 12 }, 'manager')).toBe('/manager/exceptions/12')
     expect(linkFor({ resourceType: 'INCIDENT', resourceId: null }, 'manager')).toBe('/manager/exceptions')
+    expect(linkFor({ resourceType: 'INCIDENT', resourceId: 12 }, 'caregiver')).toBe('/caregiver/incidents/12')
+    expect(linkFor({ resourceType: 'INCIDENT', resourceId: null }, 'caregiver')).toBe('/caregiver/incidents')
     expect(linkFor({ resourceType: 'ROSTER_CHANGE', resourceId: 4 }, 'family')).toBe('/family/changes')
     expect(linkFor({ resourceType: 'ROSTER_CHANGE', resourceId: 4 }, 'caregiver')).toBe('/caregiver')
     expect(linkFor({ resourceType: 'SPOT_CHECK', resourceId: 9 }, 'family')).toBe('/family/spot-checks')

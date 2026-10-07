@@ -22,7 +22,8 @@ class CaregiverWorkServiceTest {
     final VisitPlanReader plans = mock(VisitPlanReader.class);
     final AccessAudit audit = mock(AccessAudit.class);
     final Clock clock = Clock.fixed(Instant.parse("2026-09-23T17:00:00Z"), ZoneOffset.UTC);
-    final CaregiverWorkService service = new CaregiverWorkService(visits,tasks,directory,plans,audit,clock);
+    final CaregiverWorkService service = new CaregiverWorkService(visits,tasks,directory,plans,audit,clock,
+            new VisitExecutionPolicy(Duration.ofMinutes(30),Duration.ofMinutes(10)),mock(VisitCheckInRepository.class));
     final LocalDate day = LocalDate.of(2026,9,24);
 
     @BeforeEach void profile() {

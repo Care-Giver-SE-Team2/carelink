@@ -29,11 +29,15 @@ public class CaregiverWorkService {
     private final VisitPlanReader plans;
     private final AccessAudit audit;
     private final Clock clock;
+    private final sg.nus.carelink.visit.domain.model.VisitExecutionPolicy policy;
+    private final sg.nus.carelink.visit.domain.repository.VisitCheckInRepository checkIns;
 
     public CaregiverWorkService(VisitRepository visits, VisitTaskRepository tasks, CaregiverWorkDirectory directory,
-            VisitPlanReader plans, AccessAudit audit, Clock clock) {
+            VisitPlanReader plans, AccessAudit audit, Clock clock, sg.nus.carelink.visit.domain.model.VisitExecutionPolicy policy,
+            sg.nus.carelink.visit.domain.repository.VisitCheckInRepository checkIns) {
         this.visits = visits; this.tasks = tasks; this.directory = directory;
         this.plans = plans; this.audit = audit; this.clock = clock;
+        this.policy = policy; this.checkIns = checkIns;
     }
 
     public CaregiverWorkDirectory.Profile profile(String username) { return directory.require(username); }
@@ -82,13 +86,31 @@ public class CaregiverWorkService {
             var pack = new WorkPack(summary(visit, elder.preferredName()), elder, visit.carePlanId(),
                     snapshot == null ? null : snapshot.version(),
                     relevant.stream().map(VisitPlanReader.Task::name).toList(), executionTasks,
-                    relevant.stream().map(VisitPlanReader.Task::evidenceType).filter(e -> !"NONE".equals(e)).distinct().toList());
+                    relevant.stream().map(VisitPlanReader.Task::evidenceType).filter(e -> !"NONE".equals(e)).distinct().toList(),
+                    execution(visit, !relevant.isEmpty()));
             audit.workPack(caregiver.userId(), visitId, "OK");
             return pack;
         } catch (RuntimeException failure) {
             audit.workPack(caregiver.userId(), visitId, "FAILED");
             throw failure;
         }
+    }
+
+    private ExecutionContext execution(Visit visit, boolean hasPlanTasks) {
+        var now = LocalDateTime.now(clock.withZone(ZoneId.of("Asia/Singapore")));
+        var actions = new java.util.ArrayList<String>();
+        String reason = null;
+        try { visit.reportedException(now); actions.add("REPORT_INCIDENT"); } catch (BusinessRuleViolation ignored) { /* unavailable */ }
+        try {
+            var state = sg.nus.carelink.visit.domain.model.VisitStateFactory.forVisit(visit);
+            if (visit.status() == Visit.Status.SCHEDULED) {
+                if (!hasPlanTasks) reason = "VISIT_TASKS_REQUIRED";
+                else { policy.requireWindow(visit, now); actions.add("CHECK_IN"); }
+            } else if (visit.status() == Visit.Status.IN_PROGRESS) { state.requireTaskResult(); actions.add("TASK_RESULT"); }
+            else reason = "VISIT_EXECUTION_NOT_ALLOWED";
+        } catch (BusinessRuleViolation blocked) { reason = blocked.code(); }
+        return new ExecutionContext(List.copyOf(actions), reason, now, policy.opens(visit), policy.closes(visit), visit.checkedInAt(), visit.checkedOutAt(),
+                visit.checkedInAt() != null && policy.late(visit, visit.checkedInAt()), checkIns.source(visit.id()).orElse(null));
     }
 
     private VisitSummary summary(Visit v, String elderName) {
@@ -103,7 +125,14 @@ public class CaregiverWorkService {
             CaregiverWorkDirectory.CredentialAlertContext credentialAlertContext) {}
     public record WorkPack(VisitSummary visit, CaregiverWorkDirectory.ElderView elder, Long carePlanId,
             Integer carePlanVersion, List<String> serviceInstructions, List<VisitTask> tasks,
-            List<String> requiredEvidenceKinds) {}
+            List<String> requiredEvidenceKinds, ExecutionContext execution) {
+        public WorkPack(VisitSummary visit, CaregiverWorkDirectory.ElderView elder, Long carePlanId, Integer carePlanVersion,
+                List<String> serviceInstructions, List<VisitTask> tasks, List<String> requiredEvidenceKinds) {
+            this(visit,elder,carePlanId,carePlanVersion,serviceInstructions,tasks,requiredEvidenceKinds,null);
+        }
+    }
+    public record ExecutionContext(List<String> allowedActions,String blockedReason,LocalDateTime serverNow,LocalDateTime checkInOpensAt,
+            LocalDateTime checkInClosesAt,LocalDateTime checkedInAt,LocalDateTime checkedOutAt,boolean lateArrival,String locationSource) {}
     public static class InvalidDateRange extends RuntimeException {
         public InvalidDateRange() { super("Provide both dates in order, with a range of at most 31 days."); }
     }

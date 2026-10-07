@@ -2002,7 +2002,8 @@ paths:
       tags:
       - Visits
       summary: Check in to start the visit
-      x-status: draft
+      x-status: implemented
+      x-superseded-by: openapi.yaml#/paths/~1visits~1{visitId}~1check-in/post
       description: 'UC-CG03. Legal only from `SCHEDULED`; any other current state is rejected with `409` and the attempt is
         still written to `visit_state_transition` as `REJECTED`.
 
@@ -2023,12 +2024,13 @@ paths:
       tags:
       - Visits
       summary: List visit tasks for the current role
-      x-status: draft
+      x-status: implemented
       x-family-status: implemented
-      x-implemented-roles: [FAMILY]
+      x-implemented-roles: [FAMILY, CAREGIVER]
+      x-superseded-by: openapi.yaml#/paths/~1visits~1{visitId}~1tasks/get
       description: >-
-        Implemented for FAMILY only. The caregiver task projection remains specified but unimplemented
-        on this endpoint; other roles currently receive 403. The existing caregiver work-pack is separate.
+        FAMILY and CAREGIVER projections are implemented in openapi.yaml. FAMILY keeps its existing whitelist;
+        CAREGIVER requires current assignment and an uncancelled visit. Other roles receive 403.
         Each family request independently validates the visit's actual elder and current binding before
         reading its tasks, even when the task list is empty. An absent visit returns 404; an existing visit
         outside current family access returns 403; invalid visit ID syntax returns 400. Access outcomes
@@ -2107,7 +2109,8 @@ paths:
       tags:
       - Visits
       summary: Mark a care-plan task done
-      x-status: draft
+      x-status: implemented
+      x-superseded-by: openapi.yaml#/paths/~1visits~1{visitId}~1tasks~1{taskId}~1complete/post
       requestBody:
         content:
           application/json:
@@ -2451,11 +2454,12 @@ paths:
       tags:
       - Incidents
       summary: Report a care exception
-      x-status: draft
-      description: 'UC-CG04. Also created automatically by the missed-check-in scheduled scan (`source: SYSTEM_MISSED_CHECKIN`)
-        — a visit nobody checked in for is converted into an exception rather than left to vanish.
-
-        '
+      x-status: implemented
+      x-superseded-by: openapi.yaml#/paths/~1incidents/post
+      description: >-
+        UC-CG04 caregiver HTTP reporting is implemented in openapi.yaml with server-derived identity/elder,
+        current visit assignment, version and UUID command receipt. This old body/response is superseded.
+        MG03 has an uncovered-visit scan; assigned-caregiver missed check-in SYS03 remains unimplemented.
       requestBody:
         required: true
         content:

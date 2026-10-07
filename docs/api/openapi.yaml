@@ -43,6 +43,150 @@ tags:
   - name: Spot checks
     description: Home service spot checks with the family's consent and the caregiver's answer (UC-MG08, with the former UC-FM07).
 paths:
+  /incidents:
+    post:
+      tags: [Incidents]
+      summary: Submit a caregiver incident report (CG04)
+      operationId: reportCaregiverIncident
+      x-status: implemented
+      x-implemented-roles: [CAREGIVER]
+      security: [{sessionCookie: []}]
+      description: >-
+        Requires CSRF. Actor and elder are derived from the authenticated caregiver and current visit assignment.
+        Open work pauses to EXCEPTION; terminal visits retain their state. SCHEDULED reports require the start
+        time to have been reached. A UUID identifies one immutable command; equal retries return the original
+        report without new notifications. Receipt status is read live; visitVersion identifies the original write.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/CaregiverIncidentCommand'}
+      responses:
+        '201':
+          description: Report created and routed through MG05 in the same transaction.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/CaregiverIncidentResult'}
+        '200':
+          description: An identical successful command replayed; no additional business effects.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/CaregiverIncidentResult'}
+        '400': {description: Invalid request body.}
+        '401': {description: Authentication required.}
+        '403': {description: Wrong role, CSRF failure or no longer assigned.}
+        '404': {description: Visit not found.}
+        '409': {description: State/version/command conflict; refresh before creating a different command.}
+        '503': {description: Storage unavailable; reconcile saved results before retrying the same command.}
+  /caregivers/me/incidents:
+    get:
+      tags: [Caregivers, Incidents]
+      summary: Read reports submitted by this caregiver account
+      operationId: getOwnCaregiverIncidentReports
+      x-status: implemented
+      security: [{sessionCookie: []}]
+      description: Only source CAREGIVER and reportedByUserId equal to the session account; historical ownership survives visit reassignment. Sorted reportedAt/id descending.
+      parameters:
+        - {name: visitId, in: query, schema: {type: integer, format: int64, minimum: 1}}
+        - {name: page, in: query, schema: {type: integer, minimum: 0, default: 0}}
+        - {name: size, in: query, schema: {type: integer, minimum: 1, maximum: 50, default: 20}}
+      responses:
+        '200':
+          description: Safe own-report page, never a manager queue.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items: {type: array, items: {$ref: '#/components/schemas/CaregiverIncidentView'}}
+                  page: {type: integer}
+                  size: {type: integer}
+                  totalElements: {type: integer, format: int64}
+        '400': {description: Invalid page or visit filter.}
+        '401': {description: Authentication required.}
+        '403': {description: Enabled caregiver account required.}
+  /caregivers/me/incidents/{id}:
+    get:
+      tags: [Caregivers, Incidents]
+      summary: Read a safe receipt for an incident this account reported
+      operationId: getOwnCaregiverIncidentReport
+      x-status: implemented
+      security: [{sessionCookie: []}]
+      parameters:
+        - {name: id, in: path, required: true, schema: {type: integer, format: int64}}
+      responses:
+        '200':
+          description: Own report with live incident status, no responder identities or internal logs.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/CaregiverIncidentView'}
+        '401': {description: Authentication required.}
+        '403': {description: Enabled caregiver account required.}
+        '404': {description: Missing or not submitted by this account; same unavailable response.}
+  /visits/{visitId}/check-in:
+    parameters:
+      - $ref: '#/components/parameters/VisitId'
+    post:
+      tags: [Visits]
+      summary: Record arrival and start assigned service (CG03 basics)
+      operationId: caregiverVisitCheckIn
+      x-status: implemented
+      security: [{sessionCookie: []}]
+      description: >-
+        CAREGIVER only, CSRF required. Within configured early arrival (default 30 minutes) through scheduledEnd
+        or Singapore day end. One transaction initializes only assigned plan-version tasks and records two APPLIED
+        transitions SCHEDULED to ARRIVED to IN_PROGRESS. checkedInAt is server time. Manual location is explicitly
+        unverified; GPS is device-supplied and no geofence is applied. No check-out or SYS03 scheduler is implemented.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/CaregiverCheckInCommand'}
+      responses:
+        '200':
+          description: Saved command result, or original result on identical replay; reload work-pack for current state.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/CaregiverExecutionResult'}
+        '400': {description: Invalid location or command fields.}
+        '401': {description: Authentication required.}
+        '403': {description: CSRF, role or current assignment rejected.}
+        '404': {description: Visit not found.}
+        '409': {description: Window, plan, state, version or command conflict. Authorized rejected state attempts are logged.}
+        '503': {description: Storage unavailable; check results before retry.}
+  /visits/{visitId}/tasks/{taskId}/complete:
+    parameters:
+      - $ref: '#/components/parameters/VisitId'
+      - {name: taskId, in: path, required: true, schema: {type: integer, format: int64}}
+    post:
+      tags: [Visits]
+      summary: Record an assigned task result (CG03 basics)
+      operationId: caregiverVisitTaskResult
+      x-status: implemented
+      security: [{sessionCookie: []}]
+      description: >-
+        CAREGIVER only, CSRF required, current assignment and IN_PROGRESS required. PENDING can become DONE,
+        SKIPPED or REFUSED once. Only DONE sets completedAt and counts as completed; other results require a
+        factual reason and retain null completedAt. Every write advances the parent Visit version. No task result
+        completes the Visit. Identical successful commands replay without new timestamps; parent/task ownership
+        is checked server-side, not selected through a client projection parameter.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/CaregiverTaskResultCommand'}
+      responses:
+        '200':
+          description: Original successful command result; reload tasks/work-pack for current state.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/CaregiverExecutionResult'}
+        '400': {description: Invalid result or missing reason.}
+        '401': {description: Authentication required.}
+        '403': {description: Role, CSRF or assignment rejected.}
+        '404': {description: Visit or task not found in this visit.}
+        '409': {description: State, version, task terminal result or command conflict.}
+        '503': {description: Storage unavailable; check results before retry.}
   /caregivers/me:
     get:
       tags: [Caregivers]
@@ -1086,12 +1230,12 @@ paths:
       tags:
       - Visits
       summary: List visit tasks for the current role
-      x-status: draft
+      x-status: implemented
       x-family-status: implemented
-      x-implemented-roles: [FAMILY]
+      x-implemented-roles: [FAMILY, CAREGIVER]
       description: >-
-        Implemented for FAMILY only. The caregiver task projection remains specified but unimplemented
-        on this endpoint; other roles currently receive 403. The existing caregiver work-pack is separate.
+        Implemented for FAMILY and CAREGIVER. Caregivers read their currently assigned work-pack task projection;
+        cancelled visits are unavailable. Other roles receive 403. FAMILY retains its existing field whitelist.
         Each family request independently validates the visit's actual elder and current binding before
         reading its tasks, even when the task list is empty. An absent visit returns 404; an existing visit
         outside current family access returns 403; invalid visit ID syntax returns 400. Access outcomes
@@ -1124,8 +1268,8 @@ paths:
         '200':
           description: >-
             The implemented FAMILY response contains FamilyVisitTaskView items in task ID order.
-            The original VisitTask array remains specified for caregivers, whose implementation on this
-            endpoint is pending. Client role or projection parameters cannot select internal fields.
+            CAREGIVER receives VisitTask items after current assignment checks.
+            Client role or projection parameters cannot select internal fields.
           content:
             application/json:
               schema:
@@ -2552,6 +2696,92 @@ paths:
         - sessionCookie: []
 components:
   schemas:
+    CaregiverCommandIdentity:
+      type: object
+      required: [expectedVersion, clientRequestId]
+      properties:
+        expectedVersion: {type: integer, minimum: 0}
+        clientRequestId: {type: string, format: uuid, description: Immutable command key; retain original payload and key when the result is unknown.}
+    CaregiverIncidentCommand:
+      allOf:
+        - $ref: '#/components/schemas/CaregiverCommandIdentity'
+        - type: object
+          required: [visitId, category, severity, description]
+          properties:
+            visitId: {type: integer, format: int64, minimum: 1}
+            category: {type: string, enum: [SOS, MEDICAL, FALL, SERVICE, OTHER]}
+            severity: {type: string, enum: [LOW, MEDIUM, HIGH]}
+            description: {type: string, minLength: 1, maxLength: 2000, description: Observed facts and actions; no diagnosis.}
+    CaregiverIncidentReport:
+      type: object
+      required: [id, visitId, category, severity, description, status, reportedAt]
+      properties:
+        id: {type: integer, format: int64}
+        visitId: {type: integer, format: int64}
+        category: {type: string, enum: [SOS, MEDICAL, FALL, SERVICE, OTHER]}
+        severity: {type: string, enum: [LOW, MEDIUM, HIGH]}
+        description: {type: string}
+        status: {type: string, enum: [OPEN, ACKNOWLEDGED, IN_PROGRESS, RESOLVED, UNRESOLVED_ESCALATED]}
+        reportedAt: {type: string, description: Singapore local date-time}
+        respondBy: {type: string, nullable: true, description: Singapore local date-time; a deadline is not confirmation of take-over.}
+        resolvedAt: {type: string, nullable: true, description: Singapore local date-time}
+    CaregiverIncidentView:
+      type: object
+      required: [report, clientRequestId]
+      properties:
+        report: {$ref: '#/components/schemas/CaregiverIncidentReport'}
+        clientRequestId: {type: string, format: uuid, nullable: true}
+    CaregiverIncidentResult:
+      allOf:
+        - $ref: '#/components/schemas/CaregiverIncidentView'
+        - type: object
+          required: [visitVersion, replayed]
+          properties:
+            visitVersion: {type: integer}
+            replayed: {type: boolean}
+    CaregiverCheckInCommand:
+      allOf:
+        - $ref: '#/components/schemas/CaregiverCommandIdentity'
+        - type: object
+          required: [locationSource]
+          description: GPS requires coordinates and nonnegative finite accuracy, without note; MANUAL_LOCATION_NOTE requires a nonblank note without GPS fields.
+          properties:
+            locationSource: {type: string, enum: [GPS, MANUAL_LOCATION_NOTE]}
+            latitude: {type: number, minimum: -90, maximum: 90}
+            longitude: {type: number, minimum: -180, maximum: 180}
+            accuracy: {type: number, minimum: 0}
+            locationNote: {type: string, maxLength: 500}
+            clientCapturedAt: {type: string, format: date-time, description: Optional ISO instant; cannot override server check-in time.}
+    CaregiverTaskResultCommand:
+      allOf:
+        - $ref: '#/components/schemas/CaregiverCommandIdentity'
+        - type: object
+          required: [status]
+          properties:
+            status: {type: string, enum: [DONE, SKIPPED, REFUSED]}
+            outcome: {type: string, maxLength: 255, nullable: true}
+            caregiverNote: {type: string, maxLength: 500, nullable: true, description: Nonblank factual reason required for SKIPPED or REFUSED.}
+    CaregiverExecutionResult:
+      type: object
+      required: [visitId, visitVersion, savedState, taskId, replayed]
+      properties:
+        visitId: {type: integer, format: int64}
+        visitVersion: {type: integer, description: Version of the original command, not necessarily current version on replay.}
+        savedState: {type: string, nullable: true, description: Original saved state; null for a task replay.}
+        taskId: {type: integer, format: int64, nullable: true}
+        replayed: {type: boolean}
+    CaregiverExecutionContext:
+      type: object
+      properties:
+        allowedActions: {type: array, items: {type: string, enum: [CHECK_IN, TASK_RESULT, REPORT_INCIDENT]}}
+        blockedReason: {type: string, nullable: true}
+        serverNow: {type: string, description: Singapore local date-time}
+        checkInOpensAt: {type: string, description: Singapore local date-time}
+        checkInClosesAt: {type: string, description: Singapore local date-time}
+        checkedInAt: {type: string, nullable: true}
+        checkedOutAt: {type: string, nullable: true}
+        lateArrival: {type: boolean}
+        locationSource: {type: string, nullable: true, enum: [GPS, MANUAL_LOCATION_NOTE]}
     CaregiverSelfProfile:
       type: object
       required: [id, userId, fullName, status]
@@ -2611,6 +2841,7 @@ components:
       type: object
       required: [visit, elder, carePlanId, carePlanVersion, serviceInstructions, tasks, requiredEvidenceKinds]
       properties:
+        execution: {$ref: '#/components/schemas/CaregiverExecutionContext'}
         visit: {$ref: '#/components/schemas/CaregiverAssignedVisit'}
         elder:
           type: object

@@ -7,7 +7,8 @@ import org.springframework.web.bind.annotation.PathVariable;
 /** Only SPA document routes; API and asset failures must retain their real HTTP status. */
 @Controller
 class CaregiverPageController {
-    @GetMapping({"/caregiver", "/caregiver/", "/caregiver/visits/{visitId}"})
+    @GetMapping({"/caregiver", "/caregiver/", "/caregiver/visits/{visitId}", "/caregiver/visits/{visitId}/report-incident",
+            "/caregiver/absences", "/caregiver/spot-checks", "/caregiver/incidents", "/caregiver/incidents/{incidentId}"})
     String page(@PathVariable(name = "visitId", required = false) String visitId) {
         return "forward:/index.html";
     }

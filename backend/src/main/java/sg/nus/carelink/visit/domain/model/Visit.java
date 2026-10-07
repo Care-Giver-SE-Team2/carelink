@@ -152,4 +152,24 @@ public record Visit(
 	public enum Status {
 		SCHEDULED, ARRIVED, IN_PROGRESS, COMPLETED, VERIFIED, AUTO_CLOSED, EXCEPTION, CANCELLED
 	}
+
+    public Visit arrivedAt(LocalDateTime now) {
+        if (status != Status.SCHEDULED) throw new sg.nus.carelink.shared.error.BusinessRuleViolation("VISIT_EXECUTION_NOT_ALLOWED", "Visit is not scheduled.");
+        return new Visit(id, elderId, caregiverId, carePlanNodeId, absenceId, serviceType, scheduledStart, scheduledEnd,
+                now, checkedOutAt, Status.ARRIVED, null, carePlanId, version, createdAt, updatedAt);
+    }
+    public Visit started() {
+        if (status != Status.ARRIVED) throw new sg.nus.carelink.shared.error.BusinessRuleViolation("VISIT_EXECUTION_NOT_ALLOWED", "Visit has not arrived.");
+        return withAssignmentAndStatus(caregiverId, Status.IN_PROGRESS);
+    }
+    /** CG04: operational reports pause open work, never undo a completed visit. */
+    public Visit reportedException(LocalDateTime now) {
+        if (status == Status.CANCELLED || (status == Status.SCHEDULED && now.isBefore(scheduledStart))) {
+            throw new sg.nus.carelink.shared.error.BusinessRuleViolation("VISIT_REPORT_NOT_ALLOWED", "This visit cannot currently receive a new report.");
+        }
+        return switch (status) {
+            case SCHEDULED, ARRIVED, IN_PROGRESS -> withAssignmentAndStatus(caregiverId, Status.EXCEPTION);
+            default -> this;
+        };
+    }
 }

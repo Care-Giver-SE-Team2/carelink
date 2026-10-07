@@ -45,5 +45,5 @@ export function useSelfServiceWrite() {
       if (mounted.current && active.current === controller) { active.current = null; setPending(false) }
     }
   }
-  return { send, pending, error }
+  return { send, pending, error, clearError: () => setError(null) }
 }
