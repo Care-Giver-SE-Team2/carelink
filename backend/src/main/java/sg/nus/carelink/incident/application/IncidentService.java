@@ -314,8 +314,11 @@ public class IncidentService {
      * takes it out of the scheduled scan's reach.
      *
      * <p>A take-over that is refused because somebody else got there first is written to the
-     * timeline before the rejection is thrown, so the attempt leaves a trace.
+     * timeline before the rejection is thrown, so the attempt leaves a trace. The refusal must
+     * not roll that row back with it, hence {@code noRollbackFor}: when the refusal is thrown,
+     * the timeline entry is the only thing this transaction has written.
      */
+    @Transactional(noRollbackFor = BusinessRuleViolation.class)
     public Incident claim(
             Long incidentId,
             Long userId,

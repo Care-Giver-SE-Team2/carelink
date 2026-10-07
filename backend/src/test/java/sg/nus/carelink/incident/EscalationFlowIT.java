@@ -1,6 +1,7 @@
 package sg.nus.carelink.incident;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.sql.Timestamp;
 import java.time.Clock;
@@ -33,6 +34,7 @@ import sg.nus.carelink.incident.domain.model.IncidentLog;
 import sg.nus.carelink.incident.domain.model.PageSlice;
 import sg.nus.carelink.incident.domain.model.Playbook;
 import sg.nus.carelink.incident.domain.repository.IncidentRepository;
+import sg.nus.carelink.shared.error.BusinessRuleViolation;
 import sg.nus.carelink.testsupport.SharedMySql;
 
 /**
@@ -350,6 +352,27 @@ class EscalationFlowIT {
 		assertThat(timeline).containsExactly(
 				"REPORTED", "BROADCAST", "ASSIGNED", "CLAIMED",
 				"CONTACT_ATTEMPTED", "PLAYBOOK_APPLIED", "RESOLVED");
+	}
+
+	/**
+	 * A take-over refused because somebody else got there first is written to the timeline
+	 * before the refusal is thrown; the rule keeps refused attempts, not only the one that
+	 * worked. Only a real transaction shows whether that row outlives the exception after it.
+	 */
+	@Test
+	void aRefusedTakeOverStaysOnTheTimelineAfterTheRefusal() {
+		Incident raised = raiseFor(elder, "SOS pressed");
+		Long id = raised.id();
+		incidents.claim(id, alice, "Alice Tan (it-alice)");
+
+		assertThatThrownBy(() -> incidents.claim(id, ben, "Ben Lim (it-ben)"))
+				.isInstanceOf(BusinessRuleViolation.class);
+
+		assertThat(incidents.timelineOf(id).stream().map(IncidentLog::action))
+				.containsSubsequence("CLAIMED", "CLAIM_REJECTED");
+		assertThat(repository.findById(id).orElseThrow().responderUserId())
+				.as("the refused attempt changed nothing else")
+				.isEqualTo(alice);
 	}
 
 	// ------------------------------------------------------------ escalating ---
