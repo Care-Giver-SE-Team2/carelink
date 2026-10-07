@@ -349,6 +349,11 @@ class SpotCheckServiceTest {
 				throw new AccessDeniedException("A readable elder binding is required");
 			}
 		}
+
+		@Override
+		public void requireWritableElder(String username, Long elderId) {
+			requireReadableElder(username, elderId);
+		}
 	}
 
 	private static final class Profiles implements RosteringProfiles {
