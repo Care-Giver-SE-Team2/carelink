@@ -34,6 +34,20 @@ async function fill(start = today, end = today) {
   fireEvent.change(screen.getByLabelText('Reason (optional)'), { target: { value: 'Family time' } })
 }
 describe('caregiver leave self-service', () => {
+  it('uses fixed-English date controls for both leave dates', async () => {
+    mount(); await screen.findByRole('heading', { name: 'My leave' })
+    for (const label of ['Start date', 'End date']) {
+      expect(screen.getByLabelText(label)).toHaveAttribute('placeholder', 'YYYY-MM-DD')
+      expect(screen.getByLabelText(label)).toHaveAttribute('type', 'text')
+      expect(screen.getByRole('button', { name: 'Choose ' + label.toLowerCase() })).toBeInTheDocument()
+    }
+  })
+  it('rejects impossible manually typed dates without posting', async () => {
+    mount(); await fill('2026-02-31', today)
+    fireEvent.submit(screen.getByRole('form', { name: 'Request leave' }))
+    expect(await screen.findByRole('alert')).toHaveTextContent('Choose valid dates in YYYY-MM-DD format')
+    expect(vi.mocked(fetch).mock.calls.some(([, options]) => options?.method === 'POST')).toBe(false)
+  })
   it('opens directly, shows genuine empty state and posts only the own request contract', async () => {
     mount(); await screen.findByText('No leave requests yet.'); await fill()
     fireEvent.click(screen.getByRole('button', { name: 'Submit leave request' }))
