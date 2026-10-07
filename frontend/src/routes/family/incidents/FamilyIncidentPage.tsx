@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect } from 'react'
 import type { FormEvent } from 'react'
 import { Link, Navigate, useParams } from 'react-router-dom'
 import { ApiError } from '../../../shared/api/client'
@@ -26,17 +26,17 @@ export function FamilyIncidentPage() {
   return <div className={styles.page}>
     <div className={styles.navigation}>
       <Link to="/family/home">Back to home</Link>
-      {resource.status === 'success' && <button onClick={incident.refresh} disabled={incident.view === 'saving' || incident.acknowledgement === 'saving'}>Refresh</button>}
+      {resource.status === 'success' && <button onClick={incident.refresh} disabled={!!incident.pause || incident.view === 'saving' || incident.acknowledgement === 'saving'}>Refresh</button>}
     </div>
-    {resource.status === 'loading' && <p className={styles.loading} role="status">Loading incident details…</p>}
-    {resource.status === 'error' && <IncidentFeedback error={resource.error} retry={incident.refresh} />}
+    {incident.pause && <p className={styles.loading} role="status">{incident.pause === 'offline' ? 'Updates paused while offline.' : 'Updates paused while this tab is hidden.'} Details will be checked again when this page is visible and online.</p>}
+    {!incident.pause && resource.status === 'loading' && <p className={styles.loading} role="status">Loading incident details…</p>}
+    {resource.status === 'error' && <IncidentFeedback error={resource.error} retry={incident.refresh} disabled={!!incident.pause} />}
     {resource.status === 'success' && <IncidentContent key={id} detail={resource.data} incident={incident} />}
   </div>
 }
 
 function IncidentContent({ detail, incident }: { detail: FamilyIncidentDetail; incident: ReturnType<typeof useFamilyIncident> }) {
-  const [note, setNote] = useState('')
-  const { recordView } = incident
+  const { recordView, note, setNote } = incident
   // This effect runs only after the successful detail has been committed to the screen.
   useEffect(() => { recordView() }, [recordView])
   const receipt = detail.acknowledgement
@@ -96,7 +96,7 @@ function IncidentTime({ value }: { value: string }) {
   return <time dateTime={value}>{timeFormat.format(new Date(value))}</time>
 }
 
-function IncidentFeedback({ error, retry }: { error: unknown; retry: () => void }) {
+function IncidentFeedback({ error, retry, disabled }: { error: unknown; retry: () => void; disabled: boolean }) {
   const status = error instanceof ApiError ? error.status : undefined
   if (status === 401) return <Navigate to="/" replace />
   const headings: Record<number, string> = { 400: 'Invalid incident link', 403: 'Incident access unavailable', 404: 'Incident not found' }
@@ -104,7 +104,7 @@ function IncidentFeedback({ error, retry }: { error: unknown; retry: () => void 
     <h2>{headings[status ?? 0] ?? 'Unable to load this incident'}</h2>
     <p>{status === 403 ? 'This incident is no longer available to your family account.'
       : status === 404 ? 'This incident could not be found.' : status === 400 ? 'Check the incident link.' : 'Check your connection and try again.'}</p>
-    {status !== 400 && status !== 404 && <button onClick={retry}>Try again</button>}
+    {status !== 400 && status !== 404 && <button onClick={retry} disabled={disabled}>Try again</button>}
     {status === 403 && <Link to="/">Sign in with another account</Link>}
   </section>
 }

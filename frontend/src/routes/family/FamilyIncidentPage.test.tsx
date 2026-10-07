@@ -41,6 +41,23 @@ function open(path = '/family/incidents/601', strict = false) {
   </Routes></MemoryRouter>
   return render(strict ? <StrictMode>{app}</StrictMode> : app)
 }
+function activity() {
+  return { visibility: vi.spyOn(document, 'visibilityState', 'get').mockReturnValue('visible'),
+    online: vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(true) }
+}
+async function pause(environment: ReturnType<typeof activity>, reason: 'hidden' | 'offline') {
+  await act(async () => {
+    if (reason === 'hidden') { environment.visibility.mockReturnValue('hidden'); document.dispatchEvent(new Event('visibilitychange')) }
+    else { environment.online.mockReturnValue(false); window.dispatchEvent(new Event('offline')) }
+  })
+}
+async function resume(environment: ReturnType<typeof activity>) {
+  await act(async () => {
+    environment.visibility.mockReturnValue('visible'); environment.online.mockReturnValue(true)
+    window.dispatchEvent(new Event('online')); document.dispatchEvent(new Event('visibilitychange'))
+    window.dispatchEvent(new Event('online')); document.dispatchEvent(new Event('visibilitychange'))
+  })
+}
 beforeEach(() => vi.stubGlobal('scrollTo', vi.fn()))
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); vi.restoreAllMocks(); document.cookie = 'XSRF-TOKEN=; Max-Age=0; path=/' })
 
@@ -266,6 +283,147 @@ describe('FM05 family incident page', () => {
     await screen.findByRole('heading', { name: 'Landing' })
     await act(async () => csrf.resolve(new Response(null, { status: 204 })))
     expect(fetchMock.mock.calls.some(([path]) => path.endsWith('/acknowledge'))).toBe(false)
+  })
+
+  it('starts no requests until the page is both visible and online', async () => {
+    const environment = activity()
+    environment.visibility.mockReturnValue('hidden'); environment.online.mockReturnValue(false)
+    const fetchMock = installApi(); open()
+    await screen.findByText(/Updates paused while offline/)
+    expect(fetchMock).not.toHaveBeenCalled()
+    await act(async () => { environment.online.mockReturnValue(true); window.dispatchEvent(new Event('online')) })
+    expect(screen.getByText(/Updates paused while this tab is hidden/)).toBeInTheDocument()
+    expect(fetchMock).not.toHaveBeenCalled()
+    await resume(environment); await screen.findByText(/First viewed/)
+    expect(fetchMock.mock.calls.filter(([path]) => path === '/api/family/incidents/601')).toHaveLength(1)
+  })
+
+  it.each(['hidden', 'offline'] as const)('cancels an unfinished detail on %s and reloads once without accepting the old response', async (reason) => {
+    const environment = activity(); const response = deferred<Response>(); let hold = true
+    const fetchMock = installApi((url) => url.pathname === '/api/family/incidents/601'
+      ? hold ? response.promise : json({ ...detail, description: 'Fresh care detail', acknowledgement: viewed }) : undefined)
+    open(); await waitFor(() => expect(fetchMock.mock.calls.some(([path]) => path === '/api/family/incidents/601')).toBe(true))
+    const signal = fetchMock.mock.calls.find(([path]) => path === '/api/family/incidents/601')![1].signal!
+    await pause(environment, reason)
+    expect(signal.aborted).toBe(true); expect(screen.queryByRole('article')).not.toBeInTheDocument()
+    hold = false; await resume(environment); await screen.findByText('Fresh care detail')
+    await act(async () => response.resolve(json({ ...detail, description: 'Obsolete care detail' })))
+    expect(screen.queryByText('Obsolete care detail')).not.toBeInTheDocument()
+    expect(fetchMock.mock.calls.filter(([path]) => path === '/api/family/incidents/601')).toHaveLength(2)
+  })
+
+  it('retains only the same account draft and refreshes a newly established window on return', async () => {
+    const environment = activity(); let returning = false
+    installApi((url) => url.pathname === '/api/family/incidents/601'
+      ? json({ ...detail, acknowledgeBy: returning ? detail.acknowledgeBy : null, acknowledgement: viewed }) : undefined)
+    open(); await screen.findByRole('article')
+    await userEvent.setup().type(screen.getByRole('textbox'), 'Please call me.')
+    await pause(environment, 'offline')
+    expect(screen.queryByRole('article')).not.toBeInTheDocument(); expect(screen.queryByRole('textbox')).not.toBeInTheDocument()
+    returning = true; await resume(environment)
+    expect(await screen.findByRole('textbox')).toHaveValue('Please call me.')
+    expect(screen.getByText('7 Oct 2026, 18:00')).toBeInTheDocument()
+  })
+
+  it.each([true, false])('queries an interrupted awareness command without resending it (committed=%s)', async (committed) => {
+    const environment = activity(); const response = deferred<Response>(); let returning = false
+    const fetchMock = installApi((url) => url.pathname.endsWith('/acknowledge') ? response.promise
+      : returning && url.pathname === '/api/family/incidents/601' ? json({ ...detail, acknowledgement: committed ? acknowledged : viewed }) : undefined)
+    open(); await screen.findByText(/First viewed/)
+    await userEvent.setup().type(screen.getByRole('textbox'), 'My unsaved note')
+    await userEvent.setup().click(screen.getByRole('button', { name: 'I am aware' }))
+    await waitFor(() => expect(fetchMock.mock.calls.some(([path]) => path.endsWith('/acknowledge'))).toBe(true))
+    const signal = fetchMock.mock.calls.find(([path]) => path.endsWith('/acknowledge'))![1].signal!
+    await pause(environment, 'offline'); expect(signal.aborted).toBe(true)
+    returning = true; await resume(environment); await screen.findByRole('article')
+    if (committed) { expect(await screen.findByText('Awareness confirmed')).toBeInTheDocument(); expect(screen.getByText(acknowledged.responseNote)).toBeInTheDocument() }
+    else { expect(await screen.findByRole('alert')).toHaveTextContent('We could not confirm'); expect(screen.getByRole('textbox')).toHaveValue('My unsaved note') }
+    await act(async () => response.resolve(json({ ...acknowledged, responseNote: 'Ignored late response' })))
+    expect(screen.queryByText('Ignored late response')).not.toBeInTheDocument()
+    expect(fetchMock.mock.calls.filter(([path]) => path.endsWith('/acknowledge'))).toHaveLength(1)
+  })
+
+  it('does not send an old awareness command after CSRF setup completes during a pause', async () => {
+    const environment = activity(); const csrf = deferred<Response>(); let hold = false
+    const fetchMock = installApi((url) => hold && url.pathname === '/api/auth/csrf' ? csrf.promise : undefined)
+    open(); await screen.findByText(/First viewed/); hold = true
+    await userEvent.setup().click(screen.getByRole('button', { name: 'I am aware' }))
+    await waitFor(() => expect(fetchMock.mock.calls.filter(([path]) => path === '/api/auth/csrf')).toHaveLength(2))
+    await pause(environment, 'hidden')
+    await act(async () => csrf.resolve(new Response(null, { status: 204 })))
+    expect(fetchMock.mock.calls.some(([path]) => path.endsWith('/acknowledge'))).toBe(false)
+    hold = false; await resume(environment); await screen.findByRole('button', { name: 'I am aware' })
+    expect(screen.getByRole('alert')).toHaveTextContent('We could not confirm')
+  })
+
+  it('clears the previous account draft and receipt on a new family session', async () => {
+    const environment = activity(); let returning = false
+    installApi((url) => returning && url.pathname === '/api/auth/me' ? json({ ...family, id: 9, username: 'family-b' })
+      : returning && url.pathname === '/api/family/incidents/601' ? json({ ...detail, description: 'New account care detail', acknowledgement: { ...viewed, familyMemberId: 7 } }) : undefined)
+    open(); await screen.findByText(/First viewed/)
+    await userEvent.setup().type(screen.getByRole('textbox'), 'Old account private note')
+    await pause(environment, 'hidden'); returning = true; await resume(environment)
+    await screen.findByText('New account care detail')
+    expect(screen.getByRole('textbox')).toHaveValue('')
+    expect(screen.queryByText('Old account private note')).not.toBeInTheDocument()
+  })
+
+  it.each([401, 403].flatMap((status) => ['/api/auth/me', '/api/family/incidents/601'].map((path) => ({ status, path }))))(
+    'clears care data and refuses automatic retries after $status from $path on resume', async ({ status, path }) => {
+      const environment = activity(); let returning = false
+      const fetchMock = installApi((url) => returning && url.pathname === path ? json({}, status) : undefined)
+      open(); await screen.findByText(/First viewed/)
+      await userEvent.setup().type(screen.getByRole('textbox'), 'A private draft')
+      await pause(environment, 'hidden'); returning = true; await resume(environment)
+      await screen.findByRole('heading', { name: status === 401 ? 'Landing' : 'Incident access unavailable' })
+      expect(screen.queryByRole('article')).not.toBeInTheDocument(); expect(screen.queryByRole('textbox')).not.toBeInTheDocument()
+      const count = fetchMock.mock.calls.length
+      await pause(environment, 'offline'); await resume(environment)
+      expect(fetchMock).toHaveBeenCalledTimes(count)
+    })
+
+  it('allows explicit reauthorization after access is restored without restoring the old draft', async () => {
+    const environment = activity(); let denied = false
+    installApi((url) => denied && url.pathname === '/api/family/incidents/601' ? json({}, 403) : undefined)
+    open(); await screen.findByText(/First viewed/); await userEvent.setup().type(screen.getByRole('textbox'), 'Old private draft')
+    await pause(environment, 'hidden'); denied = true; await resume(environment)
+    await screen.findByRole('heading', { name: 'Incident access unavailable' }); denied = false
+    await userEvent.setup().click(screen.getByRole('button', { name: 'Try again' }))
+    await screen.findByRole('article'); expect(screen.getByRole('textbox')).toHaveValue('')
+  })
+
+  it('recovers a transient failed read when the network returns', async () => {
+    const environment = activity(); let failed = true
+    const fetchMock = installApi((url) => failed && url.pathname === '/api/family/incidents/601' ? Promise.reject(new TypeError('Offline')) : undefined)
+    open(); await screen.findByRole('heading', { name: 'Unable to load this incident' })
+    await pause(environment, 'offline'); failed = false; await resume(environment)
+    await screen.findByText(/First viewed/)
+    expect(fetchMock.mock.calls.filter(([path]) => path === '/api/family/incidents/601')).toHaveLength(2)
+  })
+
+  it('cancels an old detail on route change and removes recovery listeners on leaving', async () => {
+    const environment = activity(); const response = deferred<Response>()
+    const fetchMock = installApi((url) => url.pathname === '/api/family/incidents/601' ? response.promise
+      : url.pathname === '/api/family/incidents/602' ? json({ ...detail, id: 602, description: 'Current incident', acknowledgement: { ...acknowledged, incidentId: 602 } }) : undefined)
+    open(); await waitFor(() => expect(fetchMock.mock.calls.some(([path]) => path === '/api/family/incidents/601')).toBe(true))
+    const signal = fetchMock.mock.calls.find(([path]) => path === '/api/family/incidents/601')![1].signal!
+    await userEvent.setup().click(screen.getByRole('button', { name: 'Another incident' })); await screen.findByText('Current incident')
+    expect(signal.aborted).toBe(true)
+    await act(async () => response.resolve(json(detail)))
+    expect(screen.getByRole('article')).toHaveAccessibleName('Incident #602')
+    await userEvent.setup().click(screen.getByRole('button', { name: 'Leave' })); await screen.findByRole('heading', { name: 'Landing' })
+    const count = fetchMock.mock.calls.length; await pause(environment, 'offline'); await resume(environment)
+    expect(fetchMock).toHaveBeenCalledTimes(count)
+  })
+
+  it('does not let an aborted session denial overwrite a resumed successful read', async () => {
+    const environment = activity(); const response = deferred<Response>(); let hold = true
+    const fetchMock = installApi((url) => hold && url.pathname === '/api/auth/me' ? response.promise : undefined)
+    open(); await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1))
+    await pause(environment, 'offline'); hold = false; await resume(environment); await screen.findByText(/First viewed/)
+    await act(async () => response.resolve(json({}, 403)))
+    expect(screen.getByRole('article')).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'Incident access unavailable' })).not.toBeInTheDocument()
   })
 
   it('does not create duplicate viewing requests under StrictMode', async () => {

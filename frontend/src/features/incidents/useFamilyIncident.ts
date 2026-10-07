@@ -6,8 +6,9 @@ import type { FamilyIncidentAcknowledgement, FamilyIncidentDetail } from './fami
 
 type Resource = { status: 'loading' } | { status: 'error'; error: unknown } | { status: 'success'; data: FamilyIncidentDetail }
 type CommandState = 'idle' | 'saving' | 'saved' | 'error'
-type State = { resource: Resource; view: CommandState; acknowledgement: CommandState }
-const initial: State = { resource: { status: 'loading' }, view: 'idle', acknowledgement: 'idle' }
+type State = { resource: Resource; view: CommandState; acknowledgement: CommandState; pause: 'offline' | 'hidden' | null; note: string }
+const initial: State = { resource: { status: 'loading' }, view: 'idle', acknowledgement: 'idle', pause: null, note: '' }
+const pauseReason = (): State['pause'] => !navigator.onLine ? 'offline' : document.visibilityState === 'hidden' ? 'hidden' : null
 
 /** Cancels obsolete reads/writes and keeps recipient receipts independent under racing responses.
  * @author Wang Zhili
@@ -16,24 +17,34 @@ export function useFamilyIncident(id: string) {
   const [revision, setRevision] = useState(0)
   const key = useMemo(() => ({ id, revision }), [id, revision])
   const [result, setResult] = useState({ key, ...initial })
-  const operations = useRef<{ view: () => void; acknowledge: (note: string) => void } | null>(null)
+  const operations = useRef<{ view: () => void; acknowledge: (note: string) => void; note: (value: string) => void } | null>(null)
   const refresh = useCallback(() => setRevision((value) => value + 1), [])
   const recordView = useCallback(() => operations.current?.view(), [])
   const acknowledge = useCallback((note: string) => operations.current?.acknowledge(note), [])
+  const setNote = useCallback((note: string) => operations.current?.note(note), [])
 
   useEffect(() => {
-    let state: State = initial
+    let state: State = { ...initial, pause: pauseReason() }
     let disposed = false
-    let account: number
+    let stopped = false
+    let interruptedAcknowledgement = false
+    let loading: AbortController | undefined
+    let account: number | undefined
     const requests = new Set<AbortController>()
     const publish = (change: Partial<State>) => {
       state = { ...state, ...change }
       setResult({ key, ...state })
     }
-    const stop = (error: unknown) => {
+    const cancelRequests = () => {
       operations.current = null
       requests.forEach((request) => request.abort())
-      publish({ ...initial, resource: { status: 'error', error } })
+      requests.clear()
+      loading = undefined
+    }
+    const stop = (error: unknown) => {
+      stopped = error instanceof ApiError && [400, 401, 403, 404].includes(error.status)
+      cancelRequests()
+      publish({ ...initial, pause: state.pause, note: stopped ? '' : state.note, resource: { status: 'error', error } })
     }
     async function checkSession(signal: AbortSignal) {
       const user = await getCurrentUser(signal)
@@ -51,7 +62,7 @@ export function useFamilyIncident(id: string) {
       publish({ resource: { status: 'success', data: { ...state.resource.data, acknowledgement } } })
     }
     async function command(action: 'view' | 'acknowledgement', note = '') {
-      if (disposed || state.resource.status !== 'success' || state[action] === 'saving' || state[action] === 'saved') return
+      if (disposed || state.pause || state.resource.status !== 'success' || state[action] === 'saving' || state[action] === 'saved') return
       const request = new AbortController()
       requests.add(request)
       publish({ [action]: 'saving' })
@@ -61,6 +72,7 @@ export function useFamilyIncident(id: string) {
           : await acknowledgeFamilyIncident(key.id, note, request.signal)
         if (disposed || request.signal.aborted) return
         mergeReceipt(receipt)
+        if (action === 'acknowledgement') interruptedAcknowledgement = false
         publish({ [action]: 'saved' })
       } catch (error) {
         if (disposed || request.signal.aborted) return
@@ -68,30 +80,60 @@ export function useFamilyIncident(id: string) {
         else publish({ [action]: 'error' })
       } finally { requests.delete(request) }
     }
-    const request = new AbortController()
-    requests.add(request)
     async function load() {
+      if (disposed || stopped || state.pause || loading) return
+      const request = new AbortController()
+      loading = request
+      requests.add(request)
+      operations.current = null
+      publish({ resource: { status: 'loading' }, view: 'idle', acknowledgement: 'idle' })
       try {
         if (!/^[1-9]\d{0,18}$/.test(key.id) || BigInt(key.id) > 9223372036854775807n) throw new ApiError('Invalid incident link.', 400)
-        account = await checkSession(request.signal)
+        const currentAccount = await checkSession(request.signal)
+        // A retained draft belongs only to the account that wrote it.
+        if (account !== currentAccount) { interruptedAcknowledgement = false; publish({ note: '' }) }
+        account = currentAccount
         const data = await getFamilyIncident(key.id, request.signal)
         if (disposed || request.signal.aborted) return
-        operations.current = { view: () => { void command('view') }, acknowledge: (note) => { void command('acknowledgement', note) } }
+        operations.current = { view: () => { void command('view') }, acknowledge: (note) => { void command('acknowledgement', note) },
+          note: (value) => publish({ note: value }) }
         publish({ resource: { status: 'success', data }, view: data.acknowledgement.viewedAt ? 'saved' : 'idle',
-          acknowledgement: data.acknowledgement.acknowledgedAt ? 'saved' : 'idle' })
+          acknowledgement: data.acknowledgement.acknowledgedAt ? 'saved' : interruptedAcknowledgement ? 'error' : 'idle' })
       } catch (error) {
         if (!disposed && !request.signal.aborted) stop(error)
-      } finally { requests.delete(request) }
+      } finally {
+        requests.delete(request)
+        if (loading === request) loading = undefined
+      }
     }
+    const activityChanged = () => {
+      const pause = pauseReason()
+      if (pause === state.pause) return
+      if (pause) {
+        // Aborting cannot undo a committed acknowledgement; query it on resume, never resend it.
+        if (state.acknowledgement === 'saving') interruptedAcknowledgement = true
+        cancelRequests()
+        publish(stopped ? { pause } : { pause, resource: { status: 'loading' }, view: 'idle', acknowledgement: 'idle' })
+      } else {
+        publish({ pause: null })
+        void load()
+      }
+    }
+    document.addEventListener('visibilitychange', activityChanged)
+    window.addEventListener('online', activityChanged)
+    window.addEventListener('offline', activityChanged)
+    publish({ pause: state.pause })
     void load()
     return () => {
       disposed = true
-      operations.current = null
-      requests.forEach((request) => request.abort())
+      cancelRequests()
+      document.removeEventListener('visibilitychange', activityChanged)
+      window.removeEventListener('online', activityChanged)
+      window.removeEventListener('offline', activityChanged)
     }
   }, [key])
 
   // Hide the previous incident synchronously, before effects run for the new link or refresh.
   const state = result.key === key ? result : initial
-  return { ...state, refresh, recordView, acknowledge }
+  return { ...state, refresh, recordView, acknowledge, setNote }
 }
