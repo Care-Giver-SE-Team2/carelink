@@ -43,3 +43,13 @@ npm run dev
 ```
 
 然后打开 http://localhost:5173/caregiver
+# Batch 1A: caregiver leave self-service
+
+`/caregiver/absences` lets the signed-in caregiver submit whole-day leave and read
+their own pending, approved and rejected requests. It reuses the MG04 endpoints;
+approval and explicit re-rostering remain separate manager actions. Requests are
+not retried automatically. Refresh or return to the page to read decisions.
+
+The caregiver navigation preserves the schedule date range when moving between
+the schedule, a work pack and self-service pages. Leave does not include editing,
+withdrawal, work preferences or availability in this slice.
