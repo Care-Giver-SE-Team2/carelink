@@ -1,11 +1,14 @@
 package sg.nus.carelink.incident.application;
 
+import java.time.LocalDateTime;
+
 import org.springframework.stereotype.Service;
 
 import sg.nus.carelink.incident.domain.model.Incident;
 import sg.nus.carelink.incident.domain.model.IncidentAcknowledgement;
 import sg.nus.carelink.incident.domain.repository.IncidentAcknowledgementRepository;
 import sg.nus.carelink.incident.domain.repository.IncidentRepository;
+import sg.nus.carelink.incident.domain.repository.FamilyAlertDeliveryStore;
 import sg.nus.carelink.profile.application.FamilyAccessQuery;
 import sg.nus.carelink.profile.application.FamilyIdentityQuery;
 import sg.nus.carelink.profile.application.FamilyReadAudit;
@@ -24,14 +27,16 @@ public class FamilyIncidentQueryService {
 	private final FamilyIdentityQuery identity;
 	private final FamilyAccessQuery access;
 	private final FamilyReadAudit audit;
+	private final FamilyAlertDeliveryStore deliveries;
 
 	public FamilyIncidentQueryService(IncidentRepository incidents, IncidentAcknowledgementRepository acknowledgements,
-			FamilyIdentityQuery identity, FamilyAccessQuery access, FamilyReadAudit audit) {
+			FamilyIdentityQuery identity, FamilyAccessQuery access, FamilyReadAudit audit, FamilyAlertDeliveryStore deliveries) {
 		this.incidents = incidents;
 		this.acknowledgements = acknowledgements;
 		this.identity = identity;
 		this.access = access;
 		this.audit = audit;
+		this.deliveries = deliveries;
 	}
 
 	public Detail findDetail(String username, Long incidentId) {
@@ -43,9 +48,9 @@ public class FamilyIncidentQueryService {
 			IncidentAcknowledgement acknowledgement = acknowledgements
 					.findByIncidentIdAndFamilyMemberId(incidentId, familyMemberId)
 					.orElseGet(() -> new IncidentAcknowledgement(null, incidentId, familyMemberId, null, null, null, null));
-			return new Detail(incident, acknowledgement);
+			return new Detail(incident, acknowledgement, deliveries.acknowledgeBy(incidentId, familyMemberId).orElse(null));
 		});
 	}
 
-	public record Detail(Incident incident, IncidentAcknowledgement acknowledgement) { }
+	public record Detail(Incident incident, IncidentAcknowledgement acknowledgement, LocalDateTime acknowledgeBy) { }
 }

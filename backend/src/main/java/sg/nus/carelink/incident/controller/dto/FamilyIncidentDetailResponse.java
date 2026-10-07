@@ -21,10 +21,9 @@ public record FamilyIncidentDetailResponse(
 	public static FamilyIncidentDetailResponse of(FamilyIncidentQueryService.Detail detail) {
 		var incident = detail.incident();
 		var receipt = detail.acknowledgement();
-		// No personal notification window is established yet; manager respondBy is unrelated.
 		return new FamilyIncidentDetailResponse(incident.id(), incident.elderId(), incident.visitId(),
 				incident.source(), incident.category(), incident.severity(), incident.status(), incident.description(),
-				time(incident.reportedAt()), time(incident.resolvedAt()), null,
+				time(incident.reportedAt()), time(incident.resolvedAt()), time(detail.acknowledgeBy()),
 				Acknowledgement.of(receipt));
 	}
 

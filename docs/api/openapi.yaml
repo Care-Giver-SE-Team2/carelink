@@ -1551,9 +1551,11 @@ paths:
         incident, outcome and server access time in the internal audit; an audit outage
         returns 503 without care content. An absent incident returns 404 and inaccessible
         incident returns 403. The manager's original GET /incidents/{id} remains separate.
-        Personal notification response windows are not yet implemented: acknowledgeBy is
-        currently null, even when a legacy notification exists, and never copies manager
-        respondBy. POST /incidents/{id}/view records a successful display;
+        acknowledgeBy is this family's immutable response deadline established by the FM05
+        Observer's first successful urgent IN_APP message creation (default two hours).
+        It is null without an FM05 window, even when a legacy notification exists; never copy
+        manager respondBy. The consumer is implemented; production event hookup and old family
+        generator handoff remain pending. POST /incidents/{id}/view records a successful display;
         POST /incidents/{id}/acknowledge records explicit acknowledgement. Neither marks a notification read.
       responses:
         '200':
@@ -1625,7 +1627,8 @@ paths:
         rolls both back and returns 500; an audit outage returns 503 without accepting the
         receipt. Denied and failed application commands are audited after rollback, without
         care content or responseNote. Timestamps include Singapore +08:00. No notification
-        is required. Personal response windows and waiting reminders are not yet implemented.
+        is required. Personal windows are established only by the FM05 Observer, independently
+        of these commands. Waiting reminders are not implemented.
         Send no JSON request body; a supplied body returns 400.
 
         For FAMILY, authorise access using the authenticated family identity, an ACTIVE and unexpired
@@ -1635,7 +1638,7 @@ paths:
         authorised family member may read the incident and record their own view or acknowledgement even
         if no IN_APP notification exists or notification creation/delivery failed. Urgent alerts cannot
         be disabled through optional subscription preferences; that rule never overrides binding/access
-        checks. The planned response window starts with the first successful urgent IN_APP notification creation
+        checks. The response window starts with the first successful urgent IN_APP notification creation
         for this incident/recipient and uses the configured interval (default two hours); further
         notices, polling and email retries do not reset it. GET /family/incidents/{id} returns
         acknowledgeBy, which is null when no response window has been established. A missing or failed notification
@@ -1700,7 +1703,8 @@ paths:
         rolls both back and returns 500; an audit outage returns 503 without accepting the
         receipt. Denied and failed application commands are audited after rollback, without
         care content or responseNote. Timestamps include Singapore +08:00. No notification
-        is required. Personal response windows and waiting reminders are not yet implemented.
+        is required. Personal windows are established only by the FM05 Observer, independently
+        of these commands. Waiting reminders are not implemented.
         An absent body, empty object or null responseNote means no note. Preserve the
         first note, including null or empty text; do not trim it. Accept only a string
         or null responseNote up to 255 characters; reject unknown fields and other types.
@@ -1712,7 +1716,7 @@ paths:
         authorised family member may read the incident and record their own view or acknowledgement even
         if no IN_APP notification exists or notification creation/delivery failed. Urgent alerts cannot
         be disabled through optional subscription preferences; that rule never overrides binding/access
-        checks. The planned response window starts with the first successful urgent IN_APP notification creation
+        checks. The response window starts with the first successful urgent IN_APP notification creation
         for this incident/recipient and uses the configured interval (default two hours); further
         notices, polling and email retries do not reset it. GET /family/incidents/{id} returns
         acknowledgeBy, which is null when no response window has been established. A missing or failed notification
@@ -3838,8 +3842,8 @@ components:
           format: date-time
           nullable: true
           description: >-
-            Currently null: personal notification response windows are not implemented.
-            The planned family member response deadline: first successfully created urgent IN_APP
+            Null without an FM05 personal window; legacy notifications do not establish one.
+            The family member response deadline: first successfully created urgent IN_APP
             notification for this incident/family member plus the configured window (default two hours). Null when no
             response window was established, including when notification creation has not succeeded;
             null does not prevent an authorised read, view or acknowledgement. Stable across polling,
