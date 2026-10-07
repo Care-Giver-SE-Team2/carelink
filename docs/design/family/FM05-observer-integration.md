@@ -33,7 +33,9 @@ The original routing author must call this contract at the raised/chain-exhauste
 
 ## Persistence and failure semantics
 
-Flyway `V14__family_alert_delivery.sql` adds three FM05 tables without modifying existing tables or historical rows:
+Flyway `V15__family_alert_delivery.sql` adds three FM05 tables without modifying existing tables or historical rows:
+
+The unmerged FM05 migration uses V15 because main already owns V14 for value-added service seeds. The FM05 SQL is unchanged; both migrations must be present when validating a fresh integration database.
 
 | Table | Meaning |
 | --- | --- |

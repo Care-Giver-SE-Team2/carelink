@@ -43,6 +43,14 @@ const tabs: (RailItem & { phone?: false })[] = [
     icon: <svg {...iconProps}><circle cx="12" cy="12" r="8.5" /><path d="M12 8v8M8 12h8" /></svg>,
   },
   {
+    label: 'Extra services', to: '/family/extra-services', match: ['/family/extra-services'], phone: false,
+    icon: <svg {...iconProps}><path d="M5 12h14M12 5v14" /><circle cx="12" cy="12" r="9" /></svg>,
+  },
+  {
+    label: 'Caregiver reviews', to: '/family/caregiver-reviews', match: ['/family/caregiver-reviews'], phone: false,
+    icon: <svg {...iconProps}><path d="M7 4h10v16H7z" /><path d="M9 9h6M9 13h6M9 17h4" /></svg>,
+  },
+  {
     label: 'Account', to: '/family/account', match: ['/family/account'],
     icon: <svg {...iconProps}><circle cx="12" cy="8.5" r="3.8" /><path d="M4.5 20c1.2-3.6 4-5.4 7.5-5.4s6.3 1.8 7.5 5.4" /></svg>,
   },

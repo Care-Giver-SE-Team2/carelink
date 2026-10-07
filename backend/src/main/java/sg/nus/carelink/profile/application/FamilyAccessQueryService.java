@@ -63,6 +63,20 @@ class FamilyAccessQueryService implements FamilyAccessQuery, FamilyIdentityQuery
 	}
 
 	@Override
+	public void requireWritableElder(String authenticatedUsername, Long elderId) {
+		Long familyMemberId = requireFamilyMemberId(authenticatedUsername);
+		if (elderId == null || elderId <= 0) {
+			throw new AccessDeniedException("A writable elder binding is required");
+		}
+		LocalDateTime now = LocalDateTime.now(clock.withZone(CARELINK_ZONE));
+		bindings.findByElderIdAndFamilyMemberId(elderId, familyMemberId)
+				.filter(binding -> binding.status() == ElderFamilyBinding.Status.ACTIVE)
+				.filter(binding -> binding.accessScope() == ElderFamilyBinding.AccessScope.FULL)
+				.filter(binding -> binding.expiresAt() == null || binding.expiresAt().isAfter(now))
+				.orElseThrow(() -> new AccessDeniedException("A writable elder binding is required"));
+	}
+
+	@Override
 	public Long requireFamilyMemberId(String authenticatedUsername) {
 		if (authenticatedUsername == null || authenticatedUsername.isBlank()) {
 			throw new AccessDeniedException("An authenticated family account is required");

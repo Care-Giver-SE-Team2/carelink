@@ -20,6 +20,7 @@ export function portalOf(pathname: string): Portal {
 export function linkFor(item: Pick<NotificationItem, 'resourceType' | 'resourceId'>, portal: Portal): string | null {
   const routes: Record<string, Partial<Record<Portal, string>>> = {
     INCIDENT: { manager: item.resourceId == null ? '/manager/exceptions' : `/manager/exceptions/${item.resourceId}` },
+    ABSENCE: { manager: item.resourceId == null ? '/manager/absences' : `/manager/absences/${item.resourceId}` },
     ROSTER_CHANGE: { manager: '/manager/absences', family: '/family/changes', caregiver: '/caregiver' },
     SPOT_CHECK: { manager: '/manager/quality', family: '/family/spot-checks' },
     CREDENTIAL: { manager: '/manager/certifications', caregiver: '/caregiver' },

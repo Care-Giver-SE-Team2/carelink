@@ -65,7 +65,10 @@ class ReportFactsJdbcSource implements ReportFactsSource {
 			       v.scheduled_start, v.status,
 			       (select count(*) from visit_evidence e where e.visit_id = v.id) as evidence_count,
 			       (select count(*) from visit_evidence e
-			         where e.visit_id = v.id and e.verification_status = 'VERIFIED') as verified_evidence_count
+			         where e.visit_id = v.id and e.verification_status = 'VERIFIED') as verified_evidence_count,
+			       exists (select 1 from roster_change rc
+			                where rc.visit_id = v.id and rc.outcome = 'SKIPPED'
+			                  and rc.decided_by = 'FAMILY') as skipped_by_family
 			from visit v
 			left join caregiver c on c.id = v.caregiver_id
 			where v.elder_id = :elderId and v.scheduled_start >= :from and v.scheduled_start < :to
@@ -182,7 +185,8 @@ class ReportFactsJdbcSource implements ReportFactsSource {
 				moment(rs, "scheduled_start"),
 				VisitFact.Status.valueOf(rs.getString("status")),
 				rs.getInt("evidence_count"),
-				rs.getInt("verified_evidence_count"));
+				rs.getInt("verified_evidence_count"),
+				rs.getBoolean("skipped_by_family"));
 	}
 
 	static VitalFact vital(ResultSet rs) throws SQLException {

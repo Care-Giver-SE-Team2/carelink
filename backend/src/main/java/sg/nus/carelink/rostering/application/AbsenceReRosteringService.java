@@ -293,9 +293,12 @@ public class AbsenceReRosteringService {
 	}
 
 	/**
-	 * Alternative 4b: move the visit. The search runs again for the new time - the absent
-	 * caregiver is a candidate again if the new time is after their leave - and the best person
-	 * free then takes it. Nobody free means the family is asked for another time; nothing changes.
+	 * Alternative 4b: move the visit, then back to step 3 for the new time. The search runs again
+	 * for it - the absent caregiver is a candidate again if the new time is after their leave -
+	 * and the visit moves there with the best person free then pencilled in. The family is then
+	 * offered the choice for the new time, under the same window and default plan as the first:
+	 * keep that person, pick another of the suggestions, move it again or skip it. Nobody free
+	 * means the family is asked for another time; nothing changes.
 	 */
 	private RosterChange reschedule(RosterChange change, LocalDateTime newStart, Long familyUserId) {
 		LocalDateTime now = now();
@@ -323,17 +326,38 @@ public class AbsenceReRosteringService {
 
 		RosteringRun run = runs.save(RosteringRun.forAbsence(change.absenceId(), finder.objective().objective(),
 				familyUserId, now));
-		Map<Long, Long> candidateIds = record(run.id(), shortlist, rules);
+		Long newVisitId = visits.moveTo(change.visitId(), newStart, best.caregiverId(),
+				new VisitReassignment.Change(change.absenceId(), familyUserId, null,
+						"Moved at the family's request while the caregiver is absent (absence %d); the family chooses who comes"
+								.formatted(change.absenceId())));
+		record(run.id(), newVisitId, shortlist, rules);
 		runs.save(run.committed(1, 1, snapshot.elder(moved.elderId()).priorVisitsBy(best.caregiverId()) > 0 ? 1 : 0, now));
 
-		Long newVisitId = visits.moveTo(change.visitId(), newStart, best.caregiverId(),
-				new VisitReassignment.Change(change.absenceId(), familyUserId, candidateIds.get(best.caregiverId()),
-						"Moved at the family's request while the caregiver is absent (absence " + change.absenceId() + ")"));
-		select(candidateIds.get(best.caregiverId()));
 		RosterChange settled = changes.save(change.rescheduled(newVisitId, best.caregiverId(), run.id(), familyUserId,
 				"Moved to %s at the family's request".formatted(newStart.format(WHEN)), now));
 		alert.settled(settled, notice(settled, best.name(), best.caregiverId(), newStart, null));
+		offerTheNewTime(settled, newVisitId, run.id(), best, now);
 		return settled;
+	}
+
+	/**
+	 * Step 3 again, for the visit at its new time: the family is offered the suggestions the search
+	 * just made, with the pencilled-in person as the default. The offer is a change of its own, on
+	 * the new visit, so it is answered, defaulted and confirmed like every other.
+	 */
+	private void offerTheNewTime(RosterChange moved, Long newVisitId, Long runId, Shortlist.Verdict best,
+			LocalDateTime now) {
+		VacatedSlot slot = toSlot(visits.find(newVisitId).orElseThrow(), moved.originalCaregiverId());
+		Optional<LocalDateTime> respondBy = window.respondBy(now, slot.start());
+		RosterChange offer = changes.save(RosterChange.offered(moved.absenceId(), slot, runId, best.caregiverId(),
+				respondBy.orElse(now), now));
+		if (respondBy.isPresent()) {
+			alert.offered(offer, notice(offer, best.name(), best.caregiverId(), null, null));
+		}
+		else {
+			settleWithRecheck(offer, best.caregiverId(), RosterChange.DecidedBy.DEFAULT_PLAN, null,
+					"The new time is too soon to ask the family again, so the best replacement keeps the visit");
+		}
 	}
 
 	/** Alternative 4c: skip this visit. Called off, recorded as the family's own cancellation. */
@@ -431,9 +455,14 @@ public class AbsenceReRosteringService {
 	 * @return caregiver id to the id of their rostering_candidate row
 	 */
 	private Map<Long, Long> record(Long runId, Shortlist shortlist, RuleSet rules) {
+		return record(runId, shortlist.slot().visitId(), shortlist, rules);
+	}
+
+	/** The same, filed under {@code visitId}: the visit at its new time, once it has been moved. */
+	private Map<Long, Long> record(Long runId, Long visitId, Shortlist shortlist, RuleSet rules) {
 		Map<Long, Long> ids = new HashMap<>();
 		for (Shortlist.Verdict verdict : shortlist.all()) {
-			RosteringCandidate saved = candidates.save(new RosteringCandidate(null, runId, shortlist.slot().visitId(),
+			RosteringCandidate saved = candidates.save(new RosteringCandidate(null, runId, visitId,
 					verdict.caregiverId(), verdict.rank(), verdict.score(),
 					verdict.isSuggested() ? RosteringCandidate.Outcome.SUGGESTED : RosteringCandidate.Outcome.EXCLUDED,
 					verdict.excludedBy(), verdict.reason()));

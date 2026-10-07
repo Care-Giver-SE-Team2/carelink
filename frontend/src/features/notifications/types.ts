@@ -10,7 +10,7 @@ export type NotificationItem = {
   channel: 'IN_APP'
   title: string
   body: string | null
-  /** What it is about: INCIDENT, ROSTER_CHANGE, SPOT_CHECK or CREDENTIAL. */
+  /** What it is about: INCIDENT, ROSTER_CHANGE, SPOT_CHECK, CREDENTIAL or ABSENCE. */
   resourceType: string | null
   resourceId: number | null
   /** SENT: in the inbox, not yet opened. READ: opened. */
