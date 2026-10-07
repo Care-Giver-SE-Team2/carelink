@@ -14,6 +14,7 @@ import { FamilyAccountPage } from './account/FamilyAccountPage'
 import { SelectedElderProvider } from './components/FamilyElderContext'
 import { FamilyRosterChangesPage } from './changes/FamilyRosterChangesPage'
 import { FamilySpotChecksPage } from './spot-checks/FamilySpotChecksPage'
+import { FamilyIncidentPage } from './incidents/FamilyIncidentPage'
 import { FamilyValueAddedServicesPage } from './services/FamilyValueAddedServicesPage'
 import { FamilyCaregiverReviewsPage } from './reviews/FamilyCaregiverReviewsPage'
 
@@ -28,6 +29,9 @@ export default function FamilyHome() {
       <Route index element={<Navigate to="home" replace />} />
       <Route element={<FamilyLayout title="Home" />}>
         <Route path="home" element={<FamilyHomePage />} />
+      </Route>
+      <Route element={<FamilyLayout title="Incident details" />}>
+        <Route path="incidents/:id" element={<FamilyIncidentPage />} />
       </Route>
       <Route element={<FamilyLayout title="Account" />}>
         <Route path="account" element={<FamilyAccountPage />} />
