@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { NotificationBell } from '../../../shared/components/notifications/NotificationBell'
 import { AppHeader, Eyebrow, MetaText, NavSidebar } from '../../../shared/components/ui'
 import type { NavItem } from '../../../shared/components/ui'
 import { useHeaderUser } from '../lib/useHeaderUser'
@@ -57,7 +58,13 @@ export function ManagerShell({
 
   return (
     <div className={styles.shell}>
-      <AppHeader contextLine={headerContext} user={user} trailing={headerRight} onLogout={() => navigate('/')} />
+      <AppHeader
+        contextLine={headerContext}
+        user={user}
+        trailing={headerRight}
+        notifications={<NotificationBell />}
+        onLogout={() => navigate('/')}
+      />
       <div className={styles.body}>
         <NavSidebar
           label="Manager console"

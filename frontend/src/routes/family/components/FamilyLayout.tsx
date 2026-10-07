@@ -1,5 +1,6 @@
 import { useEffect } from 'react'
 import { Link, Outlet, useLocation } from 'react-router-dom'
+import { NotificationBell } from '../../../shared/components/notifications/NotificationBell'
 import styles from '../intake/FamilyIntake.module.css'
 import { useSelectedElder } from './selectedElder'
 import { FamilySideRail } from './FamilySideRail'
@@ -77,6 +78,7 @@ export function FamilyLayout({ title = 'My applications' }: { title?: string }) 
       <a className={styles.skip} href="#family-content">
         Skip to content
       </a>
+      <NotificationBell floating />
       {desktop && <FamilySideRail items={links.slice(0, -1)} account={links[links.length - 1]} isActive={isActive} />}
       <main id="family-content" className={styles.main}>
         <Outlet />
