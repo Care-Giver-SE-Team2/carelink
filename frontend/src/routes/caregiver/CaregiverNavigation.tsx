@@ -16,5 +16,6 @@ export default function CaregiverNavigation() {
     <NavLink to={'/caregiver' + scheduleSearch} end>My schedule</NavLink>
     <NavLink to="/caregiver/absences">My leave</NavLink>
     <NavLink to="/caregiver/spot-checks">Spot checks</NavLink>
+    <NavLink to="/caregiver/incidents">My reports</NavLink>
   </nav>
 }

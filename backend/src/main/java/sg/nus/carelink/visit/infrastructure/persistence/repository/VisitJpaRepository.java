@@ -20,6 +20,10 @@ public interface VisitJpaRepository
         extends JpaRepository<VisitJpaEntity, Long>,
                 JpaSpecificationExecutor<VisitJpaEntity> {
 
+    @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+    @org.springframework.data.jpa.repository.Query("select v from VisitJpaEntity v where v.id = :id")
+    java.util.Optional<VisitJpaEntity> findForCommand(@org.springframework.data.repository.query.Param("id") Long id);
+
     List<VisitJpaEntity> findByCaregiverIdAndScheduledStartGreaterThanEqualAndScheduledStartLessThanOrderByScheduledStartAscIdAsc(
             Long caregiverId, java.time.LocalDateTime from, java.time.LocalDateTime until);
 

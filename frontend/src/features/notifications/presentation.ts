@@ -19,7 +19,7 @@ export function portalOf(pathname: string): Portal {
 /** Where a message leads in this client, or null when there is no screen for it there. */
 export function linkFor(item: Pick<NotificationItem, 'resourceType' | 'resourceId'>, portal: Portal): string | null {
   const routes: Record<string, Partial<Record<Portal, string>>> = {
-    INCIDENT: { manager: item.resourceId == null ? '/manager/exceptions' : `/manager/exceptions/${item.resourceId}` },
+    INCIDENT: { manager: item.resourceId == null ? '/manager/exceptions' : `/manager/exceptions/${item.resourceId}`, caregiver: item.resourceId == null ? '/caregiver/incidents' : `/caregiver/incidents/${item.resourceId}` },
     ABSENCE: { manager: item.resourceId == null ? '/manager/absences' : `/manager/absences/${item.resourceId}` },
     ROSTER_CHANGE: { manager: '/manager/absences', family: '/family/changes', caregiver: '/caregiver' },
     SPOT_CHECK: { manager: '/manager/quality', family: '/family/spot-checks', caregiver: item.resourceId == null ? '/caregiver/spot-checks' : `/caregiver/spot-checks?spotCheckId=${item.resourceId}` },

@@ -110,6 +110,12 @@ public abstract class CaregiverHttpITSupport {
         public HttpResponse<String> withoutCsrf(String path, Map<String, ?> payload) throws Exception {
             return sendPost(path, payload, null);
         }
+        public HttpResponse<String> put(String path, Map<String, ?> payload) throws Exception {
+            assertThat(get("/api/auth/csrf").statusCode()).isEqualTo(200);
+            String csrf = cookies.getCookieStore().getCookies().stream().filter(c -> c.getName().equals("XSRF-TOKEN")).findFirst().orElseThrow().getValue();
+            return client.send(request(path).header("Content-Type","application/json").header("X-XSRF-TOKEN",csrf)
+                    .PUT(HttpRequest.BodyPublishers.ofString(json.writeValueAsString(payload))).build(),HttpResponse.BodyHandlers.ofString());
+        }
         private HttpResponse<String> sendPost(String path, Map<String, ?> payload, String csrf) throws Exception {
             var builder = request(path).header("Content-Type", "application/json");
             if (csrf != null) builder.header("X-XSRF-TOKEN", csrf);
