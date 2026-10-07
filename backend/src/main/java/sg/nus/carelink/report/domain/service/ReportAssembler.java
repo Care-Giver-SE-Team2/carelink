@@ -4,7 +4,8 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
-import java.util.EnumMap;
+import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -151,20 +152,30 @@ public abstract class ReportAssembler {
 					timeOf(visit.scheduledStart()),
 					visit.serviceType() == null || visit.serviceType().isBlank() ? "Visit" : visit.serviceType(),
 					caregiverOf(visit),
-					outcome(visit.status()),
+					outcome(visit),
 					evidence(visit)));
 		}
 		return lines(lines);
 	}
 
-	/** "3 visits: 1 scheduled, 2 verified." - counted in the order a visit moves through its states. */
+	/**
+	 * "3 visits: 1 scheduled, 2 verified." - counted in the order a visit moves through its states.
+	 * A visit the family skipped is counted on its own, after the other cancellations: part of the
+	 * period's record, and never a missed visit (UC-MG04 alternative 4c).
+	 */
 	private static String tally(List<VisitFact> visits) {
-		Map<VisitFact.Status, Long> byStatus = new EnumMap<>(VisitFact.Status.class);
-		visits.forEach(visit -> byStatus.merge(visit.status(), 1L, Long::sum));
-		String breakdown = byStatus.entrySet().stream()
-				.map(entry -> entry.getValue() + " " + outcome(entry.getKey()))
+		Map<String, Long> byOutcome = new LinkedHashMap<>();
+		visits.stream()
+				.sorted(Comparator.comparing(VisitFact::status).thenComparing(VisitFact::cancelledByFamily))
+				.forEach(visit -> byOutcome.merge(outcome(visit), 1L, Long::sum));
+		String breakdown = byOutcome.entrySet().stream()
+				.map(entry -> entry.getValue() + " " + entry.getKey())
 				.collect(Collectors.joining(", "));
 		return "%s: %s.".formatted(counted(visits.size(), "visit", "visits"), breakdown);
+	}
+
+	private static String outcome(VisitFact visit) {
+		return visit.cancelledByFamily() ? "cancelled at the family's request" : outcome(visit.status());
 	}
 
 	private static String outcome(VisitFact.Status status) {

@@ -327,6 +327,32 @@ class ReportAssemblerTest {
 		}
 	}
 
+	/**
+	 * A visit the family chose to skip while its caregiver was away is part of the period's
+	 * record, counted on its own after the other cancellations, and never reads as missed.
+	 */
+	@Test
+	void aVisitTheFamilySkippedIsCountedOnItsOwnAndNeverAsMissed() {
+		VisitFact skipped = new VisitFact(
+				16L, 3L, "Daniel Goh", "Personal care", LocalDateTime.of(2026, 9, 17, 9, 0), VisitFact.Status.CANCELLED,
+				0, 0, true);
+		VisitFact calledOff = new VisitFact(
+				17L, null, null, null, LocalDateTime.of(2026, 9, 18, 9, 0), VisitFact.Status.CANCELLED, 0, 0);
+		ReportFacts week = ReportFixtures.quietWeek();
+		ReportFacts withSkip = new ReportFacts(week.elderId(), week.period(), List.of(skipped, calledOff),
+				List.of(), List.of(), List.of());
+
+		for (Report.Audience audience : Report.Audience.values()) {
+			String body = ReportAssembler.forAudience(audience).assemble(withSkip).sections().get(0).body();
+			assertThat(body.lines().findFirst())
+					.contains("2 visits: 1 cancelled, 1 cancelled at the family's request.");
+			assertThat(body).contains(" · cancelled at the family's request · no evidence");
+		}
+		assertThat(skipped.isClosed()).as("it does not leave the report incomplete").isTrue();
+		assertThat(new VisitFact(18L, 3L, null, null, LocalDateTime.of(2026, 9, 18, 9, 0), VisitFact.Status.VERIFIED,
+				1, 1, true).cancelledByFamily()).as("only a cancelled visit can have been skipped").isFalse();
+	}
+
 	@ParameterizedTest
 	@EnumSource(VisitFact.Status.class)
 	void everyStateAVisitCanEndInIsDescribedInWords(VisitFact.Status status) {

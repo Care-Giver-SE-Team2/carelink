@@ -52,6 +52,18 @@ class ReportFactsJdbcSourceTest {
 	}
 
 	@Test
+	void aVisitTheFamilySkippedIsReadAsSuch() throws SQLException {
+		ResultSet rs = mock(ResultSet.class);
+		when(rs.getLong("id")).thenReturn(12L);
+		when(rs.getLong("caregiver_id")).thenReturn(3L);
+		when(rs.getTimestamp("scheduled_start")).thenReturn(Timestamp.valueOf(NINE));
+		when(rs.getString("status")).thenReturn("CANCELLED");
+		when(rs.getBoolean("skipped_by_family")).thenReturn(true);
+
+		assertThat(ReportFactsJdbcSource.visit(rs).cancelledByFamily()).isTrue();
+	}
+
+	@Test
 	void anUnassignedVisitHasNoCaregiverRatherThanCaregiverZero() throws SQLException {
 		ResultSet rs = mock(ResultSet.class);
 		when(rs.getLong("id")).thenReturn(13L);

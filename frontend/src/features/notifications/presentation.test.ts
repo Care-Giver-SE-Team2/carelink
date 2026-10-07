@@ -22,6 +22,8 @@ describe('linkFor', () => {
     expect(linkFor({ resourceType: 'SPOT_CHECK', resourceId: 9 }, 'family')).toBe('/family/spot-checks')
     expect(linkFor({ resourceType: 'SPOT_CHECK', resourceId: 9 }, 'manager')).toBe('/manager/quality')
     expect(linkFor({ resourceType: 'CREDENTIAL', resourceId: 2 }, 'manager')).toBe('/manager/certifications')
+    expect(linkFor({ resourceType: 'ABSENCE', resourceId: 5 }, 'manager')).toBe('/manager/absences/5')
+    expect(linkFor({ resourceType: 'ABSENCE', resourceId: null }, 'manager')).toBe('/manager/absences')
   })
 
   it('has nowhere to go when this client has no screen for it', () => {

@@ -1,5 +1,9 @@
 /* Colours and sizes come from the theme variables, so the bell follows whichever client it sits in,
-   the elder theme's larger type included. */
+   the elder theme's larger type included.
+
+   The controls are styled as `.root .x`, one step more specific than a client's own rule for every
+   button on its pages (the family app's `.portal button` sets a 48px minimum height, padding and a
+   pill border), so the bell keeps its own shape wherever it is placed. */
 
 .root {
   position: relative;
@@ -15,8 +19,7 @@
   z-index: 20;
 }
 
-/* `min-height`/`border-radius` reset the global button rule in shared/theme/theme.css. */
-.bell {
+.root .bell {
   position: relative;
   display: inline-flex;
   align-items: center;
@@ -29,16 +32,21 @@
   border-radius: var(--radius, 6px);
   background: var(--bg);
   color: var(--text);
+  line-height: 1;
   cursor: pointer;
 }
 
-.bell:hover {
+.root .bell svg {
+  flex: none;
+}
+
+.root .bell:hover {
   border-color: var(--text);
 }
 
-.bell:focus-visible,
-.item:focus-visible,
-.textButton:focus-visible {
+.root .bell:focus-visible,
+.root .item:focus-visible,
+.root .textButton:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
@@ -89,18 +97,20 @@
   font-weight: 600;
 }
 
-.textButton {
+.root .textButton {
   min-height: auto;
   padding: 0;
   border: none;
+  border-radius: 0;
   background: none;
   color: var(--link, var(--accent));
   font: inherit;
   font-size: 0.9em;
+  font-weight: 400;
   cursor: pointer;
 }
 
-.textButton:disabled {
+.root .textButton:disabled {
   color: var(--text-disabled);
   cursor: default;
 }
@@ -117,7 +127,7 @@
   list-style: none;
 }
 
-.item {
+.root .item {
   display: flex;
   flex-direction: column;
   gap: 3px;
@@ -131,24 +141,22 @@
   background: var(--bg);
   color: var(--text);
   font: inherit;
+  font-weight: 400;
+  line-height: 1.3;
   text-align: left;
   cursor: pointer;
 }
 
-.item:hover {
+.root .item:hover {
   background: var(--bg-hover, var(--bg));
 }
 
-.unread {
+.root .unread {
   border-left-color: var(--accent);
 }
 
 .unread .itemTitle {
   font-weight: 600;
-}
-
-.itemTitle {
-  line-height: 1.3;
 }
 
 .itemBody {
