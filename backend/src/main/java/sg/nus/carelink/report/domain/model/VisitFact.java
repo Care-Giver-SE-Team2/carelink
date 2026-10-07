@@ -16,6 +16,9 @@ import java.util.Objects;
  *                              assembler for their audience, not here
  * @param evidenceCount         items of evidence captured on the visit
  * @param verifiedEvidenceCount how many of those have been verified
+ * @param skippedByFamily       cancelled because the family chose to skip it while its caregiver
+ *                              was away (UC-MG04 alternative 4c): not a missed visit, but still
+ *                              one the period's record has to show
  */
 public record VisitFact(
 		Long id,
@@ -25,12 +28,25 @@ public record VisitFact(
 		LocalDateTime scheduledStart,
 		VisitFact.Status status,
 		int evidenceCount,
-		int verifiedEvidenceCount) {
+		int verifiedEvidenceCount,
+		boolean skippedByFamily) {
 
 	public VisitFact {
 		Objects.requireNonNull(id, "id");
 		Objects.requireNonNull(scheduledStart, "scheduledStart");
 		Objects.requireNonNull(status, "status");
+	}
+
+	/** A visit no family chose to skip, which is nearly every visit. */
+	public VisitFact(Long id, Long caregiverId, String caregiverName, String serviceType, LocalDateTime scheduledStart,
+			VisitFact.Status status, int evidenceCount, int verifiedEvidenceCount) {
+		this(id, caregiverId, caregiverName, serviceType, scheduledStart, status, evidenceCount, verifiedEvidenceCount,
+				false);
+	}
+
+	/** Cancelled at the family's request: counted in the period, never as a missed visit. */
+	public boolean cancelledByFamily() {
+		return status == Status.CANCELLED && skippedByFamily;
 	}
 
 	/**
