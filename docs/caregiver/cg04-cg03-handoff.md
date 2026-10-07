@@ -9,7 +9,7 @@ CG03 provides the missing source writes for existing FM03 reads. After real mana
 | Owner | Integration to review | Unchanged boundary |
 | --- | --- | --- |
 | MG05 | Caregiver report → existing routing/queue/claim/resolve. Own receipt exposes live status/deadline, not manager internal notes. | Resolve never resumes/completes the Visit automatically. Current notification recipients and SYS02 chain remain unchanged. |
-| MG03/MG04 | Caregiver writes lock the parent Visit and advance its version, including task writes. V16 adds one task per non-null visit/node. | Scheduling/reassignment/cancellation methods remain; started work is not silently reassigned. No historical duplicates are deleted. |
+| MG03/MG04 | Caregiver writes lock the parent Visit and advance its version, including task writes. V17 adds one task per non-null visit/node. | Scheduling/reassignment/cancellation methods remain; started work is not silently reassigned. No historical duplicates are deleted. |
 | FM03 | Existing detail/timeline/tasks read real upstream facts. Only DONE counts; only APPLIED appears in the timeline. | No caregiver notes, outcome, GPS, manual location note, actor or rejection reason enters family projection. No completion event is fabricated. |
 | FM05 | MG05 receives the actual Incident and existing in-app notification facts. | This does not implement missing family incident pages or acknowledgement flows. |
 
@@ -22,7 +22,8 @@ CG03 provides the missing source writes for existing FM03 reads. After real mana
 - One check-in transaction records SCHEDULED → ARRIVED → IN_PROGRESS, clears waiting deadline and initializes missing assigned tasks. No GET creates tasks.
 - PENDING tasks can be submitted once. SKIPPED/REFUSED need a factual reason and retain null completedAt; even all-DONE does not complete the Visit.
 - Commands use immutable UUID/payload receipts and expectedVersion. Parent lock + READ_COMMITTED prevents stale replay reads. Buttons prevent concurrent UI writes; cancelling a browser request cannot undo a server transaction. No automatic POST retries.
-- V15: caregiver command receipt/index; V16: minimal check-in record and task uniqueness. Only new migrations, never edits to deployed migrations. Preflight legacy duplicates before applying V16 to a non-empty environment. Failing the migration is preferable to deleting unknown facts.
+- V15 belongs to the merged FM05 family alert delivery migration. V16: caregiver command receipt/index; V17: minimal check-in record and task uniqueness. Only new migrations, never edits to deployed migrations. Preflight legacy duplicates before applying V17 to a non-empty environment. Failing the migration is preferable to deleting unknown facts.
+- The unmerged caregiver migrations were renumbered from V15/V16 to V16/V17 when FM05 reached main first. An isolated preview database that already applied the old caregiver numbering needs a separately approved data-preserving migration/rebuild procedure before running this version. Do not run Flyway repair, delete its volume, or alter shared migration history automatically.
 - Authorized state rejection is recorded after the command transaction releases its locks. Permission denials do not enter the family's state timeline. Command audit/receipt stays free of care narrative and GPS text.
 
 These changes need team review before merge, especially schema/notification/state assumptions. This file is a handoff draft; it has not been sent to teammates. Approval to develop does not establish that team review happened.
