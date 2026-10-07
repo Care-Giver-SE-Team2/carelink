@@ -68,7 +68,7 @@ class FamilyAccessQueryServiceTest {
     private final ElderFamilyBindingRepository bindings =
             mock(ElderFamilyBindingRepository.class);
 
-    private final FamilyAccessQuery service =
+    private final FamilyAccessQueryService service =
             new FamilyAccessQueryService(
                     users,
                     families,
@@ -220,6 +220,9 @@ class FamilyAccessQueryServiceTest {
 
     @Test
     void resolvesBindingsByFamilyProfileIdRatherThanAccountId() {
+        FamilyIdentityQuery identity = service;
+        assertThat(identity.requireFamilyMemberId("family-a")).isEqualTo(42L);
+        assertThat(identity.requireFamilyMemberId("family-b")).isEqualTo(7L);
         ElderFamilyBinding own =
                 fullBinding(
                         101L,
@@ -735,6 +738,9 @@ class FamilyAccessQueryServiceTest {
     )
     void deniesMissingOrIneligibleAccountsBeforeReadingBindings(
             String username) {
+
+        assertThatThrownBy(() -> service.requireFamilyMemberId(username))
+                .isInstanceOf(AccessDeniedException.class);
 
         assertThatThrownBy(() ->
                 service.readableElderIds(
