@@ -39,11 +39,16 @@ carelink:
   # run rolls that window forward (Spring cron, read in schedule-zone; "-" switches it off).
   roster:
     horizon-days: 14
-    schedule-cron: "0 30 2 * * *"
+    schedule-cron: "0 0 0 * * *"
     schedule-zone: Asia/Singapore
     # How often a visit still unassigned at its start time is turned into an exception.
     uncovered-scan-interval: PT60S
     uncovered-scan-initial-delay: PT30S
+    # A visit on approved leave still with the caregiver who is away this long before it
+    # starts gets an incident, so a manager re-rosters it in time; how often that is checked.
+    leave-reminder-lead: PT24H
+    leave-reminder-interval: PT15M
+    leave-reminder-initial-delay: PT2M
   # UC-MG04. How long a family has to answer a change before the default plan runs (the use
   # case: two hours by default, never a constant), how long before a visit its replacement
   # must know, how far back visits to an elder count as continuity and spot-check conclusions

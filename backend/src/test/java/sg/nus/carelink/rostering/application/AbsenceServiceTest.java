@@ -27,7 +27,7 @@ class AbsenceServiceTest {
 	private final CaregiverWorkDirectory caregivers = mock(CaregiverWorkDirectory.class);
 	private final List<String> told = new ArrayList<>();
 	private final AbsenceService service = new AbsenceService(absences, profiles, caregivers,
-			(absence, name) -> told.add(name + " " + absence.id()),
+			new ReRosteringFakes.AbsenceAlerts(told),
 			new ReRosteringFakes.MutableClock(TODAY.atTime(9, 0), ZoneId.of("Asia/Singapore")));
 
 	@Test
