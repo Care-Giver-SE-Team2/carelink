@@ -23,6 +23,7 @@ import sg.nus.carelink.visit.domain.repository.VisitTaskRepository;
 @Service
 @Transactional(readOnly = true)
 public class CaregiverWorkService {
+    private static final ZoneId SINGAPORE = ZoneId.of("Asia/Singapore");
     private final VisitRepository visits;
     private final VisitTaskRepository tasks;
     private final CaregiverWorkDirectory directory;
@@ -44,7 +45,7 @@ public class CaregiverWorkService {
 
     public Schedule schedule(String username, LocalDate from, LocalDate to) {
         var caregiver = directory.require(username);
-        var today = LocalDate.now(clock.withZone(ZoneId.of("Asia/Singapore")));
+        var today = LocalDate.now(clock.withZone(SINGAPORE));
         if (from == null && to == null) { from = today; to = today.plusDays(6); }
         if (from == null || to == null || to.isBefore(from) || ChronoUnit.DAYS.between(from, to) > 30
                 || to.equals(LocalDate.MAX)) {
@@ -53,7 +54,7 @@ public class CaregiverWorkService {
         var rows = visits.findAssigned(caregiver.id(), from.atStartOfDay(), to.plusDays(1).atStartOfDay()).stream()
                 .map(v -> summary(v, directory.elder(v.elderId()).preferredName())).toList();
         var alerts = directory.alerts(caregiver.id(), today);
-        return new Schedule(from, to, "Asia/Singapore", rows, alerts.items(), alerts.context());
+        return new Schedule(from, to, SINGAPORE.getId(), rows, alerts.items(), alerts.context());
     }
 
     public WorkPack workPack(String username, Long visitId) {
@@ -97,10 +98,10 @@ public class CaregiverWorkService {
     }
 
     private ExecutionContext execution(Visit visit, boolean hasPlanTasks) {
-        var now = LocalDateTime.now(clock.withZone(ZoneId.of("Asia/Singapore")));
+        var now = LocalDateTime.now(clock.withZone(SINGAPORE));
         var actions = new java.util.ArrayList<String>();
         String reason = null;
-        try { visit.reportedException(now); actions.add("REPORT_INCIDENT"); } catch (BusinessRuleViolation ignored) { /* unavailable */ }
+        try { visit.reportedException(now); actions.add("REPORT_INCIDENT"); } catch (BusinessRuleViolation _) { /* unavailable */ }
         try {
             var state = sg.nus.carelink.visit.domain.model.VisitStateFactory.forVisit(visit);
             if (visit.status() == Visit.Status.SCHEDULED) {

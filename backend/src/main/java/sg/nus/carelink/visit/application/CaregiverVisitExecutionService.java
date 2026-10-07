@@ -1,6 +1,5 @@
 package sg.nus.carelink.visit.application;
 
-import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
 import org.springframework.stereotype.Service;
@@ -12,6 +11,8 @@ import sg.nus.carelink.visit.domain.repository.*;
 
 @Service
 public class CaregiverVisitExecutionService {
+    private static final String CHECK_IN = "CHECK_IN";
+    private static final String TASK_RESULT = "TASK_RESULT";
     private final CaregiverCommandExecutor executor;
     private final CaregiverCommandStore receipts;
     private final VisitCommandRepository visits;
@@ -26,9 +27,9 @@ public class CaregiverVisitExecutionService {
     }
     public ExecutionResult checkIn(String username, Long id, Integer version, UUID key, CheckInLocation loc) {
         String hash=CommandFingerprint.of(id,version,loc.source(),loc.latitude(),loc.longitude(),loc.accuracy(),loc.note(),loc.clientCapturedAt());
-        return executor.execute(username,id,"CHECK_IN","ARRIVED",(actor,visit)->{
+        return executor.execute(username,id,CHECK_IN,Visit.Status.ARRIVED.name(),(actor,visit)->{
             var previous=receipts.find(actor.userId(),key);
-            if(previous.isPresent()) { var r=previous.get();r.requireSame("CHECK_IN",id,hash);return new ExecutionResult(id,r.version(),"IN_PROGRESS",null,true); }
+            if(previous.isPresent()) { var r=previous.get();r.requireSame(CHECK_IN,id,hash);return new ExecutionResult(id,r.version(),"IN_PROGRESS",null,true); }
             CaregiverCommandExecutor.version(visit,version);
             var now=executor.now();policy.requireWindow(visit,now);
             var arrived=VisitStateFactory.forVisit(visit).arrive(visit,now);
@@ -36,10 +37,10 @@ public class CaregiverVisitExecutionService {
             var started=VisitStateFactory.forVisit(arrived).start(arrived);
             checkIns.save(id,actor.userId(),key,loc,now);
             var saved=visits.save(started);
-            transitions.save(new VisitStateTransition(null,id,"SCHEDULED","ARRIVED",actor.userId(),VisitStateTransition.Result.APPLIED,null,now));
-            transitions.save(new VisitStateTransition(null,id,"ARRIVED","IN_PROGRESS",actor.userId(),VisitStateTransition.Result.APPLIED,null,now));
-            receipts.audit(actor.userId(),id,"CHECK_IN","OK","SAVED");
-            receipts.save(new CaregiverCommandReceipt(actor.userId(),key,"CHECK_IN",id,hash,id,saved.version(),now));
+            transitions.save(new VisitStateTransition(null,id,Visit.Status.SCHEDULED.name(),Visit.Status.ARRIVED.name(),actor.userId(),VisitStateTransition.Result.APPLIED,null,now));
+            transitions.save(new VisitStateTransition(null,id,Visit.Status.ARRIVED.name(),Visit.Status.IN_PROGRESS.name(),actor.userId(),VisitStateTransition.Result.APPLIED,null,now));
+            receipts.audit(actor.userId(),id,CHECK_IN,"OK","SAVED");
+            receipts.save(new CaregiverCommandReceipt(actor.userId(),key,CHECK_IN,id,hash,id,saved.version(),now));
             return new ExecutionResult(id,saved.version(),saved.status().name(),null,false);
         });
     }
@@ -56,22 +57,27 @@ public class CaregiverVisitExecutionService {
         }
         if(existing.isEmpty() && visit.carePlanNodeId()==null) throw new BusinessRuleViolation("VISIT_TASKS_REQUIRED","No executable task is assigned.");
     }
-    public ExecutionResult taskResult(String username, Long id, Long taskId, String status, String outcome, String note, Integer version, UUID key) {
-        String cleanOutcome=outcome==null?null:outcome.strip();String cleanNote=note==null?null:note.strip();
+    public ExecutionResult taskResult(String username, Long id, Long taskId, TaskCommand input) {
+        String status=input.status();
+        Integer version=input.expectedVersion();
+        UUID key=input.clientRequestId();
+        String cleanOutcome=input.outcome()==null?null:input.outcome().strip();
+        String cleanNote=input.caregiverNote()==null?null:input.caregiverNote().strip();
         String hash=CommandFingerprint.of(id,taskId,version,status,cleanOutcome,cleanNote);
-        return executor.execute(username,id,"TASK_RESULT",null,(actor,visit)->{
+        return executor.execute(username,id,TASK_RESULT,null,(actor,visit)->{
             var previous=receipts.find(actor.userId(),key);
-            if(previous.isPresent()) { var r=previous.get();r.requireSame("TASK_RESULT",id,hash);return new ExecutionResult(id,r.version(),null,taskId,true); }
+            if(previous.isPresent()) { var r=previous.get();r.requireSame(TASK_RESULT,id,hash);return new ExecutionResult(id,r.version(),null,taskId,true); }
             CaregiverCommandExecutor.version(visit,version);
             VisitStateFactory.forVisit(visit).requireTaskResult();
             var task=tasks.findById(taskId).filter(t->Objects.equals(id,t.visitId())).orElseThrow(()->new ResourceNotFound("Task",taskId));
             var now=executor.now();
             tasks.save(task.result(VisitTask.Status.valueOf(status),cleanOutcome,cleanNote,now));
             var saved=visits.save(visit);
-            receipts.audit(actor.userId(),id,"TASK_RESULT","OK","SAVED");
-            receipts.save(new CaregiverCommandReceipt(actor.userId(),key,"TASK_RESULT",id,hash,taskId,saved.version(),now));
+            receipts.audit(actor.userId(),id,TASK_RESULT,"OK","SAVED");
+            receipts.save(new CaregiverCommandReceipt(actor.userId(),key,TASK_RESULT,id,hash,taskId,saved.version(),now));
             return new ExecutionResult(id,saved.version(),saved.status().name(),taskId,false);
         });
     }
+    public record TaskCommand(String status,String outcome,String caregiverNote,Integer expectedVersion,UUID clientRequestId) {}
     public record ExecutionResult(Long visitId,Integer visitVersion,String savedState,Long taskId,boolean replayed) {}
 }

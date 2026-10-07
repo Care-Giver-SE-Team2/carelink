@@ -70,7 +70,9 @@ class SecurityConfigTest {
 	}
 
 	@ParameterizedTest
-	@ValueSource(strings = {"/caregiver", "/caregiver/", "/caregiver/visits/42"})
+	@ValueSource(strings = {"/caregiver", "/caregiver/", "/caregiver/visits/42",
+			"/caregiver/visits/42/report-incident", "/caregiver/incidents", "/caregiver/incidents/7",
+			"/caregiver/absences", "/caregiver/spot-checks"})
 	void caregiverDocumentRoutesForwardWithoutOpeningTheApi(String path) throws Exception {
 		mockMvc.perform(get(path)).andExpect(status().isOk()).andExpect(forwardedUrl("/index.html"));
 		mockMvc.perform(get("/api/caregivers/me/schedule")).andExpect(status().isUnauthorized());

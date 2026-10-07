@@ -59,16 +59,20 @@ public class CaregiverCommandExecutor {
         } catch (AccessDeniedException | ResourceNotFound failure) {
             tx.executeWithoutResult(status -> store.audit(context.actor, id, action, "DENIED", "ACCESS_DENIED"));
             throw failure;
-        } catch (DataIntegrityViolationException failure) {
+        } catch (DataIntegrityViolationException _) {
             throw new BusinessRuleViolation("COMMAND_CONFLICT", "Command conflict. Check saved results before trying again.");
-        } catch (org.springframework.dao.ConcurrencyFailureException failure) {
+        } catch (org.springframework.dao.ConcurrencyFailureException _) {
             throw new BusinessRuleViolation("VISIT_VERSION_CONFLICT", "Concurrent change. Check saved results and refresh before continuing.");
         } catch (org.springframework.dao.DataAccessException failure) {
             throw new CaregiverCommandUnavailable(failure);
         }
     }
     public LocalDateTime now() { return LocalDateTime.now(clock.withZone(ZoneId.of("Asia/Singapore"))); }
-    private static class Context { Long actor; Visit visit; boolean authorized; }
+    private static class Context {
+        Long actor;
+        Visit visit;
+        boolean authorized;
+    }
     public static void version(Visit visit, Integer expected) {
         if (!Objects.equals(visit.version(), expected)) throw new BusinessRuleViolation("VISIT_VERSION_CONFLICT", "Visit changed. Refresh before continuing.");
     }

@@ -26,7 +26,7 @@ $demoStart = $demoStart.AddSeconds(-$demoStart.Second).AddMilliseconds(-$demoSta
 $demoPlan = Invoke-DemoCommand 'POST' '/api/care-plans' @{elderId=$demoElder}
 $demoNode = @{groupName='Personal care';name='Execution demo care routine';evidenceType='CHECKLIST';visits=@(@{day=$demoStart.DayOfWeek.ToString().ToUpperInvariant();startTime=$demoStart.ToString('HH:mm:ss');minutes=60})}
 Invoke-DemoCommand 'POST' "/api/care-plans/$($demoPlan.id)/publish" @{startDate=$demoStart.ToString('yyyy-MM-dd');nodes=@($demoNode)} | Out-Null
-$demoVisits = Invoke-RestMethod "$demoBase/api/visits?elderId=$demoElder&dateFrom=$($demoStart.ToString('yyyy-MM-dd'))&dateTo=$($demoStart.ToString('yyyy-MM-dd'))" -WebSession $demoSession
+$demoVisits = @(Invoke-RestMethod "$demoBase/api/visits/roster?date=$($demoStart.ToString('yyyy-MM-dd'))" -WebSession $demoSession) | Where-Object { $_.elderId -eq $demoElder -and $_.carePlanId -eq $demoPlan.id }
 Write-Output "Server day: $($demoStart.ToString('yyyy-MM-dd')); start: $demoStart; plan: $($demoPlan.id)"
 $demoVisits | ConvertTo-Json -Depth 8
 Write-Output 'Created by real manager HTTP assignment/publication. No check-in/task/incident SQL.'

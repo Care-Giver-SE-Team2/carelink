@@ -87,11 +87,11 @@ public class VisitController {
 	/** The role selects a safe projection; a caller cannot request another projection. */
 	@GetMapping("/{visitId}/tasks")
 	@PreAuthorize("hasAnyRole('FAMILY','CAREGIVER')")
-	public List<?> tasks(@PathVariable Long visitId, Authentication authentication) {
+	public List<Object> tasks(@PathVariable Long visitId, Authentication authentication) {
         if (authentication.getAuthorities().stream().noneMatch(role -> role.getAuthority().equals("ROLE_FAMILY"))) {
-            return caregiverWork.workPack(authentication.getName(),visitId).tasks();
+            return caregiverWork.workPack(authentication.getName(),visitId).tasks().stream().map(Object.class::cast).toList();
         }
 		return familyTasks.findTasks(authentication.getName(), visitId).stream()
-				.map(FamilyVisitTaskResponse::from).toList();
+				.map(FamilyVisitTaskResponse::from).map(Object.class::cast).toList();
 	}
 }

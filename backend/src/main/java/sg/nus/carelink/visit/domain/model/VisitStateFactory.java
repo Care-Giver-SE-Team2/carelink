@@ -23,14 +23,17 @@ public final class VisitStateFactory {
     }
     private enum Scheduled implements VisitExecutionState {
         INSTANCE;
+        @Override
         public Visit arrive(Visit visit, LocalDateTime now) { return visit.arrivedAt(now); }
     }
     private enum Arrived implements VisitExecutionState {
         INSTANCE;
+        @Override
         public Visit start(Visit visit) { return visit.started(); }
     }
     private enum InProgress implements VisitExecutionState {
         INSTANCE;
+        @Override
         public void requireTaskResult() { /* The state permits this command; task rules still apply. */ }
     }
     private enum Blocked implements VisitExecutionState { INSTANCE }

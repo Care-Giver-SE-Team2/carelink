@@ -9,7 +9,8 @@ import org.springframework.web.bind.annotation.PathVariable;
 class CaregiverPageController {
     @GetMapping({"/caregiver", "/caregiver/", "/caregiver/visits/{visitId}", "/caregiver/visits/{visitId}/report-incident",
             "/caregiver/absences", "/caregiver/spot-checks", "/caregiver/incidents", "/caregiver/incidents/{incidentId}"})
-    String page(@PathVariable(name = "visitId", required = false) String visitId) {
+    String page(@PathVariable(name = "visitId", required = false) String visitId,
+            @PathVariable(name = "incidentId", required = false) String incidentId) {
         return "forward:/index.html";
     }
 }

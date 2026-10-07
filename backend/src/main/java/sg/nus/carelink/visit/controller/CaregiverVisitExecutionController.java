@@ -20,6 +20,6 @@ public class CaregiverVisitExecutionController {
     }
     @PostMapping("/{visitId}/tasks/{taskId}/complete")
     public CaregiverVisitExecutionService.ExecutionResult result(Authentication auth,@PathVariable Long visitId,@PathVariable Long taskId,@Valid @RequestBody CaregiverTaskResultRequest input) {
-        return service.taskResult(auth.getName(),visitId,taskId,input.status(),input.outcome(),input.caregiverNote(),input.expectedVersion(),input.clientRequestId());
+        return service.taskResult(auth.getName(),visitId,taskId,new CaregiverVisitExecutionService.TaskCommand(input.status(),input.outcome(),input.caregiverNote(),input.expectedVersion(),input.clientRequestId()));
     }
 }
