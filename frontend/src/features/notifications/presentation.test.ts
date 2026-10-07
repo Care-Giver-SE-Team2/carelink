@@ -16,6 +16,7 @@ describe('portalOf', () => {
 describe('linkFor', () => {
   it('sends each message to the screen this client has for it', () => {
     expect(linkFor({ resourceType: 'INCIDENT', resourceId: 12 }, 'manager')).toBe('/manager/exceptions/12')
+    expect(linkFor({ resourceType: 'INCIDENT', resourceId: 12 }, 'family')).toBe('/family/incidents/12')
     expect(linkFor({ resourceType: 'INCIDENT', resourceId: null }, 'manager')).toBe('/manager/exceptions')
     expect(linkFor({ resourceType: 'INCIDENT', resourceId: 12 }, 'caregiver')).toBe('/caregiver/incidents/12')
     expect(linkFor({ resourceType: 'INCIDENT', resourceId: null }, 'caregiver')).toBe('/caregiver/incidents')
@@ -31,10 +32,15 @@ describe('linkFor', () => {
   })
 
   it('has nowhere to go when this client has no screen for it', () => {
-    expect(linkFor({ resourceType: 'INCIDENT', resourceId: 12 }, 'family')).toBeNull()
     expect(linkFor({ resourceType: 'ROSTER_CHANGE', resourceId: 4 }, 'elder')).toBeNull()
     expect(linkFor({ resourceType: 'SOMETHING_NEW', resourceId: 1 }, 'manager')).toBeNull()
     expect(linkFor({ resourceType: null, resourceId: null }, 'manager')).toBeNull()
+  })
+})
+
+describe('family incident links', () => {
+  it.each([null, 0, -1, 1.5, NaN, Infinity, Number.MAX_SAFE_INTEGER + 1])('rejects unsafe incident number %s', (id) => {
+    expect(linkFor({ resourceType: 'INCIDENT', resourceId: id }, 'family')).toBeNull()
   })
 })
 

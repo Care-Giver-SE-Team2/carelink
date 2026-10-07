@@ -18,6 +18,9 @@ export function portalOf(pathname: string): Portal {
 
 /** Where a message leads in this client, or null when there is no screen for it there. */
 export function linkFor(item: Pick<NotificationItem, 'resourceType' | 'resourceId'>, portal: Portal): string | null {
+  if (portal === 'family' && item.resourceType === 'INCIDENT') {
+    return validId(item.resourceId) ? `/family/incidents/${item.resourceId}` : null
+  }
   const routes: Record<string, Partial<Record<Portal, string>>> = {
     INCIDENT: { manager: item.resourceId == null ? '/manager/exceptions' : `/manager/exceptions/${item.resourceId}`, caregiver: item.resourceId == null ? '/caregiver/incidents' : `/caregiver/incidents/${item.resourceId}` },
     ABSENCE: { manager: item.resourceId == null ? '/manager/absences' : `/manager/absences/${item.resourceId}` },
@@ -26,6 +29,18 @@ export function linkFor(item: Pick<NotificationItem, 'resourceType' | 'resourceI
     CREDENTIAL: { manager: '/manager/certifications', caregiver: '/caregiver' },
   }
   return (item.resourceType && routes[item.resourceType]?.[portal]) || null
+}
+
+/** A bell navigation context is not an authorization credential. Ignore malformed or stale pairs. */
+export function familyIncidentNotificationId(state: unknown, incidentId: string): number | null {
+  if (!state || typeof state !== 'object' || !('familyIncidentNotification' in state)) return null
+  const context = state.familyIncidentNotification
+  if (!context || typeof context !== 'object' || !('id' in context) || !('incidentId' in context)) return null
+  return validId(context.id) && validId(context.incidentId) && String(context.incidentId) === incidentId ? context.id : null
+}
+
+export function validId(id: unknown): id is number {
+  return typeof id === 'number' && Number.isSafeInteger(id) && id > 0
 }
 
 /**

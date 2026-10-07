@@ -12,15 +12,15 @@ import type { Inbox, NotificationItem } from '../../../features/notifications/ty
 export type NotificationsSource = {
   unreadCount: (signal?: AbortSignal) => Promise<number>
   inbox: (page: number, size: number, signal?: AbortSignal) => Promise<Inbox>
-  markRead: (id: number) => Promise<NotificationItem>
-  markAllRead: () => Promise<number>
+  markRead: (id: number, signal?: AbortSignal) => Promise<NotificationItem>
+  markAllRead: (signal?: AbortSignal) => Promise<number>
 }
 
 export const serverNotifications: NotificationsSource = {
   unreadCount: fetchUnreadCount,
   inbox: fetchInbox,
-  markRead: (id) => markNotificationRead(id),
-  markAllRead: () => markAllNotificationsRead(),
+  markRead: markNotificationRead,
+  markAllRead: markAllNotificationsRead,
 }
 
 /**
