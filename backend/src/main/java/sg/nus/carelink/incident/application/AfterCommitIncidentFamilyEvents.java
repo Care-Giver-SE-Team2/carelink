@@ -12,7 +12,7 @@ import sg.nus.carelink.incident.domain.model.FamilyAlertEvent;
 import sg.nus.carelink.incident.domain.service.IncidentEventObserver;
 import sg.nus.carelink.incident.domain.service.IncidentEventSubject;
 
-/** Transaction timing bridge; production sources are deliberately not wired here. @author Wang Zhili */
+/** Transaction timing bridge for shared incident routing and its observers. @author Wang Zhili */
 @Component
 class AfterCommitIncidentFamilyEvents implements IncidentFamilyEvents {
 	private static final Logger log = LoggerFactory.getLogger(AfterCommitIncidentFamilyEvents.class);

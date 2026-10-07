@@ -1,8 +1,8 @@
 # FM05 incident event / family observer integration
 
-Implemented: the event contract, Observer subject and interface, after-commit bridge, family observer, safe IN_APP message creation, persistent deduplication/outcomes, and personal response windows. Existing incident routing, old notification generators, notification controllers and the bell are unchanged. Production sources do not yet call this contract; consumer transaction tests are not a CG04 end-to-end acceptance test.
+Implemented: the event contract, Observer subject and interface, after-commit bridge, family observer, safe IN_APP message creation, persistent deduplication/outcomes, and personal response windows. Shared `EscalationService` routing now registers raised and chain-exhausted facts in the source write transaction. Its old direct family sender has been replaced in the same integration; manager/caregiver broadcasts and responder handovers remain. Notification controllers and the bell are unchanged. Real CG04 HTTP source tests establish producer activation, but do not establish the full bell-to-detail acceptance flow.
 
-## Producer handoff
+## Production source integration
 
 Inject `sg.nus.carelink.incident.application.IncidentFamilyEvents`. Inside the **write transaction** that saves/routes the incident, publish the corresponding fact:
 
@@ -14,7 +14,7 @@ events.raised(eventId, incidentId, elderId, occurredAt);
 events.unresolved(eventId, incidentId, elderId, occurredAt);
 ```
 
-`eventId` is a UUID owned by the producer; `occurredAt` is an OffsetDateTime of the original fact. Keep both stable on replay. No caller identity, family ID, notification text or clinical description is accepted. The bridge normalizes offsets and microsecond precision; reusing an ID with different facts is rejected by the consumer. Calls outside a write transaction fail immediately. Ordinary manager handovers are not family broadcast events.
+`EscalationService.routeNewIncident` generates a UUID once for the raised fact, using the persisted reportedAt in the Singapore business zone. The chain-exhausted branch generates a different UUID and its own occurrence time after persisting UNRESOLVED_ESCALATED. An incident with no available responder can create both facts in one transaction; these are two event types, not duplicate deliveries. Successful CG04 command replay returns its existing receipt before routing, so it generates neither another event nor another message. Explicit event replay must reuse the original eventId and occurredAt. No caller identity, family ID, notification text or clinical description is accepted. The bridge normalizes offsets and microsecond precision; reusing an ID with different facts is rejected by the consumer. Calls outside a write transaction fail immediately. Ordinary manager handovers are not family broadcast events.
 
 The publisher registers a callback and dispatches only after successful commit. The subject targets `IncidentEventObserver`, not a particular notifier. Runtime failure in one observer does not block another or turn the already committed source into a failed save. The family consumer uses independent transactions; each recipient rechecks current binding, enabled account and FAMILY role before a new delivery. FULL and READ_ONLY qualify. Optional subscriptions do not disable urgent alerts.
 
@@ -29,13 +29,13 @@ flowchart LR
   F --> H[FM05 outcomes and personal window]
 ```
 
-The original routing author must call this contract at the raised/chain-exhausted positions **and remove only the corresponding old direct family notification generation in the same integration**. Preserve manager/caregiver messages and existing inbox/bell functionality. Do not activate both family generators. CG04's HTTP report creation remains its owner's responsibility; FM05 does not call that HTTP endpoint. Bell navigation to `/api/family/incidents/{id}`'s family page remains a separate owner handoff.
+The production handoff is implemented: `IncidentAlert`/`NotificationTableAlert` now handle staff broadcast and handover only. The old bound-family broadcast and chain-exhausted sender are removed; existing family message rows are untouched. BROADCAST timeline counts describe synchronous staff recipients, and CHAIN_EXHAUSTED records event registration without claiming successful family delivery. Routing, claim/resolve rules and CG04 version/command/receipt logic are unchanged. Existing sources sharing this route (including elder SOS and system-raised service incidents) naturally use the same publication point; this is not implementation of additional source endpoints. Bell navigation and inbox authorization fixes remain separate integration work.
 
 ## Persistence and failure semantics
 
 Flyway `V15__family_alert_delivery.sql` adds three FM05 tables without modifying existing tables or historical rows:
 
-The unmerged FM05 migration uses V15 because main already owns V14 for value-added service seeds. The FM05 SQL is unchanged; both migrations must be present when validating a fresh integration database.
+V15 is the merged FM05 migration; V16/V17 belong to caregiver receipts and execution basics. Source activation needs no migration or historical data rewrite. All 17 existing migrations must remain valid on a fresh integration database.
 
 | Table | Meaning |
 | --- | --- |
@@ -51,7 +51,7 @@ The first successful creation opens the default two-hour personal window; `carel
 
 Creating a message/window never inserts or alters `incident_acknowledgement`. Existing viewedAt, acknowledgedAt and responseNote remain intact, including acknowledgement before message creation. Future reminder logic must additionally require an absent acknowledgedAt; the existence of a window does not put an already acknowledged family back into waiting. Reminders and family transfer are not implemented here.
 
-This is an in-process after-commit design, without an outbox or a persistent event dispatcher. Outcome/deduplication persistence does not guarantee recovery from a process crash between source commit and callback processing. Keep production activation pending the producer/old-family-sender handoff.
+This is an in-process after-commit design, without an outbox or a persistent event dispatcher. Outcome/deduplication persistence does not guarantee recovery from a process crash between source commit and callback processing. A failed consumer can be explicitly replayed using its original recorded facts; successful CG04 HTTP command replay does not retry notification delivery. There is no automatic durable recovery guarantee.
 
 
 ## Existing inbox compatibility and owner handoff
@@ -68,7 +68,7 @@ This is an in-process after-commit design, without an outbox or a persistent eve
 
 The shared Page/Size schemas specify nonnegative page and size 1–200. The existing service normalizes page=-1 to 0, size=0 to 1 and size=201 to 200. Compatibility tests record this existing clamping policy; no frontend should rely on sending invalid values. Changing that policy is the notification owner's decision, not an FM05 implementation change.
 
-Notification source activation, old family generator handoff and bell navigation remain pending as described above. Successful consumer/inbox tests do not replace real CG04 source acceptance. The family detail frontend can proceed independently while the inbox owner resolves INBOX-01/02.
+Source activation and the old family generator handoff are complete. `FamilyIncidentSourceIT` exercises real login/CSRF and POST `/api/incidents`, safe family messages/windows alongside staff routing, successful and concurrent command replay, initially empty chains, real overdue escalation, revoked recipients, and consumer storage failure after source commit. A spy only injects a failure/checkpoint at CG04 receipt storage after routing: source rollback leaves no incident/log/staff or family notification/event/window. No test publishes an event to substitute for the source. Bell navigation and INBOX-01/02/03 remain pending; these source tests do not claim full frontend or inbox authorization acceptance.
 
 
 ## Family detail frontend
@@ -81,4 +81,4 @@ The request lifecycle cancels obsolete reads/commands and clears content on acce
 
 When offline or hidden, the detail page cancels pending requests and hides care content. Once visible and online, it rechecks the session and reads the current personal window and receipts; repeated activity events do not duplicate that reload. An unsent note stays only in the mounted page's memory for the same account and is cleared on an account change or denied access. An interrupted acknowledgement is never automatically resent: the authoritative read either shows the saved first receipt or reports that saving could not be confirmed and allows explicit retry. Terminal access failures stop automatic recovery; a 403 can be retried explicitly after access is restored. Leaving removes the activity listeners. This adds no polling timer or browser persistence.
 
-The bell owner can route a FAMILY notification with resourceType=INCIDENT to `/family/incidents/{resourceId}`. The bell itself, its read policy, old notification generators and source hooks are unchanged by FM05. Direct route tests and local fixture previews do not establish real CG04-to-bell acceptance.
+The bell owner can route a FAMILY notification with resourceType=INCIDENT to `/family/incidents/{resourceId}`. The bell and its read policy remain unchanged in this source integration. Direct route tests and local fixture previews do not establish real CG04-to-bell acceptance.
