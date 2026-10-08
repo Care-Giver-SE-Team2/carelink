@@ -74,7 +74,7 @@ paths:
               schema: {$ref: '#/components/schemas/CaregiverIncidentResult'}
         '400': {description: Invalid request body.}
         '401': {description: Authentication required.}
-        '403': {description: Wrong role, CSRF failure or no longer assigned.}
+        '403': {description: 'Wrong role, CSRF failure or no longer assigned.'}
         '404': {description: Visit not found.}
         '409': {description: State/version/command conflict; refresh before creating a different command.}
         '503': {description: Storage unavailable; reconcile saved results before retrying the same command.}
@@ -150,9 +150,9 @@ paths:
               schema: {$ref: '#/components/schemas/CaregiverExecutionResult'}
         '400': {description: Invalid location or command fields.}
         '401': {description: Authentication required.}
-        '403': {description: CSRF, role or current assignment rejected.}
+        '403': {description: 'CSRF, role or current assignment rejected.'}
         '404': {description: Visit not found.}
-        '409': {description: Window, plan, state, version or command conflict. Authorized rejected state attempts are logged.}
+        '409': {description: 'Window, plan, state, version or command conflict. Authorized rejected state attempts are logged.'}
         '503': {description: Storage unavailable; check results before retry.}
   /visits/{visitId}/tasks/{taskId}/complete:
     parameters:
@@ -183,9 +183,9 @@ paths:
               schema: {$ref: '#/components/schemas/CaregiverExecutionResult'}
         '400': {description: Invalid result or missing reason.}
         '401': {description: Authentication required.}
-        '403': {description: Role, CSRF or assignment rejected.}
+        '403': {description: 'Role, CSRF or assignment rejected.'}
         '404': {description: Visit or task not found in this visit.}
-        '409': {description: State, version, task terminal result or command conflict.}
+        '409': {description: 'State, version, task terminal result or command conflict.'}
         '503': {description: Storage unavailable; check results before retry.}
   /caregivers/me:
     get:
@@ -241,7 +241,7 @@ paths:
           content:
             application/json:
               schema: {$ref: '#/components/schemas/CaregiverSchedule'}
-        '400': {description: Invalid, partial, reversed or over-31-day date range.}
+        '400': {description: 'Invalid, partial, reversed or over-31-day date range.'}
         '401': {description: No authenticated session.}
         '403': {$ref: '#/components/responses/Forbidden'}
         '404': {$ref: '#/components/responses/NotFound'}
@@ -2844,7 +2844,7 @@ components:
       required: [visitId, visitVersion, savedState, taskId, replayed]
       properties:
         visitId: {type: integer, format: int64}
-        visitVersion: {type: integer, description: Version of the original command, not necessarily current version on replay.}
+        visitVersion: {type: integer, description: 'Version of the original command, not necessarily current version on replay.'}
         savedState: {type: string, nullable: true, description: Original saved state; null for a task replay.}
         taskId: {type: integer, format: int64, nullable: true}
         replayed: {type: boolean}
@@ -3593,8 +3593,9 @@ components:
           format: date-time
           nullable: true
           description: >-
-            When the current state must have advanced by; the missed-check-in scan infers an exception from this
-            passing unattended.
+            Optional deadline for other visit states. SYS03 uses scheduledStart plus the configured
+            late-arrival threshold, not this field; its alert transitions SCHEDULED to EXCEPTION and blocks check-in,
+            including refreshed requests. Resolving the Incident does not reopen the Visit.
         assignmentHistory:
           type: array
           description: Previous and current caregiver assignments, including replacement status, reason and assignment times.
@@ -4121,6 +4122,10 @@ components:
         - acknowledgement
     IncidentSource:
       type: string
+      description: >-
+        SYSTEM_MISSED_CHECKIN includes unassigned/leave-related system events and SYS03 assigned-but-overdue
+        check-in alerts. SYS03 has an independent once-per-Visit durable trigger, defaults to strictly more than
+        ten minutes after scheduledStart within a 24-hour lookback, and does not change Visit status.
       enum:
         - CAREGIVER
         - ELDER_SOS
@@ -4575,7 +4580,7 @@ components:
         name: {type: string}
         rank: {type: integer, nullable: true, description: 1 for the best suggestion; null when excluded.}
         score: {type: number, nullable: true}
-        reason: {type: string, nullable: true, description: The match reason, or why a hard rule excluded them.}
+        reason: {type: string, nullable: true, description: 'The match reason, or why a hard rule excluded them.'}
         outcome: {type: string, enum: [SELECTED, SUGGESTED, EXCLUDED]}
         excludedBy: {type: string, nullable: true}
         checks:

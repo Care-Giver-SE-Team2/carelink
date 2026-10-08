@@ -83,7 +83,7 @@ public class VisitJpaEntity {
 	@Column(name = "status", nullable = false)
 	private Status status = Status.SCHEDULED;
 
-	/** when the current state must have advanced by; SYS03 infers a missed check-in from it */
+	/** Optional deadline for other visit states; SYS03 uses scheduled_start plus the late threshold. */
 	@Column(name = "state_deadline")
 	private LocalDateTime stateDeadline;
 

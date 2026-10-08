@@ -9,6 +9,7 @@ import java.util.Set;
 
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import sg.nus.carelink.incident.domain.model.ContactAttempt;
@@ -25,7 +26,7 @@ import sg.nus.carelink.shared.error.ResourceNotFound;
 /**
  * Application layer of the incident module: one public method per step of UC-MG05, plus
  * the entry points that raise an incident in the first place
- * (UC-EL03, UC-EL01 and UC-CG04).
+ * (UC-EL03, UC-EL01, UC-CG04 and UC-SYS03).
  *
  * <p>Each method does the same four things and nothing else: load through the ports, call
  * the domain model, save, write the timeline. The rules themselves are in
@@ -76,6 +77,19 @@ public class IncidentService {
     }
 
     // ------------------------------------------------------------------- raising ---
+
+    /**
+     * UC-SYS03: join the locked Visit transition and trigger ledger transaction.
+     * Routing registers the family event; do not publish or notify the family a second time.
+     */
+    @Transactional(propagation = Propagation.MANDATORY)
+    public Incident raiseForMissedCheckIn(Long elderId, Long visitId,
+            LocalDateTime dueAt, LocalDateTime observedAt) {
+        var saved = incidents.save(Incident.raisedForMissedCheckIn(elderId, visitId, dueAt, observedAt));
+        timeline.save(IncidentLog.systemEntry(saved.id(), IncidentLog.Action.REPORTED,
+                "assigned caregiver has not checked in after the allowed lateness threshold", observedAt));
+        return escalation.routeNewIncident(saved);
+    }
 
     /**
      * UC-EL03: an elder triggers the one-tap emergency call.

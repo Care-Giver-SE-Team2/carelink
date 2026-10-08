@@ -48,4 +48,4 @@ Run frontend lint/coverage/build, backend `./mvnw clean verify -Pintegration`, a
 
 For a visual demo, use the isolated local CareLink demo and separate caregiver/manager/family sessions. Create current-day visits through normal plan/assignment operations; old slice-1 dates are not an execution demo. Read the manual steps in the external 002/003 plans and record observed results, not guessed screenshots.
 
-Not included: vital signs, evidence upload, check-out/CG05, independent elder confirmation, SYS03 assigned-caregiver missed-check-in scheduler, restoring an exception visit, offline commands or new notification channels. In-app notification rows are not proof of SMS/email delivery.
+Not included in CG04/CG03 basic execution: vital signs, evidence upload, check-out/CG05, independent elder confirmation, restoring an exception visit, offline commands or new notification channels. SYS03 assigned-caregiver missed-check-in scanning is delivered in the subsequent batch; see [SYS03 handoff](sys03-missed-check-in-handoff.md). In-app notification rows are not proof of SMS/email delivery.

@@ -18,8 +18,11 @@ class VisitCommandRepositoryAdapter implements VisitCommandRepository {
         this.jpa = jpa; this.jdbc = jdbc; this.em = em;
     }
     public Optional<Visit> lock(Long id) {
-        return jpa.findForCommand(id).map(row -> {
-            em.refresh(row);
+        // A plan cancellation may have selected this entity before SYS03 committed.
+        // A lock query checks that stale cached version before refresh can run. Refresh
+        // the managed entity WITH the write lock instead, replacing its snapshot atomically.
+        return Optional.ofNullable(em.find(sg.nus.carelink.visit.infrastructure.persistence.entity.VisitJpaEntity.class, id)).map(row -> {
+            em.refresh(row, jakarta.persistence.LockModeType.PESSIMISTIC_WRITE);
             return VisitMapper.toDomain(row);
         });
     }
@@ -28,10 +31,15 @@ class VisitCommandRepositoryAdapter implements VisitCommandRepository {
         int changed = jdbc.update("""
                 update visit set status=?, checked_in_at=?, checked_out_at=?, state_deadline=?, version=version+1
                 where id=? and version=?
-                """, visit.status().name(), visit.checkedInAt(), visit.checkedOutAt(), visit.stateDeadline(), visit.id(), visit.version());
+                """, visit.status().name(), timestamp(visit.checkedInAt()), timestamp(visit.checkedOutAt()),
+                timestamp(visit.stateDeadline()), visit.id(), visit.version());
         if (changed != 1) throw new BusinessRuleViolation("VISIT_VERSION_CONFLICT", "Visit changed. Refresh before continuing.");
         var row = jpa.findById(visit.id()).orElseThrow();
         em.refresh(row);
         return VisitMapper.toDomain(row);
+    }
+    // Keep command updates in the same date representation as the JPA Visit reader.
+    private static java.sql.Timestamp timestamp(java.time.LocalDateTime value) {
+        return value == null ? null : java.sql.Timestamp.valueOf(value);
     }
 }
