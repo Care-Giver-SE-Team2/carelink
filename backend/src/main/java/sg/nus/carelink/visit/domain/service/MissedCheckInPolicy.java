@@ -5,7 +5,7 @@ import java.time.LocalDateTime;
 import java.util.Objects;
 import sg.nus.carelink.visit.domain.model.Visit;
 
-/** SYS03: an alert is a historical fact, not a transition that closes check-in. */
+/** SYS03 eligibility; an accepted alert transitions the locked Visit to EXCEPTION and closes check-in. */
 public record MissedCheckInPolicy(Duration lateThreshold, Duration lookback) {
     public MissedCheckInPolicy {
         Objects.requireNonNull(lateThreshold, "lateThreshold");

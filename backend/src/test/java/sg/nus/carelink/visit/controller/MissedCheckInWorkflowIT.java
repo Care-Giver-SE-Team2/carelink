@@ -16,25 +16,31 @@ import sg.nus.carelink.visit.application.VisitReassignment;
 
 class MissedCheckInWorkflowIT extends MissedCheckInITSupport {
     @Autowired EscalationScanService escalation;
+    @Autowired sg.nus.carelink.incident.application.IncidentService incidents;
     @Autowired VisitReassignment changes;
     @Autowired sg.nus.carelink.visit.domain.repository.MissedCheckInRepository facts;
     @DynamicPropertySource static void database(DynamicPropertyRegistry registry) {
         SharedMySql.register(registry, MissedCheckInWorkflowIT.class, "+05:00", "connectionTimeZone=Asia/Singapore");
         registry.add("carelink.missed-check-in.batch-size", () -> 1);
     }
-    @Test void productionThresholdThenManagerFamilyAndLateCaregiverShareOneDurableFact() throws Exception {
+    @Test void productionThresholdRoutesOnceAndBlocksCheckInEvenAfterIncidentResolution() throws Exception {
         long id=plannedVisit();
         clock.at(START.plusSeconds(899)); assertThat(scan.scan().triggered()).isZero();
         clock.at(START.plusSeconds(900)); assertThat(scan.scan().triggered()).isZero();
         overdue(); assertThat(scan.scan().triggered()).isEqualTo(1); long event=incident(id);
-        assertThat(version(id)).isEqualTo(1); assertThat(count("visit_state_transition", id)).isZero();
+        assertThat(version(id)).isEqualTo(1); assertThat(count("visit_state_transition", id)).isEqualTo(1);
+        assertSystemTransition(id);
         try(var mgr=browser(managerName);var cg=browser(caregiverName);var a=browser(familyName);var b=browser(secondFamilyName)) {
             var detail=mgr.read("/api/incidents/"+event).path("incident");
             assertThat(detail.toString()).contains("SYSTEM_MISSED_CHECKIN","Assigned caregiver has not checked in","SERVICE","MEDIUM");
             assertThat(detail.path("reportedByUserId").isNull()).isTrue();
             assertThat(detail.path("responderUserId").asLong()).isEqualTo(manager);
             assertThat(detail.path("respondBy").asString()).isEqualTo("2026-10-08T10:30:01");
-            assertThat(cg.read("/api/visits/"+id+"/work-pack").path("visit").path("status").asString()).isEqualTo("SCHEDULED");
+            var pack=cg.read("/api/visits/"+id+"/work-pack");
+            assertThat(pack.path("visit").path("status").asString()).isEqualTo("EXCEPTION");
+            assertThat(pack.path("execution").path("allowedActions").valueStream().map(row->row.asString()).toList()).doesNotContain("CHECK_IN","TASK_RESULT");
+            assertThat(pack.path("execution").path("blockedReason").asString()).isEqualTo("VISIT_EXECUTION_NOT_ALLOWED");
+            assertThat(pack.path("execution").path("checkedInAt").isNull()).isTrue();
             assertThat(cg.get("/api/incidents/"+event).statusCode()).isEqualTo(403);
             assertThat(a.read("/api/notifications/me").path("items").get(0).path("resourceId").asLong()).isEqualTo(event);
             assertThat(b.read("/api/notifications/me").path("items").get(0).path("resourceId").asLong()).isEqualTo(event);
@@ -44,14 +50,18 @@ class MissedCheckInWorkflowIT extends MissedCheckInITSupport {
             body(a.post("/api/incidents/"+event+"/acknowledge",Map.of("responseNote","Family informed")),200);
             assertThat(b.read(path).path("acknowledgement").path("acknowledgedAt").isNull()).isTrue();
             assertThat(cg.post("/api/visits/"+id+"/check-in",check(0)).statusCode()).isEqualTo(409);
-            body(cg.post("/api/visits/"+id+"/check-in",check(1)),200);
+            assertThat(body(cg.post("/api/visits/"+id+"/check-in",check(1)),409).toString()).contains("VISIT_EXECUTION_NOT_ALLOWED");
             assertThat(mgr.read("/api/incidents/"+event).path("incident").path("status").asString()).isEqualTo("OPEN");
             body(mgr.post("/api/incidents/"+event+"/claim",Map.of()),200);
             body(mgr.post("/api/incidents/"+event+"/resolve",Map.of("resolutionNote","Checked attendance and completed review")),200);
             assertThat(mgr.read("/api/incidents/"+event).path("incident").path("status").asString()).isEqualTo("RESOLVED");
+            body(cg.post("/api/visits/"+id+"/check-in",check(1)),409);
         }
         assertThat(scan.trigger(id)).isFalse(); assertThat(count("incident",id)).isEqualTo(1);
-        assertThat(count("visit_check_in_record",id)).isEqualTo(1);
+        assertThat(count("visit_check_in_record",id)).isZero();
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM visit_task WHERE visit_id=?",Long.class,id)).isZero();
+        assertThat(jdbc.queryForObject("SELECT status FROM visit WHERE id=?",String.class,id)).isEqualTo("EXCEPTION");
+        assertThat(version(id)).isEqualTo(1);
         assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM family_alert_event WHERE incident_id=?",Long.class,event)).isEqualTo(1);
         assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM notification WHERE recipient_user_id=? AND resource_id=? AND event_type='INCIDENT_RAISED'",Long.class,manager,event)).isEqualTo(1);
     }
@@ -64,18 +74,44 @@ class MissedCheckInWorkflowIT extends MissedCheckInITSupport {
         try(var mgr=browser(managerName)) { body(mgr.post("/api/care-plans/"+plan+"/stop",Map.of("effectiveDate","2026-10-08","reason","Fictional cancellation")),200); }
         overdue(); assertThat(scan.trigger(stopped)).isFalse(); assertThat(count("incident",stopped)).isZero();
     }
-    @ParameterizedTest @ValueSource(strings={"incident","notification","visit_missed_check_in_trigger"})
+    @ParameterizedTest @ValueSource(strings={"incident","incident_log","notification","visit_state_transition","visit_missed_check_in_trigger"})
     void sourcePersistenceFailureRollsBackAllFactsAndLaterRetrySucceeds(String table) throws Exception {
         long id=plannedVisit(); overdue();
         jdbc.execute("CREATE TRIGGER sys03_source_fault BEFORE INSERT ON "+table+" FOR EACH ROW SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='Synthetic source failure'");
         try {
             assertThatThrownBy(()->scan.trigger(id)).isInstanceOf(RuntimeException.class);
             assertThat(count("incident",id)).isZero(); assertThat(count("visit_missed_check_in_trigger",id)).isZero();
-            assertThat(version(id)).isZero();
-            assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM notification WHERE resource_type='INCIDENT' AND recipient_user_id IN (?,?,?)",Long.class,manager,family,secondFamilyUser)).isZero();
+            assertRolledBack(id);
             assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM family_alert_event WHERE elder_id=?",Long.class,elder)).isZero();
         } finally { jdbc.execute("DROP TRIGGER sys03_source_fault"); }
         assertThat(scan.trigger(id)).isTrue(); assertThat(count("incident",id)).isEqualTo(1);
+        assertSystemTransition(id);
+    }
+    @Test void parentUpdateFailureCannotLeaveIncidentTimelineOrNotification() throws Exception {
+        long id=plannedVisit(); overdue();
+        jdbc.execute("CREATE TRIGGER sys03_parent_fault BEFORE UPDATE ON visit FOR EACH ROW SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='Synthetic parent failure'");
+        try {
+            assertThatThrownBy(()->scan.trigger(id)).isInstanceOf(RuntimeException.class);
+            assertThat(count("incident",id)).isZero();assertThat(count("visit_missed_check_in_trigger",id)).isZero();
+            assertRolledBack(id);
+            assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM family_alert_event WHERE elder_id=?",Long.class,elder)).isZero();
+        } finally { jdbc.execute("DROP TRIGGER sys03_parent_fault"); }
+        assertThat(scan.trigger(id)).isTrue();assertSystemTransition(id);
+    }
+    @Test void incidentEntryRequiresTheCallerTransaction() throws Exception {
+        long id=plannedVisit(); overdue();var at=LocalDateTime.ofInstant(clock.instant(),SGT);
+        assertThatThrownBy(()->incidents.raiseForMissedCheckIn(elder,id,at.minusSeconds(1),at))
+                .isInstanceOf(org.springframework.transaction.IllegalTransactionStateException.class);
+        assertThat(count("incident",id)).isZero();assertRolledBack(id);
+    }
+    private void assertRolledBack(long id) {
+        assertThat(version(id)).isZero();assertThat(count("visit_state_transition",id)).isZero();
+        assertThat(jdbc.queryForObject("SELECT status FROM visit WHERE id=?",String.class,id)).isEqualTo("SCHEDULED");
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM incident_log l JOIN incident i ON i.id=l.incident_id WHERE i.visit_id=?",Long.class,id)).isZero();
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM notification WHERE resource_type='INCIDENT' AND recipient_user_id IN (?,?,?,?)",Long.class,manager,caregiverUser,family,secondFamilyUser)).isZero();
+    }
+    private void assertSystemTransition(long id) {
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM visit_state_transition WHERE visit_id=? AND from_state='SCHEDULED' AND to_state='EXCEPTION' AND result='APPLIED' AND actor_user_id IS NULL",Long.class,id)).isEqualTo(1);
     }
     @Test void failedFamilyConsumerDoesNotRollbackSourceOrPreventOtherFamily() throws Exception {
         long id=plannedVisit(); overdue();
@@ -87,6 +123,9 @@ class MissedCheckInWorkflowIT extends MissedCheckInITSupport {
             assertThat(jdbc.queryForObject("SELECT status FROM family_alert_delivery WHERE family_member_id=? AND event_id=(SELECT event_id FROM family_alert_event WHERE incident_id=?)",String.class,profile,event)).isEqualTo("FAILED");
             try(var b=browser(secondFamilyName)) { assertThat(b.read("/api/notifications/me").path("items").get(0).path("resourceId").asLong()).isEqualTo(event); }
             assertThat(scan.trigger(id)).isFalse(); assertThat(count("incident",id)).isEqualTo(1);
+            assertThat(jdbc.queryForObject("SELECT status FROM visit WHERE id=?",String.class,id)).isEqualTo("EXCEPTION");
+            assertThat(version(id)).isEqualTo(1);assertSystemTransition(id);
+            assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM incident_log WHERE incident_id=? AND action='REPORTED'",Long.class,event)).isEqualTo(1);
         } finally { jdbc.execute("DROP TRIGGER sys03_consumer_fault"); }
     }
     @Test void actualOverdueEscalationReusesIncidentAndFamilyWindows() throws Exception {
@@ -121,7 +160,7 @@ class MissedCheckInWorkflowIT extends MissedCheckInITSupport {
             assertThat(b.get("/api/family/incidents/"+event).statusCode()).isEqualTo(403);
         }
     }
-    @Test void unrelatedIncidentDoesNotSuppressAndResolvedReassignedFactNeverRepeats() throws Exception {
+    @Test void unrelatedIncidentDoesNotSuppressAndResolutionDoesNotReopenVisit() throws Exception {
         long id=plannedVisit();
         // Independent negative fixture proves the ledger, not "any Incident", is the key.
         jdbc.update("INSERT INTO incident(elder_id,visit_id,source,category,severity,status,description) VALUES (?,?,'SYSTEM_MISSED_CHECKIN','SERVICE','MEDIUM','RESOLVED','Independent old event')",elder,id);
@@ -131,7 +170,8 @@ class MissedCheckInWorkflowIT extends MissedCheckInITSupport {
             body(mgr.post("/api/incidents/"+event+"/claim",Map.of()),200);
             body(mgr.post("/api/incidents/"+event+"/resolve",Map.of("resolutionNote","Reviewed")),200);
         }
-        changes.reassign(id,otherCaregiver,new VisitReassignment.Change(null,manager,null,"Fictional replacement"));
+        assertThatThrownBy(()->changes.reassign(id,otherCaregiver,new VisitReassignment.Change(null,manager,null,"Fictional replacement")))
+                .isInstanceOf(sg.nus.carelink.shared.error.BusinessRuleViolation.class).hasMessageContaining("EXCEPTION");
         assertThat(scan.trigger(id)).isFalse(); assertThat(count("incident",id)).isEqualTo(2);
         assertThat(jdbc.queryForObject("SELECT triggered_caregiver_id FROM visit_missed_check_in_trigger WHERE visit_id=?",Long.class,id)).isEqualTo(caregiver);
     }

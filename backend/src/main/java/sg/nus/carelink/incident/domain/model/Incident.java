@@ -288,7 +288,7 @@ public record Incident(
         );
     }
 
-    /** SYS03, distinct from an unassigned visit: retains the legal late check-in window. */
+    /** SYS03, distinct from an unassigned visit: attendance is blocked by the Visit's EXCEPTION state. */
     public static Incident raisedForMissedCheckIn(Long elderId, Long visitId, LocalDateTime dueAt, LocalDateTime now) {
         Objects.requireNonNull(elderId, "elderId");
         Objects.requireNonNull(visitId, "visitId");

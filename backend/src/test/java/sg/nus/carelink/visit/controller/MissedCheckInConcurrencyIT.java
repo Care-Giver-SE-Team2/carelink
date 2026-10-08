@@ -33,6 +33,7 @@ class MissedCheckInConcurrencyIT extends MissedCheckInITSupport {
     @Autowired EntityManager em;
     @Autowired sg.nus.carelink.visit.domain.repository.MissedCheckInRepository facts;
     @Autowired sg.nus.carelink.incident.application.MissedCheckInIncidentGateway incidentGateway;
+    @Autowired sg.nus.carelink.visit.domain.repository.VisitStateTransitionRepository transitions;
     private final ExecutorService workers=Executors.newFixedThreadPool(3);
     @DynamicPropertySource static void database(DynamicPropertyRegistry registry) {
         SharedMySql.register(registry, MissedCheckInConcurrencyIT.class, "+05:00", "connectionTimeZone=Asia/Singapore");
@@ -71,13 +72,15 @@ class MissedCheckInConcurrencyIT extends MissedCheckInITSupport {
             assertThat(count("visit_check_in_record",id)).isEqualTo(1);
         }
     }
-    @Test void scannerWinsStaleCheckInConflictsThenRefreshedLegalCheckInWorks() throws Exception {
+    @Test void scannerWinsBothStaleAndRefreshedCheckInAreRejected() throws Exception {
         long id=plannedVisit();overdue();var gate=holdFirstCommand(id);
         var alarm=workers.submit(()->scan.trigger(id));await(gate.held());
         try(var cg=browser(caregiverName)) {
             var check=workers.submit(()->cg.post("/api/visits/"+id+"/check-in",check(0)));await(gate.entered());gate.release().countDown();
             assertThat(alarm.get(20,TimeUnit.SECONDS)).isTrue();body(check.get(20,TimeUnit.SECONDS),409);
-            body(cg.post("/api/visits/"+id+"/check-in",check(1)),200);assertOneFact(id);
+            body(cg.post("/api/visits/"+id+"/check-in",check(1)),409);assertOneFact(id);
+            assertThat(count("visit_check_in_record",id)).isZero();
+            assertThat(jdbc.queryForObject("SELECT status FROM visit WHERE id=?",String.class,id)).isEqualTo("EXCEPTION");
             assertThat(jdbc.queryForObject("SELECT status FROM incident WHERE id=?",String.class,incident(id))).isEqualTo("OPEN");
         }
     }
@@ -118,20 +121,28 @@ class MissedCheckInConcurrencyIT extends MissedCheckInITSupport {
         assertThat(scan.trigger(id)).isTrue();gate.release().countDown();
         assertThatThrownBy(()->change.get(20,TimeUnit.SECONDS)).hasCauseInstanceOf(org.springframework.dao.OptimisticLockingFailureException.class);
         assertOneFact(id);assertThat(version(id)).isEqualTo(1);
-        assertThat(jdbc.queryForObject("SELECT status FROM visit WHERE id=?",String.class,id)).isEqualTo("SCHEDULED");
+        assertThat(jdbc.queryForObject("SELECT status FROM visit WHERE id=?",String.class,id)).isEqualTo("EXCEPTION");
         assertThat(jdbc.queryForObject("SELECT caregiver_id FROM visit WHERE id=?",Long.class,id)).isEqualTo(caregiver);
         assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM visit_assignment WHERE visit_id=?",Long.class,id)).isZero();
-        reset(repository);managerChange(action,id);assertThat(scan.trigger(id)).isFalse();
+        reset(repository);
+        assertThatThrownBy(()->managerChange(action,id))
+                .isInstanceOf(sg.nus.carelink.shared.error.BusinessRuleViolation.class).hasMessageContaining("EXCEPTION");
+        assertThat(scan.trigger(id)).isFalse();
     }
     @Test void scannerWinsThenPlanCancellationReReadsLockedVersionInsteadOfStaleOverwrite() throws Exception {
         long id=plannedVisit();overdue();long plan=jdbc.queryForObject("SELECT care_plan_id FROM visit WHERE id=?",Long.class,id);
+        var from=LocalDateTime.ofInstant(START,SGT);
+        int otherScheduled=jdbc.queryForObject("SELECT COUNT(*) FROM visit WHERE care_plan_id=? AND scheduled_start>=? AND status='SCHEDULED' AND id<>?",
+                Integer.class,plan,java.sql.Timestamp.valueOf(from),id);
         var gate=holdFirstCommand(id);
         var alarm=workers.submit(()->scan.trigger(id));await(gate.held());
         {
-            var stopped=workers.submit(()->scheduling.cancelUntouchedFrom(plan,LocalDateTime.ofInstant(START,SGT)));await(gate.entered());
-            gate.release().countDown();assertThat(alarm.get(20,TimeUnit.SECONDS)).isTrue();assertThat(stopped.get(20,TimeUnit.SECONDS)).isGreaterThanOrEqualTo(1);
-            assertOneFact(id);assertThat(version(id)).isEqualTo(2);
-            assertThat(jdbc.queryForObject("SELECT status FROM visit WHERE id=?",String.class,id)).isEqualTo("CANCELLED");
+            var stopped=workers.submit(()->scheduling.cancelUntouchedFrom(plan,from));await(gate.entered());
+            gate.release().countDown();assertThat(alarm.get(20,TimeUnit.SECONDS)).isTrue();assertThat(stopped.get(20,TimeUnit.SECONDS)).isEqualTo(otherScheduled);
+            assertOneFact(id);assertThat(version(id)).isEqualTo(1);
+            assertThat(jdbc.queryForObject("SELECT status FROM visit WHERE id=?",String.class,id)).isEqualTo("EXCEPTION");
+            assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM visit WHERE care_plan_id=? AND scheduled_start>=? AND status='SCHEDULED'",
+                    Integer.class,plan,java.sql.Timestamp.valueOf(from))).isZero();
             assertThat(scan.trigger(id)).isFalse();
         }
     }
@@ -155,15 +166,19 @@ class MissedCheckInConcurrencyIT extends MissedCheckInITSupport {
     }
     @Test void independentNewScannerInstanceReadsPersistedLedgerInsteadOfAnInMemorySet() throws Exception {
         long id=plannedVisit();overdue();assertThat(scan.trigger(id)).isTrue();
+        // A simulated external writer reopens the state: even then the durable ledger suppresses it.
+        // This fixture is not a manager recovery endpoint or an approved recovery workflow.
+        jdbc.update("UPDATE visit SET status='SCHEDULED',version=version+1 WHERE id=?",id);
         // New service has no previous scan memory. Database facts alone must suppress it.
         var recreated=new sg.nus.carelink.visit.application.MissedCheckInScanService(transactions,commands,
-                facts, incidentGateway,
+                facts, incidentGateway, transitions,
                 new sg.nus.carelink.visit.domain.service.MissedCheckInPolicy(Duration.ofMinutes(10),Duration.ofDays(1)),
                 new sg.nus.carelink.visit.application.MissedCheckInScanService.Settings(true,200),clock);
         assertThat(recreated.trigger(id)).isFalse();assertOneFact(id);
     }
     private void assertOneFact(long id) {
         assertThat(count("incident",id)).isEqualTo(1);assertThat(count("visit_missed_check_in_trigger",id)).isEqualTo(1);
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM visit_state_transition WHERE visit_id=? AND from_state='SCHEDULED' AND to_state='EXCEPTION' AND result='APPLIED' AND actor_user_id IS NULL",Long.class,id)).isEqualTo(1);
         assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM family_alert_event WHERE incident_id=? AND event_type='INCIDENT_RAISED'",Long.class,incident(id))).isEqualTo(1);
         assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM notification WHERE recipient_user_id=? AND resource_id=? AND event_type='INCIDENT_RAISED'",Long.class,family,incident(id))).isEqualTo(1);
     }

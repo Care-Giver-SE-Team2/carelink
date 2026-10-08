@@ -3594,7 +3594,8 @@ components:
           nullable: true
           description: >-
             Optional deadline for other visit states. SYS03 uses scheduledStart plus the configured
-            late-arrival threshold, not this field; its alert preserves SCHEDULED and the legal check-in window.
+            late-arrival threshold, not this field; its alert transitions SCHEDULED to EXCEPTION and blocks check-in,
+            including refreshed requests. Resolving the Incident does not reopen the Visit.
         assignmentHistory:
           type: array
           description: Previous and current caregiver assignments, including replacement status, reason and assignment times.
