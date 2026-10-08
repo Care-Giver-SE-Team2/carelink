@@ -43,7 +43,9 @@ public class MissedCheckInScanService {
         var since = roundNow.minus(policy.lookback());
         var before = roundNow.minus(policy.lateThreshold());
         MissedCheckInRepository.Candidate cursor = null;
-        int considered = 0, triggered = 0, failed = 0;
+        int considered = 0;
+        int triggered = 0;
+        int failed = 0;
         while (true) {
             var page = triggers.candidates(since, before, cursor, settings.batchSize());
             if (page.isEmpty()) break;

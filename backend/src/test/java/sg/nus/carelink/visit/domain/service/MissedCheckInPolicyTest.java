@@ -35,11 +35,13 @@ class MissedCheckInPolicyTest {
         assertThat(policy.eligible(v, start)).isFalse();
     }
     @Test void invalidConfigurationFailsAndZeroLatenessIsValid() {
-        assertThatThrownBy(() -> new MissedCheckInPolicy(null, Duration.ofDays(1))).isInstanceOf(NullPointerException.class);
+        var day=Duration.ofDays(1);
+        var negative=Duration.ofSeconds(-1);
+        assertThatThrownBy(() -> new MissedCheckInPolicy(null, day)).isInstanceOf(NullPointerException.class);
         assertThatThrownBy(() -> new MissedCheckInPolicy(Duration.ZERO, null)).isInstanceOf(NullPointerException.class);
-        assertThatThrownBy(() -> new MissedCheckInPolicy(Duration.ofSeconds(-1), Duration.ofDays(1))).isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> new MissedCheckInPolicy(negative, day)).isInstanceOf(IllegalArgumentException.class);
         assertThatThrownBy(() -> new MissedCheckInPolicy(Duration.ZERO, Duration.ZERO)).isInstanceOf(IllegalArgumentException.class);
-        assertThatThrownBy(() -> new MissedCheckInPolicy(Duration.ZERO, Duration.ofSeconds(-1))).isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> new MissedCheckInPolicy(Duration.ZERO, negative)).isInstanceOf(IllegalArgumentException.class);
         assertThat(new MissedCheckInPolicy(Duration.ZERO, Duration.ofDays(1)).eligible(visit(3L, Visit.Status.SCHEDULED, null), start.plusNanos(1))).isTrue();
     }
 }

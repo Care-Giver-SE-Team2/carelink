@@ -20,12 +20,13 @@ class VisitCommandRepositoryAdapterTest {
         var row=new VisitJpaEntity();row.setId(1L);row.setVersion(0);
         when(em.find(VisitJpaEntity.class,1L)).thenReturn(row);
         doAnswer(_->{row.setVersion(4);return null;}).when(em).refresh(row,LockModeType.PESSIMISTIC_WRITE);
-        assertThat(adapter.lock(1L)).get().extracting(v->v.version()).isEqualTo(4);
+        assertThat(adapter.lock(1L)).get().extracting(sg.nus.carelink.visit.domain.model.Visit::version).isEqualTo(4);
         verify(jpa,never()).findForCommand(any());
     }
     @Test void failedVersionGuardNeverPretendsToSave() {
         var row=new VisitJpaEntity();row.setId(1L);row.setVersion(7);
-        assertThatThrownBy(()->adapter.save(VisitMapper.toDomain(row))).isInstanceOf(BusinessRuleViolation.class);
+        var visit=VisitMapper.toDomain(row);
+        assertThatThrownBy(()->adapter.save(visit)).isInstanceOf(BusinessRuleViolation.class);
         verify(jpa,never()).findById(any());
     }
     @Test void commandDatesUseExistingJpaTimestampConvention() {
