@@ -13,15 +13,16 @@ import sg.nus.carelink.incident.domain.repository.FamilyNotificationEmailReposit
 public class JdbcFamilyNotificationEmailRepository implements FamilyNotificationEmailRepository {
 	private final JdbcTemplate jdbc;
 	public JdbcFamilyNotificationEmailRepository(JdbcTemplate jdbc) { this.jdbc = jdbc; }
-	@Override public FamilyNotificationEmail find(Long familyId) { return select(familyId, ""); }
-	@Override public FamilyNotificationEmail lock(Long familyId) {
-		jdbc.update("INSERT INTO family_notification_email(family_member_id) VALUES (?) ON DUPLICATE KEY UPDATE family_member_id=family_member_id", familyId);
-		return select(familyId, " FOR UPDATE");
-	}
-	private FamilyNotificationEmail select(Long familyId, String lock) {
-		var rows = jdbc.query("SELECT * FROM family_notification_email WHERE family_member_id=?" + lock,
+	@Override public FamilyNotificationEmail find(Long familyId) {
+		var rows = jdbc.query("SELECT * FROM family_notification_email WHERE family_member_id=?",
 				(rs, row) -> contact(rs), familyId);
 		return rows.isEmpty() ? FamilyNotificationEmail.empty(familyId) : rows.getFirst();
+	}
+	@Override public FamilyNotificationEmail lock(Long familyId) {
+		jdbc.update("INSERT INTO family_notification_email(family_member_id) VALUES (?) ON DUPLICATE KEY UPDATE family_member_id=family_member_id", familyId);
+		// Fixed SQL variants keep all caller values bound; no SQL fragment is interpolated.
+		return jdbc.query("SELECT * FROM family_notification_email WHERE family_member_id=? FOR UPDATE",
+				(rs, row) -> contact(rs), familyId).getFirst();
 	}
 	private FamilyNotificationEmail contact(ResultSet rs) throws SQLException {
 		return new FamilyNotificationEmail(rs.getLong("family_member_id"), rs.getString("email"),

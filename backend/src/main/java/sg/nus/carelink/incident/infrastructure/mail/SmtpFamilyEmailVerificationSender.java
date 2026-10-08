@@ -32,7 +32,7 @@ public class SmtpFamilyEmailVerificationSender implements FamilyEmailVerificatio
 		message.setText("Enter this code on your signed-in CareLink notification email page within 15 minutes.\n\n"
 				+ "Verification code: " + token + "\n\nIf you did not request this email, ignore it.");
 		try { mail.getObject().send(message); }
-		catch (MailException failure) { throw unavailable(); }
+		catch (MailException _) { throw unavailable(); }
 	}
 	private ResponseStatusException unavailable() {
 		return new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "Verification email is unavailable. Please try again later.");
