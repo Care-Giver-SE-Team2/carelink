@@ -285,6 +285,12 @@ export function toWeek(
   })
 }
 
+/** The caregiver rows whose name contains `query`, ignoring case and surrounding spaces. */
+export function matchingName<T extends RosterRow>(rows: T[], query: string): T[] {
+  const needle = query.trim().toLowerCase()
+  return needle ? rows.filter((row) => row.name.toLowerCase().includes(needle)) : rows
+}
+
 /** One page of caregiver rows; `page` is clamped to the pages that exist. */
 export function pageOf<T extends RosterRow>(
   rows: T[],
