@@ -36,9 +36,9 @@ vi.mock(
 )
 
 vi.mock(
-  '../../../shared/components/RoleShell',
+  '../components/ElderShell',
   () => ({
-    RoleShell: ({
+    ElderShell: ({
       children,
     }: {
       children:
@@ -135,7 +135,7 @@ describe(
           'radio',
           {
             name:
-              /Yes, service was completed/,
+              /Yes, good/,
           },
         ),
       ).toBeChecked()
@@ -191,7 +191,7 @@ describe(
           'button',
           {
             name:
-              'Submit confirmation',
+              'Send my answer',
           },
         ),
       )
@@ -262,7 +262,7 @@ describe(
           'radio',
           {
             name:
-              /No, there was a problem/,
+              /Not so good/,
           },
         ),
       )
@@ -288,7 +288,7 @@ describe(
           'button',
           {
             name:
-              'Submit confirmation',
+              'Send my answer',
           },
         ),
       )
@@ -362,7 +362,7 @@ describe(
           'button',
           {
             name:
-              'Submit confirmation',
+              'Send my answer',
           },
         ),
       )
@@ -404,7 +404,7 @@ describe(
           'button',
           {
             name:
-              'Submit confirmation',
+              'Send my answer',
           },
         ),
       )

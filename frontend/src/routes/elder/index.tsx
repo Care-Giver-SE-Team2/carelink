@@ -1,43 +1,53 @@
-import { Link, Route, Routes } from 'react-router-dom'
-import { RoleShell } from '../../shared/components/RoleShell'
+import { Route, Routes } from 'react-router-dom'
+import { ElderShell } from './components/ElderShell'
+import {
+  ActionStack,
+  BigAction,
+  ScreenColumns,
+  ScreenFooter,
+  ScreenHeader,
+  Slot,
+  SpeakButton,
+} from './components/ElderUi'
+import { greeting } from './lib/greeting'
+import { useElderUser } from './lib/useElderSession'
 import ConfirmVisit from './pages/ConfirmVisit'
 import ValueAddedServices from './pages/ValueAddedServices'
 import Emergency from './pages/Emergency'
 import FamilyBindings from './pages/FamilyBindings'
-import styles from './Elder.module.css'
 
 function ElderDashboard() {
+  const { data: user } = useElderUser()
+  const name = user?.displayName || user?.username
+
   return (
-    <RoleShell title="CareLink for Elder" theme="elder">
-      <div className={styles.home}>
-        <div>
-          <h1>What would you like to do?</h1>
-          <p className={styles.intro}>Choose one large button below.</p>
-        </div>
-        <nav className={styles.menu} aria-label="Elder services">
-          <Link className={styles.card} to="confirm-service">
-            <span className={styles.icon} aria-hidden="true">✓</span>
-            <span className={styles.cardTitle}>Confirm service</span>
-            <span className={styles.cardHint}>Confirm today's visit and give feedback</span>
-          </Link>
-          <Link className={styles.card} to="extra-services">
-            <span className={styles.icon} aria-hidden="true">＋</span>
-            <span className={styles.cardTitle}>Extra services</span>
-            <span className={styles.cardHint}>Ask for additional help</span>
-          </Link>
-          <Link className={`${styles.card} ${styles.sos}`} to="emergency">
-            <span className={styles.icon} aria-hidden="true">!</span>
-            <span className={styles.cardTitle}>Emergency help</span>
-            <span className={styles.cardHint}>Send an SOS immediately</span>
-          </Link>
-          <Link className={styles.card} to="family">
-            <span className={styles.icon} aria-hidden="true">♥</span>
-            <span className={styles.cardTitle}>My family</span>
-            <span className={styles.cardHint}>View or bind a family member</span>
-          </Link>
-        </nav>
-      </div>
-    </RoleShell>
+    <ElderShell>
+      <ScreenColumns
+        left={
+          <Slot order={1}>
+            <ScreenHeader title={greeting()} subtitle={name} />
+          </Slot>
+        }
+        right={
+          <Slot order={2}>
+            <nav aria-label="What would you like to do?">
+              {/* Help stays last in the stack at every screen size. */}
+              <ActionStack>
+                <BigAction variant="primary" icon="✓" label="Visit is done" to="confirm-service" />
+                <BigAction icon="+" label="Ask for something" to="extra-services" />
+                <BigAction icon="♥" label="My family" to="family" />
+                <BigAction variant="help" icon="!" label="I need help now" to="emergency" />
+              </ActionStack>
+            </nav>
+          </Slot>
+        }
+        footer={
+          <ScreenFooter>
+            <SpeakButton />
+          </ScreenFooter>
+        }
+      />
+    </ElderShell>
   )
 }
 
