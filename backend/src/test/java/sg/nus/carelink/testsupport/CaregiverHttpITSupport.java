@@ -119,7 +119,9 @@ public abstract class CaregiverHttpITSupport {
         private HttpResponse<String> sendPost(String path, Map<String, ?> payload, String csrf) throws Exception {
             var builder = request(path).header("Content-Type", "application/json");
             if (csrf != null) builder.header("X-XSRF-TOKEN", csrf);
-            return client.send(builder.POST(HttpRequest.BodyPublishers.ofString(json.writeValueAsString(payload))).build(), HttpResponse.BodyHandlers.ofString());
+            var body = payload == null ? HttpRequest.BodyPublishers.noBody()
+                    : HttpRequest.BodyPublishers.ofString(json.writeValueAsString(payload));
+            return client.send(builder.POST(body).build(), HttpResponse.BodyHandlers.ofString());
         }
         private HttpRequest.Builder request(String path) {
             return HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + port + path)).timeout(Duration.ofSeconds(15));
