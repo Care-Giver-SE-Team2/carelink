@@ -51,7 +51,9 @@ The demo uses **1-minute lateness / 5-second scan**, not production 10m/60s. Pre
 
 ## Verification record
 
-Local full verification on 2026-10-08: 1,275 unit/architecture tests and 757 real MySQL integration scenarios, zero failures/errors/skips; coverage checks passed (overall backend line coverage 98.17%). SYS03 includes 14 workflow and 13 controlled-concurrency cases, including source rollback, family-consumer failure, both writer orders and restart deduplication. Negative/boundary database fixtures are separate from the manager-published positive workflow.
+Local full verification on 2026-10-08 before the UTC portability correction: 1,275 unit/architecture tests and 757 real MySQL integration scenarios, zero failures/errors/skips; coverage checks passed (overall backend line coverage 98.17%). The current SYS03 suite includes 15 workflow and 13 controlled-concurrency cases, including source rollback, family-consumer failure, both writer orders, UTC cursor mapping and restart deduplication. Negative/boundary database fixtures are separate from the manager-published positive workflow.
+
+The first Linux CI exposed a genuine portability defect: reading MySQL DATETIME via Timestamp shifted 10:05 SGT to 02:05 in a UTC JVM, so a skipped candidate could prevent keyset advancement. A real MySQL UTC regression first failed with that exact shift, then passed after using typed LocalDateTime retrieval. The scanner also fails fast on a non-advancing cursor. The updated SYS03 workflow/concurrency suites passed locally; final full current-commit CI evidence is recorded in the external plans. CI timeouts, assertions and quality gates remain unchanged.
 
 Frontend: 75 files / 911 tests passed; line coverage 91.85%, build passed. Windows scoped source lint passed with three existing warnings; remote CI runs the unchanged full lint command. OpenAPI formal/draft specifications and all local references passed full validation. No CI gates were weakened.
 

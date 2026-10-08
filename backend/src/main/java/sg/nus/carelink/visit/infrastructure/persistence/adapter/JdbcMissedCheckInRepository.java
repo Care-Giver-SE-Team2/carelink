@@ -25,7 +25,8 @@ class JdbcMissedCheckInRepository implements MissedCheckInRepository {
         }
         parameters.add(limit);
         return jdbc.query(query + " ORDER BY v.scheduled_start, v.id LIMIT ?",
-                (row, _) -> new Candidate(row.getLong("id"), row.getTimestamp("scheduled_start").toLocalDateTime()), parameters.toArray());
+                // DATETIME is a business wall time, not a Timestamp converted through the JVM zone.
+                (row, _) -> new Candidate(row.getLong("id"), row.getObject("scheduled_start", LocalDateTime.class)), parameters.toArray());
     }
     @Override public boolean exists(Long visitId) {
         return Boolean.TRUE.equals(jdbc.queryForObject("SELECT EXISTS(SELECT 1 FROM visit_missed_check_in_trigger WHERE visit_id=?)", Boolean.class, visitId));

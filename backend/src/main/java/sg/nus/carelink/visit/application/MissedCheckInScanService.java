@@ -47,6 +47,9 @@ public class MissedCheckInScanService {
         while (true) {
             var page = triggers.candidates(since, before, cursor, settings.batchSize());
             if (page.isEmpty()) break;
+            if (cursor != null && !advances(page.getFirst(), cursor)) {
+                throw new IllegalStateException("SYS03 candidate cursor did not advance");
+            }
             for (var candidate : page) {
                 considered++;
                 try {
@@ -77,4 +80,8 @@ public class MissedCheckInScanService {
         }));
     }
     private LocalDateTime now() { return LocalDateTime.now(clock.withZone(ZoneId.of("Asia/Singapore"))); }
+    private static boolean advances(MissedCheckInRepository.Candidate next, MissedCheckInRepository.Candidate previous) {
+        int order = next.scheduledStart().compareTo(previous.scheduledStart());
+        return order > 0 || (order == 0 && next.visitId() > previous.visitId());
+    }
 }

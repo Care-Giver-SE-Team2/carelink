@@ -55,6 +55,15 @@ class MissedCheckInScanServiceTest {
         assertThat(scan.trigger(1L)).isFalse(); assertThat(scan.trigger(1L)).isFalse(); assertThat(scan.trigger(1L)).isFalse();
         verifyNoInteractions(incidents); verify(visits, never()).save(any());
     }
+    @Test void nonAdvancingCursorFailsFastInsteadOfLoopingForever() {
+        var scan=service(true);
+        var a=new MissedCheckInRepository.Candidate(1L,now.minusMinutes(20));
+        when(facts.candidates(now.minusDays(1),now.minusMinutes(10),null,1)).thenReturn(List.of(a));
+        when(facts.candidates(now.minusDays(1),now.minusMinutes(10),a,1)).thenReturn(List.of(a));
+        when(visits.lock(1L)).thenReturn(Optional.empty());
+        assertThatThrownBy(scan::scan).isInstanceOf(IllegalStateException.class).hasMessage("SYS03 candidate cursor did not advance");
+        verify(visits,times(1)).lock(1L);verifyNoInteractions(incidents);
+    }
     @Test void failedFirstPageCannotStarveFollowingPagesAndUpperBoundIsFrozen() {
         var scan = service(true);
         var a = new MissedCheckInRepository.Candidate(1L, now.minusMinutes(20));

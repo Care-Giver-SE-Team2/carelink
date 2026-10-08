@@ -17,6 +17,7 @@ import sg.nus.carelink.visit.application.VisitReassignment;
 class MissedCheckInWorkflowIT extends MissedCheckInITSupport {
     @Autowired EscalationScanService escalation;
     @Autowired VisitReassignment changes;
+    @Autowired sg.nus.carelink.visit.domain.repository.MissedCheckInRepository facts;
     @DynamicPropertySource static void database(DynamicPropertyRegistry registry) {
         SharedMySql.register(registry, MissedCheckInWorkflowIT.class, "+05:00", "connectionTimeZone=Asia/Singapore");
         registry.add("carelink.missed-check-in.batch-size", () -> 1);
@@ -142,6 +143,20 @@ class MissedCheckInWorkflowIT extends MissedCheckInITSupport {
             assertThat(count("incident",bad)).isZero();
         } finally { jdbc.execute("DROP TRIGGER sys03_page_fault"); }
         assertThat(scan.scan().triggered()).isEqualTo(1); assertThat(scan.scan().considered()).isZero();
+    }
+    @Test void candidateCursorKeepsDatabaseWallTimeWithUtcJvm() throws Exception {
+        var ids=plannedVisits(2).stream().sorted().toList();overdue();
+        var originalZone=TimeZone.getDefault();
+        try {
+            TimeZone.setDefault(TimeZone.getTimeZone("UTC"));
+            var now=LocalDateTime.ofInstant(clock.instant(),SGT);
+            var first=facts.candidates(now.minusHours(24),now.minusMinutes(10),null,1).getFirst();
+            assertThat(first.scheduledStart()).isEqualTo(LocalDateTime.of(2026,10,8,10,5));
+            assertThat(first.visitId()).isEqualTo(ids.getFirst());
+            var second=facts.candidates(now.minusHours(24),now.minusMinutes(10),first,1).getFirst();
+            assertThat(second.visitId()).isEqualTo(ids.getLast());
+            assertThat(facts.candidates(now.minusHours(24),now.minusMinutes(10),second,1)).isEmpty();
+        } finally { TimeZone.setDefault(originalZone); }
     }
     @Test void databaseCandidatesSkipOldFutureUnassignedArrivedCancelledAndTerminalFixtures() {
         overdue();var now=LocalDateTime.ofInstant(clock.instant(),SGT);
