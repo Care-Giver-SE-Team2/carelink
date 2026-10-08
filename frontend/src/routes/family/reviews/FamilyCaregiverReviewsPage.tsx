@@ -101,7 +101,7 @@ export function FamilyCaregiverReviewsPage() {
     {error && <div className={styles.error} role="alert">{error}</div>}
     {success && <div className={styles.success} role="status">{success}</div>}
     {loading && <p>Loading caregiver reviews...</p>}
-    {!loading && selectedElderId === null && <p>No linked elder is available.</p>}
+    {!loading && selectedElderId === null && <p className={styles.card}>No linked elder is available.</p>}
 
     {!loading && selectedElderId !== null && <>
       <section className={styles.card}>

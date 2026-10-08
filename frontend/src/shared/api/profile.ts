@@ -217,3 +217,30 @@ export function approveIntakeApplication(id: number, message: string | null): Pr
 export function declineIntakeApplication(id: number, message: string): Promise<IntakeDecision> {
   return api<IntakeDecision>(`/intake-reviews/${id}/decline`, { method: 'POST', body: JSON.stringify({ message }) })
 }
+
+/** Body of POST /api/family-registrations — profile.controller.dto.FamilyRegistrationRequest. */
+export type FamilyRegistrationRequest = {
+  username: string
+  password: string
+  fullName: string
+  phone: string
+}
+
+/** profile.controller.dto.FamilyRegistrationResponse. */
+export type FamilyRegistrationResponse = {
+  familyMemberId: number
+  username: string
+  fullName: string
+}
+
+/**
+ * Family sign-up, made before there is a session: creates a FAMILY login and its family profile.
+ * It does not sign in; the caller signs in with the same username and password afterwards.
+ * 409 when the username is taken. The caller initialises the CSRF cookie first.
+ */
+export function registerFamily(request: FamilyRegistrationRequest): Promise<FamilyRegistrationResponse> {
+  return api<FamilyRegistrationResponse>('/family-registrations', {
+    method: 'POST',
+    body: JSON.stringify(request),
+  })
+}

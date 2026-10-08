@@ -55,7 +55,7 @@ export function FamilyValueAddedServicesPage() {
 
     {error && <div className={styles.error} role="alert">{error}</div>}
     {loading && <p>Loading requests...</p>}
-    {!loading && selectedElderId === null && <p>No linked elder is available.</p>}
+    {!loading && selectedElderId === null && <p className={styles.card}>No linked elder is available.</p>}
 
     <section className={styles.card}>
       <h2>Pending approval</h2>
