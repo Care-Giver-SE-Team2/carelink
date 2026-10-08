@@ -23,12 +23,14 @@ public class FamilyNotificationEmailService {
 	private final FamilyIdentityQuery identity;
 	private final FamilyEmailVerificationSender sender;
 	private final Clock clock;
+	private final FamilyUrgentEmailSender urgentSender;
 	private final SecureRandom random = new SecureRandom();
 	public FamilyNotificationEmailService(FamilyNotificationEmailRepository contacts, FamilyIdentityQuery identity,
-			FamilyEmailVerificationSender sender, Clock clock) {
-		this.contacts = contacts; this.identity = identity; this.sender = sender; this.clock = clock;
+			FamilyEmailVerificationSender sender, FamilyUrgentEmailSender urgentSender, Clock clock) {
+		this.contacts = contacts; this.identity = identity; this.sender = sender; this.urgentSender = urgentSender; this.clock = clock;
 	}
 	public boolean configured() { return sender.configured(); }
+	public boolean urgentAlertsConfigured() { return urgentSender.configured(); }
 	@Transactional(readOnly = true)
 	public FamilyNotificationEmail get(String username) { return contacts.find(identity.requireFamilyMemberId(username)); }
 	@Transactional

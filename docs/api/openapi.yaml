@@ -2930,6 +2930,7 @@ components:
       - verifiedAt
       - verificationExpiresAt
       - configured
+      - urgentAlertsConfigured
       properties:
         email:
           type: string
@@ -2946,6 +2947,10 @@ components:
           nullable: true
         configured:
           type: boolean
+          description: Verification SMTP is configured; does not prove delivery.
+        urgentAlertsConfigured:
+          type: boolean
+          description: Urgent SMTP and an application link are configured; recipient authorization and verification are checked on each send.
     FamilyNotificationEmailRequest:
       type: object
       required:

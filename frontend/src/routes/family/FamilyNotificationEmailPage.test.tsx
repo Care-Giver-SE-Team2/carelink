@@ -4,7 +4,7 @@ import { MemoryRouter } from 'react-router-dom'
 import { afterEach, expect, it, vi } from 'vitest'
 import { FamilyNotificationEmailPage } from './notification-email/FamilyNotificationEmailPage'
 
-const empty = { email: null, verifiedAt: null, verificationExpiresAt: null, configured: true }
+const empty = { email: null, verifiedAt: null, verificationExpiresAt: null, configured: true, urgentAlertsConfigured: false }
 const pending = { ...empty, email: 'family@example.test', verificationExpiresAt: '2026-10-08T16:15:00+08:00' }
 const verified = { ...pending, verifiedAt: '2026-10-08T16:00:00+08:00', verificationExpiresAt: null }
 function json(data: unknown, status = 200) { return new Response(JSON.stringify(data), { status, headers: { 'Content-Type': 'application/json' } }) }
@@ -35,7 +35,7 @@ it('requests a code, confirms possession, then removes the contact without chang
   expect(screen.queryByLabelText('Verification code')).not.toBeInTheDocument()
   await user.click(screen.getByRole('button', { name: 'Remove email' }))
   await screen.findByText('No notification email saved.')
-  expect(screen.getByText(/In-app urgent alerts remain active/)).toBeInTheDocument()
+  expect(screen.getByText('Verify your address for optional urgent email alerts. In-app urgent alerts remain active.')).toBeInTheDocument()
   const writes = fetchMock.mock.calls.filter(([, init]) => ['POST', 'DELETE'].includes(init.method ?? ''))
   expect(writes.map(([path]) => path)).toEqual(['/api/family/notification-email', '/api/family/notification-email/verify', '/api/family/notification-email'])
   expect(JSON.parse(writes[0][1].body as string)).toEqual({ email: 'family@example.test' })
@@ -111,4 +111,15 @@ it('rejects a non-family session before loading a contact', async () => {
   const { fetchMock } = setup((path) => path === '/api/auth/me' ? json({ id: 3, roles: ['MANAGER'] }) : undefined)
   await screen.findByText('Family access is required.')
   expect(fetchMock.mock.calls.map(([path]) => path)).toEqual(['/api/auth/me'])
+})
+
+it('distinguishes email verification from urgent-channel availability', async () => {
+  const view = setup((path) => path === '/api/family/notification-email' ? json(verified) : undefined)
+  await screen.findByText('Email verified')
+  expect(screen.getByText('Urgent email alerts are unavailable. In-app urgent alerts remain active.')).toBeInTheDocument()
+  expect(screen.getByRole('button', { name: 'Send verification code' })).toBeEnabled()
+  view.unmount()
+  setup((path) => path === '/api/family/notification-email' ? json({ ...verified, urgentAlertsConfigured: true }) : undefined)
+  await screen.findByText('Urgent alerts will be attempted at this verified email. Delivery is not guaranteed.')
+  expect(screen.queryByText('Urgent email alerts are unavailable. In-app urgent alerts remain active.')).not.toBeInTheDocument()
 })

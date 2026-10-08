@@ -60,7 +60,7 @@ export function FamilyNotificationEmailPage() {
 
   return <div className={styles.page}>
     <header className={styles.header}><Link to="/family/account">← Account</Link><h1>Notification email</h1>
-      <p>Verify an address for email alerts. Urgent email delivery is not enabled yet. In-app urgent alerts remain active.</p></header>
+      <p>Verify your address for optional urgent email alerts. In-app urgent alerts remain active.</p></header>
     {error && <p role="alert">{error}</p>}
     {!contact && !error && <p role="status">Loading notification email…</p>}
     {!contact && error && <button onClick={() => { setError(''); setNotice(''); setAttempt((value) => value + 1) }}>Reload</button>}
@@ -68,6 +68,8 @@ export function FamilyNotificationEmailPage() {
       <h2>{contact.verifiedAt ? 'Email verified' : contact.email ? 'Awaiting verification' : 'No notification email saved.'}</h2>
       {contact.email && <p>{contact.email}</p>}
       {!contact.configured && <p role="status">Email sending is unavailable. Please try again later.</p>}
+      {!contact.urgentAlertsConfigured && <p role="status">Urgent email alerts are unavailable. In-app urgent alerts remain active.</p>}
+      {contact.urgentAlertsConfigured && contact.verifiedAt && <p>Urgent alerts will be attempted at this verified email. Delivery is not guaranteed.</p>}
       {notice && <p role="status">{notice}</p>}
       <form onSubmit={(event) => { event.preventDefault(); void change({ email: email.trim() }) }}>
         <label htmlFor="notification-email">Email address</label>

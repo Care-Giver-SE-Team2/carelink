@@ -46,6 +46,7 @@ class FamilyNotificationEmailUnavailableIT {
 		try (var family = browser(username)) {
 			var empty = family.read(CONTACT);
 			assertThat(empty.path("configured").asBoolean()).isFalse();
+			assertThat(empty.path("urgentAlertsConfigured").asBoolean()).isFalse();
 			body(family.command("POST", CONTACT, Map.of("email", "family@example.test")), 503);
 			assertThat(family.read(CONTACT)).isEqualTo(empty);
 			body(family.command("POST", CONTACT + "/verify", Map.of("token", "a".repeat(64))), 409);

@@ -38,9 +38,9 @@ public class FamilyNotificationEmailController {
 	@DeleteMapping public Status remove(Principal principal) { return status(service.remove(principal.getName())); }
 	public record Address(@NotBlank @Email @Size(max = 254) String email) {}
 	public record Verification(@NotBlank @Pattern(regexp = "[a-f0-9]{64}") String token) {}
-	public record Status(String email, OffsetDateTime verifiedAt, OffsetDateTime verificationExpiresAt, boolean configured) {}
+	public record Status(String email, OffsetDateTime verifiedAt, OffsetDateTime verificationExpiresAt, boolean configured, boolean urgentAlertsConfigured) {}
 	private Status status(FamilyNotificationEmail value) {
-		return new Status(value.email(), time(value.verifiedAt()), time(value.verificationExpiresAt()), service.configured());
+		return new Status(value.email(), time(value.verifiedAt()), time(value.verificationExpiresAt()), service.configured(), service.urgentAlertsConfigured());
 	}
 	private OffsetDateTime time(LocalDateTime value) { return value == null ? null : value.atZone(Incident.CARELINK_ZONE).toOffsetDateTime(); }
 }

@@ -29,6 +29,7 @@ carelink:
   family-email:
     enabled: ${FAMILY_EMAIL_ENABLED:false}
     from: ${FAMILY_EMAIL_FROM:}
+    app-base-url: ${FAMILY_EMAIL_APP_BASE_URL:}
   caregiver:
     credential-warning-days: 30
     # SYS01. When the daily scan moves certificates to EXPIRING/EXPIRED and sends the alerts

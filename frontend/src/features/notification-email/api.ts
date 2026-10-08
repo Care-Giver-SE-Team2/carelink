@@ -9,6 +9,7 @@ export interface NotificationEmail {
   verifiedAt: string | null
   verificationExpiresAt: string | null
   configured: boolean
+  urgentAlertsConfigured: boolean
 }
 const contact = '/family/notification-email'
 export function getNotificationEmail(signal: AbortSignal) {

@@ -199,4 +199,4 @@ PR 的前端任务执行完整覆盖率测试并上传 `frontend-coverage`（包
 FM05 通知邮箱准备入口为 Account 的 `Manage notification email`，路由 `/family/notification-email`：
 
 - 当前家属本人可新增、重新发送验证、确认及移除邮箱；只采用服务端返回的已验证状态。验证码15分钟失效、60秒重发间隔，修改/重新发送后需要再次验证。权限失效清空内容，命令前复查当前账号，离开取消请求；邮箱和验证码不存入浏览器存储。
-- 使用现有Session/CSRF。SMTP未配置或拒收时不宣称已发送、已验证；本批只发送验证邮件，站内紧急通知保持，异常邮件渠道尚未启用。设计与配置见 [FM05 通知邮箱说明](../../../../docs/design/family/FM05-notification-email.md)。
+- 使用现有Session/CSRF。SMTP未配置或拒收时不宣称已发送、已验证；验证SMTP与异常邮件渠道可用性分别显示。已验证邮箱及当前授权有效时，可选EMAIL策略异步尝试安全异常提醒；站内紧急通知、已读/查看/知悉及原窗口保持独立，自动重试留到9.3。设计与配置见 [FM05 通知邮箱说明](../../../../docs/design/family/FM05-notification-email.md)。

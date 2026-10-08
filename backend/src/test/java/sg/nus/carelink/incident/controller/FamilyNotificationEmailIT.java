@@ -91,6 +91,8 @@ class FamilyNotificationEmailIT {
 		try (var a = browser(familyAName); var b = browser(familyBName)) {
 			var empty = a.read(CONTACT);
 			assertThat(empty.path("email").isNull()).isTrue();
+			assertThat(empty.path("configured").asBoolean()).isTrue();
+			assertThat(empty.path("urgentAlertsConfigured").asBoolean()).isFalse();
 			var pending = body(a.command("POST", CONTACT, Map.of("email", email)), 200);
 			assertThat(pending.path("email").asString()).isEqualTo(email);
 			assertThat(pending.path("verifiedAt").isNull()).isTrue();
