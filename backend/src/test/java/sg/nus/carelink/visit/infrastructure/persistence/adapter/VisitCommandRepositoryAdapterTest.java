@@ -28,4 +28,15 @@ class VisitCommandRepositoryAdapterTest {
         assertThatThrownBy(()->adapter.save(VisitMapper.toDomain(row))).isInstanceOf(BusinessRuleViolation.class);
         verify(jpa,never()).findById(any());
     }
+    @Test void commandDatesUseExistingJpaTimestampConvention() {
+        var row=new VisitJpaEntity();row.setId(1L);row.setVersion(7);
+        var at=java.time.LocalDateTime.of(2026,10,8,10,15);
+        row.setCheckedInAt(at);row.setCheckedOutAt(at.plusHours(1));row.setStateDeadline(at.plusHours(2));
+        when(jdbc.update(anyString(),any(Object[].class))).thenReturn(1);
+        when(jpa.findById(1L)).thenReturn(java.util.Optional.of(row));
+        adapter.save(VisitMapper.toDomain(row));
+        verify(jdbc).update(anyString(),eq("SCHEDULED"),eq(java.sql.Timestamp.valueOf(at)),
+                eq(java.sql.Timestamp.valueOf(at.plusHours(1))),eq(java.sql.Timestamp.valueOf(at.plusHours(2))),eq(1L),eq(7));
+        verify(em).refresh(row);
+    }
 }

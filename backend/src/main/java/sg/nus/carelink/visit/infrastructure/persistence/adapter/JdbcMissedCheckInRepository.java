@@ -1,6 +1,7 @@
 package sg.nus.carelink.visit.infrastructure.persistence.adapter;
 
 import java.time.LocalDateTime;
+import java.sql.Timestamp;
 import java.util.List;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
@@ -18,15 +19,17 @@ class JdbcMissedCheckInRepository implements MissedCheckInRepository {
                 AND v.scheduled_start >= ? AND v.scheduled_start < ?
                 AND NOT EXISTS (SELECT 1 FROM visit_missed_check_in_trigger t WHERE t.visit_id=v.id)
                 """;
-        var parameters = new java.util.ArrayList<Object>(List.of(since, before));
+        var parameters = new java.util.ArrayList<Object>(List.of(Timestamp.valueOf(since), Timestamp.valueOf(before)));
         if (after != null) {
             query += " AND (v.scheduled_start > ? OR (v.scheduled_start = ? AND v.id > ?))";
-            parameters.add(after.scheduledStart()); parameters.add(after.scheduledStart()); parameters.add(after.visitId());
+            parameters.add(Timestamp.valueOf(after.scheduledStart())); parameters.add(Timestamp.valueOf(after.scheduledStart())); parameters.add(after.visitId());
         }
         parameters.add(limit);
         return jdbc.query(query + " ORDER BY v.scheduled_start, v.id LIMIT ?",
-                // DATETIME is a business wall time, not a Timestamp converted through the JVM zone.
-                (row, _) -> new Candidate(row.getLong("id"), row.getObject("scheduled_start", LocalDateTime.class)), parameters.toArray());
+                // Match the existing Hibernate Visit LocalDateTime <-> Timestamp mapping
+                // on BOTH binding and reading. A direct LocalDateTime read would instead
+                // expose raw DATETIME values, inconsistent with main's UTC JDBC mapping.
+                (row, _) -> new Candidate(row.getLong("id"), row.getTimestamp("scheduled_start").toLocalDateTime()), parameters.toArray());
     }
     @Override public boolean exists(Long visitId) {
         return Boolean.TRUE.equals(jdbc.queryForObject("SELECT EXISTS(SELECT 1 FROM visit_missed_check_in_trigger WHERE visit_id=?)", Boolean.class, visitId));
@@ -35,6 +38,7 @@ class JdbcMissedCheckInRepository implements MissedCheckInRepository {
         jdbc.update("""
                 INSERT INTO visit_missed_check_in_trigger(visit_id,incident_id,triggered_caregiver_id,
                 scheduled_start,check_in_due_at,observed_visit_version,triggered_at) VALUES (?,?,?,?,?,?,?)
-                """, t.visitId(), t.incidentId(), t.caregiverId(), t.scheduledStart(), t.dueAt(), t.observedVersion(), t.triggeredAt());
+                """, t.visitId(), t.incidentId(), t.caregiverId(), Timestamp.valueOf(t.scheduledStart()),
+                Timestamp.valueOf(t.dueAt()), t.observedVersion(), Timestamp.valueOf(t.triggeredAt()));
     }
 }

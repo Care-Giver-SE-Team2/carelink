@@ -144,11 +144,18 @@ class MissedCheckInWorkflowIT extends MissedCheckInITSupport {
         } finally { jdbc.execute("DROP TRIGGER sys03_page_fault"); }
         assertThat(scan.scan().triggered()).isEqualTo(1); assertThat(scan.scan().considered()).isZero();
     }
-    @Test void candidateCursorKeepsDatabaseWallTimeWithUtcJvm() throws Exception {
+    @Test void candidateCursorAndLedgerUseExistingVisitTimeMapping() throws Exception {
         var ids=plannedVisits(2).stream().sorted().toList();overdue();
-        var originalZone=TimeZone.getDefault();
-        try {
-            TimeZone.setDefault(TimeZone.getTimeZone("UTC"));
+        LocalDateTime persistedStart=jdbc.queryForObject("SELECT scheduled_start FROM visit WHERE id=?",
+                (row,_) -> row.getTimestamp(1).toLocalDateTime(),ids.getFirst());
+        assertThat(persistedStart)
+                .as("Manager-published start using main's Visit time mapping").isEqualTo(LocalDateTime.of(2026,10,8,10,5));
+        // Separate preservation fixture: SYS03 must not reinterpret an existing deadline.
+        var deadline=LocalDateTime.of(2026,10,8,11,5);
+        jdbc.update("UPDATE visit SET state_deadline=? WHERE id=?",java.sql.Timestamp.valueOf(deadline),ids.getFirst());
+        // Run the complete test JVM in UTC and Singapore separately. Changing its
+        // default zone after connections/entities exist is not an application lifecycle.
+        {
             var now=LocalDateTime.ofInstant(clock.instant(),SGT);
             var first=facts.candidates(now.minusHours(24),now.minusMinutes(10),null,1).getFirst();
             assertThat(first.scheduledStart()).isEqualTo(LocalDateTime.of(2026,10,8,10,5));
@@ -156,20 +163,30 @@ class MissedCheckInWorkflowIT extends MissedCheckInITSupport {
             var second=facts.candidates(now.minusHours(24),now.minusMinutes(10),first,1).getFirst();
             assertThat(second.visitId()).isEqualTo(ids.getLast());
             assertThat(facts.candidates(now.minusHours(24),now.minusMinutes(10),second,1)).isEmpty();
-        } finally { TimeZone.setDefault(originalZone); }
+            assertThat(scan.scan().triggered()).isEqualTo(2);
+            LocalDateTime retainedDeadline=jdbc.queryForObject("SELECT state_deadline FROM visit WHERE id=?",
+                    (row,_) -> row.getTimestamp(1).toLocalDateTime(),ids.getFirst());
+            assertThat(retainedDeadline).isEqualTo(deadline);
+            var recorded=jdbc.queryForObject("SELECT scheduled_start,check_in_due_at,triggered_at FROM visit_missed_check_in_trigger WHERE visit_id=?",
+                    (row,_) -> List.of(row.getTimestamp(1).toLocalDateTime(),row.getTimestamp(2).toLocalDateTime(),row.getTimestamp(3).toLocalDateTime()),ids.getFirst());
+            assertThat(recorded).containsExactly(LocalDateTime.of(2026,10,8,10,5),
+                    LocalDateTime.of(2026,10,8,10,15),LocalDateTime.of(2026,10,8,10,15,1));
+        }
     }
     @Test void databaseCandidatesSkipOldFutureUnassignedArrivedCancelledAndTerminalFixtures() {
         overdue();var now=LocalDateTime.ofInstant(clock.instant(),SGT);
         for(String state:List.of("ARRIVED","IN_PROGRESS","COMPLETED","VERIFIED","AUTO_CLOSED","EXCEPTION","CANCELLED")) {
-            long id=insert("INSERT INTO visit(elder_id,caregiver_id,scheduled_start,status) VALUES (?,?,?,?)",elder,caregiver,now.minusMinutes(20),state);
+            long id=insert("INSERT INTO visit(elder_id,caregiver_id,scheduled_start,status) VALUES (?,?,?,?)",elder,caregiver,java.sql.Timestamp.valueOf(now.minusMinutes(20)),state);
             assertThat(scan.trigger(id)).isFalse();
         }
-        insert("INSERT INTO visit(elder_id,caregiver_id,scheduled_start,status) VALUES (?,?,?,'SCHEDULED')",elder,caregiver,now.minusHours(24).minusSeconds(1));
-        insert("INSERT INTO visit(elder_id,caregiver_id,scheduled_start,status) VALUES (?,?,?,'SCHEDULED')",elder,caregiver,now.plusHours(1));
-        insert("INSERT INTO visit(elder_id,scheduled_start,status) VALUES (?,?,'SCHEDULED')",elder,now.minusMinutes(20));
-        insert("INSERT INTO visit(elder_id,caregiver_id,scheduled_start,status,checked_in_at) VALUES (?,?,?,'SCHEDULED',?)",elder,caregiver,now.minusMinutes(20),now);
+        // Negative/boundary fixtures must use the same Timestamp binding as Hibernate
+        // and the existing caregiver test support, not raw LocalDateTime setObject.
+        insert("INSERT INTO visit(elder_id,caregiver_id,scheduled_start,status) VALUES (?,?,?,'SCHEDULED')",elder,caregiver,java.sql.Timestamp.valueOf(now.minusHours(24).minusSeconds(1)));
+        insert("INSERT INTO visit(elder_id,caregiver_id,scheduled_start,status) VALUES (?,?,?,'SCHEDULED')",elder,caregiver,java.sql.Timestamp.valueOf(now.plusHours(1)));
+        insert("INSERT INTO visit(elder_id,scheduled_start,status) VALUES (?,?,'SCHEDULED')",elder,java.sql.Timestamp.valueOf(now.minusMinutes(20)));
+        insert("INSERT INTO visit(elder_id,caregiver_id,scheduled_start,status,checked_in_at) VALUES (?,?,?,'SCHEDULED',?)",elder,caregiver,java.sql.Timestamp.valueOf(now.minusMinutes(20)),java.sql.Timestamp.valueOf(now));
         assertThat(scan.scan().triggered()).isZero();
-        long boundary=insert("INSERT INTO visit(elder_id,caregiver_id,scheduled_start,status) VALUES (?,?,?,'SCHEDULED')",elder,caregiver,now.minusHours(24));
+        long boundary=insert("INSERT INTO visit(elder_id,caregiver_id,scheduled_start,status) VALUES (?,?,?,'SCHEDULED')",elder,caregiver,java.sql.Timestamp.valueOf(now.minusHours(24)));
         assertThat(scan.scan().triggered()).isEqualTo(1);assertThat(incident(boundary)).isPositive();
     }
 }
