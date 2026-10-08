@@ -20,8 +20,8 @@ import sg.nus.carelink.incident.domain.repository.FamilyNotificationEmailReposit
 import sg.nus.carelink.incident.domain.service.FamilyAlertChannelStrategy;
 import sg.nus.carelink.profile.application.FamilyAlertRecipients;
 
-/** Optional channel with a durable claim before asynchronous SMTP. No automatic retry in this batch.
- * An interrupted QUEUED/SENDING attempt needs explicit recovery; replay must never double-send it.
+/** Optional channel with a durable claim before asynchronous SMTP. Recovery uses the same start fence;
+ * source replay never retries, and an uncertain SMTP result is never automatically resent.
  * @author Wang Zhili
  */
 @Component
@@ -54,6 +54,9 @@ class EmailFamilyAlertStrategy implements FamilyAlertChannelStrategy {
 			return true;
 		});
 		if (!queued) { return false; }
+		return dispatch(event, familyId, attempt);
+	}
+	boolean dispatch(FamilyAlertEvent event, Long familyId, UUID attempt) {
 		try { executor.execute(() -> send(event, familyId, attempt)); }
 		catch (RejectedExecutionException _) {
 			transaction.executeWithoutResult(status -> deliveries.complete(attempt, null, State.FAILED, "QUEUE_REJECTED", now()));
@@ -75,12 +78,17 @@ class EmailFamilyAlertStrategy implements FamilyAlertChannelStrategy {
 				sender.send(contact.email(), event);
 				deliveries.complete(attempt, candidate.userId(), State.ACCEPTED, null, now());
 			});
+		} catch (FamilyEmailRejected failure) {
+			recordFailure(event, familyId, attempt, State.FAILED, failure.temporary() ? "SMTP_TEMPORARY_REJECTED" : "SMTP_PERMANENT_REJECTED", failure);
 		} catch (RuntimeException failure) {
 			// SMTP and MySQL are not atomic. Neither a timeout nor a result-write failure proves non-delivery.
-			try { transaction.executeWithoutResult(status -> deliveries.complete(attempt, null, State.UNKNOWN, "DISPATCH_NOT_CONFIRMED", now())); }
-			catch (RuntimeException recordingFailure) { logFailure(event, familyId, recordingFailure); }
-			logFailure(event, familyId, failure);
+			recordFailure(event, familyId, attempt, State.UNKNOWN, "DISPATCH_NOT_CONFIRMED", failure);
 		}
+	}
+	private void recordFailure(FamilyAlertEvent event, Long familyId, UUID attempt, State state, String reason, RuntimeException failure) {
+		try { transaction.executeWithoutResult(status -> deliveries.complete(attempt, null, state, reason, now())); }
+		catch (RuntimeException recordingFailure) { logFailure(event, familyId, recordingFailure); }
+		logFailure(event, familyId, failure);
 	}
 	private LocalDateTime now() { return LocalDateTime.now(clock.withZone(Incident.CARELINK_ZONE)); }
 	private void logFailure(FamilyAlertEvent event, Long familyId, RuntimeException failure) {

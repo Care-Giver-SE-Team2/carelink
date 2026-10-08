@@ -113,6 +113,11 @@
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-mail</artifactId>
 		</dependency>
+		<!-- The SMTP adapter inspects Angus's typed negative replies; version is Boot-managed. -->
+		<dependency>
+			<groupId>org.eclipse.angus</groupId>
+			<artifactId>angus-mail</artifactId>
+		</dependency>
 
 		<!-- Testing -->
 		<dependency>
