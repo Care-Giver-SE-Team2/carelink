@@ -24,6 +24,18 @@ export function fetchElder(id: string): Promise<ElderResponse> {
   return api<ElderResponse>(`/elders/${id}`)
 }
 
+/** One row of GET /api/elders/{id}/family — profile.application.ElderFamilyContact. */
+export type ElderFamilyContact = {
+  fullName: string
+  relationship: 'SON' | 'DAUGHTER' | 'SPOUSE' | 'GUARDIAN' | 'OTHER'
+  primaryContact: boolean
+}
+
+/** The elder's currently bound family, primary contact first; [] when none is bound. */
+export function fetchElderFamily(id: string): Promise<ElderFamilyContact[]> {
+  return api<ElderFamilyContact[]>(`/elders/${id}/family`)
+}
+
 /**
  * Row shape for GET /api/elders — profile.controller.dto.ElderListItemResponse. The three
  * primaryCaregiver fields are all null while the elder has no primary caregiver.
