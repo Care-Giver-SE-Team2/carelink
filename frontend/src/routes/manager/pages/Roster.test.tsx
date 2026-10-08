@@ -191,3 +191,31 @@ it('places back-to-back visits on the half hour side by side, by the quarter hou
   expect(first.style.gridColumn).toBe('2 / span 10')
   expect(second.style.gridColumn).toBe('12 / span 10')
 })
+
+it('narrows the roster to caregivers whose name matches the search, in Day and Week', async () => {
+  const user = userEvent.setup()
+  vi.mocked(profileApi.fetchCaregivers).mockResolvedValue(
+    ['Aaron Tan', 'Bala Krishnan', 'Chen Li'].map((name, i) => ({
+      id: 10 + i,
+      fullName: name,
+      sector: 'S31',
+      dialects: null,
+      status: 'AVAILABLE' as const,
+      assignable: true,
+    })),
+  )
+  renderAt('/manager/roster?view=day&date=2026-10-13')
+
+  await user.type(await screen.findByRole('searchbox', { name: 'Search caregivers by name' }), 'bala')
+  expect(await screen.findByText('1–1 of 1 caregivers')).toBeInTheDocument()
+  expect(screen.getByRole('rowheader', { name: /Bala Krishnan/ })).toBeInTheDocument()
+  expect(screen.queryByRole('rowheader', { name: /Aaron Tan/ })).not.toBeInTheDocument()
+
+  await user.click(screen.getByRole('button', { name: 'WEEK' }))
+  expect(await screen.findByRole('rowheader', { name: /Bala Krishnan/ })).toBeInTheDocument()
+  expect(screen.queryByRole('rowheader', { name: /Chen Li/ })).not.toBeInTheDocument()
+
+  await user.clear(screen.getByRole('searchbox'))
+  await user.type(screen.getByRole('searchbox'), 'zzz')
+  expect(await screen.findByText('No caregivers match “zzz”.')).toBeInTheDocument()
+})
