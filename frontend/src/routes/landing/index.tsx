@@ -9,14 +9,6 @@ import { ApiError } from '../../shared/api/client'
 import { IconCalendar, IconClock, IconDocCheck, IconHeart, IconUsers } from './icons'
 import styles from './Landing.module.css'
 
-const DEV_ROLE_LINKS = [
-  { path: '/manager', label: 'Manager' },
-  { path: '/caregiver', label: 'Caregiver' },
-  { path: '/family', label: 'Family' },
-  { path: '/elder', label: 'Elder' },
-  { path: '/admin', label: 'Admin' },
-]
-
 const FEATURES = [
   {
     icon: IconCalendar,
@@ -334,7 +326,7 @@ export default function LandingHome() {
             </div>
 
             <Link
-              to="/family"
+              to="/apply"
               className={styles.applyCard}
             >
               <div className={styles.applyCardRow}>
@@ -354,19 +346,6 @@ export default function LandingHome() {
             </Link>
           </div>
         </form>
-      </div>
-
-      {/* Temporary dev shortcuts — remove before shipping. */}
-      <div className={styles.devRoleLinks}>
-        {DEV_ROLE_LINKS.map((role) => (
-          <Link
-            key={role.path}
-            to={role.path}
-            className={styles.devRoleLink}
-          >
-            {role.label}
-          </Link>
-        ))}
       </div>
     </div>
   )

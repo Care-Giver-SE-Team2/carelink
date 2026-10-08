@@ -14,6 +14,7 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import sg.nus.carelink.identity.application.IdentityService;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
@@ -76,6 +77,24 @@ class SecurityConfigTest {
 	void caregiverDocumentRoutesForwardWithoutOpeningTheApi(String path) throws Exception {
 		mockMvc.perform(get(path)).andExpect(status().isOk()).andExpect(forwardedUrl("/index.html"));
 		mockMvc.perform(get("/api/caregivers/me/schedule")).andExpect(status().isUnauthorized());
+	}
+
+	@Test
+	void familySignUpPageForwardsWithoutASession() throws Exception {
+		mockMvc.perform(get("/apply")).andExpect(status().isOk()).andExpect(forwardedUrl("/index.html"));
+	}
+
+	@Test
+	void familySignUpIsOpenToAnonymousCallersButStillNeedsCsrf() throws Exception {
+		mockMvc.perform(post("/api/family-registrations").contentType(MediaType.APPLICATION_JSON).content("{}"))
+				.andExpect(status().isForbidden());
+		var token = mockMvc.perform(get("/api/auth/csrf")).andReturn().getResponse().getCookie("XSRF-TOKEN");
+		// The controller is outside this slice, so all that matters is security letting it through.
+		int status = mockMvc.perform(post("/api/family-registrations").cookie(token)
+				.header("X-XSRF-TOKEN", token.getValue()).contentType(MediaType.APPLICATION_JSON).content("{}"))
+				.andReturn().getResponse().getStatus();
+		assertThat(status).isNotIn(401, 403);
+		mockMvc.perform(get("/api/family-registrations")).andExpect(status().isUnauthorized());
 	}
 
 	@Test

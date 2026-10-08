@@ -338,6 +338,13 @@ p.card {
     margin-bottom: 26px;
   }
 
+  /* A lone message keeps the 640px reading width of the single-column tabs, centred under the header. */
+  .home > .empty {
+    width: 100%;
+    max-width: 640px;
+    margin-inline: auto;
+  }
+
   .eyebrow,
   .sectionLabel {
     font-size: 12px !important;

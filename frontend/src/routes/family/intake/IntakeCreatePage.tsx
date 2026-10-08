@@ -75,10 +75,6 @@ export function IntakeCreatePage() {
         <h1>New care application</h1>
         <p className={styles.subtitle}>Tell us about your loved one and the care they need.</p>
       </div>
-      <p className={formStyles.intro}>
-        This application helps the care team assess your loved one's needs. Fields marked optional
-        can be left blank.
-      </p>
       {state.status === 'error' && (
         <IntakeSubmissionFeedback failure={state} />
       )}
@@ -226,14 +222,30 @@ export function IntakeCreatePage() {
               />
             </Field>
           </section>
+        </fieldset>
+        {/* Desktop: the right-hand column, kept in view beside the form. On a phone its parts fall
+            back into one column: the intro first, next steps and submit after the sections. */}
+        <div className={formStyles.side}>
+          <p className={formStyles.intro}>
+            This application helps the care team assess your loved one's needs. Fields marked optional
+            can be left blank.
+          </p>
+          <section className={formStyles.next} aria-labelledby="intake-next">
+            <h2 id="intake-next">What happens next</h2>
+            <ol>
+              <li>A care manager reviews your application.</li>
+              <li>You hear back within two working days. The decision, and any message, appears on your applications page.</li>
+              <li>If it is approved, the care manager sets up your loved one's CareLink account and gets in touch.</li>
+            </ol>
+          </section>
           <div className={formStyles.submitArea}>
             <p>Your application will be sent to the care team for review.</p>
-            <button className={styles.primaryButton} type="submit">
+            <button className={styles.primaryButton} type="submit" disabled={busy}>
               {busy ? 'Submitting…' : 'Submit application'}
             </button>
             <Link to="/family/intake">Cancel and return to applications</Link>
           </div>
-        </fieldset>
+        </div>
       </form>
     </div>
   )
