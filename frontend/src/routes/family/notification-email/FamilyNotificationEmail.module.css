@@ -1,0 +1,22 @@
+.page { composes: page from '../components/FamilyScreen.module.css'; }
+.header { composes: band from '../components/FamilyScreen.module.css'; }
+.header h1 { margin-block: 12px; }
+.header p, .card form p { color: var(--fm-muted); line-height: 1.6; }
+.card { border: 1px solid var(--fm-line-card); border-radius: 18px; background: var(--fm-card); padding: 24px; }
+.card h2 { margin-bottom: 12px; }
+.card form { display: grid; gap: 12px; margin-block: 24px; }
+.card label { font-weight: 600; }
+.card input {
+  min-width: 0;
+  width: 100%;
+  min-height: 48px;
+  box-sizing: border-box;
+  border: 1px solid var(--fm-line-control);
+  border-radius: 12px;
+  background: var(--fm-card);
+  color: var(--fm-ink);
+  padding: 10px 12px;
+  font: inherit;
+}
+.card button { justify-self: start; }
+.remove { color: var(--fm-urgent); }

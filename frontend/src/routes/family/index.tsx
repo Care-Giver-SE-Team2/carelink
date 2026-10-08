@@ -10,6 +10,7 @@ import { FamilyReportDetailPage } from './reports/FamilyReportDetailPage'
 import { FamilyWeeklySummaryPage } from './reports/FamilyWeeklySummaryPage'
 import { FamilyVisitProgressPage } from './visits/FamilyVisitProgressPage'
 import { FamilyHomePage } from './home/FamilyHomePage'
+import { FamilyNotificationEmailPage } from './notification-email/FamilyNotificationEmailPage'
 import { FamilyAccountPage } from './account/FamilyAccountPage'
 import { SelectedElderProvider } from './components/FamilyElderContext'
 import { FamilyRosterChangesPage } from './changes/FamilyRosterChangesPage'
@@ -32,6 +33,9 @@ export default function FamilyHome() {
       </Route>
       <Route element={<FamilyLayout title="Incident details" />}>
         <Route path="incidents/:id" element={<FamilyIncidentPage />} />
+      </Route>
+      <Route element={<FamilyLayout title="Notification email" />}>
+        <Route path="notification-email" element={<FamilyNotificationEmailPage />} />
       </Route>
       <Route element={<FamilyLayout title="Account" />}>
         <Route path="account" element={<FamilyAccountPage />} />

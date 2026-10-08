@@ -82,6 +82,7 @@ export function FamilyAccountPage() {
         <div className={styles.row}><dt>Shift changes and spot checks</dt><dd>App</dd></div>
         <div className={styles.row}><dt>Weekly summary</dt><dd>Mondays, 09:00</dd></div>
       </dl>
+      <Link className={styles.action} to="/family/notification-email">Manage notification email →</Link>
     </section>
   </>
   const help = <>
