@@ -18,8 +18,11 @@ class VisitCommandRepositoryAdapter implements VisitCommandRepository {
         this.jpa = jpa; this.jdbc = jdbc; this.em = em;
     }
     public Optional<Visit> lock(Long id) {
-        return jpa.findForCommand(id).map(row -> {
-            em.refresh(row);
+        // A plan cancellation may have selected this entity before SYS03 committed.
+        // A lock query checks that stale cached version before refresh can run. Refresh
+        // the managed entity WITH the write lock instead, replacing its snapshot atomically.
+        return Optional.ofNullable(em.find(sg.nus.carelink.visit.infrastructure.persistence.entity.VisitJpaEntity.class, id)).map(row -> {
+            em.refresh(row, jakarta.persistence.LockModeType.PESSIMISTIC_WRITE);
             return VisitMapper.toDomain(row);
         });
     }

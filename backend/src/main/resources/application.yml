@@ -20,6 +20,13 @@ spring:
 # gets later-level-multiplier times as long, because a second responder is a safety net
 # rather than a competitor.
 carelink:
+  # SYS03: assigned but not checked in, once per Visit; does NOT close late check-in.
+  missed-check-in:
+    enabled: true
+    scan-interval: PT60S
+    scan-initial-delay: PT30S
+    lookback: PT24H
+    batch-size: 200
   caregiver:
     credential-warning-days: 30
     # SYS01. When the daily scan moves certificates to EXPIRING/EXPIRED and sends the alerts

@@ -31,7 +31,7 @@ public record Visit(
 
 	/**
 	 * A new visit generated from a care plan task (UC-MG03): SCHEDULED, not yet versioned, and
-	 * with no state deadline, which is set by whoever owns the missed-check-in rule (SYS03).
+	 * with no state deadline. SYS03 derives its boundary from scheduledStart plus the late threshold.
 	 * {@code caregiverId} may be null, leaving the visit to be covered.
 	 */
 	public static Visit scheduled(Long elderId, Long caregiverId, Long carePlanId, Long carePlanNodeId,
