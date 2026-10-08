@@ -74,7 +74,8 @@ public class FamilyIncidentReceiptService {
 						.orElseThrow(() -> new ResourceNotFound("Incident", incidentId));
 				access.requireReadableElder(username, incident.elderId());
 				var receipt = receipts.findOrCreateForUpdate(incidentId, familyId);
-				LocalDateTime now = LocalDateTime.now(clock.withZone(Incident.CARELINK_ZONE));
+				// Receipt DATETIME columns store seconds; return the same first time that a reload reads.
+				LocalDateTime now = LocalDateTime.now(clock.withZone(Incident.CARELINK_ZONE)).withNano(0);
 				var updated = acknowledge ? receipt.acknowledgeAt(now, note) : receipt.viewAt(now);
 				if (updated != receipt) { receipts.save(updated); }
 				successAudit.appendSuccess(accountId, incidentId, operation, now);
