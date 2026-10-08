@@ -1,4 +1,4 @@
-# FM05 verified notification email and alert channels (9.1–9.3)
+# FM05 verified notification email and alert channels (9.1–9.4 local acceptance)
 
 A family member can maintain and prove possession of their own notification email at `/family/notification-email`, linked from Account. The API is implemented in `docs/api/openapi.yaml`: GET/POST/DELETE `/family/notification-email` and POST `/family/notification-email/verify`. Session identity and the current enabled FAMILY profile select the record; commands use the existing CSRF cookie/header. A contact requires no elder binding; incident delivery separately requires current authorization for the incident's elder.
 
@@ -51,3 +51,11 @@ A `SENDING` record older than five minutes is conservatively marked `UNKNOWN/STA
 Recovery covers existing committed EMAIL claims. It is not a transactional incident-event outbox: a process crash before the after-commit Observer creates any durable event/claim cannot be reconstructed by this timer. The source transaction, institution escalation, SYS03 scanner, mandatory inbox, response deadline and read/view/awareness logic remain unchanged. Different raised/unresolved facts remain separate; a delayed unresolved mail describes the original alert and asks the recipient to sign in for current status.
 
 Tests observe real scheduled scans, SMTP replies/attempts and family HTTP. A controlled Clock checks the one-minute lower bound and three-attempt cap; two concurrent timer triggers verify claim fencing. Persisted checkpoints cover queued/queue-rejected recovery and stale sending/unknown/accepted/permanent/skipped exclusions. Revoked binding, removed contact, removed FAMILY role and disabled accounts prevent retries. Acceptance followed by database failure is never retried. No internal sender or worker is mocked.
+
+## Real-source local acceptance (9.4)
+
+`FamilyAlertChannelsWorkflowIT` runs real Session/CSRF HTTP requests with MySQL and Mailpit. CG04 starts from a care plan published and assigned through the existing manager APIs, then reports through `POST /api/incidents`. EL03 uses `POST /api/elders/me/emergency-calls`. Neither source is replaced by direct event publication or incident SQL fixtures. Both produce safe SMTP reminders and independent inbox notifications for two verified families.
+
+The six scenarios cover separate read/view/awareness facts, stable first awareness and response deadline, CG04 command replay, current binding checks after mail acceptance, source-transaction rollback followed by explicit retry, and real escalation producing a distinct unresolved fact. Assertions observe HTTP and SMTP; SQL supplies synthetic people/bindings and one transaction fault. These are acceptance tests for existing behavior; no producer or business workflow changes were required.
+
+Local browser acceptance also verifies two entry paths: opening the email detail link records a view without marking an inbox notification read; opening EL03 through the bell records its read/view without confirming awareness. An explicit awareness action survives reload/restart and does not alter another family's receipt or manager handling. Mailpit acceptance is local SMTP evidence only. Public-provider delivery remains pending an actual application URL, SMTP configuration and an authorized test mailbox. SYS03 acceptance remains a separate deferred item.
