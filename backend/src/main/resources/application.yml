@@ -5,6 +5,11 @@ spring:
     url: ${DB_URL:jdbc:mysql://localhost:3306/carelink?connectionTimeZone=Asia/Singapore}
     username: ${DB_USER:carelink}
     password: ${DB_PASSWORD:carelink}
+  mail:
+    properties:
+      "[mail.smtp.connectiontimeout]": 5000
+      "[mail.smtp.timeout]": 3000
+      "[mail.smtp.writetimeout]": 5000
   jpa:
     hibernate:
       # Flyway owns the schema. Hibernate validates it and never alters it.
@@ -20,6 +25,11 @@ spring:
 # gets later-level-multiplier times as long, because a second responder is a safety net
 # rather than a competitor.
 carelink:
+  # FM05: configure SMTP externally; no address inferred from usernames.
+  family-email:
+    enabled: ${FAMILY_EMAIL_ENABLED:false}
+    from: ${FAMILY_EMAIL_FROM:}
+    app-base-url: ${FAMILY_EMAIL_APP_BASE_URL:}
   caregiver:
     credential-warning-days: 30
     # SYS01. When the daily scan moves certificates to EXPIRING/EXPIRED and sends the alerts

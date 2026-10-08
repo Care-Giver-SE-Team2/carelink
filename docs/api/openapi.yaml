@@ -43,6 +43,155 @@ tags:
   - name: Spot checks
     description: Home service spot checks with the family's consent and the caregiver's answer (UC-MG08, with the former UC-FM07).
 paths:
+  /family/notification-email:
+    get:
+      tags:
+      - Notifications
+      summary: Read my notification email
+      x-status: implemented
+      x-implemented-roles:
+      - FAMILY
+      description: Session identity selects the current enabled FAMILY profile. No elder binding is required
+        to maintain your own contact. configured reports sender availability, not delivery or possession.
+      security:
+      - sessionCookie: []
+      responses:
+        '200':
+          description: Current-family contact status; no verification secret.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FamilyNotificationEmailStatus'
+        '401':
+          description: Authentication required.
+        '403':
+          description: Current enabled FAMILY identity required; writes also require CSRF.
+        '500':
+          description: Storage operation failed; no successful contact update reported.
+    post:
+      tags:
+      - Notifications
+      summary: Request a verification email
+      x-status: implemented
+      x-implemented-roles:
+      - FAMILY
+      description: Save a pending address and send a single verification message. A change or resend clears
+        previous possession proof and invalidates the old code. A cryptographically random single-use code
+        expires in 15 minutes; requests are limited to one per minute per family, including after removal.
+        Only a hash is stored. SMTP failure rolls back the change. SMTP acceptance is not public inbox delivery;
+        a later database commit failure may leave an unusable mailed code. Verification emails contain no
+        care details. This operation does not enable incident email delivery.
+      security:
+      - sessionCookie: []
+      responses:
+        '200':
+          description: Current-family contact status; no verification secret.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FamilyNotificationEmailStatus'
+        '401':
+          description: Authentication required.
+        '403':
+          description: Current enabled FAMILY identity required; writes also require CSRF.
+        '500':
+          description: Storage operation failed; no successful contact update reported.
+        '400':
+          description: Missing or malformed JSON, address, or code.
+        '409':
+          description: EMAIL_VERIFICATION_COOLDOWN or EMAIL_VERIFICATION_INVALID; detail contains no credential.
+        '503':
+          description: SMTP is disabled, unconfigured or rejected the verification message; no contact change
+            is committed.
+      parameters:
+      - name: X-XSRF-TOKEN
+        in: header
+        required: true
+        schema:
+          type: string
+          minLength: 1
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FamilyNotificationEmailRequest'
+    delete:
+      tags:
+      - Notifications
+      summary: Remove my notification email
+      x-status: implemented
+      x-implemented-roles:
+      - FAMILY
+      description: Clear the address, proof and outstanding code while retaining the last request time for
+        the cooldown. Idempotent removal returns current status. Does not change in-app notifications, bindings
+        or incident receipts.
+      security:
+      - sessionCookie: []
+      responses:
+        '200':
+          description: Current-family contact status; no verification secret.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FamilyNotificationEmailStatus'
+        '401':
+          description: Authentication required.
+        '403':
+          description: Current enabled FAMILY identity required; writes also require CSRF.
+        '500':
+          description: Storage operation failed; no successful contact update reported.
+      parameters:
+      - name: X-XSRF-TOKEN
+        in: header
+        required: true
+        schema:
+          type: string
+          minLength: 1
+  /family/notification-email/verify:
+    post:
+      tags:
+      - Notifications
+      summary: Verify my notification email
+      x-status: implemented
+      x-implemented-roles:
+      - FAMILY
+      description: Submit the mailed code in the request body for the current family only. Cross-family,
+        missing, consumed or expired credentials return the same 409 business failure; expiry is inclusive.
+        A verified address is available to a later email-channel implementation, not proof that urgent mail
+        is enabled. The API never returns the code or hash. Timestamps are server facts with Singapore +08:00.
+      security:
+      - sessionCookie: []
+      responses:
+        '200':
+          description: Current-family contact status; no verification secret.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FamilyNotificationEmailStatus'
+        '401':
+          description: Authentication required.
+        '403':
+          description: Current enabled FAMILY identity required; writes also require CSRF.
+        '500':
+          description: Storage operation failed; no successful contact update reported.
+        '400':
+          description: Missing or malformed JSON, address, or code.
+        '409':
+          description: EMAIL_VERIFICATION_COOLDOWN or EMAIL_VERIFICATION_INVALID; detail contains no credential.
+      parameters:
+      - name: X-XSRF-TOKEN
+        in: header
+        required: true
+        schema:
+          type: string
+          minLength: 1
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FamilyNotificationEmailVerification'
   /incidents:
     post:
       tags: [Incidents]
@@ -2774,6 +2923,54 @@ paths:
         - sessionCookie: []
 components:
   schemas:
+    FamilyNotificationEmailStatus:
+      type: object
+      required:
+      - email
+      - verifiedAt
+      - verificationExpiresAt
+      - configured
+      - urgentAlertsConfigured
+      properties:
+        email:
+          type: string
+          format: email
+          nullable: true
+          maxLength: 254
+        verifiedAt:
+          type: string
+          format: date-time
+          nullable: true
+        verificationExpiresAt:
+          type: string
+          format: date-time
+          nullable: true
+        configured:
+          type: boolean
+          description: Verification SMTP is configured; does not prove delivery.
+        urgentAlertsConfigured:
+          type: boolean
+          description: Urgent SMTP and an application link are configured; recipient authorization and verification are checked on each send.
+    FamilyNotificationEmailRequest:
+      type: object
+      required:
+      - email
+      properties:
+        email:
+          type: string
+          format: email
+          minLength: 1
+          maxLength: 254
+    FamilyNotificationEmailVerification:
+      type: object
+      required:
+      - token
+      properties:
+        token:
+          type: string
+          pattern: ^[a-f0-9]{64}$
+          writeOnly: true
+          description: One-time mailed code; submit in JSON only, never in a URL.
     CaregiverCommandIdentity:
       type: object
       required: [expectedVersion, clientRequestId]

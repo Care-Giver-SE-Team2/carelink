@@ -67,6 +67,7 @@ describe('Family account', () => {
     expect(screen.getByText('LW')).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Account' })).toHaveAttribute('aria-current', 'page')
     expect(document.title).toBe('Account · CareLink')
+    expect(screen.getByRole('link', { name: 'Manage notification email →' })).toHaveAttribute('href', '/family/notification-email')
 
     const following = screen.getByRole('region', { name: 'Following' })
     expect(await within(following).findByText('Chan Bee Choo')).toBeInTheDocument()
