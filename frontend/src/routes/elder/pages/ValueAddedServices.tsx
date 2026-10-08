@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
 import { ApiError } from '../../../shared/api/client'
 import {
   createElderValueAddedServiceRequest,
@@ -7,7 +6,21 @@ import {
   fetchValueAddedServices,
 } from '../../../features/value-added-services/api'
 import type { ValueAddedService, ValueAddedServiceRequest } from '../../../features/value-added-services/types'
-import { RoleShell } from '../../../shared/components/RoleShell'
+import { ElderShell } from '../components/ElderShell'
+import {
+  ActionStack,
+  ChoiceButton,
+  InfoCard,
+  InfoNote,
+  ScreenColumns,
+  ScreenFooter,
+  ScreenHeader,
+  Slot,
+  SpeakButton,
+  StatusNote,
+  WideButton,
+} from '../components/ElderUi'
+import { greeting } from '../lib/greeting'
 import styles from '../Elder.module.css'
 
 export default function ValueAddedServices() {
@@ -62,46 +75,111 @@ export default function ValueAddedServices() {
     }
   }
 
-  return <RoleShell title="Extra services" theme="elder"><div className={styles.page}>
-    <Link className={styles.back} to="/elder">← Back</Link>
-    <div><h1>Ask for extra help</h1><p className={styles.intro}>Choose an available service and when you would like it.</p></div>
-
-    {loading && <p>Loading extra services...</p>}
-    {error && <div className={styles.warning} role="alert">{error}</div>}
-
-    {!loading && services.length === 0 && <div className={styles.panel}><h2>No extra services available</h2></div>}
-
-    {services.length > 0 && <section className={styles.panel}>
-      <h2>New request</h2>
-      <label className={styles.field}>Service
-        <select value={serviceId ?? ''} onChange={(event) => setServiceId(Number(event.target.value))}>
-          {services.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
-        </select>
-      </label>
-      {selected?.description && <p className={styles.meta}>{selected.description}</p>}
-      <label className={styles.field}>Requested date and time
-        <input type="datetime-local" value={schedule} onChange={(event) => setSchedule(event.target.value)} />
-      </label>
-      <label className={styles.field}>Anything we should know?
-        <textarea value={note} onChange={(event) => setNote(event.target.value)} placeholder="Optional instructions" />
-      </label>
-      <button className={styles.primary} disabled={submitting} onClick={submit}>
-        {submitting ? 'Sending...' : `Request ${selected?.name ?? 'service'}`}
-      </button>
-    </section>}
-
-    {message && <div className={styles.success}>{message}</div>}
-
-    <section className={styles.panel}>
-      <h2>My requests</h2>
-      {requests.length === 0 ? <p className={styles.meta}>No requests yet.</p> : requests.map((request) => <div className={styles.binding} key={request.id}>
-        <strong>{request.serviceName}</strong>
-        <p>Status: <strong>{request.status}</strong></p>
-        <p className={styles.meta}>Requested for: {request.requestedSchedule ? new Date(request.requestedSchedule).toLocaleString() : 'Not specified'}</p>
-        {request.specialInstructions && <p>{request.specialInstructions}</p>}
-        {request.visitId && <p className={styles.meta}>Work order visit: #{request.visitId}</p>}
-      </div>)}
-    </section>
-    <p className={styles.meta}>This records a service request only. No payment is taken here.</p>
-  </div></RoleShell>
+  return (
+    <ElderShell>
+      <ScreenColumns
+        left={
+          <>
+            <Slot order={1}>
+              <ScreenHeader
+                backTo="/elder"
+                eyebrow={greeting()}
+                title="What do you need?"
+                subtitle="Choose an available service and when you would like it."
+              />
+            </Slot>
+            <Slot order={2}>{error && <StatusNote tone="problem">{error}</StatusNote>}</Slot>
+            <Slot order={3}>{message && <StatusNote tone="success">{message}</StatusNote>}</Slot>
+            <Slot order={5}>
+              <div className={styles.form}>
+                <h2 className={styles.sectionTitle}>My requests</h2>
+                {requests.length === 0 ? (
+                  <InfoNote>No requests yet.</InfoNote>
+                ) : (
+                  requests.map((request) => (
+                    <InfoCard key={request.id}>
+                      <h3 className={styles.familyName}>{request.serviceName}</h3>
+                      <p className={styles.familyRelation}>
+                        Status: <strong>{request.status}</strong>
+                      </p>
+                      <p className={styles.familyMeta}>
+                        Requested for:{' '}
+                        {request.requestedSchedule
+                          ? new Date(request.requestedSchedule).toLocaleString()
+                          : 'Not specified'}
+                      </p>
+                      {request.specialInstructions && (
+                        <p className={styles.familyRelation}>{request.specialInstructions}</p>
+                      )}
+                      {request.visitId && (
+                        <p className={styles.familyMeta}>Work order visit: #{request.visitId}</p>
+                      )}
+                    </InfoCard>
+                  ))
+                )}
+              </div>
+            </Slot>
+            <Slot order={6}>
+              <p className={styles.meta}>This records a service request only. No payment is taken here.</p>
+            </Slot>
+          </>
+        }
+        right={
+          <Slot order={4}>
+            {loading ? (
+              <p className={styles.lead}>Loading extra services…</p>
+            ) : services.length === 0 ? (
+              <InfoCard>
+                <h2 className={styles.sectionTitle}>No extra services available</h2>
+              </InfoCard>
+            ) : (
+              <InfoCard>
+                <div className={styles.form}>
+                  <h2 className={styles.sectionTitle}>New request</h2>
+                  <ActionStack>
+                    {services.map((item) => (
+                      <ChoiceButton
+                        key={item.id}
+                        label={item.name}
+                        selected={item.id === serviceId}
+                        onSelect={() => setServiceId(item.id)}
+                        disabled={submitting}
+                      />
+                    ))}
+                  </ActionStack>
+                  {selected?.description && <p className={styles.lead}>{selected.description}</p>}
+                  <label className={styles.fieldLabel}>
+                    <span>Requested date and time</span>
+                    <input
+                      type="datetime-local"
+                      value={schedule}
+                      disabled={submitting}
+                      onChange={(event) => setSchedule(event.target.value)}
+                    />
+                  </label>
+                  <label className={styles.fieldLabel}>
+                    <span>Anything we should know?</span>
+                    <textarea
+                      value={note}
+                      disabled={submitting}
+                      onChange={(event) => setNote(event.target.value)}
+                      placeholder="Optional instructions"
+                    />
+                  </label>
+                  <WideButton onClick={submit} disabled={submitting}>
+                    {submitting ? 'Sending…' : `Request ${selected?.name ?? 'service'}`}
+                  </WideButton>
+                </div>
+              </InfoCard>
+            )}
+          </Slot>
+        }
+        footer={
+          <ScreenFooter>
+            <SpeakButton />
+          </ScreenFooter>
+        }
+      />
+    </ElderShell>
+  )
 }

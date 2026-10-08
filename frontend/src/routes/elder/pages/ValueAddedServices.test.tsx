@@ -35,10 +35,13 @@ vi.mock(
   }),
 )
 
+/*
+ * ElderShell (session handling) is not under test here.
+ */
 vi.mock(
-  '../../../shared/components/RoleShell',
+  '../components/ElderShell',
   () => ({
-    RoleShell: ({
+    ElderShell: ({
       children,
     }: {
       children:
@@ -124,10 +127,11 @@ describe(
 
       expect(
         screen.getByRole(
-          'option',
+          'button',
           {
             name:
-              'Hospital escort',
+              /^Hospital escort/,
+            pressed: true,
           },
         ),
       ).toBeInTheDocument()
