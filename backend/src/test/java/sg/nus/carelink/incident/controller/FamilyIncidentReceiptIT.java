@@ -107,6 +107,23 @@ class FamilyIncidentReceiptIT {
 	}
 
 	@Test
+	void fractionalClockReturnsThePersistedFirstReceiptAcrossReloadAndRepeat() throws Exception {
+		Browser family = loginAs("family-a");
+		clock.now = START.plusNanos(987_654_321);
+		var viewed = command(family, 601, "view", null);
+		assertReceipt(viewed, 601, 42, "2026-10-07T16:00:00+08:00", null, null);
+		clock.now = START.plusSeconds(60).plusNanos(987_654_321);
+		var aware = command(family, 601, "acknowledge", "{\"responseNote\":\"First note\"}");
+		assertReceipt(aware, 601, 42, "2026-10-07T16:00:00+08:00", "2026-10-07T16:01:00+08:00", "First note");
+		var detail = json.readTree(mvc.perform(get("/api/family/incidents/601").session(family.session()))
+				.andExpect(status().isOk()).andReturn().getResponse().getContentAsString());
+		assertThat(detail.path("acknowledgement")).isEqualTo(aware);
+		clock.now = START.plusSeconds(120).plusNanos(123_456_789);
+		assertThat(command(family, 601, "view", null)).isEqualTo(aware);
+		assertThat(command(family, 601, "acknowledge", "{\"responseNote\":\"Do not replace\"}")).isEqualTo(aware);
+	}
+
+	@Test
 	void viewThenAcknowledgePreservesFirstTimesAndNoteWithoutChangingHandlingOrRead() throws Exception {
 		var incidents = jdbc.queryForList("SELECT * FROM incident ORDER BY id");
 		var notices = jdbc.queryForList("SELECT * FROM notification ORDER BY id");
