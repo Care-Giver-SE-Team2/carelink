@@ -46,4 +46,8 @@ class AfterCommitIncidentFamilyEvents implements IncidentFamilyEvents {
 			}
 		});
 	}
+
+	@Override public void acknowledgementDue(Long incidentId, Long elderId, Long familyMemberId, OffsetDateTime deadline) {
+		register(FamilyAlertEvent.acknowledgementDue(incidentId, elderId, familyMemberId, deadline));
+	}
 }

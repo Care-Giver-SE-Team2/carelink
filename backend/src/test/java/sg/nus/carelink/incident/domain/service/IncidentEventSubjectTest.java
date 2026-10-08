@@ -8,6 +8,7 @@ import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import sg.nus.carelink.incident.domain.model.FamilyReminderWindow;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.Test;
 import sg.nus.carelink.incident.domain.model.FamilyAlertEvent;
@@ -55,4 +56,32 @@ class IncidentEventSubjectTest {
 		assertThatThrownBy(() -> FamilyUrgentNotice.forIncident(raised(), incident, now, Duration.ZERO)).isInstanceOf(IllegalArgumentException.class);
 		assertThatThrownBy(() -> FamilyUrgentNotice.forIncident(raised(), incident, now, Duration.ofMinutes(-1))).isInstanceOf(IllegalArgumentException.class);
 	}
+
+    @Test void reminderFactsTargetOneFamilyAndKeepTheirIdentityAcrossReplay() {
+        var first = FamilyAlertEvent.acknowledgementDue(601L, 101L, 201L, at);
+        var replay = FamilyAlertEvent.acknowledgementDue(601L, 101L, 201L, at.withOffsetSameInstant(java.time.ZoneOffset.UTC));
+        assertThat(first).isEqualTo(replay);
+        assertThat(first.familyMemberId()).isEqualTo(201L);
+        assertThat(FamilyAlertEvent.acknowledgementDue(601L, 101L, 202L, at).eventId()).isNotEqualTo(first.eventId());
+        for (Long invalid : new Long[] {null, 0L, -1L}) {
+            assertThatThrownBy(() -> FamilyAlertEvent.acknowledgementDue(601L, 101L, invalid, at)).isInstanceOf(IllegalArgumentException.class);
+        }
+        assertThatThrownBy(() -> new FamilyAlertEvent(id, FamilyAlertEvent.Type.INCIDENT_RAISED, 601L, 101L, at, 201L))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test void reminderWindowRequiresAnExistingDueDeadlineWithoutAwarenessOrResolution() {
+        var deadline = LocalDateTime.of(2026, 10, 8, 12, 5);
+        var waiting = new FamilyReminderWindow(deadline, null, false);
+        assertThat(waiting.isDueAt(deadline.minusSeconds(1))).isFalse();
+        assertThat(waiting.isDueAt(deadline)).isTrue();
+        assertThat(new FamilyReminderWindow(null, null, false).isDueAt(deadline)).isFalse();
+        assertThat(new FamilyReminderWindow(deadline, deadline.minusMinutes(5), false).isDueAt(deadline)).isFalse();
+        assertThat(new FamilyReminderWindow(deadline, null, true).isDueAt(deadline)).isFalse();
+        var reminder = FamilyAlertEvent.acknowledgementDue(601L, 101L, 201L, deadline.atOffset(java.time.ZoneOffset.ofHours(8)));
+        var notice = FamilyUrgentNotice.forIncident(reminder, Incident.createElderSos(101L, 15L, null, null, "Private location", "Private description", deadline), deadline.plusMinutes(1), Duration.ofHours(2));
+        assertThat(notice.acknowledgeBy()).isEqualTo(deadline);
+        assertThat(notice.body()).doesNotContain("Private");
+    }
+
 }
