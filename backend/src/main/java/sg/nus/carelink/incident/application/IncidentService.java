@@ -86,7 +86,7 @@ public class IncidentService {
     public Incident raiseForMissedCheckIn(Long elderId, Long visitId,
             LocalDateTime dueAt, LocalDateTime observedAt) {
         var saved = incidents.save(Incident.raisedForMissedCheckIn(elderId, visitId, dueAt, observedAt));
-        timeline.save(IncidentLog.entry(saved.id(), "system", IncidentLog.Action.REPORTED,
+        timeline.save(IncidentLog.systemEntry(saved.id(), IncidentLog.Action.REPORTED,
                 "assigned caregiver has not checked in after the allowed lateness threshold", observedAt));
         return escalation.routeNewIncident(saved);
     }

@@ -3,6 +3,7 @@ package sg.nus.carelink.visit.controller;
 import static org.assertj.core.api.Assertions.*;
 import java.time.*;
 import java.util.*;
+import tools.jackson.databind.JsonNode;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -23,7 +24,7 @@ class MissedCheckInWorkflowIT extends MissedCheckInITSupport {
         SharedMySql.register(registry, MissedCheckInWorkflowIT.class, "+05:00", "connectionTimeZone=Asia/Singapore");
         registry.add("carelink.missed-check-in.batch-size", () -> 1);
     }
-    @Test void productionThresholdRoutesOnceAndBlocksCheckInEvenAfterIncidentResolution() throws Exception {
+    @Test void productionThresholdRoutesOnceToManagerAndIndependentFamilies() throws Exception {
         long id=plannedVisit();
         clock.at(START.plusSeconds(899)); assertThat(scan.scan().triggered()).isZero();
         clock.at(START.plusSeconds(900)); assertThat(scan.scan().triggered()).isZero();
@@ -36,11 +37,6 @@ class MissedCheckInWorkflowIT extends MissedCheckInITSupport {
             assertThat(detail.path("reportedByUserId").isNull()).isTrue();
             assertThat(detail.path("responderUserId").asLong()).isEqualTo(manager);
             assertThat(detail.path("respondBy").asString()).isEqualTo("2026-10-08T10:30:01");
-            var pack=cg.read("/api/visits/"+id+"/work-pack");
-            assertThat(pack.path("visit").path("status").asString()).isEqualTo("EXCEPTION");
-            assertThat(pack.path("execution").path("allowedActions").valueStream().map(row->row.asString()).toList()).doesNotContain("CHECK_IN","TASK_RESULT");
-            assertThat(pack.path("execution").path("blockedReason").asString()).isEqualTo("VISIT_EXECUTION_NOT_ALLOWED");
-            assertThat(pack.path("execution").path("checkedInAt").isNull()).isTrue();
             assertThat(cg.get("/api/incidents/"+event).statusCode()).isEqualTo(403);
             assertThat(a.read("/api/notifications/me").path("items").get(0).path("resourceId").asLong()).isEqualTo(event);
             assertThat(b.read("/api/notifications/me").path("items").get(0).path("resourceId").asLong()).isEqualTo(event);
@@ -49,6 +45,19 @@ class MissedCheckInWorkflowIT extends MissedCheckInITSupport {
             body(a.post("/api/incidents/"+event+"/view",null),200);
             body(a.post("/api/incidents/"+event+"/acknowledge",Map.of("responseNote","Family informed")),200);
             assertThat(b.read(path).path("acknowledgement").path("acknowledgedAt").isNull()).isTrue();
+        }
+        assertThat(scan.trigger(id)).isFalse(); assertThat(count("incident",id)).isEqualTo(1);
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM family_alert_event WHERE incident_id=?",Long.class,event)).isEqualTo(1);
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM notification WHERE recipient_user_id=? AND resource_id=? AND event_type='INCIDENT_RAISED'",Long.class,manager,event)).isEqualTo(1);
+    }
+    @Test void alertBlocksStaleAndRefreshedCheckInEvenAfterIncidentResolution() throws Exception {
+        long id=plannedVisit();overdue();assertThat(scan.trigger(id)).isTrue();long event=incident(id);
+        try(var mgr=browser(managerName);var cg=browser(caregiverName)) {
+            var pack=cg.read("/api/visits/"+id+"/work-pack");
+            assertThat(pack.path("visit").path("status").asString()).isEqualTo("EXCEPTION");
+            assertThat(pack.path("execution").path("allowedActions").valueStream().map(JsonNode::asString).toList()).doesNotContain("CHECK_IN","TASK_RESULT");
+            assertThat(pack.path("execution").path("blockedReason").asString()).isEqualTo("VISIT_EXECUTION_NOT_ALLOWED");
+            assertThat(pack.path("execution").path("checkedInAt").isNull()).isTrue();
             assertThat(cg.post("/api/visits/"+id+"/check-in",check(0)).statusCode()).isEqualTo(409);
             assertThat(body(cg.post("/api/visits/"+id+"/check-in",check(1)),409).toString()).contains("VISIT_EXECUTION_NOT_ALLOWED");
             assertThat(mgr.read("/api/incidents/"+event).path("incident").path("status").asString()).isEqualTo("OPEN");
@@ -62,8 +71,7 @@ class MissedCheckInWorkflowIT extends MissedCheckInITSupport {
         assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM visit_task WHERE visit_id=?",Long.class,id)).isZero();
         assertThat(jdbc.queryForObject("SELECT status FROM visit WHERE id=?",String.class,id)).isEqualTo("EXCEPTION");
         assertThat(version(id)).isEqualTo(1);
-        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM family_alert_event WHERE incident_id=?",Long.class,event)).isEqualTo(1);
-        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM notification WHERE recipient_user_id=? AND resource_id=? AND event_type='INCIDENT_RAISED'",Long.class,manager,event)).isEqualTo(1);
+        assertSystemTransition(id);
     }
     @Test void timelyCheckInAndStoppedPlanNeverTrigger() throws Exception {
         long id=plannedVisit(); clock.at(START.plusSeconds(300));
