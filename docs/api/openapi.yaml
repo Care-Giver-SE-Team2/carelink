@@ -43,6 +43,85 @@ tags:
   - name: Spot checks
     description: Home service spot checks with the family's consent and the caregiver's answer (UC-MG08, with the former UC-FM07).
 paths:
+  /family/service-applications:
+    post:
+      tags: [Intake]
+      summary: Apply for care services for an already-bound elder (FM01)
+      operationId: submitFamilyServiceApplication
+      x-status: implemented
+      security: [{sessionCookie: []}]
+      description: >-
+        Requires CSRF, an enabled FAMILY account and a current ACTIVE, unexpired FULL binding.
+        The session determines the applicant. The server loads the existing elder and copies only
+        basic details into an immutable snapshot; the caller cannot supply ownership, snapshot,
+        review state or timestamps. Full name, home address and a six-digit postal code must be
+        saved in My elders first. Other profile fields remain optional and are copied as recorded.
+        At least one service need is required. Service text is trimmed and exact duplicates removed.
+        Supports BATHING, VITALS and other described needs, as in the existing family form.
+        Each accepted POST creates a distinct SUBMITTED request in care_service_application.
+        Does not create an elder, account or care plan and is not consumed by the legacy intake approval.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/FamilyServiceApplicationCreate'}
+            example: {elderId: 1, careNeeds: [BATHING, VITALS], notes: 'Morning visits preferred.'}
+      responses:
+        '201':
+          description: Transaction committed; the application is submitted and awaiting review.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/FamilyServiceApplication'}
+        '400': {description: Invalid JSON types, unexpected fields or invalid input limits.}
+        '401': {description: Authentication required.}
+        '403': {description: CSRF failure, disabled family account or no current FULL binding.}
+        '404': {description: Elder profile missing.}
+        '409': {description: 'ELDER_PROFILE_INCOMPLETE; complete the saved name, address and six-digit postal code first.'}
+        '500': {description: Persistence failed; submission success is not reported.}
+    get:
+      tags: [Intake]
+      summary: List the current family's readable service applications
+      operationId: listFamilyServiceApplications
+      x-status: implemented
+      security: [{sessionCookie: []}]
+      description: >-
+        Both applicant ownership and current readable elder bindings are applied before counting
+        and pagination. FULL and READ_ONLY may read; revoked, rejected, pending or expired bindings
+        cannot expose saved snapshots. Sorted by createdAt descending, then id descending.
+      parameters:
+        - {name: page, in: query, schema: {type: integer, minimum: 0, maximum: 2147483647, default: 0}}
+        - {name: size, in: query, schema: {type: integer, minimum: 1, maximum: 100, default: 20}}
+      responses:
+        '200':
+          description: Owned applications with current read access; empty when none match.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/FamilyServiceApplicationPage'}
+        '400': {description: Invalid pagination.}
+        '401': {description: Authentication required.}
+        '403': {description: Enabled family account and profile required.}
+  /family/service-applications/{id}:
+    get:
+      tags: [Intake]
+      summary: Read an owned service application and its original profile snapshot
+      operationId: getFamilyServiceApplication
+      x-status: implemented
+      security: [{sessionCookie: []}]
+      parameters:
+        - {name: id, in: path, required: true, schema: {type: integer, format: int64, minimum: 1}}
+      description: >-
+        Requires applicant ownership and a current readable binding to this elder. A later change
+        to the elder's profile does not rewrite the submitted snapshot. Another family cannot read
+        this application even if they are also bound to the same elder.
+      responses:
+        '200':
+          description: Original submitted data, including an explicit UTC creation timestamp.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/FamilyServiceApplication'}
+        '401': {description: Authentication required.}
+        '403': {description: Current readable binding or enabled family account unavailable.}
+        '404': {description: Application missing or owned by another family.}
   /family/elders:
     get:
       tags: [Elders]
@@ -2935,6 +3014,37 @@ paths:
         - sessionCookie: []
 components:
   schemas:
+    FamilyServiceApplicationCreate:
+      type: object
+      additionalProperties: false
+      required: [elderId, careNeeds]
+      properties:
+        elderId: {type: integer, format: int64, minimum: 1}
+        careNeeds:
+          type: array
+          minItems: 1
+          maxItems: 20
+          items: {type: string, minLength: 1, maxLength: 100}
+        notes: {type: string, nullable: true, maxLength: 2000}
+    FamilyServiceApplication:
+      type: object
+      required: [id, elderId, elderSnapshot, careNeeds, status, createdAt]
+      properties:
+        id: {type: integer, format: int64}
+        elderId: {type: integer, format: int64}
+        elderSnapshot: {$ref: '#/components/schemas/FamilyElderBasicDetails'}
+        careNeeds: {type: array, items: {type: string}}
+        notes: {type: string, nullable: true}
+        status: {type: string, enum: [SUBMITTED]}
+        createdAt: {type: string, format: date-time, description: 'Submission time with UTC offset.'}
+    FamilyServiceApplicationPage:
+      type: object
+      required: [items, page, size, totalElements]
+      properties:
+        items: {type: array, items: {$ref: '#/components/schemas/FamilyServiceApplication'}}
+        page: {type: integer}
+        size: {type: integer}
+        totalElements: {type: integer, format: int64}
     FamilyElderBasicDetails:
       type: object
       required: [fullName]
