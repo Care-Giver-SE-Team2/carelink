@@ -39,7 +39,7 @@ const tabs: (RailItem & { phone?: false })[] = [
     icon: <svg {...iconProps}><path d="M7 3h7l4 4v13a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z" /><path d="M14 3v4h4M9 13h6M9 17h6" /></svg>,
   },
   {
-    label: 'Services', to: '/family/intake', match: ['/family/intake'],
+    label: 'Services', to: '/family/service-applications', match: ['/family/service-applications', '/family/intake'],
     icon: <svg {...iconProps}><circle cx="12" cy="12" r="8.5" /><path d="M12 8v8M8 12h8" /></svg>,
   },
   {

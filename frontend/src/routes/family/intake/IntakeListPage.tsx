@@ -141,12 +141,12 @@ export function IntakeListPage() {
     <div className={styles.page}>
       <section className={styles.hero}>
         <div>
-          <p className={styles.eyebrow}>YOUR FAMILY'S CARE</p>
+          <p className={styles.eyebrow}>EARLIER REGISTRATION APPLICATIONS</p>
           <h1>My applications</h1>
           <p className={styles.subtitle}>
-            A little clarity, at every step.
+            Earlier applications to register an elder.
             <br />
-            Follow your loved one's care application here.
+            For a linked elder, submit a new service application.
           </p>
         </div>
         {!desktop && (
@@ -162,8 +162,8 @@ export function IntakeListPage() {
           {/* Desktop: starting an application lives beside the list rather than above it. */}
           <aside className={styles.createCard} aria-labelledby="create-application">
             <p className={styles.eyebrow}>New application</p>
-            <h2 id="create-application">Apply for care for someone new</h2>
-            <p>Tell us about your loved one and the help they need. A care manager reviews each application and you can follow its progress here.</p>
+            <h2 id="create-application">Apply for care for a linked elder</h2>
+            <p>Choose an elder you are linked to and request care services. These new requests are separate from the earlier registration applications shown here.</p>
             {createLink}
           </aside>
         </div>
