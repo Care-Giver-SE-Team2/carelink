@@ -1396,6 +1396,54 @@ paths:
         elder care record.
       x-family-response-schema:
         $ref: '#/components/schemas/FamilyReportPage'
+  /reports/generate:
+    post:
+      tags:
+        - Reports
+      summary: Generate a period's reports (UC-MG07)
+      x-status: implemented
+      x-implemented-roles: [MANAGER]
+      operationId: generateReports
+      description: >-
+        One run reads an elder's period once, stores it as the run's basis (facts and numbers),
+        and files three versions assembled from it - FAMILY, REGULATOR and INTERNAL - with the
+        same sections in the same order and each reader's own filtering rules. Omit elderId for
+        every elder with a visit in the period, which is what the weekly schedule does. A period
+        already on file is returned as it is (idempotent), never generated again. Unclosed visits
+        do not block generation: the reports say dataComplete false and name each gap (2a).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [periodStart, periodEnd]
+              properties:
+                elderId:
+                  type: integer
+                  format: int64
+                  description: One elder; omit for every elder with a visit in the period.
+                periodStart:
+                  type: string
+                  format: date
+                periodEnd:
+                  type: string
+                  format: date
+      responses:
+        '202':
+          description: Every report now on file for the period, three per elder, FAMILY first.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Report'
+        '400':
+          description: A period that ends before it starts, or a missing date.
+        '404':
+          description: The elder does not exist.
+      security:
+        - sessionCookie: []
   /reports/{id}:
     parameters:
       - name: id
@@ -1473,6 +1521,55 @@ paths:
       operationId: getReport
       x-family-response-schema:
         $ref: '#/components/schemas/FamilyReportDetail'
+  /reports/{id}/amendments:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+    post:
+      tags:
+        - Reports
+      summary: Append a correction or a follow-up to a filed report (UC-MG07 5a)
+      x-status: implemented
+      x-implemented-roles: [MANAGER]
+      operationId: appendReportAmendment
+      description: >-
+        The only change a filed report accepts. The report's own text is never edited; the note is
+        stored beside it, dated and signed. A CORRECTION says the report was wrong or missing
+        something; a FOLLOW_UP records what was done about something it reported. A note sent
+        without a kind is a correction.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [note]
+              properties:
+                note:
+                  type: string
+                  minLength: 1
+                  maxLength: 1000
+                kind:
+                  $ref: '#/components/schemas/ReportAmendmentKind'
+      responses:
+        '201':
+          description: The stored note.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReportAmendment'
+        '400':
+          description: An empty note, one over 1000 characters, or a kind that does not exist.
+        '404':
+          description: The report does not exist.
+        '409':
+          description: The note breaks a rule of the report (code REPORT_AMENDMENT_NOTE_REQUIRED or REPORT_AMENDMENT_TOO_LONG).
+      security:
+        - sessionCookie: []
   /reports/{id}/export:
     parameters:
       - name: id
@@ -3845,6 +3942,16 @@ components:
           type: string
           format: date-time
           nullable: true
+        basisId:
+          type: integer
+          format: int64
+          nullable: true
+          description: Manager responses. The basis the report was assembled from; null for a report filed before V19.
+        metrics:
+          allOf:
+            - $ref: '#/components/schemas/ReportMetrics'
+          nullable: true
+          description: Manager responses. That basis's numbers, the same for the three readers' versions of a period.
     FamilyReportDetail:
       type: object
       additionalProperties: false
@@ -3978,16 +4085,119 @@ components:
       required:
         - title
         - body
+      description: >-
+        Every version has seven sections in this order - Overview, Services, Service completion,
+        Vital signs, Observations, Incidents, Ratings and spot checks. Reports filed before V19
+        have the middle four only, and read back with figures and series empty.
       properties:
+        key:
+          type: string
+          description: Made from the title - overview, services, service-completion, vital-signs, observations, incidents, ratings-and-spot-checks.
+          example: vital-signs
         title:
           type: string
           example: Service completion
         body:
           type: string
+          description: Plain text, one item per line; an incident's timeline steps are indented by two spaces.
+        figures:
+          type: array
+          description: The numbers the section states, filtered for the reader as the text is.
+          items:
+            $ref: '#/components/schemas/ReportFigure'
+        series:
+          type: array
+          description: Vital signs only - one per metric. FAMILY has a point per day (that day's range); REGULATOR and INTERNAL have every reading.
+          items:
+            $ref: '#/components/schemas/ReportSeries'
+    ReportFigure:
+      type: object
+      required: [key, label, value]
+      properties:
+        key:
+          type: string
+          example: visits
+        label:
+          type: string
+          example: Visits carried out
+        value:
+          type: number
+          example: 2
+        outOf:
+          type: number
+          nullable: true
+          example: 3
+        unit:
+          type: string
+          nullable: true
+          description: '"%" for a rate; null otherwise.'
+    ReportSeries:
+      type: object
+      required: [key, label, points]
+      properties:
+        key:
+          type: string
+          example: systolic
+        label:
+          type: string
+          example: Systolic
+        unit:
+          type: string
+          nullable: true
+          example: mmHg
+        points:
+          type: array
+          items:
+            $ref: '#/components/schemas/ReportPoint'
+    ReportPoint:
+      type: object
+      required: [at, low, high, flagged]
+      properties:
+        at:
+          type: string
+          description: ISO-8601 local date-time for a reading ("2026-09-14T09:10"), or a date for a day's range ("2026-09-14").
+        low:
+          type: number
+        high:
+          type: number
+          description: Equal to low for a single reading.
+        flagged:
+          type: boolean
+          description: A reading behind the point was flagged out of range when it was entered.
+    ReportMetrics:
+      type: object
+      required: [visitsPlanned, visitsCompleted, vitalsOutOfRange, incidentCount, ratingCount, dataComplete]
+      properties:
+        visitsPlanned:
+          type: integer
+          description: Visits of the period that were not cancelled.
+        visitsCompleted:
+          type: integer
+          description: Of those, the ones carried out - COMPLETED, VERIFIED or AUTO_CLOSED.
+        fulfilmentRate:
+          type: number
+          nullable: true
+          description: visitsCompleted out of visitsPlanned in percent, two places; null when nothing was planned.
+        vitalsOutOfRange:
+          type: integer
+        incidentCount:
+          type: integer
+        averageElderRating:
+          type: number
+          nullable: true
+          description: Mean of the elder's visit ratings (UC-EL01), two places; null without any.
+        ratingCount:
+          type: integer
+        dataComplete:
+          type: boolean
+    ReportAmendmentKind:
+      type: string
+      enum: [CORRECTION, FOLLOW_UP]
     ReportAmendment:
       type: object
       required:
         - id
+        - kind
         - note
         - authorUserId
         - createdAt
@@ -3995,6 +4205,8 @@ components:
         id:
           type: integer
           format: int64
+        kind:
+          $ref: '#/components/schemas/ReportAmendmentKind'
         note:
           type: string
         authorUserId:

@@ -6,6 +6,7 @@ import { generateReports } from '../../../../features/reports/api'
 import {
   audienceLabels,
   audienceNotes,
+  metricsLine,
   previousWeek,
   problemDetail,
   reportPeriod,
@@ -221,6 +222,7 @@ export default function ReportList() {
                   <th scope="col">Reader</th>
                   <th scope="col">Status</th>
                   <th scope="col">Data</th>
+                  <th scope="col">The period</th>
                   <th scope="col">Filed</th>
                 </tr>
               </thead>
@@ -250,6 +252,7 @@ export default function ReportList() {
                         </span>
                       )}
                     </td>
+                    <td className={styles.data}>{metricsLine(report.metrics)}</td>
                     <td className={styles.data}>{reportTime(report.createdAt)}</td>
                   </tr>
                 ))}

@@ -2,13 +2,18 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { ApiError } from '../../shared/api/client'
 import {
+  amendmentKindLabels,
   audienceLabels,
+  figureText,
+  metricsLine,
   previousWeek,
   problemDetail,
   reportDay,
+  reportNumber,
   reportPeriod,
   reportTime,
   sectionLines,
+  sparkline,
   todayIso,
 } from './presentation'
 
@@ -139,5 +144,72 @@ describe('reading an error', () => {
       'Request failed with status 502.',
     )
     expect(problemDetail(new TypeError('Failed to fetch'))).toMatch(/could not be completed/)
+  })
+})
+
+describe('figures and charts', () => {
+  it('writes a number as the report did and a figure by what it is', () => {
+    expect(reportNumber(66.67)).toBe('66.67')
+    expect(reportNumber(3.5)).toBe('3.5')
+    expect(reportNumber(100)).toBe('100')
+    expect(figureText({ key: 'fulfilment', label: 'Fulfilment', value: 66.67, outOf: null, unit: '%' })).toBe('66.67%')
+    expect(figureText({ key: 'visits', label: 'Visits carried out', value: 2, outOf: 3, unit: null })).toBe('2 of 3')
+    expect(figureText({ key: 'incidents', label: 'Incidents', value: 1, outOf: null, unit: null })).toBe('1')
+  })
+
+  it("puts a basis's numbers in one line, and a dash for a report without one", () => {
+    const metrics = {
+      visitsPlanned: 3,
+      visitsCompleted: 2,
+      fulfilmentRate: 66.67,
+      vitalsOutOfRange: 1,
+      incidentCount: 1,
+      averageElderRating: 3.5,
+      ratingCount: 2,
+      dataComplete: false,
+    }
+
+    expect(metricsLine(metrics)).toBe('2 of 3 visits (66.67%) · 1 incident · rated 3.5')
+    expect(
+      metricsLine({ ...metrics, visitsPlanned: 0, visitsCompleted: 0, fulfilmentRate: null, incidentCount: 0, averageElderRating: null }),
+    ).toBe('no visits planned · 0 incidents · not rated')
+    expect(metricsLine(null)).toBe('—')
+    expect(metricsLine(undefined)).toBe('—')
+  })
+
+  it('spaces the points evenly and scales them between the lowest and the highest', () => {
+    const shape = sparkline(
+      [
+        { at: '2026-09-14T09:10', low: 128, high: 128, flagged: false },
+        { at: '2026-09-16T09:10', low: 142, high: 142, flagged: true },
+      ],
+      100,
+      40,
+    )
+
+    expect(shape?.min).toBe(128)
+    expect(shape?.max).toBe(142)
+    expect(shape?.points.map((point) => point.x)).toEqual([4, 96])
+    expect(shape?.points[0].mid).toBe(36)
+    expect(shape?.points[1].mid).toBe(4)
+    expect(shape?.points[1].flagged).toBe(true)
+    expect(shape?.line).toBe('M4.0 36.0 L96.0 4.0')
+  })
+
+  it("keeps both ends of a day's range and centres a single flat point", () => {
+    const day = sparkline([{ at: '2026-09-14', low: 70, high: 96, flagged: true }], 100, 40)
+
+    expect(day?.points[0].x).toBe(50)
+    expect(day?.points[0].low).toBe(36)
+    expect(day?.points[0].high).toBe(4)
+
+    const flat = sparkline([{ at: '2026-09-14', low: 72, high: 72, flagged: false }], 100, 40)
+    expect(flat?.points[0].mid).toBe(20)
+    expect(sparkline([], 100, 40)).toBeNull()
+  })
+
+  it('names the two kinds of note', () => {
+    expect(amendmentKindLabels.CORRECTION).toBe('Correction')
+    expect(amendmentKindLabels.FOLLOW_UP).toBe('Follow-up')
   })
 })

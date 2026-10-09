@@ -1,5 +1,13 @@
 import { ApiError } from '../../shared/api/client'
-import type { ReportAudience, ReportGeneratedBy, ReportStatus } from './types'
+import type {
+  ReportAmendmentKind,
+  ReportAudience,
+  ReportFigure,
+  ReportGeneratedBy,
+  ReportMetrics,
+  ReportPoint,
+  ReportStatus,
+} from './types'
 
 /**
  * Everything the report screens display but do not fetch: labels, the date
@@ -20,9 +28,14 @@ export const audienceLabels: Record<ReportAudience, string> = {
 
 /** What each reader's version leaves out, in a line; shown so nobody has to open three reports to find out. */
 export const audienceNotes: Record<ReportAudience, string> = {
-  FAMILY: 'Caregivers by name, vital signs as ranges, with the medical disclaimer',
-  REGULATOR: 'The full record with caregivers by number; notes counted, not quoted',
-  INTERNAL: 'Everything, names included',
+  FAMILY: 'Caregivers by name, vital signs as ranges, no medical notes or inspection findings, with the medical disclaimer',
+  REGULATOR: 'The full record with the elder and caregivers by number; notes, comments and findings counted, not quoted',
+  INTERNAL: 'Everything, names, medical notes and findings included',
+}
+
+export const amendmentKindLabels: Record<ReportAmendmentKind, string> = {
+  CORRECTION: 'Correction',
+  FOLLOW_UP: 'Follow-up',
 }
 
 export const statusLabels: Record<ReportStatus, string> = {
@@ -185,4 +198,79 @@ export function problemDetail(error: unknown): string {
   }
 
   return error.message
+}
+
+/**
+ * A number as the report wrote it: no trailing zeros, no thousands separator.
+ * @param value 66.67, 3.5, 2
+ * @return "66.67", "3.5", "2"
+ */
+export function reportNumber(value: number): string {
+  return String(Number(value.toFixed(2)))
+}
+
+/**
+ * One figure in words.
+ * @param figure A count, a share of a total or a percentage
+ * @return "2 of 3", "66.67%", "1"
+ */
+export function figureText(figure: ReportFigure): string {
+  if (figure.unit === '%') return reportNumber(figure.value) + '%'
+  if (figure.outOf !== null) return `${reportNumber(figure.value)} of ${reportNumber(figure.outOf)}`
+  return reportNumber(figure.value)
+}
+
+/**
+ * The basis's numbers in one line for a row of the list.
+ * @param metrics The numbers, or nothing for a report filed before bases were kept
+ * @return "2 of 3 visits (66.67%) · 1 incident · rated 3.5", or a dash
+ */
+export function metricsLine(metrics: ReportMetrics | null | undefined): string {
+  if (!metrics) return '—'
+  const visits =
+    metrics.visitsPlanned === 0
+      ? 'no visits planned'
+      : `${metrics.visitsCompleted} of ${metrics.visitsPlanned} visits` +
+        (metrics.fulfilmentRate === null ? '' : ` (${reportNumber(metrics.fulfilmentRate)}%)`)
+  const incidents = `${metrics.incidentCount} ${metrics.incidentCount === 1 ? 'incident' : 'incidents'}`
+  const rating = metrics.averageElderRating === null ? 'not rated' : `rated ${reportNumber(metrics.averageElderRating)}`
+  return [visits, incidents, rating].join(' · ')
+}
+
+/** Where a series' points sit in a small chart, in the chart's own units. */
+export interface SparklineShape {
+  /** SVG path through the middle of each point. */
+  line: string
+  points: { x: number; low: number; high: number; mid: number; flagged: boolean }[]
+  min: number
+  max: number
+}
+
+/**
+ * Lays a series out in a small chart: points evenly spaced left to right in
+ * the order they were taken, values scaled between the lowest and the highest
+ * of the series. A point that is a day's range keeps both ends, so the chart
+ * can draw it as a bar rather than pretending to a single reading.
+ * @param points Oldest first
+ * @param width Chart width
+ * @param height Chart height
+ * @param pad Space kept clear at every edge
+ * @return The line and each point's position, or null with nothing to draw
+ */
+export function sparkline(points: ReportPoint[], width: number, height: number, pad = 4): SparklineShape | null {
+  if (points.length === 0) return null
+  const min = Math.min(...points.map((point) => point.low))
+  const max = Math.max(...points.map((point) => point.high))
+  const span = max - min
+  const y = (value: number) => (span === 0 ? height / 2 : pad + ((max - value) / span) * (height - 2 * pad))
+  const step = points.length === 1 ? 0 : (width - 2 * pad) / (points.length - 1)
+  const placed = points.map((point, index) => ({
+    x: points.length === 1 ? width / 2 : pad + index * step,
+    low: y(point.low),
+    high: y(point.high),
+    mid: y((point.low + point.high) / 2),
+    flagged: point.flagged,
+  }))
+  const line = placed.map((point, index) => `${index === 0 ? 'M' : 'L'}${point.x.toFixed(1)} ${point.mid.toFixed(1)}`).join(' ')
+  return { line, points: placed, min, max }
 }

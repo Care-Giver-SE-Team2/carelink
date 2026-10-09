@@ -214,6 +214,25 @@ class EscalationFlowIT {
 		return rows == null ? 0L : rows;
 	}
 
+	// ------------------------------------------------------------ what is kept ---
+
+	/**
+	 * The caregiver's form and the elder's dispute both take 2000 characters, and since V19 the
+	 * column keeps all of them; the notification that quotes it is cut to its own column.
+	 */
+	@Test
+	void aTwoThousandCharacterAccountIsKeptWhole() {
+		String account = "Found on the floor by the bed. ".repeat(70).substring(0, 2000);
+
+		Incident raised = incidents.reportByCaregiver(
+				elder, null, null, Incident.Category.MEDICAL, Incident.Severity.LOW, account);
+
+		assertThat(repository.findById(raised.id()).orElseThrow().description()).isEqualTo(account).hasSize(2000);
+		assertThat(jdbc.queryForList("select char_length(body) from notification where resource_type = 'INCIDENT'"
+				+ " and resource_id = ?", Integer.class, raised.id())).isNotEmpty().allMatch(length -> length <= 1000);
+		closeSoTheSweepDoesNotFindIt(raised);
+	}
+
 	// ------------------------------------------------------- who hears about it ---
 
 	/**

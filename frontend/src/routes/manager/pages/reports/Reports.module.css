@@ -135,6 +135,18 @@
   resize: vertical;
 }
 
+.panel select {
+  min-height: var(--tap);
+  padding: 0 8px;
+  border: 1px solid var(--filter-border);
+  border-radius: var(--radius);
+  background: var(--bg);
+  font: 400 13.5px/1 var(--font);
+  color: var(--text);
+  text-transform: none;
+  letter-spacing: normal;
+}
+
 .hint {
   margin: 0;
   font: 400 12px/1.6 var(--font-mono);
@@ -313,4 +325,100 @@
   font: 400 13.5px/1 var(--font);
   color: var(--text);
   text-decoration: none;
+}
+
+/* ----------------------------------------------------------- figures, charts --- */
+
+/* A section's numbers, above its text: the same numbers the text states. */
+.figures {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 24px;
+  margin: 0 0 10px;
+}
+
+.figure {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.figure dt {
+  font: 500 10px/1.2 var(--font-mono);
+  letter-spacing: 0.08em;
+  color: var(--text-faint);
+  text-transform: uppercase;
+}
+
+.figure dd {
+  margin: 0;
+  font: 500 16px/1.2 var(--font-mono);
+  color: var(--text);
+}
+
+.sparks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 24px;
+  margin: 0 0 10px;
+}
+
+.spark {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.sparkCaption {
+  display: flex;
+  gap: 8px;
+  font: 500 10px/1.2 var(--font-mono);
+  letter-spacing: 0.08em;
+  color: var(--text-faint);
+  text-transform: uppercase;
+}
+
+.sparkRangeText {
+  color: var(--text-tertiary);
+  text-transform: none;
+}
+
+.sparkLine {
+  fill: none;
+  stroke: var(--text-tertiary);
+  stroke-width: 1.25;
+}
+
+.sparkRange {
+  stroke: var(--text-faint);
+  stroke-width: 3;
+  stroke-linecap: round;
+}
+
+.sparkDot {
+  fill: var(--text);
+}
+
+/* Out of range when it was entered: the one point a reader should not miss. */
+.sparkFlag {
+  fill: var(--danger);
+}
+
+/* ------------------------------------------------------------------ notes --- */
+
+.correctionTag,
+.followUpTag {
+  display: inline-block;
+  margin-bottom: 4px;
+  padding: 2px 6px;
+  border: 1px solid var(--border);
+  font: 500 10px/1 var(--font-mono);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.followUpTag {
+  border-color: var(--success);
+  color: var(--success);
 }
