@@ -12,7 +12,9 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import java.time.Clock;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -23,6 +25,9 @@ import org.mockito.ArgumentCaptor;
 
 import sg.nus.carelink.identity.application.IdentityService;
 import sg.nus.carelink.identity.domain.model.AppUser;
+import sg.nus.carelink.profile.application.ProfileService;
+import sg.nus.carelink.profile.domain.model.Elder;
+import sg.nus.carelink.report.application.ValueAddedNotifier.Why;
 import sg.nus.carelink.report.application.ValueAddedServiceDispatchService.ManagedRequest;
 import sg.nus.carelink.report.domain.model.ValueAddedService;
 import sg.nus.carelink.report.domain.model.ValueAddedServiceRequest;
@@ -33,25 +38,37 @@ import sg.nus.carelink.rostering.application.VisitCover;
 import sg.nus.carelink.shared.error.BusinessRuleViolation;
 import sg.nus.carelink.shared.error.ResourceNotFound;
 import sg.nus.carelink.shared.security.Role;
+import sg.nus.carelink.visit.application.StandaloneVisits;
 import sg.nus.carelink.visit.application.VisitReassignment;
-import sg.nus.carelink.visit.application.VisitReassignment.VisitSlot;
 
 class ValueAddedServiceDispatchServiceTest {
 
     private static final LocalDateTime SCHEDULE = LocalDateTime.of(2026, 10, 10, 10, 0);
+    private static final ZoneId SINGAPORE = ZoneId.of("Asia/Singapore");
 
     private ValueAddedServiceRequestRepository requests;
     private ValueAddedServiceRepository services;
     private VisitReassignment visits;
+    private StandaloneVisits standaloneVisits;
     private VisitCover cover;
+    private ProfileService profiles;
+    private ValueAddedNotifier notifier;
     private ValueAddedServiceDispatchService service;
 
     @BeforeEach
     void setUp() {
+        setUp(SCHEDULE.minusDays(3));
+    }
+
+    /** {@code now}: the Singapore wall-clock time the service runs at. */
+    private void setUp(LocalDateTime now) {
         requests = mock(ValueAddedServiceRequestRepository.class);
         services = mock(ValueAddedServiceRepository.class);
         visits = mock(VisitReassignment.class);
+        standaloneVisits = mock(StandaloneVisits.class);
         cover = mock(VisitCover.class);
+        profiles = mock(ProfileService.class);
+        notifier = mock(ValueAddedNotifier.class);
         IdentityService identity = mock(IdentityService.class);
         when(identity.require("manager")).thenReturn(new AppUser(11L, "manager", "Manager", Set.of(Role.MANAGER), true));
         ValueAddedService escort = new ValueAddedService(2L, "Hospital escort", null,
@@ -59,7 +76,9 @@ class ValueAddedServiceDispatchServiceTest {
         when(services.findAll()).thenReturn(List.of(escort));
         when(services.findById(2L)).thenReturn(Optional.of(escort));
         when(requests.save(any())).thenAnswer(call -> call.getArgument(0));
-        service = new ValueAddedServiceDispatchService(requests, services, visits, cover, identity);
+        Clock clock = Clock.fixed(now.atZone(SINGAPORE).toInstant(), SINGAPORE);
+        service = new ValueAddedServiceDispatchService(requests, services, standaloneVisits, visits, cover, identity,
+                profiles, notifier, clock);
     }
 
     @Test
@@ -186,7 +205,7 @@ class ValueAddedServiceDispatchServiceTest {
         visitIs(40L, 9L, "VERIFIED");
         visitIs(41L, 9L, "CANCELLED");
         visitIs(42L, 9L, "IN_PROGRESS");
-        when(visits.find(43L)).thenReturn(Optional.empty());
+        when(standaloneVisits.find(43L)).thenReturn(Optional.empty());
 
         assertThat(service.settleWithVisits()).isEqualTo(2);
 
@@ -201,12 +220,91 @@ class ValueAddedServiceDispatchServiceTest {
     }
 
     private void visitIs(Long visitId, Long caregiverId, String status) {
-        when(visits.find(visitId)).thenReturn(Optional.of(new VisitSlot(visitId, 7L, caregiverId, null,
-                "Hospital escort", SCHEDULE, null, status, null)));
+        visitIs(visitId, caregiverId, status, false);
+    }
+
+    private void visitIs(Long visitId, Long caregiverId, String status, boolean checkedIn) {
+        when(standaloneVisits.find(visitId)).thenReturn(Optional.of(
+                new StandaloneVisits.State(visitId, caregiverId, status, checkedIn)));
     }
 
     private static ValueAddedServiceRequest request(Long id, Status status, Long visitId) {
         return new ValueAddedServiceRequest(id, 7L, 2L, null, status == Status.PENDING_APPROVAL ? null : 3L,
                 visitId, SCHEDULE, null, status, null, null, null);
+    }
+
+    @Test
+    void assigningTellsTheCaregiverAndFamily() {
+        found(request(1L, Status.DISPATCHED, 40L));
+        visitIs(40L, 9L, "SCHEDULED");
+
+        service.assignCaregiver(1L, 9L, "manager");
+
+        verify(notifier).caregiverAssigned(any(), eq("Hospital escort"), eq(9L));
+    }
+
+    @Test
+    void cancellingTellsTheFamilyAndWhoeverWasOnTheVisit() {
+        found(request(1L, Status.DISPATCHED, 40L));
+        visitIs(40L, 9L, "SCHEDULED");
+
+        service.cancel(1L, "manager");
+
+        verify(notifier).cancelled(any(), eq("Hospital escort"), eq(9L), eq(Why.BY_MANAGER));
+    }
+
+    @Test
+    void theElderWithdrawsOnlyTheirOwnRequest() {
+        when(profiles.requireElderByUserId(30L)).thenReturn(elder(7L));
+        found(request(1L, Status.PENDING_APPROVAL, null));
+        when(requests.findById(2L)).thenReturn(Optional.of(new ValueAddedServiceRequest(2L, 8L, 2L, null, null, null,
+                SCHEDULE, null, Status.PENDING_APPROVAL, null, null, null)));
+
+        assertThat(service.cancelForElderUser(30L, 1L).status()).isEqualTo(Status.CANCELLED);
+        verify(notifier).cancelled(any(), eq("Hospital escort"), eq(null), eq(Why.BY_ELDER));
+        assertThatThrownBy(() -> service.cancelForElderUser(30L, 2L)).isInstanceOf(ResourceNotFound.class);
+    }
+
+    @Test
+    void anExceptionBeforeAnybodyCheckedInClosesTheRequestAndTellsTheFamily() {
+        when(requests.findByStatus(Status.DISPATCHED)).thenReturn(List.of(
+                request(1L, Status.DISPATCHED, 40L),
+                request(2L, Status.DISPATCHED, 41L)));
+        visitIs(40L, null, "EXCEPTION", false);
+        visitIs(41L, 9L, "EXCEPTION", true);
+
+        assertThat(service.settleWithVisits()).isEqualTo(1);
+
+        ArgumentCaptor<ValueAddedServiceRequest> saved = ArgumentCaptor.forClass(ValueAddedServiceRequest.class);
+        verify(requests).save(saved.capture());
+        assertThat(saved.getValue().id()).as("a visit started before its exception is left to the incident").isEqualTo(1L);
+        assertThat(saved.getValue().status()).isEqualTo(Status.CANCELLED);
+        verify(notifier).cancelled(any(), eq("Hospital escort"), eq(null), eq(Why.NOT_PROVIDED));
+    }
+
+    @Test
+    void anUnansweredRequestIsRemindedWithinADayAndLapsesAtTheCutoff() {
+        setUp(SCHEDULE.minusHours(5));
+        ValueAddedServiceRequest dueSoon = request(1L, Status.PENDING_APPROVAL, null);
+        ValueAddedServiceRequest tooLate = new ValueAddedServiceRequest(2L, 7L, 2L, null, null, null,
+                SCHEDULE.minusHours(5).plusMinutes(20), null, Status.PENDING_APPROVAL, null, null, null);
+        ValueAddedServiceRequest farOff = new ValueAddedServiceRequest(3L, 7L, 2L, null, null, null,
+                SCHEDULE.plusDays(3), null, Status.PENDING_APPROVAL, null, null, null);
+        when(requests.findByStatus(Status.PENDING_APPROVAL)).thenReturn(List.of(dueSoon, tooLate, farOff));
+
+        assertThat(service.followUpUnanswered()).isEqualTo(1);
+
+        verify(notifier).reminder(dueSoon, "Hospital escort");
+        verify(notifier, never()).reminder(eq(farOff), any());
+        verify(notifier).cancelled(any(), eq("Hospital escort"), eq(null), eq(Why.NOT_ANSWERED));
+        ArgumentCaptor<ValueAddedServiceRequest> saved = ArgumentCaptor.forClass(ValueAddedServiceRequest.class);
+        verify(requests).save(saved.capture());
+        assertThat(saved.getValue().id()).isEqualTo(2L);
+        assertThat(saved.getValue().status()).isEqualTo(Status.CANCELLED);
+    }
+
+    private static Elder elder(Long id) {
+        return new Elder(id, 30L, "Mdm Tan", null, null, null, null, null, null, null, null, null,
+                Elder.ContinuityPreference.PREFERRED, null, null, null);
     }
 }

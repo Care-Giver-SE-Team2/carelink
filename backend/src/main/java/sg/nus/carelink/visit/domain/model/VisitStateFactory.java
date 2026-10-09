@@ -10,8 +10,9 @@ public final class VisitStateFactory {
     public static VisitExecutionState forVisit(Visit visit) {
         // MG03 stores the task NAME (possibly truncated) as service_type, not a clinical
         // taxonomy. A validated assigned plan node selects the plan-task basic strategy;
-        // never infer clinical rules from the displayed text.
-        if (visit.carePlanNodeId() == null && !LEGACY_BASIC_TYPES.contains(visit.serviceType() == null ? "" : visit.serviceType())) {
+        // never infer clinical rules from the displayed text. A standalone visit (an extra
+        // service's work order) runs the same basic strategy on its one service task.
+        if (visit.carePlanNodeId() == null && !visit.standalone() && !LEGACY_BASIC_TYPES.contains(visit.serviceType() == null ? "" : visit.serviceType())) {
             throw new BusinessRuleViolation("VISIT_SERVICE_UNSUPPORTED", "This service has no supported execution strategy. Ask your manager.");
         }
         return switch (visit.status()) {

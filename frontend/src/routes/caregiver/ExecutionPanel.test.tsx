@@ -54,3 +54,13 @@ it('an exception pauses all task controls without pretending service is complete
   mount();await screen.findByText(/Execution paused/);expect(screen.queryByRole('button',{name:'Save task result'})).toBeNull()
   expect(screen.getByRole('link',{name:'Report incident'})).toHaveAttribute('href','/caregiver/visits/3/report-incident')
 })
+it('shows an extra service as such, with check-in offered and no care plan',async()=>{
+  vi.mocked(getWorkPack).mockResolvedValue({...structuredClone(pack),carePlanId:null,carePlanVersion:null,serviceInstructions:['Hospital escort','Bring the wheelchair'],tasks:[],requiredEvidenceKinds:[],
+    visit:{...pack.visit,serviceType:'Hospital escort',status:'SCHEDULED'},execution:{...execution,allowedActions:['CHECK_IN'],checkedInAt:null,locationSource:null}})
+  mount()
+  const card=within(await screen.findByRole('region',{name:'Extra service'}))
+  expect(card.getByRole('heading',{name:'Hospital escort'})).toBeInTheDocument()
+  expect(card.getByText('Bring the wheelchair')).toBeInTheDocument()
+  expect(screen.queryByRole('region',{name:'Assigned care plan'})).toBeNull()
+  expect(screen.getByText('Assigned plan tasks will be initialized when you check in.')).toBeInTheDocument()
+})

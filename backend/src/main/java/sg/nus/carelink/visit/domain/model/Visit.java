@@ -72,6 +72,25 @@ public record Visit(
 		return status == Status.SCHEDULED;
 	}
 
+	/**
+	 * True for a visit no care plan produced, such as the work order of an approved extra
+	 * service: it has one task, the service itself, rather than a plan task. Not named isX, for
+	 * the reason given on {@link #hasNotStarted}.
+	 */
+	public boolean standalone() {
+		return carePlanId == null && carePlanNodeId == null;
+	}
+
+	/** The one task a standalone visit carries out: its service, by name. */
+	public VisitTask standaloneTask() {
+		if (!standalone()) {
+			throw new IllegalStateException("Visit " + id + " follows a care plan; its tasks come from the plan");
+		}
+		String name = serviceType == null || serviceType.isBlank() ? "Visit" : serviceType.strip();
+		return new VisitTask(null, id, null, name.length() > 150 ? name.substring(0, 150) : name,
+				VisitTask.Status.PENDING, null, null, null);
+	}
+
 	/** Gives an unassigned, untouched visit to a caregiver. */
 	public Visit coveredBy(Long newCaregiverId) {
 		if (!hasNotStarted() || caregiverId != null) {

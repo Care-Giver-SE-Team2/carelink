@@ -7,6 +7,7 @@ import {
 } from '../../../features/value-added-services/api'
 import type { ValueAddedServiceRequest } from '../../../features/value-added-services/types'
 import { useSelectedElder } from '../components/selectedElder'
+import { FamilyValueAddedRequestForm } from './FamilyValueAddedRequestForm'
 import styles from './FamilyValueAddedServices.module.css'
 
 export function FamilyValueAddedServicesPage() {
@@ -50,12 +51,15 @@ export function FamilyValueAddedServicesPage() {
     <header className={styles.band}>
       <p className={styles.eyebrow}>EXTRA SERVICES</p>
       <h1>Review service requests</h1>
-      <p>Approve or decline requests made by the elder you are following.</p>
+      <p>Approve or decline requests made by the elder you are following, or book one for them.</p>
     </header>
 
     {error && <div className={styles.error} role="alert">{error}</div>}
     {loading && <p>Loading requests...</p>}
     {!loading && selectedElderId === null && <p className={styles.card}>No linked elder is available.</p>}
+
+    {selectedElderId !== null && <FamilyValueAddedRequestForm key={selectedElderId} elderId={selectedElderId}
+      onCreated={(created) => setRequests((current) => [created, ...current])} />}
 
     <section className={styles.card}>
       <h2>Pending approval</h2>

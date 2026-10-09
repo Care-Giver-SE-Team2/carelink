@@ -4,6 +4,7 @@ import {
   createElderValueAddedServiceRequest,
   fetchElderValueAddedServiceRequests,
   fetchValueAddedServices,
+  withdrawElderValueAddedServiceRequest,
 } from '../../../features/value-added-services/api'
 import type { ValueAddedService, ValueAddedServiceRequest } from '../../../features/value-added-services/types'
 import { ElderShell } from '../components/ElderShell'
@@ -23,6 +24,27 @@ import {
 import { greeting } from '../lib/greeting'
 import styles from '../Elder.module.css'
 
+/** The server asks for at least this much notice; the picker starts there. */
+const MIN_NOTICE_HOURS = 2
+
+/** "2026-10-10T12:30", the datetime-local value for {@link MIN_NOTICE_HOURS} from now on this device. */
+function earliestRequestTime(now = new Date()): string {
+  const earliest = new Date(now.getTime() + MIN_NOTICE_HOURS * 60 * 60 * 1000)
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${earliest.getFullYear()}-${pad(earliest.getMonth() + 1)}-${pad(earliest.getDate())}T${pad(earliest.getHours())}:${pad(earliest.getMinutes())}`
+}
+
+/** "About 1 hour", "About 1.5 hours". */
+function durationText(minutes: number): string {
+  const hours = minutes / 60
+  return `About ${hours} hour${hours === 1 ? '' : 's'}`
+}
+
+/** A request the elder can still take back: not yet answered, or booked and not yet done. */
+function withdrawable(request: ValueAddedServiceRequest): boolean {
+  return request.status === 'PENDING_APPROVAL' || request.status === 'DISPATCHED'
+}
+
 export default function ValueAddedServices() {
   const [services, setServices] = useState<ValueAddedService[]>([])
   const [requests, setRequests] = useState<ValueAddedServiceRequest[]>([])
@@ -33,6 +55,8 @@ export default function ValueAddedServices() {
   const [submitting, setSubmitting] = useState(false)
   const [message, setMessage] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [confirmingId, setConfirmingId] = useState<number | null>(null)
+  const [withdrawingId, setWithdrawingId] = useState<number | null>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -75,6 +99,22 @@ export default function ValueAddedServices() {
     }
   }
 
+  async function withdraw(id: number) {
+    setWithdrawingId(id)
+    setError(null)
+    setMessage(null)
+    try {
+      const saved = await withdrawElderValueAddedServiceRequest(id)
+      setRequests((current) => current.map((request) => (request.id === id ? saved : request)))
+      setMessage('Request cancelled. Your family has been told.')
+    } catch (cause) {
+      setError(cause instanceof ApiError ? cause.message : 'Unable to cancel the request.')
+    } finally {
+      setWithdrawingId(null)
+      setConfirmingId(null)
+    }
+  }
+
   return (
     <ElderShell>
       <ScreenColumns
@@ -114,6 +154,28 @@ export default function ValueAddedServices() {
                       {request.visitId && (
                         <p className={styles.familyMeta}>Work order visit: #{request.visitId}</p>
                       )}
+                      {withdrawable(request) &&
+                        (confirmingId === request.id ? (
+                          <ActionStack>
+                            <WideButton
+                              onClick={() => void withdraw(request.id)}
+                              disabled={withdrawingId === request.id}
+                            >
+                              {withdrawingId === request.id ? 'Cancelling…' : 'Yes, cancel it'}
+                            </WideButton>
+                            <WideButton
+                              variant="secondary"
+                              onClick={() => setConfirmingId(null)}
+                              disabled={withdrawingId === request.id}
+                            >
+                              Keep it
+                            </WideButton>
+                          </ActionStack>
+                        ) : (
+                          <WideButton variant="secondary" onClick={() => setConfirmingId(request.id)}>
+                            Cancel this request
+                          </WideButton>
+                        ))}
                     </InfoCard>
                   ))
                 )}
@@ -148,10 +210,13 @@ export default function ValueAddedServices() {
                     ))}
                   </ActionStack>
                   {selected?.description && <p className={styles.lead}>{selected.description}</p>}
+                  {selected && <p className={styles.familyMeta}>{durationText(selected.durationMinutes)}</p>}
+                  <p className={styles.familyMeta}>Ask at least {MIN_NOTICE_HOURS} hours ahead.</p>
                   <label className={styles.fieldLabel}>
                     <span>Requested date and time</span>
                     <input
                       type="datetime-local"
+                      min={earliestRequestTime()}
                       value={schedule}
                       disabled={submitting}
                       onChange={(event) => setSchedule(event.target.value)}

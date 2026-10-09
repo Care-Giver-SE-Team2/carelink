@@ -32,13 +32,15 @@ public class CaregiverWorkService {
     private final Clock clock;
     private final sg.nus.carelink.visit.domain.model.VisitExecutionPolicy policy;
     private final sg.nus.carelink.visit.domain.repository.VisitCheckInRepository checkIns;
+    private final sg.nus.carelink.visit.domain.repository.VisitInstructionRepository instructions;
 
     public CaregiverWorkService(VisitRepository visits, VisitTaskRepository tasks, CaregiverWorkDirectory directory,
             VisitPlanReader plans, AccessAudit audit, Clock clock, sg.nus.carelink.visit.domain.model.VisitExecutionPolicy policy,
-            sg.nus.carelink.visit.domain.repository.VisitCheckInRepository checkIns) {
+            sg.nus.carelink.visit.domain.repository.VisitCheckInRepository checkIns,
+            sg.nus.carelink.visit.domain.repository.VisitInstructionRepository instructions) {
         this.visits = visits; this.tasks = tasks; this.directory = directory;
         this.plans = plans; this.audit = audit; this.clock = clock;
-        this.policy = policy; this.checkIns = checkIns;
+        this.policy = policy; this.checkIns = checkIns; this.instructions = instructions;
     }
 
     public CaregiverWorkDirectory.Profile profile(String username) { return directory.require(username); }
@@ -84,11 +86,15 @@ public class CaregiverWorkService {
                 throw new BusinessRuleViolation("VISIT_TASK_PLAN_MISMATCH", "Visit tasks do not match the assigned plan version.");
             }
             var relevant = planTasks.stream().filter(t -> assignedNodeIds.contains(t.id())).toList();
+            // A standalone visit's instructions are its service, which becomes its one task at
+            // check-in, then any special instructions it was booked with.
+            var instructions = visit.standalone() ? standaloneInstructions(visit)
+                    : relevant.stream().map(VisitPlanReader.Task::name).toList();
             var pack = new WorkPack(summary(visit, elder.preferredName()), elder, visit.carePlanId(),
                     snapshot == null ? null : snapshot.version(),
-                    relevant.stream().map(VisitPlanReader.Task::name).toList(), executionTasks,
+                    instructions, executionTasks,
                     relevant.stream().map(VisitPlanReader.Task::evidenceType).filter(e -> !"NONE".equals(e)).distinct().toList(),
-                    execution(visit, !relevant.isEmpty()),
+                    execution(visit, !instructions.isEmpty()),
                     new sg.nus.carelink.visit.domain.model.HealthObservation(visit.healthFlag(), visit.healthNote()));
             audit.workPack(caregiver.userId(), visitId, "OK");
             return pack;
@@ -96,6 +102,13 @@ public class CaregiverWorkService {
             audit.workPack(caregiver.userId(), visitId, "FAILED");
             throw failure;
         }
+    }
+
+    private List<String> standaloneInstructions(Visit visit) {
+        var lines = new java.util.ArrayList<String>();
+        lines.add(visit.standaloneTask().name());
+        this.instructions.find(visit.id()).ifPresent(lines::add);
+        return List.copyOf(lines);
     }
 
     private ExecutionContext execution(Visit visit, boolean hasPlanTasks) {

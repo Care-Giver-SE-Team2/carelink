@@ -1,6 +1,7 @@
 import { api } from '../../shared/api/client'
 import type {
   CaregiverCoverOption,
+  FamilyValueAddedServiceRequestCreate,
   ManagedValueAddedServiceRequest,
   ValueAddedService,
   ValueAddedServiceRequest,
@@ -19,6 +20,26 @@ export function createElderValueAddedServiceRequest(
   request: ValueAddedServiceRequestCreate,
 ): Promise<ValueAddedServiceRequest> {
   return api<ValueAddedServiceRequest>('/elders/me/value-added-service-requests', {
+    method: 'POST',
+    body: JSON.stringify(request),
+  })
+}
+
+/** The elder withdraws their own request; a booked visit that has not started is called off. */
+export function withdrawElderValueAddedServiceRequest(id: number): Promise<ValueAddedServiceRequest> {
+  return api<ValueAddedServiceRequest>(`/elders/me/value-added-service-requests/${id}/cancellation`, { method: 'POST' })
+}
+
+/** The catalogue as a family member sees it, to ask on the elder's behalf. */
+export function fetchFamilyValueAddedServices(): Promise<ValueAddedService[]> {
+  return api<ValueAddedService[]>('/family/value-added-services')
+}
+
+/** A family member asks on the elder's behalf; their asking is their approval. */
+export function createFamilyValueAddedServiceRequest(
+  request: FamilyValueAddedServiceRequestCreate,
+): Promise<ValueAddedServiceRequest> {
+  return api<ValueAddedServiceRequest>('/family/value-added-service-requests', {
     method: 'POST',
     body: JSON.stringify(request),
   })

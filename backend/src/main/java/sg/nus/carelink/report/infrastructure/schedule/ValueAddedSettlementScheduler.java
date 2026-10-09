@@ -8,9 +8,10 @@ import org.springframework.stereotype.Component;
 import sg.nus.carelink.report.application.ValueAddedServiceDispatchService;
 
 /**
- * Nothing but a trigger: marks dispatched extra-service requests completed or cancelled once
- * their visits are. Which requests and why is {@link ValueAddedServiceDispatchService#settleWithVisits}'s
- * business. Every five minutes by default ({@code carelink.value-added.settle-interval}).
+ * Nothing but a trigger: keeps extra-service requests in step with their visits
+ * ({@link ValueAddedServiceDispatchService#settleWithVisits}) and follows up the ones the family
+ * has not answered ({@link ValueAddedServiceDispatchService#followUpUnanswered}). Which requests
+ * and why is decided there. Every five minutes by default ({@code carelink.value-added.settle-interval}).
  */
 @Component
 class ValueAddedSettlementScheduler {
@@ -34,6 +35,15 @@ class ValueAddedSettlementScheduler {
         }
         catch (RuntimeException failure) {
             log.warn("Value-added service settlement failed: {}", failure.getClass().getSimpleName());
+        }
+        try {
+            int lapsed = dispatch.followUpUnanswered();
+            if (lapsed > 0) {
+                log.info("Value-added service requests lapsed unanswered: {}", lapsed);
+            }
+        }
+        catch (RuntimeException failure) {
+            log.warn("Value-added service follow-up failed: {}", failure.getClass().getSimpleName());
         }
     }
 }

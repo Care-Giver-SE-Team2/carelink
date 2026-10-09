@@ -2,6 +2,8 @@ export type ValueAddedService = {
   id: number
   name: string
   description: string | null
+  /** How long the visit lasts once approved. */
+  durationMinutes: number
   status: 'AVAILABLE' | 'UNAVAILABLE'
 }
 
@@ -64,3 +66,6 @@ export type CaregiverCoverOption = {
   reason: string | null
   eligible: boolean
 }
+
+/** A family member's request on the elder's behalf; it is dispatched at once. */
+export type FamilyValueAddedServiceRequestCreate = ValueAddedServiceRequestCreate & { elderId: number }
