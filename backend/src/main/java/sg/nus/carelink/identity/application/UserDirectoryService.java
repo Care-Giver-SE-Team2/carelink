@@ -27,4 +27,9 @@ class UserDirectoryService implements UserDirectory {
 	public Optional<AppUser> findById(Long id) {
 		return users.findById(id);
 	}
+
+	@Override
+	public Optional<String> findTemporaryPassword(Long userId) {
+		return users.findTemporaryPassword(userId);
+	}
 }

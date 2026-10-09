@@ -271,11 +271,10 @@ function Field({
         {optional && <span>Optional</span>}
       </div>
       {children}
-      {error && (
-        <p id={id + '-error'} className={formStyles.fieldError}>
-          {error}
-        </p>
-      )}
+      {/* Always rendered so a message appearing doesn't push the fields below (or beside) it around. */}
+      <p id={id + '-error'} className={formStyles.fieldError}>
+        {error}
+      </p>
     </div>
   )
 }

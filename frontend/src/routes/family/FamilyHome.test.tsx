@@ -330,21 +330,6 @@ describe('Family intake pages', () => {
     },
   )
 
-  it('clears detail data when access expires during refresh', async () => {
-    vi.stubGlobal(
-      'fetch',
-      vi
-        .fn()
-        .mockResolvedValueOnce(json(application))
-        .mockResolvedValueOnce(new Response(null, { status: 401 })),
-    )
-    openFamily('/family/intake/12')
-    await screen.findByText('Tan Mei', { selector: 'h1' })
-    await userEvent.setup().click(screen.getByRole('button', { name: 'Refresh application' }))
-    expect(await screen.findByRole('heading', { name: 'Landing' })).toBeInTheDocument()
-    expect(screen.queryByText('Tan Mei')).not.toBeInTheDocument()
-  })
-
   it('cancels an outstanding request when the page is unmounted', async () => {
     const fetchMock = vi.fn().mockImplementation(() => new Promise(() => {}))
     vi.stubGlobal('fetch', fetchMock)

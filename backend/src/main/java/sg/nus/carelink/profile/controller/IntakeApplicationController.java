@@ -3,7 +3,9 @@ package sg.nus.carelink.profile.controller;
 import java.security.Principal;
 
 import jakarta.validation.Valid;
+import org.springframework.http.CacheControl;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.ModelAttribute;
@@ -16,6 +18,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import sg.nus.carelink.profile.application.IntakeSubmissionService;
 import sg.nus.carelink.profile.application.IntakeQueryService;
+import sg.nus.carelink.profile.domain.model.IntakeApplication;
 import sg.nus.carelink.profile.controller.dto.FamilyIntakeApplicationPageResponse;
 import sg.nus.carelink.profile.controller.dto.FamilyIntakeApplicationResponse;
 import sg.nus.carelink.profile.controller.dto.IntakeApplicationCreateRequest;
@@ -60,14 +63,18 @@ public class IntakeApplicationController {
 	 *
 	 * @param id Application identifier from the request path
 	 * @param principal Logged-in account supplied by Spring Security
-	 * @return Family-visible application details and review result
+	 * @return Family-visible application details and review result, with the elder's login while
+	 *         the elder still has the temporary password; never cached, since it may carry that password
 	 *
 	 * @author Wang Zhili
 	 */
 	@GetMapping("/{id}")
 	@PreAuthorize("hasRole('FAMILY')")
-	public FamilyIntakeApplicationResponse get(@PathVariable Long id, Principal principal) {
-		return FamilyIntakeApplicationResponse.from(queries.getMine(principal.getName(), id));
+	public ResponseEntity<FamilyIntakeApplicationResponse> get(@PathVariable Long id, Principal principal) {
+		IntakeApplication application = queries.getMine(principal.getName(), id);
+		return ResponseEntity.ok().cacheControl(CacheControl.noStore())
+				.body(FamilyIntakeApplicationResponse.from(application,
+						queries.pendingElderLogin(application).orElse(null)));
 	}
 
 	/**

@@ -49,6 +49,11 @@ class IntakeSubmissionServiceTest {
 		public Optional<AppUser> findById(Long id) {
 			return accounts.values().stream().filter(user -> user.id().equals(id)).findFirst();
 		}
+
+		@Override
+		public Optional<String> findTemporaryPassword(Long userId) {
+			return Optional.empty();
+		}
 	};
 	private final InMemoryFamilyMemberRepository families = new InMemoryFamilyMemberRepository();
 	private final InMemoryIntakeApplicationRepository applications = new InMemoryIntakeApplicationRepository();

@@ -88,8 +88,9 @@
 }
 .field {
   display: grid;
-  gap: 7px;
-  margin-top: 16px;
+  align-content: start;
+  gap: 6px;
+  margin-top: 6px;
   min-width: 0;
 }
 .labelRow {
@@ -199,6 +200,9 @@
 .fieldError {
   color: var(--fm-urgent);
   font-size: 12.5px;
+  line-height: 1.4;
+  /* Reserve one line so errors don't shift the layout; longer messages still wrap. */
+  min-height: 1.4em;
 }
 .feedback {
   margin-bottom: 12px;

@@ -40,6 +40,10 @@ public class AppUserJpaEntity {
 	@Column(name = "password_hash", nullable = false, length = 255)
 	private String passwordHash;
 
+	/** Plain text on purpose, until the person replaces it: the family reads it (V19). */
+	@Column(name = "temporary_password", length = 32)
+	private String temporaryPassword;
+
 	@Column(name = "display_name", nullable = false, length = 128)
 	private String displayName;
 
@@ -75,6 +79,14 @@ public class AppUserJpaEntity {
 
 	public void setPasswordHash(String passwordHash) {
 		this.passwordHash = passwordHash;
+	}
+
+	public String getTemporaryPassword() {
+		return temporaryPassword;
+	}
+
+	public void setTemporaryPassword(String temporaryPassword) {
+		this.temporaryPassword = temporaryPassword;
 	}
 
 	public String getDisplayName() {

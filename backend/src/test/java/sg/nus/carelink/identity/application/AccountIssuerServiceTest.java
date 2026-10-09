@@ -13,7 +13,10 @@ import sg.nus.carelink.identity.domain.model.AppUser;
 import sg.nus.carelink.shared.error.BusinessRuleViolation;
 import sg.nus.carelink.shared.security.Role;
 
-/** Issuing a login for another module: a free username, one role, and only the password's hash stored. */
+/**
+ * Issuing a login for another module: a free username, one role, the password's hash, and for a
+ * generated password a readable copy until it is replaced.
+ */
 class AccountIssuerServiceTest {
 
 	private final InMemoryAppUserRepository users = new InMemoryAppUserRepository();
@@ -34,6 +37,7 @@ class AccountIssuerServiceTest {
 		String hash = users.passwordHashOf("tan.bee.choo");
 		assertThat(hash).isNotEqualTo(issued.temporaryPassword());
 		assertThat(encoder.matches(issued.temporaryPassword(), hash)).isTrue();
+		assertThat(users.findTemporaryPassword(issued.userId())).contains(issued.temporaryPassword());
 	}
 
 	@Test
@@ -62,6 +66,7 @@ class AccountIssuerServiceTest {
 		String hash = users.passwordHashOf("lim.family");
 		assertThat(hash).isNotEqualTo("chosen-password");
 		assertThat(encoder.matches("chosen-password", hash)).isTrue();
+		assertThat(users.findTemporaryPassword(userId)).isEmpty();
 	}
 
 	@Test

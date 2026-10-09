@@ -44,6 +44,23 @@ export function getCurrentUser(
 }
 
 /**
+ * Replaces the signed-in account's issued temporary password with one the person chose.
+ * 409 PASSWORD_ALREADY_CHOSEN when there is no temporary password left, or
+ * SAME_AS_TEMPORARY_PASSWORD when the new one is the temporary one.
+ *
+ * @param newPassword 8 to 72 characters
+ * @return The user, now with passwordChangeRequired false
+ */
+export async function chooseOwnPassword(newPassword: string): Promise<CurrentUser> {
+  await initialiseCsrf()
+
+  return api<CurrentUser>('/auth/password', {
+    method: 'POST',
+    body: JSON.stringify({ newPassword }),
+  })
+}
+
+/**
  * Signs out the current user.
  *
  * Spring Security invalidates the authenticated server-side session.

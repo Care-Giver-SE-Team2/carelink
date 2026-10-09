@@ -11,6 +11,7 @@ import {
 } from './components/ElderUi'
 import { greeting } from './lib/greeting'
 import { useElderUser } from './lib/useElderSession'
+import ChoosePassword from './pages/ChoosePassword'
 import ConfirmVisit from './pages/ConfirmVisit'
 import ValueAddedServices from './pages/ValueAddedServices'
 import Emergency from './pages/Emergency'
@@ -52,6 +53,16 @@ function ElderDashboard() {
 }
 
 export default function ElderHome() {
+  const { data: user, isPending } = useElderUser()
+
+  // Wait for the user rather than flash the dashboard at an elder who must choose a password first.
+  if (isPending) {
+    return null
+  }
+  if (user?.passwordChangeRequired) {
+    return <ChoosePassword />
+  }
+
   return <Routes>
     <Route index element={<ElderDashboard />} />
     <Route path="confirm-service" element={<ConfirmVisit />} />

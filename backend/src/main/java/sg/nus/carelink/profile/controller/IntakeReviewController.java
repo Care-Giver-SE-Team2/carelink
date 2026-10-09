@@ -4,8 +4,6 @@ import java.util.List;
 
 import jakarta.validation.Valid;
 
-import org.springframework.http.CacheControl;
-import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -45,19 +43,18 @@ public class IntakeReviewController {
 		return service.pending().stream().map(IntakeReviewResponse::from).toList();
 	}
 
-	/** Never cached: the response carries the elder's temporary password, shown to the manager once. */
+	/** The elder's login is not in the response: the applicant reads it from the family app. */
 	@PostMapping("/{id}/approve")
-	public ResponseEntity<IntakeDecisionResponse> approve(@PathVariable Long id,
+	public IntakeDecisionResponse approve(@PathVariable Long id,
 			@Valid @RequestBody(required = false) IntakeDecisionRequest request, Authentication authentication) {
 		String message = request == null ? null : request.message();
-		return ResponseEntity.ok().cacheControl(CacheControl.noStore())
-				.body(IntakeDecisionResponse.approved(service.approve(id, actingUserId(authentication), message)));
+		return IntakeDecisionResponse.from(service.approve(id, actingUserId(authentication), message));
 	}
 
 	@PostMapping("/{id}/decline")
 	public IntakeDecisionResponse decline(@PathVariable Long id, @Valid @RequestBody IntakeDecisionRequest request,
 			Authentication authentication) {
-		return IntakeDecisionResponse.declined(service.decline(id, actingUserId(authentication), request.message()));
+		return IntakeDecisionResponse.from(service.decline(id, actingUserId(authentication), request.message()));
 	}
 
 	private Long actingUserId(Authentication authentication) {

@@ -194,12 +194,11 @@ export type IntakeReview = {
   checks: IntakeCheck[]
 }
 
-/** `elderLogin` is set on approval only; its password is the one plain-text copy, shown once. */
+/** The elder's login is not here: the applicant reads it from the application in the family app. */
 export type IntakeDecision = {
   id: number
   status: IntakeStatus
   elderId: number | null
-  elderLogin: { username: string; temporaryPassword: string } | null
 }
 
 /** Applications waiting for an answer, newest first. */

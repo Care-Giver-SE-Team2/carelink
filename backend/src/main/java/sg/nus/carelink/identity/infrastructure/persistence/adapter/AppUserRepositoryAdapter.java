@@ -34,13 +34,27 @@ class AppUserRepositoryAdapter implements AppUserRepository {
 	}
 
 	@Override
-	public AppUser add(AppUser user, String passwordHash) {
+	public AppUser add(AppUser user, String passwordHash, String temporaryPassword) {
 		AppUserJpaEntity entity = new AppUserJpaEntity();
 		entity.setUsername(user.username());
 		entity.setPasswordHash(passwordHash);
+		entity.setTemporaryPassword(temporaryPassword);
 		entity.setDisplayName(user.displayName());
 		entity.setEnabled(user.enabled());
 		user.roles().forEach(role -> entity.getRoles().add(role.name()));
 		return AppUserMapper.toDomain(jpa.save(entity));
+	}
+
+	@Override
+	public Optional<String> findTemporaryPassword(Long id) {
+		return jpa.findById(id).map(AppUserJpaEntity::getTemporaryPassword);
+	}
+
+	@Override
+	public void replacePassword(Long id, String passwordHash) {
+		AppUserJpaEntity entity = jpa.findById(id).orElseThrow();
+		entity.setPasswordHash(passwordHash);
+		entity.setTemporaryPassword(null);
+		jpa.save(entity);
 	}
 }

@@ -18,6 +18,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.web.csrf.CsrfToken;
 
 import sg.nus.carelink.identity.application.IdentityService;
+import sg.nus.carelink.identity.controller.dto.ChooseOwnPasswordRequest;
 import sg.nus.carelink.identity.controller.dto.CurrentUserResponse;
 import sg.nus.carelink.identity.controller.dto.LoginRequest;
 import sg.nus.carelink.identity.domain.model.AppUser;
@@ -145,8 +146,14 @@ class AuthControllerTest {
 		when(identityService.require("elder_test"))
 				.thenReturn(elder);
 
+		when(identityService.passwordChangeRequired(elder))
+				.thenReturn(true);
+
 		CurrentUserResponse result =
 				controller.me(authentication);
+
+		assertThat(result.passwordChangeRequired())
+				.isTrue();
 
 		assertThat(result.id())
 				.isEqualTo(1L);
@@ -162,6 +169,42 @@ class AuthControllerTest {
 
 		verify(identityService)
 				.require("elder_test");
+	}
+
+	@Test
+	void choosingOwnPasswordReturnsTheUserWithNoChangeRequired() {
+		Authentication authentication =
+				UsernamePasswordAuthenticationToken.authenticated(
+						"elder_test",
+						null,
+						java.util.List.of()
+				);
+
+		AppUser elder = new AppUser(
+				1L,
+				"elder_test",
+				"Test Elder",
+				Set.of(Role.ELDER),
+				true
+		);
+
+		when(identityService.chooseOwnPassword("elder_test", "my-own-password"))
+				.thenReturn(elder);
+
+		CurrentUserResponse result =
+				controller.chooseOwnPassword(
+						new ChooseOwnPasswordRequest("my-own-password"),
+						authentication
+				);
+
+		assertThat(result.username())
+				.isEqualTo("elder_test");
+
+		assertThat(result.passwordChangeRequired())
+				.isFalse();
+
+		verify(identityService)
+				.chooseOwnPassword("elder_test", "my-own-password");
 	}
 
 	@Test

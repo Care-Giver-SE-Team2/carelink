@@ -21,8 +21,10 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 import sg.nus.carelink.identity.application.IdentityService;
+import sg.nus.carelink.identity.controller.dto.ChooseOwnPasswordRequest;
 import sg.nus.carelink.identity.controller.dto.CurrentUserResponse;
 import sg.nus.carelink.identity.controller.dto.LoginRequest;
+import sg.nus.carelink.identity.domain.model.AppUser;
 
 /**
  * Presentation layer: HTTP in, HTTP out, status codes. No business rules.
@@ -86,16 +88,27 @@ class AuthController {
 				httpResponse
 		);
 
-		return CurrentUserResponse.from(
-				identityService.require(authentication.getName())
-		);
+		return currentUser(identityService.require(authentication.getName()));
 	}
 
 	@GetMapping("/me")
 	CurrentUserResponse me(Authentication authentication) {
-		return CurrentUserResponse.from(
-				identityService.require(authentication.getName())
-		);
+		return currentUser(identityService.require(authentication.getName()));
+	}
+
+	/**
+	 * Replaces the signed-in account's issued temporary password with one the person chose.
+	 * 409 PASSWORD_ALREADY_CHOSEN when there is no temporary password left to replace.
+	 */
+	@PostMapping("/password")
+	CurrentUserResponse chooseOwnPassword(@Valid @RequestBody ChooseOwnPasswordRequest request,
+			Authentication authentication) {
+		AppUser user = identityService.chooseOwnPassword(authentication.getName(), request.newPassword());
+		return CurrentUserResponse.from(user, false);
+	}
+
+	private CurrentUserResponse currentUser(AppUser user) {
+		return CurrentUserResponse.from(user, identityService.passwordChangeRequired(user));
 	}
 
 	@ExceptionHandler(BadCredentialsException.class)

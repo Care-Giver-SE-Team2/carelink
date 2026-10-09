@@ -1,12 +1,16 @@
 package sg.nus.carelink.profile.application;
 
+import java.util.Optional;
+
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import sg.nus.carelink.identity.application.UserDirectory;
+import sg.nus.carelink.profile.domain.model.Elder;
 import sg.nus.carelink.profile.domain.model.IntakeApplication;
 import sg.nus.carelink.profile.domain.model.IntakeApplicationPage;
+import sg.nus.carelink.profile.domain.repository.ElderRepository;
 import sg.nus.carelink.profile.domain.repository.FamilyMemberRepository;
 import sg.nus.carelink.profile.domain.repository.IntakeApplicationRepository;
 import sg.nus.carelink.shared.error.ResourceNotFound;
@@ -23,12 +27,14 @@ public class IntakeQueryService {
 	private final UserDirectory users;
 	private final FamilyMemberRepository families;
 	private final IntakeApplicationRepository applications;
+	private final ElderRepository elders;
 
 	public IntakeQueryService(UserDirectory users, FamilyMemberRepository families,
-			IntakeApplicationRepository applications) {
+			IntakeApplicationRepository applications, ElderRepository elders) {
 		this.users = users;
 		this.families = families;
 		this.applications = applications;
+		this.elders = elders;
 	}
 
 	/**
@@ -69,6 +75,26 @@ public class IntakeQueryService {
 			throw new AccessDeniedException("The application belongs to another family member");
 		}
 		return application;
+	}
+
+	/**
+	 * The elder's login, for an approved application whose elder still has the temporary password
+	 * they were issued; empty before approval and once the elder has chosen their own. Only for an
+	 * application already checked to be the caller's own (see {@link #getMine}).
+	 *
+	 * @param application An application returned by {@link #getMine}
+	 * @return The elder's username and temporary password, while the password is still temporary
+	 */
+	@Transactional(readOnly = true)
+	public Optional<PendingElderLogin> pendingElderLogin(IntakeApplication application) {
+		if (application.elderId() == null) {
+			return Optional.empty();
+		}
+		return elders.findById(application.elderId())
+				.map(Elder::userId)
+				.flatMap(userId -> users.findTemporaryPassword(userId)
+						.flatMap(password -> users.findById(userId)
+								.map(account -> new PendingElderLogin(account.username(), password))));
 	}
 
 	private Long requireFamilyMemberId(String authenticatedUsername) {

@@ -139,10 +139,10 @@ it('shows failing checks in the panel without blocking approval', async () => {
   expect(within(detail).getByRole('button', { name: 'Approve' })).toBeEnabled()
 })
 
-it('approves with the optional message, shows the elder login once, then opens the next application', async () => {
+it('approves with the optional message without showing the elder login, then opens the next application', async () => {
   const approve = vi.spyOn(profileApi, 'approveIntakeApplication').mockImplementation(async (id) => {
     answer(id)
-    return { id, status: 'APPROVED', elderId: 900, elderLogin: { username: 'tan.bee.choo', temporaryPassword: 'Kq7mT4xPa2' } }
+    return { id, status: 'APPROVED', elderId: 900 }
   })
   renderPage()
   await screen.findByRole('heading', { name: 'Grace Tan Wei Ling, for Tan Bee Choo' })
@@ -151,26 +151,20 @@ it('approves with the optional message, shows the elder login once, then opens t
   await userEvent.click(within(panel()).getByRole('button', { name: 'Approve' }))
 
   expect(approve).toHaveBeenCalledWith(42, 'Welcome aboard')
-  const dialog = await screen.findByRole('dialog', { name: 'Login created for Tan Bee Choo' })
-  expect(within(dialog).getByText('tan.bee.choo')).toBeInTheDocument()
-  expect(within(dialog).getByText('Kq7mT4xPa2')).toBeInTheDocument()
-  expect(within(dialog).getByText(/shown only now/)).toHaveTextContent('Pass it to Grace Tan Wei Ling or Tan Bee Choo')
-
-  // Esc must not throw the password away; only the dialog's own button closes it.
-  await userEvent.keyboard('{Escape}')
-  expect(screen.getByRole('dialog')).toBeInTheDocument()
-  await userEvent.click(within(dialog).getByRole('button', { name: "I've noted it down" }))
+  expect(await screen.findByRole('status')).toHaveTextContent(
+    "Approved. Grace Tan Wei Ling will find Tan Bee Choo's sign-in details on the application in the family app.",
+  )
   expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
 
   expect(await screen.findByRole('heading', { name: 'Kevin Goh, for Goh Bee Lian' })).toBeInTheDocument()
-  expect(screen.queryByText('Grace Tan Wei Ling')).not.toBeInTheDocument()
+  expect(screen.queryByRole('row', { name: /Grace Tan Wei Ling/ })).not.toBeInTheDocument()
   expect(within(screen.getByRole('link', { name: /Applications/ })).getByText('2')).toBeInTheDocument()
 })
 
 it('needs a message to decline', async () => {
   const decline = vi.spyOn(profileApi, 'declineIntakeApplication').mockImplementation(async (id) => {
     answer(id)
-    return { id, status: 'REJECTED', elderId: null, elderLogin: null }
+    return { id, status: 'REJECTED', elderId: null }
   })
   renderPage()
   await screen.findByRole('heading', { name: 'Grace Tan Wei Ling, for Tan Bee Choo' })

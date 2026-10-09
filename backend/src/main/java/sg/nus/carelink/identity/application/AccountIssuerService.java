@@ -15,7 +15,8 @@ import sg.nus.carelink.shared.security.Role;
 
 /**
  * Issues accounts for other modules: either picks a free username and generates a password, or
- * takes the ones the person chose. Either way only the password's hash is stored.
+ * takes the ones the person chose. A chosen password is stored only as its hash; a generated one
+ * also keeps a readable copy until the person replaces it (see IdentityService.chooseOwnPassword).
  */
 @Service
 @Transactional
@@ -40,7 +41,7 @@ class AccountIssuerService implements AccountIssuer {
 		String username = freeUsername(UsernameRule.base(displayName));
 		String password = temporaryPassword();
 		AppUser created = users.add(new AppUser(null, username, displayName, Set.of(role), true),
-				passwordEncoder.encode(password));
+				passwordEncoder.encode(password), password);
 		return new IssuedAccount(created.id(), created.username(), password);
 	}
 

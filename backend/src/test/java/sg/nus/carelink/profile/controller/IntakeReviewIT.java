@@ -5,6 +5,7 @@ import static org.springframework.security.test.web.servlet.request.SecurityMock
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -20,6 +21,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.mock.web.MockHttpSession;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
@@ -29,9 +31,9 @@ import sg.nus.carelink.testsupport.SharedMySql;
 
 /**
  * The manager's intake review end to end on real MySQL: the pending list with its applicant,
- * sector and checks; approval creating the elder in one transaction; a decline keeping the reason;
- * a second answer refused; one elder, one record, at submission and at approval; and only a
- * manager allowed in.
+ * sector and checks; approval creating the elder in one transaction; the applicant reading the
+ * elder's login until the elder chooses their own password; a decline keeping the reason; a second
+ * answer refused; one elder, one record, at submission and at approval; and only a manager allowed in.
  */
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -88,7 +90,7 @@ class IntakeReviewIT {
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.status").value("APPROVED"))
 				.andExpect(jsonPath("$.elderId").isNumber())
-				.andExpect(jsonPath("$.elderLogin.username").value("tan.bee.choo"));
+				.andExpect(jsonPath("$.elderLogin").doesNotExist());
 		mvc.perform(post("/api/intake-reviews/9402/approve").with(user("intake-manager").roles("MANAGER")).with(csrf()))
 				.andExpect(status().isConflict())
 				.andExpect(jsonPath("$.code").value("ELDER_ALREADY_REGISTERED")); // Goh Bee Lian is elder 9301
@@ -116,29 +118,62 @@ class IntakeReviewIT {
 	}
 
 	@Test
-	void theElderCanLogInWithTheTemporaryPasswordFromTheApproval() throws Exception {
+	void theApplicantSeesTheEldersLoginUntilTheElderChoosesTheirOwnPassword() throws Exception {
 		jdbc.update("insert into app_user(id,username,password_hash,display_name) values (9004,'tan.bee.choo','unused','Taken')");
-
-		String body = mvc.perform(post("/api/intake-reviews/9401/approve").with(user("intake-manager").roles("MANAGER"))
-				.with(csrf()))
+		mvc.perform(post("/api/intake-reviews/9401/approve").with(user("intake-manager").roles("MANAGER")).with(csrf()))
 				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.elderLogin").doesNotExist());
+
+		String detail = mvc.perform(get("/api/intake-applications/9401").with(user("intake-grace").roles("FAMILY")))
+				.andExpect(status().isOk())
+				.andExpect(header().string("Cache-Control", "no-store"))
+				.andExpect(jsonPath("$.elderLogin.username").value("tan.bee.choo2")) // the plain name was taken
 				.andReturn().getResponse().getContentAsString();
-		Map<String, Object> login = JsonPath.read(body, "$.elderLogin");
-		assertThat(login).containsEntry("username", "tan.bee.choo2"); // the plain name was taken
+		String temporaryPassword = JsonPath.read(detail, "$.elderLogin.temporaryPassword");
+		mvc.perform(get("/api/intake-applications").with(user("intake-grace").roles("FAMILY")))
+				.andExpect(jsonPath("$.items[*].elderLogin").isEmpty()); // detail view only
 
 		Map<String, Object> elder = jdbc.queryForMap(
-				"select e.user_id, u.username, u.display_name, r.role from elder e join app_user u on u.id = e.user_id"
+				"select u.username, u.display_name, u.password_hash, r.role from elder e join app_user u on u.id = e.user_id"
 						+ " join user_role r on r.user_id = u.id where e.id = ?",
 				application(9401).get("elder_id"));
 		assertThat(elder).containsEntry("username", "tan.bee.choo2").containsEntry("display_name", "Tan Bee Choo")
 				.containsEntry("role", "ELDER");
-		assertThat(jdbc.queryForObject("select password_hash from app_user where username = 'tan.bee.choo2'", String.class))
-				.isNotEqualTo(login.get("temporaryPassword"));
+		assertThat(elder.get("password_hash")).isNotEqualTo(temporaryPassword);
 
-		mvc.perform(post("/api/auth/login").with(csrf()).contentType(MediaType.APPLICATION_JSON)
-				.content("{\"username\":\"tan.bee.choo2\",\"password\":\"" + login.get("temporaryPassword") + "\"}"))
+		MockHttpSession session = (MockHttpSession) mvc.perform(post("/api/auth/login").with(csrf())
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("{\"username\":\"tan.bee.choo2\",\"password\":\"" + temporaryPassword + "\"}"))
 				.andExpect(status().isOk())
-				.andExpect(jsonPath("$.roles[0]").value("ELDER"));
+				.andExpect(jsonPath("$.roles[0]").value("ELDER"))
+				.andExpect(jsonPath("$.passwordChangeRequired").value(true))
+				.andReturn().getRequest().getSession(false);
+
+		mvc.perform(post("/api/auth/password").session(session).with(csrf()).contentType(MediaType.APPLICATION_JSON)
+				.content("{\"newPassword\":\"" + temporaryPassword + "\"}"))
+				.andExpect(status().isConflict())
+				.andExpect(jsonPath("$.code").value("SAME_AS_TEMPORARY_PASSWORD"));
+		mvc.perform(post("/api/auth/password").session(session).with(csrf()).contentType(MediaType.APPLICATION_JSON)
+				.content("{\"newPassword\":\"bee-choo-own\"}"))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.passwordChangeRequired").value(false));
+		entityManager.flush(); // sign-in reads app_user over JDBC
+
+		mvc.perform(get("/api/intake-applications/9401").with(user("intake-grace").roles("FAMILY")))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.elderLogin").doesNotExist());
+		mvc.perform(get("/api/auth/me").session(session))
+				.andExpect(jsonPath("$.passwordChangeRequired").value(false));
+		mvc.perform(post("/api/auth/password").session(session).with(csrf()).contentType(MediaType.APPLICATION_JSON)
+				.content("{\"newPassword\":\"another-one\"}"))
+				.andExpect(status().isConflict())
+				.andExpect(jsonPath("$.code").value("PASSWORD_ALREADY_CHOSEN"));
+		mvc.perform(post("/api/auth/login").with(csrf()).contentType(MediaType.APPLICATION_JSON)
+				.content("{\"username\":\"tan.bee.choo2\",\"password\":\"" + temporaryPassword + "\"}"))
+				.andExpect(status().isUnauthorized());
+		mvc.perform(post("/api/auth/login").with(csrf()).contentType(MediaType.APPLICATION_JSON)
+				.content("{\"username\":\"tan.bee.choo2\",\"password\":\"bee-choo-own\"}"))
+				.andExpect(status().isOk());
 	}
 
 	@Test

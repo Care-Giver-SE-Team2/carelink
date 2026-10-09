@@ -12,4 +12,6 @@ export interface CurrentUser {
   username: string
   displayName: string
   roles: string[]
+  /** True while the account still has the temporary password it was issued (an elder's, on approval). */
+  passwordChangeRequired?: boolean
 }

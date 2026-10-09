@@ -17,4 +17,10 @@ public interface UserDirectory {
 	Optional<AppUser> findByUsername(String username);
 
 	Optional<AppUser> findById(Long id);
+
+	/**
+	 * The temporary password an issued account was given, while the person hasn't yet chosen
+	 * their own; empty after that, and for an account whose password was chosen from the start.
+	 */
+	Optional<String> findTemporaryPassword(Long userId);
 }

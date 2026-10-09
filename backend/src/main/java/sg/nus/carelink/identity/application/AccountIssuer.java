@@ -11,10 +11,9 @@ public interface AccountIssuer {
 
 	/**
 	 * Creates an enabled account with one role, a username derived from {@code displayName},
-	 * and a generated temporary password.
-	 *
-	 * @return the new account; {@code temporaryPassword} is the only copy in plain text, so the
-	 *         caller shows it once and never stores it
+	 * and a generated temporary password. Identity keeps the password readable until the person
+	 * chooses their own (read it back through {@link UserDirectory#findTemporaryPassword}), so the
+	 * caller doesn't store it.
 	 */
 	IssuedAccount issue(String displayName, Role role);
 

@@ -18,6 +18,10 @@
   color: var(--text-muted);
 }
 
+.notice {
+  margin: 0 20px 14px;
+}
+
 .pagination {
   padding: 12px 20px;
 }

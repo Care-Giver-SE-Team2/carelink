@@ -1,11 +1,9 @@
 import { useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { useSearchParams } from 'react-router-dom'
-import { MetaText, Pagination } from '../../../shared/components/ui'
+import { Callout, MetaText, Pagination } from '../../../shared/components/ui'
 import { ApplicationPanel } from '../components/ApplicationPanel'
 import { ApplicationTable } from '../components/ApplicationTable'
-import { ElderLoginDialog } from '../components/ElderLoginDialog'
-import type { IssuedElderLogin } from '../components/ElderLoginDialog'
 import { ManagerShell } from '../components/ManagerShell'
 import { approveIntakeApplication, declineIntakeApplication } from '../../../shared/api/profile'
 import type { IntakeReview } from '../../../shared/api/profile'
@@ -16,7 +14,8 @@ import styles from './Applications.module.css'
 /**
  * Applications — its own item in the manager nav, between Elders and Caregivers. Families apply from the family app with their
  * relative's details and care needs; nothing is created until the manager approves here, which
- * creates the elder record and a login for the elder, whose temporary password is shown once.
+ * creates the elder record and a login for the elder. The manager never sees that login: the
+ * applicant reads it on the application in the family app until the elder chooses their own password.
  * Declining keeps the application, with the reason, for the audit trail.
  * The page and open row live in the URL (?page=2&id=41).
  */
@@ -24,7 +23,7 @@ export default function Applications() {
   const [params, setParams] = useSearchParams()
   const queryClient = useQueryClient()
   const applications = useApplications()
-  const [issuedLogin, setIssuedLogin] = useState<IssuedElderLogin | null>(null)
+  const [approved, setApproved] = useState<{ elderName: string; applicantName: string } | null>(null)
 
   const rows = applications.data ?? []
   const page = Math.max(1, Number(params.get('page')) || 1)
@@ -53,6 +52,12 @@ export default function Applications() {
           <p className={styles.helper}>
             Applications are answered within {RESPONSE_WORKING_DAYS} working days. Newest first.
           </p>
+          {approved && (
+            <Callout tone="info" role="status" className={styles.notice}>
+              Approved. {approved.applicantName} will find {approved.elderName}'s sign-in details on the
+              application in the family app.
+            </Callout>
+          )}
           {applications.isError ? (
             <p className={styles.status}>Could not load applications.</p>
           ) : applications.isPending ? (
@@ -81,19 +86,17 @@ export default function Applications() {
             application={selected}
             onApprove={(message) =>
               decide(selected, async () => {
-                const result = await approveIntakeApplication(selected.id, message)
-                if (result.elderLogin) {
-                  setIssuedLogin({
-                    applicationId: selected.id,
-                    elderName: selected.targetElderName,
-                    applicantName: selected.applicant.fullName,
-                    ...result.elderLogin,
-                  })
-                }
+                await approveIntakeApplication(selected.id, message)
+                setApproved({ elderName: selected.targetElderName, applicantName: selected.applicant.fullName })
                 await queryClient.invalidateQueries({ queryKey: ['elders'] })
               })
             }
-            onDecline={(message) => decide(selected, () => declineIntakeApplication(selected.id, message))}
+            onDecline={(message) =>
+              decide(selected, async () => {
+                await declineIntakeApplication(selected.id, message)
+                setApproved(null)
+              })
+            }
           />
         ) : (
           <aside className={styles.emptyPanel} aria-label="Application detail">
@@ -101,8 +104,6 @@ export default function Applications() {
           </aside>
         )}
       </div>
-
-      {issuedLogin && <ElderLoginDialog login={issuedLogin} onDone={() => setIssuedLogin(null)} />}
     </ManagerShell>
   )
 }

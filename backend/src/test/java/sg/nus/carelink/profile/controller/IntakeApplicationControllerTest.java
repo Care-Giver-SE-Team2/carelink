@@ -3,6 +3,7 @@ package sg.nus.carelink.profile.controller;
 import static org.mockito.Mockito.mock;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -47,13 +48,19 @@ class IntakeApplicationControllerTest {
 			public Optional<AppUser> findById(Long id) {
 				return account.id().equals(id) ? Optional.of(account) : Optional.empty();
 			}
+
+			@Override
+			public Optional<String> findTemporaryPassword(Long userId) {
+				return Optional.empty();
+			}
 		};
 		var families = new InMemoryFamilyMemberRepository();
 		families.save(new FamilyMember(42L, 7L, "Family A", null, null, null, null));
 		var applications = new InMemoryIntakeApplicationRepository();
 		// No elder on record, so the duplicate check never refuses here.
-		var submissions = new IntakeSubmissionService(users, families, applications, mock(ElderRepository.class));
-		var queries = new IntakeQueryService(users, families, applications);
+		var elders = mock(ElderRepository.class);
+		var submissions = new IntakeSubmissionService(users, families, applications, elders);
+		var queries = new IntakeQueryService(users, families, applications, elders);
 		mvc = MockMvcBuilders.standaloneSetup(new IntakeApplicationController(submissions, queries)).build();
 	}
 
@@ -68,6 +75,8 @@ class IntakeApplicationControllerTest {
 
 		mvc.perform(get("/api/intake-applications/1").principal(() -> "family-a"))
 				.andExpect(status().isOk())
+				.andExpect(header().string("Cache-Control", "no-store"))
+				.andExpect(jsonPath("$.elderLogin").doesNotExist())
 				.andExpect(jsonPath("$.id").value(1))
 				.andExpect(jsonPath("$.applicantFamilyMemberId").value(42))
 				.andExpect(jsonPath("$.targetElderName").value("Tan Mei"))

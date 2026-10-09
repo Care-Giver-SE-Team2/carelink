@@ -87,16 +87,13 @@ class IntakeReviewServiceTest {
 	void approvingCreatesTheElderInTheSectorWithALoginAndLinksTheApplication() {
 		Long id = applications.save(application("Tan Bee Choo", "570230")).id();
 
-		IntakeApproval approval = service.approve(id, 9L, "Welcome");
-		IntakeApplication approved = approval.application();
+		IntakeApplication approved = service.approve(id, 9L, "Welcome");
 
 		Elder created = elders.findById(approved.elderId()).orElseThrow();
 		assertThat(created.fullName()).isEqualTo("Tan Bee Choo");
 		assertThat(created.sector()).isEqualTo("S31");
 		assertThat(issuedFor).containsExactly("Tan Bee Choo/ELDER");
 		assertThat(created.userId()).isEqualTo(501L);
-		assertThat(approval.username()).isEqualTo("login1");
-		assertThat(approval.temporaryPassword()).isEqualTo("Temp1");
 		assertThat(applications.findById(id).orElseThrow()).satisfies(stored -> {
 			assertThat(stored.status()).isEqualTo(IntakeApplication.Status.APPROVED);
 			assertThat(stored.reviewedByUserId()).isEqualTo(9L);
@@ -110,7 +107,7 @@ class IntakeReviewServiceTest {
 	void anApplicationFromAnUnknownAreaIsApprovedWithoutASector() {
 		Long id = applications.save(application("Ng Kim Lan", "760708")).id();
 
-		IntakeApplication approved = service.approve(id, 9L, null).application();
+		IntakeApplication approved = service.approve(id, 9L, null);
 
 		assertThat(elders.findById(approved.elderId()).orElseThrow().sector()).isNull();
 	}

@@ -6,7 +6,6 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -23,7 +22,6 @@ import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
 import sg.nus.carelink.identity.application.UserDirectory;
 import sg.nus.carelink.identity.domain.model.AppUser;
-import sg.nus.carelink.profile.application.IntakeApproval;
 import sg.nus.carelink.profile.application.IntakeReviewRow;
 import sg.nus.carelink.profile.application.IntakeReviewService;
 import sg.nus.carelink.profile.domain.model.IntakeApplication;
@@ -60,21 +58,18 @@ class IntakeReviewControllerTest {
 	}
 
 	@Test
-	void approvesWithOrWithoutAMessageAndReturnsTheElderLoginUncached() throws Exception {
+	void approvesWithOrWithoutAMessageWithoutShowingTheManagerTheEldersLogin() throws Exception {
 		signedIn();
-		IntakeApproval approval = new IntakeApproval(application(IntakeApplication.Status.APPROVED, 900L),
-				"goh.bee.lian", "Kq7mT4xPa2");
-		when(service.approve(40L, 7L, "Welcome")).thenReturn(approval);
-		when(service.approve(40L, 7L, null)).thenReturn(approval);
+		IntakeApplication approved = application(IntakeApplication.Status.APPROVED, 900L);
+		when(service.approve(40L, 7L, "Welcome")).thenReturn(approved);
+		when(service.approve(40L, 7L, null)).thenReturn(approved);
 
 		mvc.perform(post("/api/intake-reviews/40/approve").principal(manager)
 				.contentType(MediaType.APPLICATION_JSON).content("{\"message\":\"Welcome\"}"))
 				.andExpect(status().isOk())
-				.andExpect(header().string("Cache-Control", "no-store"))
 				.andExpect(jsonPath("$.status").value("APPROVED"))
 				.andExpect(jsonPath("$.elderId").value(900))
-				.andExpect(jsonPath("$.elderLogin.username").value("goh.bee.lian"))
-				.andExpect(jsonPath("$.elderLogin.temporaryPassword").value("Kq7mT4xPa2"));
+				.andExpect(jsonPath("$.elderLogin").doesNotExist());
 		mvc.perform(post("/api/intake-reviews/40/approve").principal(manager)).andExpect(status().isOk());
 
 		verify(service).approve(40L, 7L, "Welcome");

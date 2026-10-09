@@ -21,6 +21,7 @@ public class InMemoryAppUserRepository implements AppUserRepository {
 
 	private final List<AppUser> users = new ArrayList<>();
 	private final Map<String, String> passwordHashes = new HashMap<>();
+	private final Map<Long, String> temporaryPasswords = new HashMap<>();
 
 	public InMemoryAppUserRepository with(AppUser user) {
 		users.add(user);
@@ -38,12 +39,27 @@ public class InMemoryAppUserRepository implements AppUserRepository {
 	}
 
 	@Override
-	public AppUser add(AppUser user, String passwordHash) {
+	public AppUser add(AppUser user, String passwordHash, String temporaryPassword) {
 		AppUser stored = new AppUser(1000L + users.size(), user.username(), user.displayName(), user.roles(),
 				user.enabled());
 		users.add(stored);
 		passwordHashes.put(stored.username(), passwordHash);
+		if (temporaryPassword != null) {
+			temporaryPasswords.put(stored.id(), temporaryPassword);
+		}
 		return stored;
+	}
+
+	@Override
+	public Optional<String> findTemporaryPassword(Long id) {
+		return Optional.ofNullable(temporaryPasswords.get(id));
+	}
+
+	@Override
+	public void replacePassword(Long id, String passwordHash) {
+		AppUser user = findById(id).orElseThrow();
+		passwordHashes.put(user.username(), passwordHash);
+		temporaryPasswords.remove(id);
 	}
 
 	/** The hash add() was given, so a test can check what was stored. */

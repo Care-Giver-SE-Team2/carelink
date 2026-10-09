@@ -26,8 +26,9 @@ import sg.nus.carelink.shared.security.Role;
 /**
  * The manager's side of family intake: the applications waiting for an answer, screened, and
  * approving or declining one. Approving creates the elder record from the application and a login
- * for the elder (role ELDER), whose temporary password the manager passes on; no family binding is
- * made, since a binding is always the elder's request, which the elder can now send. What is allowed is
+ * for the elder (role ELDER); the applicant reads its temporary password from the application
+ * (IntakeQueryService) until the elder chooses their own. No family binding is made, since a
+ * binding is always the elder's request, which the elder can now send. What is allowed is
  * IntakeApplication; the sector and checks are IntakeScreening. This class loads, screens and saves.
  */
 @Service
@@ -72,12 +73,12 @@ public class IntakeReviewService {
 	 * login for the elder, and links the application to the record, all in one transaction.
 	 *
 	 * @param message Optional message the family sees with the decision
-	 * @return The approved application, carrying the new elder's id, and the elder's login
+	 * @return The approved application, carrying the new elder's id
 	 * @throws ResourceNotFound If there is no such application
 	 * @throws sg.nus.carelink.shared.error.BusinessRuleViolation If it has already been answered, or the
 	 *         elder is already on record (added since the family applied)
 	 */
-	public IntakeApproval approve(Long applicationId, Long reviewerId, String message) {
+	public IntakeApplication approve(Long applicationId, Long reviewerId, String message) {
 		IntakeApplication application = lock(applicationId);
 		DuplicateElderRule.requireNotOnRecord(application.targetElderName(), application.postalCode(),
 				elders.findByPostalCode(application.postalCode()));
@@ -85,8 +86,7 @@ public class IntakeReviewService {
 		Elder elder = application.toElder(sector);
 		AccountIssuer.IssuedAccount login = accounts.issue(elder.fullName(), Role.ELDER);
 		Elder created = elders.save(elder.withUserId(login.userId()));
-		IntakeApplication approved = applications.save(application.approve(reviewerId, created.id(), message, now()));
-		return new IntakeApproval(approved, login.username(), login.temporaryPassword());
+		return applications.save(application.approve(reviewerId, created.id(), message, now()));
 	}
 
 	/**

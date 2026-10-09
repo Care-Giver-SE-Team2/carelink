@@ -450,6 +450,10 @@
   margin-top: 3px;
   text-align: left;
 }
+.fields dd.credential {
+  font-family: var(--font-mono);
+  letter-spacing: 0.04em;
+}
 .careNeeds {
   display: flex;
   flex-wrap: wrap;
@@ -547,10 +551,6 @@
   display: block;
   margin: 10px auto 0 !important;
   border: 0;
-}
-.detailNav .textButton {
-  min-width: 44px;
-  justify-content: center;
 }
 .createLink {
   display: flex;
@@ -655,4 +655,28 @@
 }
 .toolbar .statusFilter:hover {
   border-color: var(--fm-accent);
+}
+/*
+ * Application detail: everything under the header shares the list page's centred 1120px block on
+ * desktop, so the columns line up with the list it opens from. Each column stacks its cards with
+ * the list's 12px gap; the cards drop their own phone margins there.
+ */
+.detailColumn {
+  display: grid;
+  gap: 12px;
+  align-content: start;
+  min-width: 0;
+}
+.detailColumn > .detailSection,
+.detailColumn > .progress {
+  margin: 0;
+}
+.detailColumn > .footnote {
+  margin-top: 4px !important;
+}
+@media (min-width: 900px) {
+  .page > .detailBody:not(.band) {
+    max-width: 1120px;
+    margin-inline: auto;
+  }
 }
