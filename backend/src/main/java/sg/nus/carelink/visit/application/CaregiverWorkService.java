@@ -88,7 +88,8 @@ public class CaregiverWorkService {
                     snapshot == null ? null : snapshot.version(),
                     relevant.stream().map(VisitPlanReader.Task::name).toList(), executionTasks,
                     relevant.stream().map(VisitPlanReader.Task::evidenceType).filter(e -> !"NONE".equals(e)).distinct().toList(),
-                    execution(visit, !relevant.isEmpty()));
+                    execution(visit, !relevant.isEmpty()),
+                    new sg.nus.carelink.visit.domain.model.HealthObservation(visit.healthFlag(), visit.healthNote()));
             audit.workPack(caregiver.userId(), visitId, "OK");
             return pack;
         } catch (RuntimeException failure) {
@@ -107,7 +108,10 @@ public class CaregiverWorkService {
             if (visit.status() == Visit.Status.SCHEDULED) {
                 if (!hasPlanTasks) reason = "VISIT_TASKS_REQUIRED";
                 else { policy.requireWindow(visit, now); actions.add("CHECK_IN"); }
-            } else if (visit.status() == Visit.Status.IN_PROGRESS) { state.requireTaskResult(); actions.add("TASK_RESULT"); }
+            } else if (visit.status() == Visit.Status.IN_PROGRESS) {
+                state.requireTaskResult(); actions.add("TASK_RESULT");
+                if (visit.checkedInAt() != null) actions.add("HEALTH_RECORD");
+            }
             else reason = "VISIT_EXECUTION_NOT_ALLOWED";
         } catch (BusinessRuleViolation blocked) { reason = blocked.code(); }
         return new ExecutionContext(List.copyOf(actions), reason, now, policy.opens(visit), policy.closes(visit), visit.checkedInAt(), visit.checkedOutAt(),
@@ -126,7 +130,12 @@ public class CaregiverWorkService {
             CaregiverWorkDirectory.CredentialAlertContext credentialAlertContext) {}
     public record WorkPack(VisitSummary visit, CaregiverWorkDirectory.ElderView elder, Long carePlanId,
             Integer carePlanVersion, List<String> serviceInstructions, List<VisitTask> tasks,
-            List<String> requiredEvidenceKinds, ExecutionContext execution) {
+            List<String> requiredEvidenceKinds, ExecutionContext execution,
+            sg.nus.carelink.visit.domain.model.HealthObservation healthObservation) {
+        public WorkPack(VisitSummary visit, CaregiverWorkDirectory.ElderView elder, Long carePlanId, Integer carePlanVersion,
+                List<String> serviceInstructions, List<VisitTask> tasks, List<String> requiredEvidenceKinds, ExecutionContext execution) {
+            this(visit,elder,carePlanId,carePlanVersion,serviceInstructions,tasks,requiredEvidenceKinds,execution,null);
+        }
         public WorkPack(VisitSummary visit, CaregiverWorkDirectory.ElderView elder, Long carePlanId, Integer carePlanVersion,
                 List<String> serviceInstructions, List<VisitTask> tasks, List<String> requiredEvidenceKinds) {
             this(visit,elder,carePlanId,carePlanVersion,serviceInstructions,tasks,requiredEvidenceKinds,null);
