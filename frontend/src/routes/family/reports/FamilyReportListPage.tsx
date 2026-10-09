@@ -70,7 +70,7 @@ export function FamilyReportListPage() {
         {data.elders.length === 0 && <section className={styles.state}>
           <h2>No linked elders yet</h2>
           <p>Your care reports will be available once a family binding is active. Contact your care team if you need help with access.</p>
-          <Link to="/family/intake">View my applications</Link>
+          <Link to="/family/service-applications">View my applications</Link>
         </section>}
         {reports && <>
           <div className={styles.summary}>

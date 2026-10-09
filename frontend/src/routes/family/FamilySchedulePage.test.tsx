@@ -97,7 +97,7 @@ describe('Family weekly schedule', () => {
     const fetchMock = installApi((url) => url.pathname === '/api/elders' ? json([]) : undefined)
     openSchedule()
     expect(await screen.findByRole('heading', { name: 'No linked elders yet' })).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: 'View my applications' })).toHaveAttribute('href', '/family/intake')
+    expect(screen.getByRole('link', { name: 'View my applications' })).toHaveAttribute('href', '/family/service-applications')
     expect(queries(fetchMock)).toEqual([])
     expect(screen.queryByRole('combobox')).not.toBeInTheDocument()
   })

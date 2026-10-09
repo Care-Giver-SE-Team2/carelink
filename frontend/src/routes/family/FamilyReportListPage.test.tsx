@@ -1,5 +1,6 @@
 import { act, cleanup, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Report } from '../../features/reports/types'
@@ -41,13 +42,14 @@ function BrowserHistory() {
 }
 function openReports(path = '/family/reports') {
   return render(
+    <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
     <MemoryRouter initialEntries={[path]}>
       <BrowserHistory />
       <Routes>
         <Route path="/" element={<h1>Landing</h1>} />
         <Route path="/family/*" element={<FamilyHome />} />
       </Routes>
-    </MemoryRouter>,
+    </MemoryRouter></QueryClientProvider>,
   )
 }
 function queries(fetchMock: ReturnType<typeof installApi>) {
@@ -133,7 +135,7 @@ describe('Family care report list', () => {
     expect(screen.queryByRole('list', { name: 'Care reports' })).not.toBeInTheDocument()
     if (kind === 'unbound') {
       expect(queries(fetchMock)).toEqual([])
-      expect(screen.getByRole('link', { name: 'View my applications' })).toHaveAttribute('href', '/family/intake')
+      expect(screen.getByRole('link', { name: 'View my applications' })).toHaveAttribute('href', '/family/service-applications')
       expect(screen.queryByRole('combobox')).not.toBeInTheDocument()
     }
     if (kind === 'page') {
@@ -318,7 +320,7 @@ describe('Family care report list', () => {
   )
 
   it('keeps applications, the weekly schedule and the weekly summary reachable through the tab bar', async () => {
-    installApi((url) => ['/api/visits', '/api/intake-applications'].includes(url.pathname)
+    installApi((url) => ['/api/visits', '/api/family/service-applications'].includes(url.pathname)
       ? json({ items: [], page: 0, size: 20, totalElements: 0 }) : undefined)
     openReports()
     await screen.findByText('Records complete')
@@ -326,7 +328,7 @@ describe('Family care report list', () => {
     await user.click(screen.getByRole('link', { name: 'Schedule' }))
     expect(await screen.findByRole('heading', { name: 'No visits this week' })).toBeInTheDocument()
     await user.click(screen.getByRole('link', { name: 'Services' }))
-    expect(await screen.findByRole('heading', { name: 'No applications yet' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'No service applications yet' })).toBeInTheDocument()
     await user.click(screen.getByRole('link', { name: 'Reports' }))
     expect(await screen.findByRole('heading', { name: 'Weekly summary' })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Reports' })).toHaveAttribute('aria-current', 'page')

@@ -78,6 +78,17 @@ public class VisitJpaEntity {
 	@Column(name = "checked_out_at")
 	private LocalDateTime checkedOutAt;
 
+    @Column(name = "health_flag", length = 32)
+    private String healthFlag;
+
+    @Column(name = "health_note", length = 1000)
+    private String healthNote;
+
+    public String getHealthFlag() { return healthFlag; }
+    public void setHealthFlag(String value) { healthFlag = value; }
+    public String getHealthNote() { return healthNote; }
+    public void setHealthNote(String value) { healthNote = value; }
+
 	/** COMPLETED = checked out, awaiting the elder; VERIFIED = elder confirmed and supervisor verified; AUTO_CLOSED = the elder never answered (DECISION 16) */
 	@Enumerated(EnumType.STRING)
 	@Column(name = "status", nullable = false)

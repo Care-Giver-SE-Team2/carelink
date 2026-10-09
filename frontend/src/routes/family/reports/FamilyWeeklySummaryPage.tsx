@@ -114,7 +114,7 @@ export function FamilyWeeklySummaryPage() {
     {data.elders.length === 0 ? <section className={styles.state}>
       <h2>No linked elders yet</h2>
       <p>Your care reports will be available once a family binding is active.</p>
-      <Link to="/family/intake">View my applications</Link>
+      <Link to="/family/service-applications">View my applications</Link>
     </section> : !weekly && <section className={styles.state}>
       <h2>No report for this week</h2>
       <p>No published or archived report is available for the selected week. Choose another week or check again later.</p>
