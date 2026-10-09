@@ -1,6 +1,22 @@
 .reports {
   composes: page from '../components/FamilyScreen.module.css';
 }
+.reportDetail { max-width: 1060px; }
+.reports.reportDetail > article { max-width: none; }
+.hero.detailHero { display: block; }
+.detailHero > .eyebrow { margin-top: 18px; }
+.amendmentKind {
+  display: inline-block;
+  padding: 5px 9px;
+  margin-bottom: 8px;
+  border-radius: 8px;
+  background: var(--fm-accent-tint);
+  color: var(--fm-accent);
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: .05em;
+}
 /* The weekly summary is a two-column page on desktop, so it does not take the 640px column. */
 .weekly {
   overflow-wrap: anywhere;
@@ -27,6 +43,13 @@
 }
 .hero h1 {
   font-variant-numeric: tabular-nums;
+}
+.hero .careContext {
+  margin-top: 10px;
+  color: var(--fm-muted);
+  font-size: 13px;
+  line-height: 1.7;
+  overflow-wrap: anywhere;
 }
 .hero > p:not(.reference, .source, .timestamp, .eyebrow, .intro) {
   margin-top: 6px;
@@ -177,6 +200,7 @@
   padding-left: 18px;
   color: var(--fm-ink);
 }
+.completeness summary { cursor: pointer; margin-top: 6px; }
 .state {
   margin-top: 12px;
   border: 1px solid var(--fm-line-card);
@@ -308,11 +332,13 @@
 .weekFoot {
   composes: weekFoot from '../components/FamilyScreen.module.css';
 }
-/* Weekly summary: tag row, prose card, note, corrections, then actions. */
+/* Weekly summary: report metadata, saved sections, corrections, then actions. */
 .summaryArticle {
   display: grid;
   gap: 12px;
 }
+.reportMeta .completeness { margin-top: 0; }
+.reportMeta .cardFoot { margin-top: 10px; padding: 0 0 4px; border-top: 0; }
 .summaryArticle > .disclaimer {
   margin-top: 0 !important;
 }

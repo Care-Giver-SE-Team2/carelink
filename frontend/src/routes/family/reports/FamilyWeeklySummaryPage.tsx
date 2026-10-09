@@ -3,12 +3,13 @@ import { Link, useSearchParams } from 'react-router-dom'
 import { useFamilyWeeklySummary } from '../../../features/reports/useFamilyWeeklySummary'
 import { generatedByLabels, reportPeriod, statusLabels } from '../../../features/reports/presentation'
 import { isScheduleDate, scheduleDateBounds, shiftDays, singaporeToday, weekStart } from '../../../features/schedule/presentation'
-import { ReportCompleteness, ReportCorrections } from './ReportNotes'
+import { ReportCareContext, ReportCompleteness, ReportCorrections } from './ReportNotes'
 import { ReportListFeedback } from './ReportListFeedback'
 import styles from './FamilyReports.module.css'
 import { useSelectedElder } from '../components/selectedElder'
 import { useIsDesktop } from '../components/useIsDesktop'
 import { WeekVisits } from './WeekVisits'
+import { FamilyReportContent } from './FamilyReportContent'
 
 /** Reads an exact Singapore calendar week alongside its report's care notes.
  * @author Wang Zhili
@@ -62,7 +63,8 @@ export function FamilyWeeklySummaryPage() {
     <div>
       <p className={styles.eyebrow}>{desktop ? ['Reports', elderName].filter(Boolean).join(' · ') : elderName ?? "Your family's care"}</p>
       <h1>Weekly summary</h1>
-      <p className={styles.intro}>{desktop ? reportPeriod(week, shiftDays(week, 6)) : 'The care recorded for one week, in plain language.'}</p>
+      <p className={styles.intro}>{reportPeriod(week, shiftDays(week, 6))}</p>
+      {weekly && <ReportCareContext sections={weekly.detail.sections} />}
     </div>
     {desktop
       ? fullReport && <div className={styles.headerActions}>
@@ -123,14 +125,14 @@ export function FamilyWeeklySummaryPage() {
         <span>from the week's records</span>
         {refreshButton}
       </div>
-      <section className={styles.card}>
-        <p className={styles.body} aria-label="Summary text">{weekly.summary.summaryText}</p>
+      <section className={styles.reportMeta}>
         <ReportCompleteness report={weekly.detail} />
         <div className={styles.cardFoot}>
           <span className={styles.reference}>REPORT #{weekly.summary.reportId}</span>
           <span className={styles.badge} data-status={weekly.detail.status}>{statusLabels[weekly.detail.status]}</span>
         </div>
       </section>
+      <FamilyReportContent sections={weekly.detail.sections} />
       <p className={styles.disclaimer}>{weekly.summary.disclaimer}</p>
       <ReportCorrections amendments={weekly.detail.amendments} />
       {!desktop && fullReport && <div className={styles.actions}>

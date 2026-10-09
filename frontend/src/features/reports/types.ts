@@ -89,8 +89,7 @@ export interface Report {
 }
 
 /**
- * One titled section. The body is plain text, one item per line; the manager's
- * reports also carry the section's key, the numbers it states and the series it
+ * One titled section. The body is plain text, one item per line; reports since V19 also carry the section's key, the numbers it states and the series it
  * summarises.
  */
 export interface ReportSection {
