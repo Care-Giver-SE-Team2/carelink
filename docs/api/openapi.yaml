@@ -4162,17 +4162,28 @@ components:
       type: object
       additionalProperties: false
       properties:
+        key:
+          type: string
+          description: Stable chapter key, derived from its title for legacy reports.
         title:
           type: string
           minLength: 1
         body:
           type: string
+        figures:
+          type: array
+          items:
+            $ref: '#/components/schemas/ReportFigure'
+        series:
+          type: array
+          description: FAMILY daily ranges only; never individual timestamped readings from other audiences.
+          items:
+            $ref: '#/components/schemas/ReportSeries'
       description: >-
-        Family-filtered text. Caregiver identity is name only, no staff performance, vital signs are
-        ranges rather than raw readings, and other elders are excluded.
-      required:
-        - title
-        - body
+        Saved FAMILY chapters including Overview, Services and Ratings and spot checks.
+        No internal basis, staff identifiers, medical notes or inspection findings are exposed.
+        Legacy reports retain their original text with empty figures and series.
+      required: [key, title, body, figures, series]
     FamilyReportAmendment:
       type: object
       additionalProperties: false
@@ -4181,16 +4192,17 @@ components:
           type: integer
           format: int64
           minimum: 1
+        kind:
+          type: string
+          enum: [CORRECTION, FOLLOW_UP]
+          description: Older notes default to CORRECTION.
         note:
           type: string
         createdAt:
           type: string
           format: date-time
-      description: A family-safe correction; internal author account identifiers are not exposed.
-      required:
-        - id
-        - note
-        - createdAt
+      description: A family-safe correction or follow-up; internal author identifiers are not exposed.
+      required: [id, kind, note, createdAt]
     ReportDetail:
       allOf:
         - $ref: '#/components/schemas/Report'

@@ -6764,21 +6764,86 @@ components:
       - page
       - size
       - totalElements
+    ReportFigure:
+      type: object
+      required: [key, label, value]
+      properties:
+        key:
+          type: string
+          example: visits
+        label:
+          type: string
+          example: Visits carried out
+        value:
+          type: number
+          example: 2
+        outOf:
+          type: number
+          nullable: true
+          example: 3
+        unit:
+          type: string
+          nullable: true
+          description: '"%" for a rate; null otherwise.'
+    ReportSeries:
+      type: object
+      required: [key, label, points]
+      properties:
+        key:
+          type: string
+          example: systolic
+        label:
+          type: string
+          example: Systolic
+        unit:
+          type: string
+          nullable: true
+          example: mmHg
+        points:
+          type: array
+          items:
+            $ref: '#/components/schemas/ReportPoint'
+    ReportPoint:
+      type: object
+      required: [at, low, high, flagged]
+      properties:
+        at:
+          type: string
+          description: ISO-8601 local date-time for a reading ("2026-09-14T09:10"), or a date for a day's range ("2026-09-14").
+        low:
+          type: number
+        high:
+          type: number
+          description: Equal to low for a single reading.
+        flagged:
+          type: boolean
+          description: A reading behind the point was flagged out of range when it was entered.
     FamilyReportSection:
       type: object
       additionalProperties: false
       properties:
+        key:
+          type: string
+          description: Stable chapter key, derived from its title for legacy reports.
         title:
           type: string
           minLength: 1
         body:
           type: string
+        figures:
+          type: array
+          items:
+            $ref: '#/components/schemas/ReportFigure'
+        series:
+          type: array
+          description: FAMILY daily ranges only; never individual timestamped readings from other audiences.
+          items:
+            $ref: '#/components/schemas/ReportSeries'
       description: >-
-        Family-filtered text. Caregiver identity is name only, no staff performance, vital signs are ranges rather
-        than raw readings, and other elders are excluded.
-      required:
-      - title
-      - body
+        Saved FAMILY chapters including Overview, Services and Ratings and spot checks.
+        No internal basis, staff identifiers, medical notes or inspection findings are exposed.
+        Legacy reports retain their original text with empty figures and series.
+      required: [key, title, body, figures, series]
     FamilyReportAmendment:
       type: object
       additionalProperties: false
@@ -6787,16 +6852,17 @@ components:
           type: integer
           format: int64
           minimum: 1
+        kind:
+          type: string
+          enum: [CORRECTION, FOLLOW_UP]
+          description: Older notes default to CORRECTION.
         note:
           type: string
         createdAt:
           type: string
           format: date-time
-      description: A family-safe correction; internal author account identifiers are not exposed.
-      required:
-      - id
-      - note
-      - createdAt
+      description: A family-safe correction or follow-up; internal author identifiers are not exposed.
+      required: [id, kind, note, createdAt]
     FamilyReportDetail:
       type: object
       additionalProperties: false
