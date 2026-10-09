@@ -47,6 +47,28 @@ class ValueAddedServiceRequestTest {
                 .isInstanceOf(BusinessRuleViolation.class);
     }
 
+    @Test void pendingOrDispatchedRequestCanBeCancelled() {
+        assertThat(pending().cancelled().status()).isEqualTo(ValueAddedServiceRequest.Status.CANCELLED);
+        var dispatched = pending().approveAndDispatch(8L, 99L, NOW);
+        var cancelled = dispatched.cancelled();
+        assertThat(cancelled.status()).isEqualTo(ValueAddedServiceRequest.Status.CANCELLED);
+        assertThat(cancelled.visitId()).as("the called-off visit stays on record").isEqualTo(99L);
+        assertThat(cancelled.decidedAt()).isEqualTo(NOW);
+    }
+
+    @Test void rejectedOrCompletedRequestCannotBeCancelled() {
+        assertThatThrownBy(() -> pending().reject(8L, NOW).cancelled())
+                .isInstanceOf(BusinessRuleViolation.class);
+        assertThatThrownBy(() -> pending().approveAndDispatch(8L, 99L, NOW).completed().cancelled())
+                .isInstanceOf(BusinessRuleViolation.class);
+    }
+
+    @Test void onlyDispatchedRequestCanBeCompleted() {
+        assertThat(pending().approveAndDispatch(8L, 99L, NOW).completed().status())
+                .isEqualTo(ValueAddedServiceRequest.Status.COMPLETED);
+        assertThatThrownBy(() -> pending().completed()).isInstanceOf(BusinessRuleViolation.class);
+    }
+
     private ValueAddedServiceRequest pending() {
         return new ValueAddedServiceRequest(5L, 1L, 2L, null, null, null, SCHEDULE, "Need help",
                 ValueAddedServiceRequest.Status.PENDING_APPROVAL, null, NOW.minusDays(1), NOW.minusDays(1));

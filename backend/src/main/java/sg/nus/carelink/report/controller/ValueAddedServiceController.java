@@ -16,7 +16,9 @@ import org.springframework.web.bind.annotation.RestController;
 
 import jakarta.validation.Valid;
 import sg.nus.carelink.identity.application.IdentityService;
+import sg.nus.carelink.report.application.ValueAddedServiceDispatchService;
 import sg.nus.carelink.report.application.ValueAddedServiceRequestService;
+import sg.nus.carelink.report.controller.dto.FamilyValueAddedServiceRequestCreate;
 import sg.nus.carelink.report.controller.dto.ValueAddedServiceDecisionRequest;
 import sg.nus.carelink.report.controller.dto.ValueAddedServiceRequestCreate;
 import sg.nus.carelink.report.controller.dto.ValueAddedServiceRequestResponse;
@@ -29,10 +31,13 @@ import sg.nus.carelink.report.domain.model.ValueAddedServiceRequest;
 public class ValueAddedServiceController {
     private final IdentityService identity;
     private final ValueAddedServiceRequestService service;
+    private final ValueAddedServiceDispatchService dispatch;
 
-    public ValueAddedServiceController(IdentityService identity, ValueAddedServiceRequestService service) {
+    public ValueAddedServiceController(IdentityService identity, ValueAddedServiceRequestService service,
+            ValueAddedServiceDispatchService dispatch) {
         this.identity = identity;
         this.service = service;
+        this.dispatch = dispatch;
     }
 
     @GetMapping("/elders/me/value-added-services")
@@ -58,6 +63,31 @@ public class ValueAddedServiceController {
         ValueAddedServiceRequest saved = service.requestForElderUser(
                 userId, request.valueAddedServiceId(), request.requestedSchedule(), request.specialInstructions());
         return response(saved);
+    }
+
+    /** The elder withdraws their request; its visit, if booked and not started, is called off. */
+    @PostMapping("/elders/me/value-added-service-requests/{id}/cancellation")
+    @PreAuthorize("hasRole('ELDER')")
+    public ValueAddedServiceRequestResponse withdraw(@PathVariable Long id, Principal principal) {
+        Long userId = identity.require(principal.getName()).id();
+        return response(dispatch.cancelForElderUser(userId, id));
+    }
+
+    @GetMapping("/family/value-added-services")
+    @PreAuthorize("hasRole('FAMILY')")
+    public List<ValueAddedServiceResponse> familyCatalogue() {
+        return catalogue();
+    }
+
+    /** A family member asks on the elder's behalf; their asking is their approval. */
+    @PostMapping("/family/value-added-service-requests")
+    @ResponseStatus(HttpStatus.CREATED)
+    @PreAuthorize("hasRole('FAMILY')")
+    public ValueAddedServiceRequestResponse familyCreate(
+            @Valid @RequestBody FamilyValueAddedServiceRequestCreate request,
+            Principal principal) {
+        return response(service.requestForFamily(principal.getName(), request.elderId(),
+                request.valueAddedServiceId(), request.requestedSchedule(), request.specialInstructions()));
     }
 
     @GetMapping("/family/value-added-service-requests")

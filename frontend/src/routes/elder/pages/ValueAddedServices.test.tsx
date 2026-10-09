@@ -20,6 +20,7 @@ import {
   createElderValueAddedServiceRequest,
   fetchElderValueAddedServiceRequests,
   fetchValueAddedServices,
+  withdrawElderValueAddedServiceRequest,
 } from '../../../features/value-added-services/api'
 import ValueAddedServices from './ValueAddedServices'
 
@@ -31,6 +32,8 @@ vi.mock(
     fetchElderValueAddedServiceRequests:
       vi.fn(),
     fetchValueAddedServices:
+      vi.fn(),
+    withdrawElderValueAddedServiceRequest:
       vi.fn(),
   }),
 )
@@ -74,6 +77,7 @@ const catalogue = [
       'Hospital escort',
     description:
       'Escort to medical appointments',
+    durationMinutes: 180,
     status:
       'AVAILABLE' as const,
   },
@@ -83,6 +87,7 @@ const catalogue = [
       'Companionship',
     description:
       'Additional companionship',
+    durationMinutes: 120,
     status:
       'AVAILABLE' as const,
   },
@@ -364,3 +369,60 @@ describe(
     })
   },
 )
+
+describe('EL02 withdrawing a request', () => {
+  const pending = {
+    id: 5,
+    elderId: 1,
+    valueAddedServiceId: 1,
+    serviceName: 'Hospital escort',
+    requestedByFamilyMemberId: null,
+    approvingFamilyMemberId: null,
+    visitId: null,
+    requestedSchedule: '2026-10-10T10:00:00',
+    specialInstructions: null,
+    status: 'PENDING_APPROVAL' as const,
+    decidedAt: null,
+    createdAt: '2026-10-07T17:00:00',
+  }
+
+  it('shows how long the chosen service takes and the earliest time allowed', async () => {
+    mockedCatalogue.mockResolvedValue(catalogue)
+    mockedRequests.mockResolvedValue([])
+    renderPage()
+
+    expect(await screen.findByText('About 3 hours')).toBeInTheDocument()
+    expect(screen.getByText('Ask at least 2 hours ahead.')).toBeInTheDocument()
+    expect(screen.getByLabelText('Requested date and time').getAttribute('min')).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/)
+  })
+
+  it('cancels only after the elder confirms', async () => {
+    const user = userEvent.setup()
+    mockedCatalogue.mockResolvedValue(catalogue)
+    mockedRequests.mockResolvedValue([pending])
+    vi.mocked(withdrawElderValueAddedServiceRequest).mockResolvedValue({ ...pending, status: 'CANCELLED' })
+    renderPage()
+
+    await user.click(await screen.findByRole('button', { name: 'Cancel this request' }))
+    expect(withdrawElderValueAddedServiceRequest).not.toHaveBeenCalled()
+    await user.click(screen.getByRole('button', { name: 'Yes, cancel it' }))
+
+    expect(withdrawElderValueAddedServiceRequest).toHaveBeenCalledWith(5)
+    expect(await screen.findByText('Request cancelled. Your family has been told.')).toBeInTheDocument()
+    expect(screen.getByText(/CANCELLED/)).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Cancel this request' })).toBeNull()
+  })
+
+  it('keeps the request when the elder changes their mind', async () => {
+    const user = userEvent.setup()
+    mockedCatalogue.mockResolvedValue(catalogue)
+    mockedRequests.mockResolvedValue([pending])
+    renderPage()
+
+    await user.click(await screen.findByRole('button', { name: 'Cancel this request' }))
+    await user.click(screen.getByRole('button', { name: 'Keep it' }))
+
+    expect(withdrawElderValueAddedServiceRequest).not.toHaveBeenCalled()
+    expect(screen.getByRole('button', { name: 'Cancel this request' })).toBeInTheDocument()
+  })
+})

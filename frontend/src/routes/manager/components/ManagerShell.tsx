@@ -8,6 +8,7 @@ import { useCertificationReviewCount } from '../lib/useCertifications'
 import { useOpenExceptionCount } from '../lib/useOpenExceptionCount'
 import { usePendingApplicationCount } from '../lib/useApplications'
 import { usePendingCaregiverApplicationCount } from '../lib/useCaregiverApplications'
+import { useExtraServicesNeedingCaregiverCount } from '../lib/useExtraServices'
 import styles from './ManagerShell.module.css'
 
 const POLICY_LINES = ['no-entry wait 10m', 'family window 2h', 'cert warning 30d']
@@ -17,6 +18,7 @@ function navItems(
   pendingApplications: number | undefined,
   pendingCaregiverApplications: number | undefined,
   certificationsToReview: number | undefined,
+  extraServicesNeedingCaregiver: number | undefined,
 ): NavItem[] {
   return [
     { label: 'Today', href: '/manager', end: true },
@@ -27,6 +29,7 @@ function navItems(
     { label: 'Applications', href: '/manager/applications', count: pendingApplications, countTone: 'accent' },
     { label: 'Caregivers', href: '/manager/caregivers', count: pendingCaregiverApplications, countTone: 'accent' },
     { label: 'Certifications', href: '/manager/certifications', count: certificationsToReview, countTone: 'neutral' },
+    { label: 'Extra services', href: '/manager/extra-services', count: extraServicesNeedingCaregiver, countTone: 'danger' },
     { label: 'Reports', href: '/manager/reports' },
     { label: 'Quality', href: '/manager/quality' },
   ]
@@ -42,7 +45,8 @@ function navItems(
  * state). The Exceptions count is the number of incidents that still need attention; the
  * Applications count is the family applications waiting for an answer; the Caregivers count is
  * the caregiver applications waiting for one; the Certifications count
- * is the submitted certificates waiting for the manager's review.
+ * is the submitted certificates waiting for the manager's review; the Extra services count is the
+ * approved extra services whose visit nobody holds yet.
  */
 export function ManagerShell({
   headerContext,
@@ -59,6 +63,7 @@ export function ManagerShell({
   const { data: pendingApplications } = usePendingApplicationCount()
   const { data: pendingCaregiverApplications } = usePendingCaregiverApplicationCount()
   const { data: certificationsToReview } = useCertificationReviewCount()
+  const { data: extraServicesNeedingCaregiver } = useExtraServicesNeedingCaregiverCount()
 
   return (
     <div className={styles.shell}>
@@ -72,7 +77,13 @@ export function ManagerShell({
       <div className={styles.body}>
         <NavSidebar
           label="Manager console"
-          items={navItems(openExceptions, pendingApplications, pendingCaregiverApplications, certificationsToReview)}
+          items={navItems(
+            openExceptions,
+            pendingApplications,
+            pendingCaregiverApplications,
+            certificationsToReview,
+            extraServicesNeedingCaregiver,
+          )}
           footer={
             <>
               <Eyebrow wide>Policy</Eyebrow>

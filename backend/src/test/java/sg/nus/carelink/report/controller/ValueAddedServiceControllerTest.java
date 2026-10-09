@@ -15,6 +15,7 @@ import org.junit.jupiter.api.Test;
 
 import sg.nus.carelink.identity.application.IdentityService;
 import sg.nus.carelink.identity.domain.model.AppUser;
+import sg.nus.carelink.report.application.ValueAddedServiceDispatchService;
 import sg.nus.carelink.report.application.ValueAddedServiceRequestService;
 import sg.nus.carelink.report.controller.dto.ValueAddedServiceDecisionRequest;
 import sg.nus.carelink.report.controller.dto.ValueAddedServiceRequestCreate;
@@ -28,6 +29,7 @@ class ValueAddedServiceControllerTest {
 
     private IdentityService identity;
     private ValueAddedServiceRequestService service;
+    private ValueAddedServiceDispatchService dispatch;
     private ValueAddedServiceController controller;
 
     private Principal elderPrincipal;
@@ -37,11 +39,13 @@ class ValueAddedServiceControllerTest {
     void setUp() {
         identity = mock(IdentityService.class);
         service = mock(ValueAddedServiceRequestService.class);
+        dispatch = mock(ValueAddedServiceDispatchService.class);
 
         controller =
                 new ValueAddedServiceController(
                         identity,
-                        service
+                        service,
+                        dispatch
                 );
 
         elderPrincipal =
@@ -351,5 +355,35 @@ class ValueAddedServiceControllerTest {
                         0
                 )
         );
+    }
+
+    @Test
+    void elderWithdrawsTheirRequestThroughTheDispatchService() {
+        var cancelled = new ValueAddedServiceRequest(5L, 10L, 2L, null, null, null,
+                LocalDateTime.of(2026, 10, 10, 10, 0), null, ValueAddedServiceRequest.Status.CANCELLED,
+                null, null, null);
+        when(dispatch.cancelForElderUser(1L, 5L)).thenReturn(cancelled);
+        when(service.requireService(2L)).thenReturn(catalogue());
+
+        var result = controller.withdraw(5L, elderPrincipal);
+
+        assertThat(result.status()).isEqualTo(ValueAddedServiceRequest.Status.CANCELLED);
+    }
+
+    @Test
+    void familyRequestsOnTheEldersBehalf() {
+        var schedule = LocalDateTime.of(2026, 10, 10, 10, 0);
+        var dispatched = new ValueAddedServiceRequest(6L, 10L, 2L, 20L, 20L, 77L, schedule, "Wheelchair",
+                ValueAddedServiceRequest.Status.DISPATCHED, schedule.minusDays(1), null, null);
+        when(service.requestForFamily("family_test", 10L, 2L, schedule, "Wheelchair")).thenReturn(dispatched);
+        when(service.requireService(2L)).thenReturn(catalogue());
+
+        var result = controller.familyCreate(
+                new sg.nus.carelink.report.controller.dto.FamilyValueAddedServiceRequestCreate(10L, 2L, schedule, "Wheelchair"),
+                familyPrincipal);
+
+        assertThat(result.status()).isEqualTo(ValueAddedServiceRequest.Status.DISPATCHED);
+        assertThat(result.requestedByFamilyMemberId()).isEqualTo(20L);
+        assertThat(controller.familyCatalogue()).isEqualTo(controller.catalogue());
     }
 }

@@ -21,3 +21,7 @@ dt { color: var(--fm-muted); } dd { margin: 0; font-weight: 700; text-align: rig
 .muted { color: var(--fm-muted); }
 /* Desktop: the single 640px column sits centred under the header, not against the rail. */
 @media (min-width: 900px) { .page > :not(.band) { width: 100%; margin-inline: auto; } }
+.form { display: grid; gap: 12px; }
+.form label { display: grid; gap: 6px; font-weight: 700; }
+.form select, .form input, .form textarea { min-height: 42px; padding: 8px 12px; border: 1px solid var(--fm-line-card); border-radius: 12px; font: inherit; font-weight: 400; }
+.form textarea { min-height: 84px; resize: vertical; }

@@ -38,7 +38,7 @@ class JdbcValueAddedVisitAssignmentTest {
     @Test
     void noPrimaryCaregiverReturnsEmptyWithoutQueryingDatabase() {
         when(primary.findRosterableCaregiverId(1L)).thenReturn(Optional.empty());
-        assertThat(assignment.chooseCaregiver(1L, START)).isEmpty();
+        assertThat(assignment.chooseCaregiver(1L, START, START.plusHours(3))).isEmpty();
         verifyNoInteractions(jdbc);
     }
 
@@ -46,26 +46,26 @@ class JdbcValueAddedVisitAssignmentTest {
     void approvedLeaveExcludesPrimaryCaregiverAndSkipsOverlapQuery() {
         when(primary.findRosterableCaregiverId(1L)).thenReturn(Optional.of(7L));
         when(countQuery.single()).thenReturn(1L);
-        assertThat(assignment.chooseCaregiver(1L, START)).isEmpty();
+        assertThat(assignment.chooseCaregiver(1L, START, START.plusHours(3))).isEmpty();
         verify(jdbc, times(1)).sql(anyString());
         verify(statement).param("day", START.toLocalDate());
     }
 
     @Test
-    void overlappingVisitExcludesPrimaryCaregiver() {
+    void overlappingVisitAnywhereInTheServicesLengthExcludesPrimaryCaregiver() {
         when(primary.findRosterableCaregiverId(1L)).thenReturn(Optional.of(7L));
         when(countQuery.single()).thenReturn(0L, 1L);
-        assertThat(assignment.chooseCaregiver(1L, START)).isEmpty();
+        assertThat(assignment.chooseCaregiver(1L, START, START.plusHours(3))).isEmpty();
         verify(jdbc, times(2)).sql(anyString());
         verify(statement).param("start", START);
-        verify(statement).param("end", START.plusHours(1));
+        verify(statement).param("end", START.plusHours(3));
     }
 
     @Test
     void availablePrimaryCaregiverIsChosen() {
         when(primary.findRosterableCaregiverId(1L)).thenReturn(Optional.of(7L));
         when(countQuery.single()).thenReturn(0L, 0L);
-        assertThat(assignment.chooseCaregiver(1L, START)).contains(7L);
+        assertThat(assignment.chooseCaregiver(1L, START, START.plusHours(3))).contains(7L);
         verify(jdbc, times(2)).sql(anyString());
         verify(statement, times(2)).param("caregiverId", 7L);
     }

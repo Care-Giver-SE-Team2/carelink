@@ -21,13 +21,10 @@ public class JdbcValueAddedVisitAssignment implements ValueAddedVisitAssignment 
     }
 
     @Override
-    public Optional<Long> chooseCaregiver(Long elderId, LocalDateTime start) {
+    public Optional<Long> chooseCaregiver(Long elderId, LocalDateTime start, LocalDateTime end) {
         Optional<Long> candidate = primary.findRosterableCaregiverId(elderId);
         if (candidate.isEmpty()) return Optional.empty();
         Long caregiverId = candidate.get();
-        // A one-hour reservation window is used because extra-service requests currently
-        // specify a start but no duration. This must be aligned with catalogue duration later.
-        LocalDateTime end = start.plusHours(1);
         Long leave = jdbc.sql("""
                 select count(*) from absence_report
                 where caregiver_id = :caregiverId and status = 'APPROVED'

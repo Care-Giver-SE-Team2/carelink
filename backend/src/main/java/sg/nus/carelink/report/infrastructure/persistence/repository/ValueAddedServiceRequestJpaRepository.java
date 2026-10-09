@@ -9,4 +9,6 @@ import sg.nus.carelink.report.infrastructure.persistence.entity.ValueAddedServic
 /** Spring Data repository for value_added_service_request. */
 public interface ValueAddedServiceRequestJpaRepository extends JpaRepository<ValueAddedServiceRequestJpaEntity, Long> {
     List<ValueAddedServiceRequestJpaEntity> findByElderIdOrderByCreatedAtDesc(Long elderId);
+    List<ValueAddedServiceRequestJpaEntity> findAllByOrderByCreatedAtDescIdDesc();
+    List<ValueAddedServiceRequestJpaEntity> findByStatus(ValueAddedServiceRequestJpaEntity.Status status);
 }

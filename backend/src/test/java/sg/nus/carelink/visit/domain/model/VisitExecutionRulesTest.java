@@ -33,6 +33,20 @@ class VisitExecutionRulesTest {
         assertThatThrownBy(v::started).hasMessageContaining("not arrived");
         assertThatThrownBy(()->started.arrivedAt(now)).hasMessageContaining("not scheduled");
     }
+    @Test void aStandaloneVisitRunsTheBasicStrategyOnItsServiceTask() {
+        var extra=new Visit(1L,2L,3L,null,null,"Hospital escort",now,null,null,null,Visit.Status.SCHEDULED,null,null,0,null,null);
+        assertThat(extra.standalone()).isTrue();
+        var arrived=VisitStateFactory.forVisit(extra).arrive(extra,now);
+        assertThat(arrived.status()).isEqualTo(Visit.Status.ARRIVED);
+        var task=extra.standaloneTask();
+        assertThat(task.visitId()).isEqualTo(1L);assertThat(task.carePlanNodeId()).isNull();
+        assertThat(task.name()).isEqualTo("Hospital escort");assertThat(task.status()).isEqualTo(VisitTask.Status.PENDING);
+        var unnamed=new Visit(1L,2L,3L,null,null," ",now,null,null,null,Visit.Status.SCHEDULED,null,null,0,null,null);
+        assertThat(unnamed.standaloneTask().name()).isEqualTo("Visit");
+        var planVisit=visit(Visit.Status.SCHEDULED,1L,"Task",null);
+        assertThat(planVisit.standalone()).isFalse();
+        assertThatThrownBy(planVisit::standaloneTask).isInstanceOf(IllegalStateException.class);
+    }
     @Test void taskTerminalResultsHaveDifferentSemanticsAndCannotBeOverwritten() {
         var task=new VisitTask(1L,2L,3L,"Bathing",VisitTask.Status.PENDING,null,null,null);
         for(var result:new VisitTask.Status[]{VisitTask.Status.DONE,VisitTask.Status.SKIPPED,VisitTask.Status.REFUSED}) {

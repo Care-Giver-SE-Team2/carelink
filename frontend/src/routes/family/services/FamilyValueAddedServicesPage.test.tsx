@@ -37,6 +37,15 @@ vi.mock(
   }),
 )
 
+/* Booking a service has its own tests (FamilyValueAddedRequestForm.test.tsx). */
+vi.mock(
+  './FamilyValueAddedRequestForm',
+  () => ({
+    FamilyValueAddedRequestForm:
+      () => null,
+  }),
+)
+
 vi.mock(
   '../../../features/family-account/useFamilyAccount',
   () => ({

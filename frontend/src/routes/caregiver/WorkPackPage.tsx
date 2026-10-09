@@ -47,11 +47,17 @@ function WorkPack({ id, back }: { id: string; back: string }) {
         <div><dt>Emergency notes</dt><dd>{pack.elder.emergencyNotes || 'Not provided'}</dd></div>
       </dl>
     </section>
-    <section className={styles.card} aria-label="Assigned care plan"><p className={styles.eyebrow}>Assigned care plan</p>
+    {pack.carePlanId != null ? <section className={styles.card} aria-label="Assigned care plan"><p className={styles.eyebrow}>Assigned care plan</p>
       <h2>{pack.carePlanVersion != null ? 'Version ' + pack.carePlanVersion : 'No plan linked'}</h2>
-      <p className={styles.muted}>{pack.carePlanId != null ? 'Plan #' + pack.carePlanId + ' · ' : ''}This is the version assigned to this visit.</p>
+      <p className={styles.muted}>Plan #{pack.carePlanId} · This is the version assigned to this visit.</p>
       {pack.serviceInstructions.length > 0 && <ul>{pack.serviceInstructions.map((instruction, i) => <li key={i}>{instruction}</li>)}</ul>}
-    </section>
+    </section> : <section className={styles.card} aria-label="Extra service"><p className={styles.eyebrow}>Extra service</p>
+      {/* A visit no care plan produced: an extra service the elder asked for and the family approved. */}
+      <h2>{pack.serviceInstructions[0] ?? pack.visit.serviceType}</h2>
+      <p className={styles.muted}>Requested on top of the elder's care plan. It becomes your one task when you check in.</p>
+      {pack.serviceInstructions.length > 1 && <><p className={styles.eyebrow}>Instructions</p>
+        <ul>{pack.serviceInstructions.slice(1).map((instruction, i) => <li key={i}>{instruction}</li>)}</ul></>}
+    </section>}
     <ExecutionTasks pack={pack} command={command} />
     {pack.healthObservation && <HealthPanel pack={pack} command={command} revision={result.receivedAt} />}
     <section className={styles.card} aria-label="Required evidence"><h2>Required evidence</h2><p className={styles.muted}>Requirements for the tasks assigned to this visit.</p>

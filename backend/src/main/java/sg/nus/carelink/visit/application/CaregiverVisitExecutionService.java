@@ -45,6 +45,10 @@ public class CaregiverVisitExecutionService {
         });
     }
     private void materialize(Visit visit) {
+        if(visit.standalone()) {
+            if(tasks.findByVisitId(visit.id()).isEmpty()) tasks.save(visit.standaloneTask());
+            return;
+        }
         if(visit.carePlanId()==null) throw new BusinessRuleViolation("VISIT_PLAN_REQUIRED","An assigned plan is required.");
         var snapshot=plans.read(visit.carePlanId(),visit.elderId());
         var existing=tasks.findByVisitId(visit.id());

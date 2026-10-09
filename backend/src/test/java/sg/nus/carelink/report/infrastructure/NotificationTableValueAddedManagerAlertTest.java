@@ -5,6 +5,7 @@ import static org.mockito.Mockito.*;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -15,6 +16,7 @@ class NotificationTableValueAddedManagerAlertTest {
     private JdbcClient jdbc;
     private JdbcClient.StatementSpec statement;
     private JdbcClient.MappedQuerySpec<Long> managersQuery;
+    private JdbcClient.MappedQuerySpec<String> nameQuery;
     private NotificationTableValueAddedManagerAlert alert;
 
     @SuppressWarnings("unchecked")
@@ -23,8 +25,11 @@ class NotificationTableValueAddedManagerAlertTest {
         jdbc = mock(JdbcClient.class);
         statement = mock(JdbcClient.StatementSpec.class, RETURNS_SELF);
         managersQuery = mock(JdbcClient.MappedQuerySpec.class);
+        nameQuery = mock(JdbcClient.MappedQuerySpec.class);
         when(jdbc.sql(anyString())).thenReturn(statement);
         when(statement.query(Long.class)).thenReturn(managersQuery);
+        when(statement.query(String.class)).thenReturn(nameQuery);
+        when(nameQuery.optional()).thenReturn(Optional.of("Tan Ah Kow"), Optional.of("Siti Rahman"));
         alert = new NotificationTableValueAddedManagerAlert(jdbc);
     }
 
@@ -34,7 +39,7 @@ class NotificationTableValueAddedManagerAlertTest {
         alert.approved(14L, 1L, "Hospital escort", START, 7L);
         verify(statement).param("recipient", 4L);
         verify(statement).param("title", "Extra service approved and assigned");
-        verify(statement).param("body", "Elder 1: Hospital escort at 2026-10-24T10:00. Primary caregiver 7 assigned. Review in the roster.");
+        verify(statement).param("body", "Tan Ah Kow: Hospital escort on 24 Oct 10:00. Siti Rahman (primary caregiver) is on it. Review in Extra services.");
         verify(statement).param("visit", 14L);
         verify(statement).update();
     }
@@ -44,7 +49,7 @@ class NotificationTableValueAddedManagerAlertTest {
         when(managersQuery.list()).thenReturn(List.of(4L));
         alert.approved(14L, 1L, "Grocery assistance", START, null);
         verify(statement).param("title", "Extra service needs caregiver assignment");
-        verify(statement).param("body", "Elder 1: Grocery assistance at 2026-10-24T10:00. No eligible primary caregiver; assign in the roster.");
+        verify(statement).param("body", "Tan Ah Kow: Grocery assistance on 24 Oct 10:00. The primary caregiver is not free; assign a caregiver in Extra services.");
         verify(statement).param("visit", 14L);
         verify(statement).update();
     }
@@ -64,5 +69,13 @@ class NotificationTableValueAddedManagerAlertTest {
         when(managersQuery.list()).thenReturn(List.of());
         alert.approved(14L, 1L, "Hospital escort", START, null);
         verify(statement, never()).update();
+    }
+
+    @Test
+    void namesFallBackToIdsWhenTheRowsAreGone() {
+        when(nameQuery.optional()).thenReturn(Optional.empty());
+        when(managersQuery.list()).thenReturn(List.of(4L));
+        alert.approved(14L, 1L, "Companionship", START, 7L);
+        verify(statement).param("body", "Elder #1: Companionship on 24 Oct 10:00. Caregiver #7 (primary caregiver) is on it. Review in Extra services.");
     }
 }
