@@ -43,6 +43,7 @@ describe('Family report presentation', () => {
     expect(screen.queryByText('Fulfilment')).not.toBeInTheDocument()
     const chart = screen.getByRole('img', { name: /Systolic: daily range 128–142 mmHg; 2 recorded days; 1 flagged day/ })
     expect(chart.querySelectorAll('circle')).toHaveLength(2)
+    expect(screen.queryByText('Systolic 128–142 mmHg', { exact: true })).not.toBeInTheDocument()
     expect(screen.getByText('1 day with readings flagged at recording')).toBeInTheDocument()
     expect(screen.getByText('Daily ranges for Systolic')).toBeInTheDocument()
     expect(screen.queryByText(/normal|healthy|diagnosis/i)).not.toBeInTheDocument()

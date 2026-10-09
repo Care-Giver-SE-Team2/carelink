@@ -91,6 +91,7 @@ export function FamilyReportContent({ sections }: { sections: ReportSection[] })
     {ordered.filter((section) => section !== overview).map((section, index) => {
       const key = section.key ?? section.title.toLowerCase().replaceAll(' ', '-')
       const title = { 'service-completion': 'Visits', observations: 'Caregiver notes' }[key] ?? section.title
+      const hasCharts = section.series?.some((series) => series.points.length > 0)
       return <section className={styles.section} key={index} aria-labelledby={`${id}-${index}`}>
         <div className={styles.sectionHeading}><h2 id={`${id}-${index}`}>{title}</h2>
           {!!section.series?.length && <span>Daily ranges</span>}</div>
@@ -98,7 +99,9 @@ export function FamilyReportContent({ sections }: { sections: ReportSection[] })
         {!!section.series?.length && <div className={styles.vitals}>
           {section.series.map((series) => <VitalTrend key={series.key} series={series} />)}
         </div>}
-        {key !== 'overview' && section.body.includes(' · ') ? <RecordLines body={section.body} sectionKey={key} /> : <p className={styles.legacyBody}>{section.body}</p>}
+        {!(key === 'vital-signs' && hasCharts) && (section.body.includes(' · ')
+          ? <RecordLines body={section.body} sectionKey={key} />
+          : <p className={styles.legacyBody}>{section.body}</p>)}
       </section>
     })}
   </div>
