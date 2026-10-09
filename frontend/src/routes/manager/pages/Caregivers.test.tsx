@@ -181,11 +181,9 @@ it('approves an application, then opens the next one and confirms what changed',
   expect(await screen.findByRole('status')).toHaveTextContent(
     'Lim Hui Min approved. Their login is active and their certificates are published.',
   )
-  expect(
-    within(screen.getByRole('complementary', { name: 'Application detail' })).getByRole('heading', {
-      name: 'Mohamed Faizal bin Rahman',
-    }),
-  ).toBeInTheDocument()
+  // The answered application stays open until the URL moves on to the next one.
+  const next = await screen.findByRole('heading', { name: 'Mohamed Faizal bin Rahman' })
+  expect(next.closest('aside')).toHaveAccessibleName('Application detail')
 
   const caregivers = screen.getByRole('table', { name: 'Caregivers' })
   const row = await within(caregivers).findByText('Lim Hui Min')
@@ -207,7 +205,7 @@ it('opens the new caregiver once the last application is approved', async () => 
   await userEvent.click(within(detail).getByRole('button', { name: 'Approve' }))
 
   const panel = await screen.findByRole('complementary', { name: 'Caregiver detail' })
-  expect(within(panel).getByRole('heading', { name: 'Lim Hui Min' })).toBeInTheDocument()
+  expect(await within(panel).findByRole('heading', { name: 'Lim Hui Min' })).toBeInTheDocument()
   expect(within(panel).getByText('Caregiver · CGV-9007')).toBeInTheDocument()
   expect(within(panel).getByText(/approved from an application/)).toBeInTheDocument()
   expect(screen.getByText('No applications waiting. New ones from the caregiver app appear here.')).toBeInTheDocument()
