@@ -30,6 +30,11 @@ class ValueAddedServiceRepositoryAdapter implements ValueAddedServiceRepository 
     }
 
     @Override
+    public List<ValueAddedService> findAll() {
+        return jpa.findAll().stream().map(ValueAddedServiceMapper::toDomain).toList();
+    }
+
+    @Override
     public ValueAddedService save(ValueAddedService service) {
         return ValueAddedServiceMapper.toDomain(jpa.save(ValueAddedServiceMapper.toEntity(service)));
     }

@@ -20,6 +20,8 @@ describe('linkFor', () => {
     expect(linkFor({ resourceType: 'INCIDENT', resourceId: null }, 'manager')).toBe('/manager/exceptions')
     expect(linkFor({ resourceType: 'INCIDENT', resourceId: 12 }, 'caregiver')).toBe('/caregiver/incidents/12')
     expect(linkFor({ resourceType: 'INCIDENT', resourceId: null }, 'caregiver')).toBe('/caregiver/incidents')
+    expect(linkFor({ resourceType: 'VISIT', resourceId: 88 }, 'manager')).toBe('/manager/extra-services?visit=88')
+    expect(linkFor({ resourceType: 'VISIT', resourceId: null }, 'manager')).toBe('/manager/extra-services')
     expect(linkFor({ resourceType: 'ROSTER_CHANGE', resourceId: 4 }, 'family')).toBe('/family/changes')
     expect(linkFor({ resourceType: 'ROSTER_CHANGE', resourceId: 4 }, 'caregiver')).toBe('/caregiver')
     expect(linkFor({ resourceType: 'SPOT_CHECK', resourceId: 9 }, 'family')).toBe('/family/spot-checks')

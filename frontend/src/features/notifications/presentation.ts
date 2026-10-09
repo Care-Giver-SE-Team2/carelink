@@ -27,6 +27,8 @@ export function linkFor(item: Pick<NotificationItem, 'resourceType' | 'resourceI
     ROSTER_CHANGE: { manager: '/manager/absences', family: '/family/changes', caregiver: '/caregiver' },
     SPOT_CHECK: { manager: '/manager/quality', family: '/family/spot-checks', caregiver: item.resourceId == null ? '/caregiver/spot-checks' : `/caregiver/spot-checks?spotCheckId=${item.resourceId}` },
     CREDENTIAL: { manager: '/manager/certifications', caregiver: '/caregiver' },
+    // An approved extra service's visit: staffed, or reviewed, on the manager's Extra services screen.
+    VISIT: { manager: item.resourceId == null ? '/manager/extra-services' : `/manager/extra-services?visit=${item.resourceId}` },
   }
   return (item.resourceType && routes[item.resourceType]?.[portal]) || null
 }

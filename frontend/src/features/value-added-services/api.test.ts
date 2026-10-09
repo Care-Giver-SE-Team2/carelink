@@ -7,7 +7,11 @@ import {
 } from 'vitest'
 
 import {
+  assignValueAddedServiceCaregiver,
+  cancelValueAddedServiceRequest,
   createElderValueAddedServiceRequest,
+  fetchCaregiverCoverOptions,
+  fetchManagedValueAddedServiceRequests,
   decideValueAddedServiceRequest,
   fetchElderValueAddedServiceRequests,
   fetchFamilyValueAddedServiceRequests,
@@ -295,3 +299,36 @@ describe(
     })
   },
 )
+describe('value-added services API for the manager', () => {
+  it('loads every request and a visit\'s caregiver options', async () => {
+    const fetchMock = vi.fn().mockImplementation(() => Promise.resolve(json([])))
+    vi.stubGlobal('fetch', fetchMock)
+
+    await expect(fetchManagedValueAddedServiceRequests()).resolves.toEqual([])
+    await expect(fetchCaregiverCoverOptions(4)).resolves.toEqual([])
+
+    expect(fetchMock.mock.calls.map((call) => call[0])).toEqual([
+      '/api/value-added-service-requests',
+      '/api/value-added-service-requests/4/caregiver-options',
+    ])
+  })
+
+  it('assigns a caregiver and cancels with CSRF', async () => {
+    document.cookie = 'XSRF-TOKEN=manager; path=/'
+    const fetchMock = vi.fn().mockImplementation(() => Promise.resolve(json({ id: 4 })))
+    vi.stubGlobal('fetch', fetchMock)
+
+    await assignValueAddedServiceCaregiver(4, 9)
+    await cancelValueAddedServiceRequest(4)
+
+    const [assignUrl, assign] = fetchMock.mock.calls[0]
+    expect(assignUrl).toBe('/api/value-added-service-requests/4/caregiver')
+    expect(assign.method).toBe('POST')
+    expect(assign.body).toBe(JSON.stringify({ caregiverId: 9 }))
+    expect(new Headers(assign.headers).get('X-XSRF-TOKEN')).toBe('manager')
+
+    const [cancelUrl, cancel] = fetchMock.mock.calls[1]
+    expect(cancelUrl).toBe('/api/value-added-service-requests/4/cancellation')
+    expect(cancel.method).toBe('POST')
+  })
+})

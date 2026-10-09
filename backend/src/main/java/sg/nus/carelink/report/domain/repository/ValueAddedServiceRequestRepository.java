@@ -9,5 +9,8 @@ import sg.nus.carelink.report.domain.model.ValueAddedServiceRequest;
 public interface ValueAddedServiceRequestRepository {
     Optional<ValueAddedServiceRequest> findById(Long id);
     List<ValueAddedServiceRequest> findByElderId(Long elderId);
+    /** Every request, newest first: the manager's overview. */
+    List<ValueAddedServiceRequest> findAll();
+    List<ValueAddedServiceRequest> findByStatus(ValueAddedServiceRequest.Status status);
     ValueAddedServiceRequest save(ValueAddedServiceRequest request);
 }

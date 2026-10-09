@@ -7,6 +7,7 @@ import org.springframework.stereotype.Repository;
 
 import sg.nus.carelink.report.domain.model.ValueAddedServiceRequest;
 import sg.nus.carelink.report.domain.repository.ValueAddedServiceRequestRepository;
+import sg.nus.carelink.report.infrastructure.persistence.entity.ValueAddedServiceRequestJpaEntity;
 import sg.nus.carelink.report.infrastructure.persistence.repository.ValueAddedServiceRequestJpaRepository;
 
 @Repository
@@ -25,6 +26,18 @@ class ValueAddedServiceRequestRepositoryAdapter implements ValueAddedServiceRequ
     @Override
     public List<ValueAddedServiceRequest> findByElderId(Long elderId) {
         return jpa.findByElderIdOrderByCreatedAtDesc(elderId).stream()
+                .map(ValueAddedServiceRequestMapper::toDomain).toList();
+    }
+
+    @Override
+    public List<ValueAddedServiceRequest> findAll() {
+        return jpa.findAllByOrderByCreatedAtDescIdDesc().stream()
+                .map(ValueAddedServiceRequestMapper::toDomain).toList();
+    }
+
+    @Override
+    public List<ValueAddedServiceRequest> findByStatus(ValueAddedServiceRequest.Status status) {
+        return jpa.findByStatus(ValueAddedServiceRequestJpaEntity.Status.valueOf(status.name())).stream()
                 .map(ValueAddedServiceRequestMapper::toDomain).toList();
     }
 

@@ -70,6 +70,36 @@ public record ValueAddedServiceRequest(
                 Status.REJECTED, now, createdAt, updatedAt);
     }
 
+    /**
+     * Called off before it is carried out: by a manager, or because its visit was called off.
+     * Only a request still waiting for the family or dispatched and not yet done can be.
+     */
+    public ValueAddedServiceRequest cancelled() {
+        if (status != Status.PENDING_APPROVAL && status != Status.DISPATCHED) {
+            throw new BusinessRuleViolation(
+                    "VALUE_ADDED_SERVICE_REQUEST_CLOSED",
+                    "Only a pending or dispatched value-added service request can be cancelled.");
+        }
+        return withStatus(Status.CANCELLED);
+    }
+
+    /** Its visit was carried out. */
+    public ValueAddedServiceRequest completed() {
+        if (status != Status.DISPATCHED) {
+            throw new BusinessRuleViolation(
+                    "VALUE_ADDED_SERVICE_REQUEST_NOT_DISPATCHED",
+                    "Only a dispatched value-added service request can be completed.");
+        }
+        return withStatus(Status.COMPLETED);
+    }
+
+    private ValueAddedServiceRequest withStatus(Status next) {
+        return new ValueAddedServiceRequest(
+                id, elderId, valueAddedServiceId, requestedByFamilyMemberId,
+                approvingFamilyMemberId, visitId, requestedSchedule, specialInstructions,
+                next, decidedAt, createdAt, updatedAt);
+    }
+
     private void requirePending() {
         if (status != Status.PENDING_APPROVAL) {
             throw new BusinessRuleViolation(
