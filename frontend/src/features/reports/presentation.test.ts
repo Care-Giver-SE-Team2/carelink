@@ -9,9 +9,11 @@ import {
   previousWeek,
   problemDetail,
   reportDay,
+  reportLine,
   reportNumber,
   reportPeriod,
   reportTime,
+  sectionKey,
   sectionLines,
   sparkline,
   todayIso,
@@ -211,5 +213,73 @@ describe('figures and charts', () => {
   it('names the two kinds of note', () => {
     expect(amendmentKindLabels.CORRECTION).toBe('Correction')
     expect(amendmentKindLabels.FOLLOW_UP).toBe('Follow-up')
+  })
+})
+
+describe('lines as rows', () => {
+  it('keys a section by its title when it was filed without a key', () => {
+    expect(sectionKey({ title: 'Ratings and spot checks' })).toBe('ratings-and-spot-checks')
+    expect(sectionKey({ title: 'Service completion', key: 'service-completion' })).toBe('service-completion')
+    expect(sectionKey({ title: '  Vital  signs! ' })).toBe('vital-signs')
+  })
+
+  it("takes a visit's time and state out of the line and keeps the rest in order", () => {
+    expect(
+      reportLine({ text: 'Mon 14 Sep 09:00 · Personal care · Daniel Goh · verified · evidence 2 of 2 verified', nested: false }),
+    ).toEqual({
+      text: 'Mon 14 Sep 09:00 · Personal care · Daniel Goh · verified · evidence 2 of 2 verified',
+      nested: false,
+      time: 'Mon 14 Sep 09:00',
+      parts: ['Personal care', 'Daniel Goh', 'evidence 2 of 2 verified'],
+      status: { text: 'verified', tone: 'ok' },
+    })
+  })
+
+  it('finds the time wherever the report put it, and the first state in the line', () => {
+    const request = reportLine({ text: 'Hospital escort · Sat 19 Sep 10:00 · approved and booked', nested: false })
+    expect(request.time).toBe('Sat 19 Sep 10:00')
+    expect(request.parts).toEqual(['Hospital escort'])
+    expect(request.status).toEqual({ text: 'approved and booked', tone: 'ok' })
+
+    const incident = reportLine({
+      text: 'Tue 15 Sep 10:15 · incident 2 · FALL · severity MEDIUM · RESOLVED · resolved Tue 15 Sep 11:02',
+      nested: false,
+    })
+    expect(incident.status).toEqual({ text: 'RESOLVED', tone: 'ok' })
+    expect(incident.parts).toEqual(['incident 2', 'FALL', 'severity MEDIUM', 'resolved Tue 15 Sep 11:02'])
+
+    const review = reportLine({ text: 'Review of Daniel Goh · 14 Sep – 20 Sep · 4 out of 5 · keep the current caregiver', nested: false })
+    expect(review.time).toBe('14 Sep – 20 Sep')
+    expect(review.status).toBeNull()
+  })
+
+  it('reads each state the report writes in the tone a manager should see it', () => {
+    const tone = (state: string) => reportLine({ text: 'Fri 18 Sep 09:00 · Personal care · ' + state, nested: false }).status?.tone
+    expect(tone('scheduled')).toBe('warn')
+    expect(tone('awaiting the family')).toBe('warn')
+    expect(tone('ended in an exception')).toBe('bad')
+    expect(tone('needs improvement')).toBe('bad')
+    expect(tone('out of range')).toBe('bad')
+    expect(tone('UNRESOLVED_ESCALATED')).toBe('bad')
+    expect(tone('ACKNOWLEDGED')).toBe('warn')
+    expect(tone('cancelled at the family\'s request')).toBe('neutral')
+    expect(tone('rescheduled with Mei Ling (caregiver #5)')).toBe('neutral')
+    expect(tone('Mei Ling took the visit')).toBe('ok')
+    expect(tone('replaced by Mei Ling (caregiver #5)')).toBe('ok')
+    expect(tone('evidence 2 of 2 verified')).toBeUndefined()
+  })
+
+  it('leaves a sentence whole, and a step marked as one', () => {
+    expect(reportLine({ text: 'No incidents were reported in this period.', nested: false })).toMatchObject({
+      time: null,
+      parts: ['No incidents were reported in this period.'],
+      status: null,
+    })
+    expect(reportLine({ text: 'cancelled', nested: false }).status).toBeNull()
+    expect(reportLine({ text: 'Tue 15 Sep 10:21 · CLAIMED · staff', nested: true })).toMatchObject({
+      nested: true,
+      time: 'Tue 15 Sep 10:21',
+      parts: ['CLAIMED', 'staff'],
+    })
   })
 })

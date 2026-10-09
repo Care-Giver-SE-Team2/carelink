@@ -7,29 +7,27 @@ import {
   amendmentKindLabels,
   audienceLabels,
   audienceNotes,
-  figureText,
   generatedByLabels,
   problemDetail,
   reportPeriod,
   reportTime,
-  sectionLines,
   statusLabels,
 } from '../../../../features/reports/presentation'
 import type { ReportAmendmentKind } from '../../../../features/reports/types'
 import { useReportDetail } from '../../../../features/reports/useReportQueries'
 import { ManagerShell } from '../../components/ManagerShell'
 import { ReportFeedback } from './ReportFeedback'
-import { ReportSparkline } from './ReportSparkline'
+import { ReportSectionCard } from './ReportSectionCard'
 import styles from './Reports.module.css'
 
 /**
  * UC-MG07 — one filed report, as its reader will see it.
  *
- * The sections come in the order every reader's version shares, with the gaps
- * named at the top when the period's data was not complete, the disclaimer at
- * the bottom when this reader gets one, and the notes under that. A section's
- * numbers sit above its text and its readings beside it as small charts; a
- * report filed before sections carried either shows its text alone.
+ * The sections come in the order every reader's version shares, each as a
+ * card laid out for its kind (ReportSectionCard), with the gaps named at the
+ * top when the period's data was not complete, the disclaimer at the bottom
+ * when this reader gets one, and the notes under that. A report filed before
+ * sections carried numbers and series shows its text alone.
  *
  * There is nothing here to edit or delete, because a filed report cannot be
  * either. The only thing a manager can do is append a note - a correction, or
@@ -115,7 +113,10 @@ export default function ReportDetail() {
       }
     >
       <div className={styles.page}>
-        <div>
+        <div className={styles.reportHead}>
+          <p className={styles.eyebrow}>
+            {audienceLabels[report.audience]} version · RPT-{report.id}
+          </p>
           <h1>
             {audienceLabels[report.audience]} report — Elder #{report.elderId}
           </h1>
@@ -136,38 +137,16 @@ export default function ReportDetail() {
           </section>
         )}
 
-        {report.sections.map((section) => (
-          <section key={section.title} className={styles.section} aria-label={section.title}>
-            <h2 className={styles.sectionHeading}>{section.title}</h2>
-            {section.figures && section.figures.length > 0 && (
-              <dl className={styles.figures}>
-                {section.figures.map((figure) => (
-                  <div key={figure.key} className={styles.figure}>
-                    <dt>{figure.label}</dt>
-                    <dd>{figureText(figure)}</dd>
-                  </div>
-                ))}
-              </dl>
-            )}
-            {section.series && section.series.length > 0 && (
-              <div className={styles.sparks}>
-                {section.series.map((series) => (
-                  <ReportSparkline key={series.key} series={series} />
-                ))}
-              </div>
-            )}
-            {sectionLines(section.body).map((line, index) => (
-              <p key={`${section.title}-${index}`} className={line.nested ? styles.subLine : styles.line}>
-                {line.text}
-              </p>
-            ))}
-          </section>
-        ))}
+        <div className={styles.cards}>
+          {report.sections.map((section) => (
+            <ReportSectionCard key={section.title} section={section} />
+          ))}
+        </div>
 
         {report.disclaimer && <p className={styles.disclaimer}>{report.disclaimer}</p>}
 
-        <section className={styles.section}>
-          <h2 className={styles.sectionHeading}>Corrections and follow-ups — appended, never edited</h2>
+        <section className={styles.card}>
+          <h2 className={styles.cardTitle}>Corrections and follow-ups — appended, never edited</h2>
           {report.amendments.length === 0 ? (
             <p className={styles.note}>Nothing has been appended.</p>
           ) : (
