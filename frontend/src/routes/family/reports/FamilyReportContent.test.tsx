@@ -1,7 +1,8 @@
 import { cleanup, render, screen, within } from '@testing-library/react'
 import { afterEach, describe, expect, it } from 'vitest'
+import userEvent from '@testing-library/user-event'
 import { FamilyReportContent } from './FamilyReportContent'
-import { ReportCorrections } from './ReportNotes'
+import { ReportCompleteness, ReportCorrections } from './ReportNotes'
 import type { ReportSection } from '../../../features/reports/types'
 
 afterEach(cleanup)
@@ -23,6 +24,7 @@ describe('Family report presentation', () => {
     render(<FamilyReportContent sections={sections} />)
     expect(screen.getByText('2 of 3')).toBeInTheDocument()
     expect(screen.getByText('66.67%')).toBeInTheDocument()
+    expect(screen.queryByText('Fulfilment')).not.toBeInTheDocument()
     const chart = screen.getByRole('img', { name: /Systolic: daily range 128–142 mmHg; 2 recorded days; 1 flagged day/ })
     expect(chart.querySelectorAll('circle')).toHaveLength(2)
     expect(screen.getByText('1 day with readings flagged at recording')).toBeInTheDocument()
@@ -41,6 +43,42 @@ describe('Family report presentation', () => {
     expect(within(visits).getByText('verified')).toBeInTheDocument()
     expect(visits.textContent).toContain('note · with · extra · delimiters · retained')
     expect(visits.querySelector('img')).toBeNull()
+  })
+
+  it('gives completed visits awaiting confirmation their own status row', () => {
+    render(<FamilyReportContent sections={[{ title: 'Service completion', body:
+      "Mon 21 Sep 09:00 · Personal care · Mei · awaiting the elder's confirmation · no evidence",
+    }]} />)
+    expect(screen.getByText("awaiting the elder's confirmation")).toBeInTheDocument()
+    expect(screen.getByText('Mei · no evidence')).toBeInTheDocument()
+  })
+
+  it('shows service completion bars from saved counts', () => {
+    render(<FamilyReportContent sections={[{ title: 'Services', body: 'Personal care: 2 of 3 carried out', figures: [
+      { key: 'personal-care', label: 'Personal care', value: 2, outOf: 3, unit: null },
+    ] }]} />)
+    expect(screen.getByRole('progressbar', { name: 'Personal care' })).toHaveAttribute('value', '2')
+    expect(screen.getByRole('progressbar', { name: 'Personal care' })).toHaveAttribute('max', '3')
+  })
+
+  it('retains caregiver attribution and the incident resolution time in structured rows', () => {
+    render(<FamilyReportContent sections={[
+      { title: 'Observations', body: 'Mon 21 Sep · Mei: Comfortable after the visit.' },
+      { title: 'Incidents', body: 'Tue 22 Sep 10:00 · Fall reported · No injury. · resolved Tue 22 Sep 11:02' },
+    ]} />)
+    expect(screen.getByText('Mon 21 Sep · Mei')).toBeInTheDocument()
+    expect(screen.getByText('Comfortable after the visit.').tagName).toBe('BLOCKQUOTE')
+    expect(screen.getByText('No injury.')).toBeInTheDocument()
+    expect(screen.getByText('resolved Tue 22 Sep 11:02')).toBeInTheDocument()
+  })
+
+  it('keeps the completeness warning visible and reveals every missing record on demand', async () => {
+    render(<ReportCompleteness report={{ dataComplete: false, missingItems: ['Visit 12 not closed', 'Visit 13 not closed'] }} />)
+    expect(screen.getByText('Some care records are missing')).toBeVisible()
+    expect(screen.getByText('Visit 12 not closed')).not.toBeVisible()
+    await userEvent.setup().click(screen.getByText('View 2 missing records'))
+    expect(screen.getByText('Visit 12 not closed')).toBeVisible()
+    expect(screen.getByText('Visit 13 not closed')).toBeVisible()
   })
 
   it('retains legacy text exactly and renders no invented charts or metrics', () => {

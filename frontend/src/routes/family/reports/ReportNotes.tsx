@@ -8,7 +8,10 @@ import styles from './FamilyReports.module.css'
 export function ReportCompleteness({ report }: { report: Pick<FamilyReportDetail, 'dataComplete' | 'missingItems'> }) {
   return <div className={styles.completeness} data-complete={report.dataComplete}>
     <p>{report.dataComplete ? 'Records complete' : 'Some care records are missing'}</p>
-    {report.missingItems.length > 0 && <ul>{report.missingItems.map((item, index) => <li key={index}>{item}</li>)}</ul>}
+    {report.missingItems.length > 0 && <details>
+      <summary>View {report.missingItems.length} missing {report.missingItems.length === 1 ? 'record' : 'records'}</summary>
+      <ul>{report.missingItems.map((item, index) => <li key={index}>{item}</li>)}</ul>
+    </details>}
   </div>
 }
 

@@ -1,13 +1,19 @@
 import { useId } from 'react'
 import type { ReportFigure, ReportSection, ReportSeries } from '../../../features/reports/types'
-import { figureText, hasReportVisuals, reportDay, reportNumber, sparkline } from '../../../features/reports/presentation'
+import { figureText, reportDay, reportNumber, sparkline } from '../../../features/reports/presentation'
 import styles from './FamilyReportContent.module.css'
 
-function Figures({ figures }: { figures: ReportFigure[] }) {
-  return <dl className={styles.figures}>
-    {figures.map((figure) => <div key={figure.key}>
+function Figures({ figures, overview = false, services = false }: { figures: ReportFigure[]; overview?: boolean; services?: boolean }) {
+  const fulfilment = overview && figures.some((figure) => figure.key === 'visits')
+    ? figures.find((figure) => figure.key === 'fulfilment') : undefined
+  return <dl className={styles.figures} data-overview={overview} data-services={services}>
+    {figures.filter((figure) => figure !== fulfilment).map((figure) => <div key={figure.key}>
       <dt>{figure.label}</dt>
       <dd>{figureText(figure)}</dd>
+      {figure.key === 'visits' && fulfilment && <dd className={styles.figureNote}><span>{figureText(fulfilment)}</span> as planned</dd>}
+      {services && figure.outOf !== null && figure.outOf > 0 && <dd className={styles.progress}>
+        <progress aria-label={figure.label} value={figure.value} max={figure.outOf} />
+      </dd>}
     </div>)}
   </dl>
 }
@@ -18,11 +24,24 @@ function RecordLines({ body, sectionKey }: { body: string; sectionKey: string })
     {body.split('\n').filter((line) => line.trim()).map((line, index) => {
       const parts = line.split(' · ')
       const visit = sectionKey === 'service-completion' && parts.length === 5
-        && /^(scheduled|arrived|in progress|completed|verified|auto.closed|cancelled|exception)$/.test(parts[3])
+        && /^(scheduled|arrived|caregiver arrived|in progress|completed|awaiting the elder's confirmation|verified|auto.closed|closed without the elder's confirmation|cancelled|cancelled at the family's request|exception|ended in an exception)$/.test(parts[3])
       if (visit) return <div className={styles.visit} key={index}>
         <div><span className={styles.date}>{parts[0]}</span><strong>{parts[1]}</strong>
           <p>{parts[2]} · {parts[4]}</p></div>
         <span className={styles.status} data-status={parts[3]}>{parts[3]}</span>
+      </div>
+      if (sectionKey === 'observations' && parts.length === 2 && parts[1].includes(': ')) {
+        const separator = parts[1].indexOf(': ')
+        return <div className={styles.note} key={index}>
+          <p className={styles.date}>{parts[0]} · {parts[1].slice(0, separator)}</p>
+          <blockquote>{parts[1].slice(separator + 2)}</blockquote>
+        </div>
+      }
+      if (sectionKey === 'incidents' && parts.length >= 3
+        && /^(resolved |still being followed up)/.test(parts.at(-1)!)) return <div className={styles.visit} key={index}>
+        <div><span className={styles.date}>{parts[0]}</span><strong>{parts[1]}</strong>
+          <p>{parts.slice(2, -1).join(' · ')}</p></div>
+        <span className={styles.status} data-status={parts.at(-1)!.startsWith('resolved ') ? 'resolved' : 'follow-up'}>{parts.at(-1)}</span>
       </div>
       return <p className={styles.record} key={index} data-nested={line.startsWith('  ')}>
         {parts.length > 1 ? <><span className={styles.date}>{parts[0]}</span><span>{parts.slice(1).join(' · ')}</span></> : line}
@@ -63,24 +82,23 @@ function VitalTrend({ series }: { series: ReportSeries }) {
 /** Shared by FM04 detail and weekly reading; all values come from the same authorized saved report. */
 export function FamilyReportContent({ sections }: { sections: ReportSection[] }) {
   const id = useId()
-  const rich = hasReportVisuals(sections)
   const overview = sections.find((section) => section.key === 'overview' || section.title === 'Overview')
   const readingOrder = ['Overview', 'Vital signs', 'Services', 'Service completion', 'Observations', 'Incidents', 'Ratings and spot checks']
-  const ordered = rich ? [...sections].sort((a, b) => readingOrder.indexOf(a.title) - readingOrder.indexOf(b.title)) : sections
+  const ordered = overview ? [...sections].sort((a, b) => readingOrder.indexOf(a.title) - readingOrder.indexOf(b.title)) : sections
   return <div className={styles.content}>
-    {!!overview?.figures?.length && <Figures figures={overview.figures} />}
+    {!!overview?.figures?.length && <Figures figures={overview.figures} overview />}
     {sections.length === 0 && <p className={styles.section}>No report sections were recorded.</p>}
     {ordered.map((section, index) => {
       const key = section.key ?? section.title.toLowerCase().replaceAll(' ', '-')
-      const title = rich ? ({ overview: 'This week', 'service-completion': 'Visits', observations: 'Caregiver notes' }[key] ?? section.title) : section.title
+      const title = { overview: 'This week', 'service-completion': 'Visits', observations: 'Caregiver notes' }[key] ?? section.title
       return <section className={styles.section} key={index} aria-labelledby={`${id}-${index}`}>
         <div className={styles.sectionHeading}><h2 id={`${id}-${index}`}>{title}</h2>
           {!!section.series?.length && <span>Daily ranges</span>}</div>
-        {key !== 'overview' && !!section.figures?.length && <Figures figures={section.figures} />}
+        {key !== 'overview' && !!section.figures?.length && <Figures figures={section.figures} services={key === 'services'} />}
         {!!section.series?.length && <div className={styles.vitals}>
           {section.series.map((series) => <VitalTrend key={series.key} series={series} />)}
         </div>}
-        {rich && key !== 'overview' ? <RecordLines body={section.body} sectionKey={key} /> : <p className={styles.legacyBody}>{section.body}</p>}
+        {key !== 'overview' && section.body.includes(' · ') ? <RecordLines body={section.body} sectionKey={key} /> : <p className={styles.legacyBody}>{section.body}</p>}
       </section>
     })}
   </div>

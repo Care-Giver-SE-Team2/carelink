@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { useFamilyWeeklySummary } from '../../../features/reports/useFamilyWeeklySummary'
-import { generatedByLabels, hasReportVisuals, reportPeriod, statusLabels } from '../../../features/reports/presentation'
+import { generatedByLabels, reportPeriod, statusLabels } from '../../../features/reports/presentation'
 import { isScheduleDate, scheduleDateBounds, shiftDays, singaporeToday, weekStart } from '../../../features/schedule/presentation'
 import { ReportCompleteness, ReportCorrections } from './ReportNotes'
 import { ReportListFeedback } from './ReportListFeedback'
@@ -124,15 +124,14 @@ export function FamilyWeeklySummaryPage() {
         <span>from the week's records</span>
         {refreshButton}
       </div>
-      <section className={styles.card}>
-        {!hasReportVisuals(weekly.detail.sections) && <p className={styles.body} aria-label="Summary text">{weekly.summary.summaryText}</p>}
+      <section className={styles.reportMeta}>
         <ReportCompleteness report={weekly.detail} />
         <div className={styles.cardFoot}>
           <span className={styles.reference}>REPORT #{weekly.summary.reportId}</span>
           <span className={styles.badge} data-status={weekly.detail.status}>{statusLabels[weekly.detail.status]}</span>
         </div>
       </section>
-      {hasReportVisuals(weekly.detail.sections) && <FamilyReportContent sections={weekly.detail.sections} />}
+      <FamilyReportContent sections={weekly.detail.sections} />
       <p className={styles.disclaimer}>{weekly.summary.disclaimer}</p>
       <ReportCorrections amendments={weekly.detail.amendments} />
       {!desktop && fullReport && <div className={styles.actions}>

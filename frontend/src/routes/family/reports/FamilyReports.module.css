@@ -193,6 +193,7 @@
   padding-left: 18px;
   color: var(--fm-ink);
 }
+.completeness summary { cursor: pointer; margin-top: 6px; }
 .state {
   margin-top: 12px;
   border: 1px solid var(--fm-line-card);
@@ -324,11 +325,13 @@
 .weekFoot {
   composes: weekFoot from '../components/FamilyScreen.module.css';
 }
-/* Weekly summary: tag row, prose card, note, corrections, then actions. */
+/* Weekly summary: report metadata, saved sections, corrections, then actions. */
 .summaryArticle {
   display: grid;
   gap: 12px;
 }
+.reportMeta .completeness { margin-top: 0; }
+.reportMeta .cardFoot { margin-top: 10px; padding: 0 0 4px; border-top: 0; }
 .summaryArticle > .disclaimer {
   margin-top: 0 !important;
 }
