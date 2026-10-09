@@ -5,6 +5,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 import org.springframework.stereotype.Service;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
 
 import sg.nus.carelink.identity.application.IdentityService;
@@ -33,7 +34,10 @@ public class ValueAddedServiceRequestService {
     private final ValueAddedServiceRequestRepository requests;
     private final VisitRepository visits;
     private final Clock clock;
+    private final ValueAddedVisitAssignment assignment;
+    private final ValueAddedManagerAlert managerAlert;
 
+    @Autowired
     public ValueAddedServiceRequestService(
             IdentityService identity,
             ProfileService profiles,
@@ -42,7 +46,9 @@ public class ValueAddedServiceRequestService {
             ValueAddedServiceRepository services,
             ValueAddedServiceRequestRepository requests,
             VisitRepository visits,
-            Clock clock) {
+            Clock clock,
+            ValueAddedVisitAssignment assignment,
+            ValueAddedManagerAlert managerAlert) {
         this.identity = identity;
         this.profiles = profiles;
         this.families = families;
@@ -51,6 +57,8 @@ public class ValueAddedServiceRequestService {
         this.requests = requests;
         this.visits = visits;
         this.clock = clock;
+        this.assignment = assignment;
+        this.managerAlert = managerAlert;
     }
 
     @Transactional(readOnly = true)
@@ -90,8 +98,8 @@ public class ValueAddedServiceRequestService {
     }
 
     /**
-     * UC-FM08: approve or reject. Approval immediately creates an unassigned SCHEDULED Visit,
-     * which is the work order described by the API contract, and stores its id on the request.
+     * UC-FM08: approve or reject. Approval creates a scheduled work order, attempts
+     * to assign the primary caregiver and alerts managers about the assignment result.
      */
     public ValueAddedServiceRequest decideForFamily(String username, Long requestId, Decision decision) {
         var account = identity.require(username);
@@ -110,10 +118,21 @@ public class ValueAddedServiceRequestService {
                     "VALUE_ADDED_SERVICE_SCHEDULE_REQUIRED",
                     "A requested schedule is required before the service can be approved.");
         }
+        // Fail-fast if the request was already decided, before any work order is created.
+        if (request.status() != ValueAddedServiceRequest.Status.PENDING_APPROVAL) {
+            throw new BusinessRuleViolation("VALUE_ADDED_SERVICE_REQUEST_ALREADY_DECIDED",
+                    "Only a pending value-added service request can be decided.");
+        }
+        Long caregiverId = assignment.chooseCaregiver(request.elderId(), request.requestedSchedule())
+                .orElse(null);
         Visit visit = visits.save(Visit.scheduled(
-                request.elderId(), null, null, null,
+                request.elderId(), caregiverId, null, null,
                 service.name(), request.requestedSchedule(), null));
-        return requests.save(request.approveAndDispatch(family.id(), visit.id(), now()));
+        ValueAddedServiceRequest saved = requests.save(request.approveAndDispatch(family.id(), visit.id(), now()));
+        // Same transaction: if notification persistence fails, approval is rolled back.
+        managerAlert.approved(visit.id(), request.elderId(), service.name(),
+                request.requestedSchedule(), caregiverId);
+        return saved;
     }
 
     @Transactional(readOnly = true)
