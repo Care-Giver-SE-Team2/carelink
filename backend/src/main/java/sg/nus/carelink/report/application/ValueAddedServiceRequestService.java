@@ -14,6 +14,7 @@ import sg.nus.carelink.profile.domain.model.FamilyMember;
 import sg.nus.carelink.profile.domain.repository.FamilyMemberRepository;
 import sg.nus.carelink.report.domain.model.ValueAddedService;
 import sg.nus.carelink.report.domain.model.ValueAddedServiceRequest;
+import sg.nus.carelink.report.domain.repository.ValueAddedServiceAlert;
 import sg.nus.carelink.report.domain.repository.ValueAddedServiceRepository;
 import sg.nus.carelink.report.domain.repository.ValueAddedServiceRequestRepository;
 import sg.nus.carelink.shared.error.BusinessRuleViolation;
@@ -32,6 +33,7 @@ public class ValueAddedServiceRequestService {
     private final ValueAddedServiceRepository services;
     private final ValueAddedServiceRequestRepository requests;
     private final VisitRepository visits;
+    private final ValueAddedServiceAlert alert;
     private final Clock clock;
 
     public ValueAddedServiceRequestService(
@@ -42,6 +44,7 @@ public class ValueAddedServiceRequestService {
             ValueAddedServiceRepository services,
             ValueAddedServiceRequestRepository requests,
             VisitRepository visits,
+            ValueAddedServiceAlert alert,
             Clock clock) {
         this.identity = identity;
         this.profiles = profiles;
@@ -50,6 +53,7 @@ public class ValueAddedServiceRequestService {
         this.services = services;
         this.requests = requests;
         this.visits = visits;
+        this.alert = alert;
         this.clock = clock;
     }
 
@@ -92,6 +96,8 @@ public class ValueAddedServiceRequestService {
     /**
      * UC-FM08: approve or reject. Approval immediately creates an unassigned SCHEDULED Visit,
      * which is the work order described by the API contract, and stores its id on the request.
+     * The visit lasts as long as the catalogue says the service does, and every manager is told
+     * it needs a caregiver.
      */
     public ValueAddedServiceRequest decideForFamily(String username, Long requestId, Decision decision) {
         var account = identity.require(username);
@@ -110,10 +116,14 @@ public class ValueAddedServiceRequestService {
                     "VALUE_ADDED_SERVICE_SCHEDULE_REQUIRED",
                     "A requested schedule is required before the service can be approved.");
         }
+        LocalDateTime start = request.requestedSchedule();
         Visit visit = visits.save(Visit.scheduled(
                 request.elderId(), null, null, null,
-                service.name(), request.requestedSchedule(), null));
-        return requests.save(request.approveAndDispatch(family.id(), visit.id(), now()));
+                service.name(), start, service.endFor(start)));
+        ValueAddedServiceRequest dispatched = requests.save(request.approveAndDispatch(family.id(), visit.id(), now()));
+        alert.dispatched(new ValueAddedServiceAlert.Dispatched(
+                dispatched.id(), visit.id(), request.elderId(), service.name(), start, service.endFor(start)));
+        return dispatched;
     }
 
     @Transactional(readOnly = true)

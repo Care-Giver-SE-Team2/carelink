@@ -10,8 +10,10 @@ import {
   isoWeek,
   mondayOf,
   pageOf,
+  singaporeNow,
   singaporeToday,
   toDayTimeline,
+  toOpenVisits,
   toWeek,
   weekContext,
   weekDays,
@@ -192,5 +194,32 @@ describe('paging the roster', () => {
   it('pages caregivers, clamping to the pages there are', () => {
     expect(pageOf(rows, 2, 2)).toMatchObject({ page: 2, total: 3, rows: [{ name: 'Ben Tan' }] })
     expect(pageOf(rows, 9, 2).page).toBe(2)
+  })
+})
+
+describe('open visits', () => {
+  it('reads the wall clock in Singapore, shaped like a visit start', () => {
+    expect(singaporeNow(new Date('2026-10-01T20:15:30Z'))).toBe('2026-10-02T04:15:30')
+  })
+
+  it('lists visits nobody holds that have not started, earliest first, named and dated', () => {
+    const escort = { ...visit(4, '2026-10-08T14:00:00', null, null), serviceType: 'Hospital escort' }
+    const visits = [
+      escort,
+      visit(1, '2026-10-08T09:00:00', null, 5),
+      visit(2, '2026-10-08T10:00:00', null, null),
+      visit(3, '2026-10-07T08:00:00', null, null),
+      visit(5, '2026-10-08T11:00:00', null, null, 'EXCEPTION'),
+    ]
+    const open = toOpenVisits(visits, [elder('1', 'Tan Hock Seng')], '2026-10-07T09:00:00')
+
+    expect(open.map((o) => o.id)).toEqual([2, 4])
+    expect(open[1]).toEqual({
+      id: 4,
+      elderName: 'Tan Hock Seng',
+      service: 'Hospital escort',
+      start: '2026-10-08T14:00:00',
+      when: 'Thu 8 Oct · 14:00',
+    })
   })
 })

@@ -95,6 +95,20 @@ class VisitReassignmentService implements VisitReassignment {
 	}
 
 	@Override
+	public void cover(Long visitId, Long caregiverId, Change why) {
+		Visit visit = require(visitId);
+		if (visit.caregiverId() != null) {
+			throw new BusinessRuleViolation("VISIT_NOT_OPEN", "Visit %d already has a caregiver".formatted(visitId));
+		}
+		if (!visit.hasNotStarted()) {
+			throw notOpen(visit, "be covered");
+		}
+		visits.save(visit.coveredBy(caregiverId));
+		assignments.save(VisitAssignment.active(visitId, caregiverId, why.byUserId(), why.reason(),
+				why.rosteringCandidateId(), LocalDateTime.now(clock)));
+	}
+
+	@Override
 	public void markUncovered(Long visitId, Change why) {
 		Visit visit = require(visitId);
 		if (!visit.hasNotStarted()) {

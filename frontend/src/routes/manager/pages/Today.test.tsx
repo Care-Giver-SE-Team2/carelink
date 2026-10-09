@@ -9,6 +9,7 @@ import * as authApi from '../../../features/auth/api'
 import * as incidentsApi from '../../../features/incidents/api'
 import * as profileApi from '../../../shared/api/profile'
 import type { ElderListItem } from '../../../shared/api/profile'
+import * as rosteringApi from '../../../shared/api/rostering'
 import * as visitApi from '../../../shared/api/visit'
 import type { VisitResponse } from '../../../shared/api/visit'
 
@@ -151,4 +152,31 @@ it('lists today’s visits by name, flagging the unassigned one and the exceptio
   expect(within(missed).getByText('Hafiz Rahman')).toBeInTheDocument()
   expect(within(missed).getByText('EXCEPTION')).toBeInTheDocument()
   expect(screen.getByText('5 visits today · sector S31 / S45 / S52')).toBeInTheDocument()
+})
+
+it('assigns an unassigned visit that has not started from its row', async () => {
+  vi.useFakeTimers({ toFake: ['Date'] })
+  vi.setSystemTime(new Date('2026-09-27T10:00:00+08:00'))
+  try {
+    vi.spyOn(rosteringApi, 'fetchOpenVisitCandidates').mockResolvedValue([
+      { caregiverId: 11, name: 'Kamala Devi', rank: 1, score: 75, reason: 'Lightest day', excludedBy: null },
+    ])
+    const assign = vi
+      .spyOn(rosteringApi, 'assignOpenVisit')
+      .mockResolvedValue({ visitId: 5, caregiverId: 11, caregiverName: 'Kamala Devi' })
+    renderToday()
+
+    const table = await screen.findByRole('table', { name: 'Visit roster' })
+    const button = await within(table).findByRole('button', { name: 'Assign Tan Hock Seng Companionship' })
+    expect(within(table).getAllByRole('button', { name: /^Assign/ })).toHaveLength(1)
+    await userEvent.click(button)
+    const dialog = await screen.findByRole('dialog')
+    expect(within(dialog).getByText('Today · 11:00 · currently unassigned')).toBeInTheDocument()
+    await userEvent.click(await within(dialog).findByRole('button', { name: 'Assign' }))
+
+    expect(assign).toHaveBeenCalledWith(5, 11)
+    expect(await screen.findByRole('status')).toHaveTextContent("Kamala Devi is now on Tan Hock Seng's Companionship at 11:00.")
+  } finally {
+    vi.useRealTimers()
+  }
 })

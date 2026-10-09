@@ -6,10 +6,11 @@ import type { ElderRow } from './elders'
 /**
  * Roster tab data — the Day timeline and Week grid, shaped from the same endpoints as the
  * Today board: GET /api/visits/roster per day, named via GET /api/elders and
- * GET /api/caregivers. Visits come from published care plans (UC-MG03). It shows each
- * caregiver's schedule as it stands: a visit with no caregiver is nobody's schedule and is
- * left out, and re-rostering for an absence happens on the Absences screen. Approved leave
- * (GET /api/absences) only marks the days a caregiver is away.
+ * GET /api/caregivers. Visits come from published care plans (UC-MG03) and from extra
+ * services families approve. The grid shows each caregiver's schedule as it stands: a visit
+ * with no caregiver is nobody's schedule and is kept off it, listed apart as an open visit for
+ * the manager to assign (see toOpenVisits). Re-rostering for an absence happens on the Absences
+ * screen. Approved leave (GET /api/absences) only marks the days a caregiver is away.
  *
  * Dates are ISO "yyyy-MM-dd" strings in Singapore time, the same wall clock the visits use.
  */
@@ -289,6 +290,43 @@ export function toWeek(
 export function matchingName<T extends RosterRow>(rows: T[], query: string): T[] {
   const needle = query.trim().toLowerCase()
   return needle ? rows.filter((row) => row.name.toLowerCase().includes(needle)) : rows
+}
+
+// ---------------------------------------------------------------------------------------
+// Open visits
+
+/** A visit nobody holds that can still be given to somebody. */
+export type OpenVisit = {
+  id: number
+  elderName: string
+  service: string
+  /** Singapore wall clock, "2026-10-08T14:00:00": for ordering. */
+  start: string
+  /** "Thu 8 Oct · 14:00" */
+  when: string
+}
+
+/** Singapore's wall clock now, shaped like a visit's scheduledStart. Singapore keeps no DST. */
+export function singaporeNow(now: Date = new Date()): string {
+  return new Date(now.getTime() + 8 * 3_600_000).toISOString().slice(0, 19)
+}
+
+/**
+ * The visits nobody holds that have not started yet, earliest first: what the manager can
+ * still assign. One already past its start is left to the Exceptions queue.
+ */
+export function toOpenVisits(visits: VisitResponse[], elders: ElderRow[], now: string = singaporeNow()): OpenVisit[] {
+  const elderNames = new Map(elders.map((elder) => [elder.id, elder.name]))
+  return visits
+    .filter((visit) => visit.caregiverId == null && visit.status === 'SCHEDULED' && visit.scheduledStart > now)
+    .sort((a, b) => a.scheduledStart.localeCompare(b.scheduledStart))
+    .map((visit) => ({
+      id: visit.id,
+      elderName: elderNames.get(String(visit.elderId)) ?? `Elder #${visit.elderId}`,
+      service: visit.serviceType ?? 'Visit',
+      start: visit.scheduledStart,
+      when: `${dayContext(visit.scheduledStart.slice(0, 10))} · ${visit.scheduledStart.slice(11, 16)}`,
+    }))
 }
 
 /** One page of caregiver rows; `page` is clamped to the pages that exist. */

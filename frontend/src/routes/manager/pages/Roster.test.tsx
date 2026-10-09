@@ -9,6 +9,7 @@ import * as absencesApi from '../../../features/absences/api'
 import * as authApi from '../../../features/auth/api'
 import * as incidentsApi from '../../../features/incidents/api'
 import * as profileApi from '../../../shared/api/profile'
+import * as rosteringApi from '../../../shared/api/rostering'
 import * as visitApi from '../../../shared/api/visit'
 import type { VisitResponse } from '../../../shared/api/visit'
 
@@ -218,4 +219,69 @@ it('narrows the roster to caregivers whose name matches the search, in Day and W
   await user.clear(screen.getByRole('searchbox'))
   await user.type(screen.getByRole('searchbox'), 'zzz')
   expect(await screen.findByText('No caregivers match “zzz”.')).toBeInTheDocument()
+})
+
+it('lists a visit nobody has above the grid and assigns it to somebody the rules allow', async () => {
+  vi.useFakeTimers({ toFake: ['Date'] })
+  vi.setSystemTime(new Date('2026-10-05T08:00:00+08:00'))
+  try {
+    vi.spyOn(rosteringApi, 'fetchOpenVisitCandidates').mockResolvedValue([
+      { caregiverId: 5, name: 'Ong Wei Jie', rank: 1, score: 80, reason: 'Visited Tan Hock Seng before', excludedBy: null },
+      { caregiverId: 6, name: 'Siti Rahmah', rank: null, score: null, reason: 'Booked 11:00–12:00', excludedBy: 'NO_TIME_CLASH' },
+    ])
+    const assign = vi
+      .spyOn(rosteringApi, 'assignOpenVisit')
+      .mockResolvedValue({ visitId: 2, caregiverId: 5, caregiverName: 'Ong Wei Jie' })
+    renderAt('/manager/roster?view=day&date=2026-10-05')
+
+    const list = await screen.findByRole('listbox', { name: 'Unassigned visits' })
+    expect(within(list).getByText('Tan Hock Seng · Bathing assistance')).toBeInTheDocument()
+    expect(within(list).getByText('Mon 5 Oct · 11:00')).toBeInTheDocument()
+
+    await userEvent.click(within(list).getByRole('button', { name: 'Assign Tan Hock Seng Bathing assistance' }))
+    const dialog = await screen.findByRole('dialog')
+    const allowed = await within(dialog).findByRole('listbox', { name: 'Caregivers who can take this visit' })
+    const refused = within(dialog).getByRole('listbox', { name: 'Caregivers who cannot take this visit' })
+    expect(within(refused).getByText('Booked 11:00–12:00')).toBeInTheDocument()
+    expect(within(refused).queryByRole('button', { name: 'Assign' })).not.toBeInTheDocument()
+
+    await userEvent.click(within(allowed).getByRole('button', { name: 'Assign' }))
+    expect(assign).toHaveBeenCalledWith(2, 5)
+    expect(await screen.findByRole('status')).toHaveTextContent(
+      "Ong Wei Jie is now on Tan Hock Seng's Bathing assistance, Mon 5 Oct · 11:00.",
+    )
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+  } finally {
+    vi.useRealTimers()
+  }
+})
+
+it('keeps the picker open with the reason when the server refuses the pick', async () => {
+  vi.useFakeTimers({ toFake: ['Date'] })
+  vi.setSystemTime(new Date('2026-10-05T08:00:00+08:00'))
+  try {
+    vi.spyOn(rosteringApi, 'fetchOpenVisitCandidates').mockResolvedValue([
+      { caregiverId: 5, name: 'Ong Wei Jie', rank: 1, score: 80, reason: null, excludedBy: null },
+    ])
+    vi.spyOn(rosteringApi, 'assignOpenVisit').mockRejectedValue(new Error('Ong Wei Jie cannot take this visit: on leave'))
+    renderAt('/manager/roster?view=week&date=2026-10-05')
+
+    const list = await screen.findByRole('listbox', { name: 'Unassigned visits' })
+    await userEvent.click(within(list).getByRole('button', { name: /^Assign/ }))
+    const dialog = await screen.findByRole('dialog')
+    await userEvent.click(await within(dialog).findByRole('button', { name: 'Assign' }))
+
+    expect(await within(dialog).findByRole('alert')).toHaveTextContent(
+      'Could not assign Ong Wei Jie: Ong Wei Jie cannot take this visit: on leave',
+    )
+  } finally {
+    vi.useRealTimers()
+  }
+})
+
+it('lists nothing to assign once a visit nobody has is past its start', async () => {
+  renderAt('/manager/roster?view=day&date=2026-10-05')
+
+  await screen.findByRole('rowheader', { name: /Ong Wei Jie/ })
+  expect(screen.queryByRole('listbox', { name: 'Unassigned visits' })).not.toBeInTheDocument()
 })

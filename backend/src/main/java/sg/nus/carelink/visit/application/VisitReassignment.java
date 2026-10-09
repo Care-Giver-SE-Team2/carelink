@@ -31,6 +31,12 @@ public interface VisitReassignment {
 	/** Gives the visit to another caregiver because of an absence. */
 	void reassign(Long visitId, Long toCaregiverId, Change why);
 
+	/**
+	 * UC-MG03: gives a visit nobody holds and nobody has started to a caregiver - one its care
+	 * plan left uncovered, or an extra service a family approved.
+	 */
+	void cover(Long visitId, Long caregiverId, Change why);
+
 	/** Nobody can take the visit: it becomes an exception with nobody on it. */
 	void markUncovered(Long visitId, Change why);
 

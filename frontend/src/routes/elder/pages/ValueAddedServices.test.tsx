@@ -21,6 +21,7 @@ import {
   fetchElderValueAddedServiceRequests,
   fetchValueAddedServices,
 } from '../../../features/value-added-services/api'
+import { durationText } from '../../../features/value-added-services/presentation'
 import ValueAddedServices from './ValueAddedServices'
 
 vi.mock(
@@ -74,6 +75,7 @@ const catalogue = [
       'Hospital escort',
     description:
       'Escort to medical appointments',
+    durationMinutes: 180,
     status:
       'AVAILABLE' as const,
   },
@@ -83,6 +85,7 @@ const catalogue = [
       'Companionship',
     description:
       'Additional companionship',
+    durationMinutes: 90,
     status:
       'AVAILABLE' as const,
   },
@@ -141,6 +144,19 @@ describe(
           'No requests yet.',
         ),
       ).toBeInTheDocument()
+
+      expect(
+        screen.getByText(
+          'Takes about 3 hours.',
+        ),
+      ).toBeInTheDocument()
+    })
+
+    it('says how long a service takes in plain words', () => {
+      expect(durationText(45)).toBe('45 minutes')
+      expect(durationText(60)).toBe('1 hour')
+      expect(durationText(90)).toBe('1½ hours')
+      expect(durationText(180)).toBe('3 hours')
     })
 
     it('shows empty catalogue state', async () => {

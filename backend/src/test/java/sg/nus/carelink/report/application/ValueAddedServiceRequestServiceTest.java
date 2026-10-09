@@ -31,6 +31,7 @@ import sg.nus.carelink.profile.domain.model.FamilyMember;
 import sg.nus.carelink.profile.domain.repository.FamilyMemberRepository;
 import sg.nus.carelink.report.domain.model.ValueAddedService;
 import sg.nus.carelink.report.domain.model.ValueAddedServiceRequest;
+import sg.nus.carelink.report.domain.repository.ValueAddedServiceAlert;
 import sg.nus.carelink.report.domain.repository.ValueAddedServiceRepository;
 import sg.nus.carelink.report.domain.repository.ValueAddedServiceRequestRepository;
 import sg.nus.carelink.shared.error.BusinessRuleViolation;
@@ -79,6 +80,7 @@ class ValueAddedServiceRequestServiceTest {
     private ValueAddedServiceRepository services;
     private ValueAddedServiceRequestRepository requests;
     private VisitRepository visits;
+    private ValueAddedServiceAlert alert;
 
     private ValueAddedServiceRequestService service;
 
@@ -119,6 +121,11 @@ class ValueAddedServiceRequestServiceTest {
                         VisitRepository.class
                 );
 
+        alert =
+                mock(
+                        ValueAddedServiceAlert.class
+                );
+
         service =
                 new ValueAddedServiceRequestService(
                         identity,
@@ -128,6 +135,7 @@ class ValueAddedServiceRequestServiceTest {
                         services,
                         requests,
                         visits,
+                        alert,
                         CLOCK
                 );
     }
@@ -357,6 +365,7 @@ class ValueAddedServiceRequestServiceTest {
                         2L,
                         "Hospital escort",
                         null,
+                        180,
                         ValueAddedService.Status.UNAVAILABLE,
                         null,
                         null
@@ -540,6 +549,10 @@ class ValueAddedServiceRequestServiceTest {
 
         verify(visits, never())
                 .save(any());
+
+        verifyNoInteractions(
+                alert
+        );
     }
 
     // ---------------------------------------------------------
@@ -676,8 +689,24 @@ class ValueAddedServiceRequestServiceTest {
                                                 .equals(
                                                         SCHEDULE
                                                 )
+                                                && visit.scheduledEnd()
+                                                .equals(
+                                                        SCHEDULE.plusMinutes(180)
+                                                )
                                                 && visit.status()
                                                 == Visit.Status.SCHEDULED
+                        )
+                );
+
+        verify(alert)
+                .dispatched(
+                        new ValueAddedServiceAlert.Dispatched(
+                                5L,
+                                77L,
+                                10L,
+                                "Hospital escort",
+                                SCHEDULE,
+                                SCHEDULE.plusMinutes(180)
                         )
                 );
     }
@@ -924,6 +953,7 @@ class ValueAddedServiceRequestServiceTest {
                 2L,
                 "Hospital escort",
                 "Escort to medical appointments",
+                180,
                 ValueAddedService.Status.AVAILABLE,
                 null,
                 null

@@ -2,6 +2,8 @@ export type ValueAddedService = {
   id: number
   name: string
   description: string | null
+  /** How long the visit lasts once the family approves it. */
+  durationMinutes: number
   status: 'AVAILABLE' | 'UNAVAILABLE'
 }
 

@@ -16,18 +16,21 @@ class ValueAddedServiceMapperTest {
 		entity.setId(1L);
 		entity.setName("v2");
 		entity.setDescription("v3");
+		entity.setDurationMinutes(180);
 		entity.setStatus(ValueAddedServiceJpaEntity.Status.AVAILABLE);
 
 		ValueAddedService domain = ValueAddedServiceMapper.toDomain(entity);
 		assertThat(domain.id()).isEqualTo(entity.getId());
 		assertThat(domain.name()).isEqualTo(entity.getName());
 		assertThat(domain.description()).isEqualTo(entity.getDescription());
+		assertThat(domain.durationMinutes()).isEqualTo(180);
 		assertThat(domain.status().name()).isEqualTo(entity.getStatus().name());
 
 		ValueAddedServiceJpaEntity back = ValueAddedServiceMapper.toEntity(domain);
 		assertThat(back.getId()).isEqualTo(entity.getId());
 		assertThat(back.getName()).isEqualTo(entity.getName());
 		assertThat(back.getDescription()).isEqualTo(entity.getDescription());
+		assertThat(back.getDurationMinutes()).isEqualTo(180);
 		assertThat(back.getStatus()).isEqualTo(entity.getStatus());
 	}
 }

@@ -275,6 +275,17 @@ final class ReRosteringFakes {
 		}
 
 		@Override
+		public void cover(Long visitId, Long caregiverId, Change why) {
+			VisitSlot v = rows.get(visitId);
+			if (v.caregiverId() != null || !"SCHEDULED".equals(v.status())) {
+				throw new BusinessRuleViolation("VISIT_NOT_OPEN", "not open");
+			}
+			rows.put(visitId, new VisitSlot(visitId, v.elderId(), caregiverId, v.carePlanId(), v.serviceType(),
+					v.start(), v.end(), "SCHEDULED", v.absenceId()));
+			calls.add("cover " + visitId + " with " + caregiverId);
+		}
+
+		@Override
 		public void markUncovered(Long visitId, Change why) {
 			VisitSlot v = rows.get(visitId);
 			if (!"SCHEDULED".equals(v.status())) {

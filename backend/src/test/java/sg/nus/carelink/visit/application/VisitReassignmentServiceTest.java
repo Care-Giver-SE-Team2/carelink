@@ -102,6 +102,41 @@ class VisitReassignmentServiceTest {
 	}
 
 	@Test
+	void anOpenVisitIsCoveredWithItsFirstAssignment() {
+		Long escort = visits.save(Visit.scheduled(7L, null, null, null, "Hospital escort", EIGHTH.withHour(15), null)).id();
+
+		service.cover(escort, 9L, new VisitReassignment.Change(null, 11L, 79L, "A manager chose Farah for the visit"));
+
+		Visit covered = visits.findById(escort).orElseThrow();
+		assertThat(covered.caregiverId()).isEqualTo(9L);
+		assertThat(covered.status()).isEqualTo(Visit.Status.SCHEDULED);
+		assertThat(covered.absenceId()).isNull();
+		assertThat(assignments.rows).singleElement().satisfies(row -> {
+			assertThat(row.caregiverId()).isEqualTo(9L);
+			assertThat(row.status()).isEqualTo(VisitAssignment.Status.ACTIVE);
+			assertThat(row.assignedByUserId()).isEqualTo(11L);
+			assertThat(row.rosteringCandidateId()).isEqualTo(79L);
+		});
+	}
+
+	@Test
+	void onlyAVisitNobodyHoldsOrStartedCanBeCovered() {
+		Long uncovered = visits.save(withStatus(Visit.scheduled(7L, null, null, null, "Companionship", EIGHTH, null),
+				Visit.Status.EXCEPTION)).id();
+		VisitReassignment.Change why = new VisitReassignment.Change(null, 11L, null, "x");
+
+		assertThatThrownBy(() -> service.cover(morning, 9L, why))
+				.isInstanceOf(BusinessRuleViolation.class)
+				.hasMessageContaining("already has a caregiver")
+				.extracting("code").isEqualTo("VISIT_NOT_OPEN");
+		assertThatThrownBy(() -> service.cover(uncovered, 9L, why))
+				.isInstanceOf(BusinessRuleViolation.class)
+				.hasMessageContaining("is EXCEPTION and can no longer be covered");
+		assertThatThrownBy(() -> service.cover(404L, 9L, why)).isInstanceOf(ResourceNotFound.class);
+		assertThat(assignments.rows).isEmpty();
+	}
+
+	@Test
 	void skippingAndMovingCallTheVisitOff() {
 		service.callOff(afternoon, new VisitReassignment.Change(12L, 41L, null, "skipped"));
 		assertThat(visits.findById(afternoon).orElseThrow().status()).isEqualTo(Visit.Status.CANCELLED);

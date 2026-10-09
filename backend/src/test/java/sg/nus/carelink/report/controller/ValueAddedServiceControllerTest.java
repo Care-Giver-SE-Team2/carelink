@@ -312,6 +312,7 @@ class ValueAddedServiceControllerTest {
                 2L,
                 "Hospital escort",
                 "Escort to medical appointments",
+                180,
                 ValueAddedService.Status.AVAILABLE,
                 null,
                 null

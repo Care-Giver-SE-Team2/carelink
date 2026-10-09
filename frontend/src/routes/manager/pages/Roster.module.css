@@ -23,3 +23,7 @@
   font: 400 12px/1.5 var(--font);
   color: var(--text-muted);
 }
+
+.notice {
+  margin: 16px 20px 0;
+}

@@ -5,6 +5,7 @@ import {
   fetchElderValueAddedServiceRequests,
   fetchValueAddedServices,
 } from '../../../features/value-added-services/api'
+import { durationText } from '../../../features/value-added-services/presentation'
 import type { ValueAddedService, ValueAddedServiceRequest } from '../../../features/value-added-services/types'
 import { ElderShell } from '../components/ElderShell'
 import {
@@ -148,6 +149,7 @@ export default function ValueAddedServices() {
                     ))}
                   </ActionStack>
                   {selected?.description && <p className={styles.lead}>{selected.description}</p>}
+                  {selected && <p className={styles.meta}>Takes about {durationText(selected.durationMinutes)}.</p>}
                   <label className={styles.fieldLabel}>
                     <span>Requested date and time</span>
                     <input

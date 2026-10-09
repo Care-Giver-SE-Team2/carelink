@@ -2,6 +2,7 @@ import type { VisitState } from '../../../shared/components/ui'
 import type { VisitResponse } from '../../../shared/api/visit'
 import type { CaregiverOption } from '../../../shared/api/profile'
 import type { ElderRow } from './elders'
+import { singaporeNow } from './roster'
 
 /**
  * Today board data — the board's own shapes, mapped from the real endpoints:
@@ -20,6 +21,8 @@ export type Visit = {
   caregiver?: { name: string }
   service: string
   state: VisitState
+  /** Nobody holds it and it has not started, so a manager can still assign somebody. */
+  assignable?: boolean
 }
 
 export type TodayRoster = {
@@ -45,7 +48,12 @@ const VISIT_STATES: Record<VisitResponse['status'], VisitState> = {
   CANCELLED: 'closed',
 }
 
-export function toRoster(visits: VisitResponse[], elders: ElderRow[], caregivers: CaregiverOption[]): TodayRoster {
+export function toRoster(
+  visits: VisitResponse[],
+  elders: ElderRow[],
+  caregivers: CaregiverOption[],
+  now: string = singaporeNow(),
+): TodayRoster {
   const elderById = new Map(elders.map((elder) => [elder.id, elder]))
   const caregiverById = new Map(caregivers.map((caregiver) => [caregiver.id, caregiver.fullName]))
 
@@ -61,6 +69,7 @@ export function toRoster(visits: VisitResponse[], elders: ElderRow[], caregivers
       service: visit.serviceType ?? '—',
       // An exception outranks the gap: an uncovered visit past its start is an exception.
       state: visit.caregiverId == null && visit.status !== 'EXCEPTION' ? 'needs_cover' : VISIT_STATES[visit.status],
+      assignable: visit.caregiverId == null && visit.status === 'SCHEDULED' && visit.scheduledStart > now,
     }
   })
   const sectors = [...new Set(rows.map((row) => row.elder.sector).filter(Boolean))].sort()

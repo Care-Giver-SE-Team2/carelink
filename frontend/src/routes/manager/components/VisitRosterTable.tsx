@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import { DataTable, VisitStateBadge } from '../../../shared/components/ui'
+import { Button, DataTable, VisitStateBadge } from '../../../shared/components/ui'
 import type { DataTableColumn } from '../../../shared/components/ui'
 import type { Visit } from '../data/today'
 import styles from './VisitRosterTable.module.css'
@@ -31,12 +31,42 @@ const COLUMNS: DataTableColumn<Visit>[] = [
   { key: 'state', label: 'State', width: '150px', render: (v) => <VisitStateBadge state={v.state} /> },
 ]
 
-/** Today's visits, an exception tinted danger and an unassigned visit tinted for the model. */
-export function VisitRosterTable({ visits, footer, empty }: { visits: Visit[]; footer?: ReactNode; empty?: ReactNode }) {
+/**
+ * Today's visits, an exception tinted danger and an unassigned visit tinted for the model.
+ * With `onAssign`, an unassigned visit that has not started gets an Assign action.
+ */
+export function VisitRosterTable({
+  visits,
+  footer,
+  empty,
+  onAssign,
+}: {
+  visits: Visit[]
+  footer?: ReactNode
+  empty?: ReactNode
+  onAssign?: (visit: Visit) => void
+}) {
+  const columns: DataTableColumn<Visit>[] = onAssign
+    ? [
+        ...COLUMNS,
+        {
+          key: 'action',
+          label: '',
+          width: '84px',
+          align: 'right',
+          render: (v) =>
+            v.assignable && (
+              <Button aria-label={`Assign ${v.elder.name} ${v.service}`} onClick={() => onAssign(v)}>
+                Assign
+              </Button>
+            ),
+        },
+      ]
+    : COLUMNS
   return (
     <DataTable
       label="Visit roster"
-      columns={COLUMNS}
+      columns={columns}
       rows={visits}
       rowKey={(v) => v.id}
       rowTone={(v) => (v.state === 'exception' ? 'danger' : v.caregiver ? null : 'info')}

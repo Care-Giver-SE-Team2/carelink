@@ -35,6 +35,12 @@ public record RosteringRun(
 				null, Objects.requireNonNull(now, "now"), null);
 	}
 
+	/** UC-MG03: a search for a visit nobody holds yet, run when a manager gives it to somebody. */
+	public static RosteringRun forNewVisit(Objective objective, Long requestedByUserId, LocalDateTime now) {
+		return new RosteringRun(null, TriggerType.NEW_VISIT, null, objective == null ? Objective.CONTINUITY : objective,
+				requestedByUserId, Status.PROPOSED, 0, 0, 0, null, Objects.requireNonNull(now, "now"), null);
+	}
+
 	/**
 	 * The run's proposals have been put into effect - offered to families or applied.
 	 *
