@@ -27,7 +27,7 @@ export default function ExecutionPanel({ pack, command }: { pack: WorkPack; comm
       </form> : <p>Check-in is blocked: {state.blockedReason === 'VISIT_CHECK_IN_WINDOW' ? 'outside the time window' : state.blockedReason === 'VISIT_TASKS_REQUIRED' ? 'no valid plan task assigned — contact your manager' : 'current visit state or service strategy does not permit check-in'}.</p>}
     </>}
     {pack.visit.status === 'EXCEPTION' && <p className={styles.readOnly}>Execution paused. Reporting or resolving an incident does not automatically resume this visit.</p>}
-    <p className={styles.readOnly}>Task results are not check-out. Evidence upload, vital signs, check-out and elder confirmation are not included in this delivery.</p>
+    <p className={styles.readOnly}>Task results are not check-out. Evidence upload, check-out and elder confirmation are not included in this delivery.</p>
   </section>
 }
 export function ExecutionTasks({ pack, command }: { pack: WorkPack; command: ReturnType<typeof useExecutionCommands> }) {
