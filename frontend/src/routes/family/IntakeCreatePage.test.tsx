@@ -2,7 +2,19 @@ import { act, cleanup, fireEvent, render, screen, within } from '@testing-librar
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import FamilyHome from './index'
+import { IntakeCreatePage } from './intake/IntakeCreatePage'
+import { IntakeListPage } from './intake/IntakeListPage'
+import { IntakeDetailPage } from './intake/IntakeDetailPage'
+import { IntakeLayout } from './intake/IntakeLayout'
+
+// Retained component regression tests. The live /intake/new route now redirects to service applications.
+function LegacyIntakeRoutes() {
+  return <Routes><Route element={<IntakeLayout />}>
+    <Route path="intake" element={<IntakeListPage />} />
+    <Route path="intake/new" element={<IntakeCreatePage />} />
+    <Route path="intake/:id" element={<IntakeDetailPage />} />
+  </Route></Routes>
+}
 
 const savedApplication = {
   id: 23,
@@ -36,7 +48,7 @@ function openForm(path = '/family/intake/new') {
     <MemoryRouter initialEntries={[path]}>
       <Routes>
         <Route path="/" element={<h1>Landing</h1>} />
-        <Route path="/family/*" element={<FamilyHome />} />
+        <Route path="/family/*" element={<LegacyIntakeRoutes />} />
       </Routes>
     </MemoryRouter>,
   )

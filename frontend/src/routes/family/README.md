@@ -36,9 +36,12 @@ FM01 页面已接入现有后端接口：
 - `/family` 转到 `/family/home`（首页：当前／下一次服务、本周概况）；底部标签栏为 Home · Schedule · Reports（周摘要）· Services（申请）· Account。
 - `/family/account`：账户页，显示关注的老人、通知方式和帮助；退出登录只在此页。
 - 桌面（≥ 900px）：底部标签栏换成左侧导航栏（关注的老人切换、四个栏目、底部账户入口）。首页、周排程、周摘要为左右两栏，报告详情最宽 1060px，其余页面为 640px 单栏。所选老人在各页共享（`components/FamilyElderContext.tsx`）；报告页仍以 URL 的 `elderId` 为准。桌面版的特殊标记由 `useIsDesktop()` 控制，手机版行为和请求不变。
-- `/family/intake`：本人申请列表，按状态筛选、每页 20 条、刷新。
-- `/family/intake/:id`：本人申请详情、审核状态和备注；返回列表保留筛选及页码。
-- `/family/intake/new`：提交建档申请；姓名、地址、邮编必填，支持年龄、行动能力、方言、护理需求和医疗备注。提交成功后显示申请编号并进入详情。
+- `/family/intake`：本人旧建档申请历史列表，按状态筛选、每页 20 条、刷新。
+- `/family/intake/:id`：本人旧建档申请详情、审核状态和备注；返回列表保留筛选及页码。
+- `/family/intake/new`：兼容旧链接，重定向到新的照护服务申请页。
+- `/family/service-applications`：已绑定老人的照护服务申请列表；保留旧建档申请历史入口。
+- `/family/service-applications/new`：选择有效 FULL 绑定老人，展示已保存基础资料，只填写服务需求和本次备注；提交关联已有 elderId。姓名、地址、六位邮编缺失时先去 My elders 补全。
+- `/family/service-applications/:id`：提交时的基础资料快照、服务、备注、SUBMITTED 待审核状态；读取仍校验当前绑定权限。后续主管审批另行接入。
 - 未登录或 Session 失效时返回首页（`/`，唯一的登录页）。进入 `/family/*` 前由 `shared/components/RequireRole` 确认 FAMILY 会话，其他角色转到各自的客户端；之后任一请求返回 401 也返回首页。
 - 两个查询接口分别为 GET `/api/intake-applications` 和 GET `/api/intake-applications/{id}`。身份由服务端 Session 确定，不发送申请人编号、角色或 JWT。
 - 401、403、404、参数错误和网络故障各有提示；失败时不继续显示此前的申请数据。状态筛选和分页只放在 URL 中，申请内容不写入本地存储。
@@ -153,7 +156,7 @@ npm run build
 ```
 
 `FamilyHome.test.tsx` 从页面入口验证列表、分页、筛选、详情、登录、权限失效、请求取消和失败恢复；
-`IntakeCreatePage.test.tsx` 验证提交、校验边界、防重复点击、登录恢复和不确定结果处理；
+`ServiceApplications.test.tsx` 验证绑定老人选择、资料补全、提交、权限变化和不确定结果处理；
 `shared/api/client.test.ts` 验证 Cookie/CSRF 请求、空响应和 HTTP 错误状态。测试仅替换网络边界，不依赖本地数据库。
 
 `FamilySchedulePage.test.tsx` 验证周排程路由、选择与分页、权限失效、登录恢复和旧请求取消；

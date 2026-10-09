@@ -66,7 +66,7 @@ export function FamilyHomePage() {
     {data && data.elders.length === 0 && <section className={styles.empty}>
       <h2>No linked elders yet</h2>
       <p>Once a care application is approved and your link is confirmed, today's care appears here.</p>
-      <Link className={styles.primary} to="/family/intake">View my applications</Link>
+      <Link className={styles.primary} to="/family/service-applications">View my applications</Link>
     </section>}
     {data?.visits && shown && <div className={styles.columns}>
       <div className={styles.column}>
