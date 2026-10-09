@@ -9,3 +9,16 @@ async function write(path: string, input: unknown, signal?: AbortSignal) {
 }
 export function checkIn(id: number, input: CheckInInput, signal?: AbortSignal) { return write(`/visits/${id}/check-in`, input, signal) }
 export function completeTask(id: number, task: number, input: TaskInput, signal?: AbortSignal) { return write(`/visits/${id}/tasks/${task}/complete`, input, signal) }
+
+export type HealthFlag = 'NO_CONCERN' | 'ATTENTION' | 'MEDICAL_REVIEW'
+export type HealthInput = CommandIdentity & { systolic: number | null; diastolic: number | null; pulse: number | null; temperature: number | null; healthFlag: HealthFlag; healthNote: string | null }
+export type HealthRecord = { id: number; visitId: number; healthFlag: HealthFlag; healthNote: string | null; recordedAt: string; readings: { metric: string; value: number; unit: string }[] }
+export type HealthPage = { items: HealthRecord[]; page: number; size: number; total: number }
+export type HealthResult = { record: HealthRecord; visitVersion: number; replayed: boolean }
+export async function saveHealthRecord(id: number, input: HealthInput, signal?: AbortSignal) {
+  await api('/auth/csrf', { signal })
+  return api<HealthResult>(`/visits/${id}/health-records`, { method: 'POST', body: JSON.stringify(input), signal })
+}
+export function getHealthRecords(id: number, page = 0, signal?: AbortSignal) {
+  return api<HealthPage>(`/visits/${id}/health-records?page=${page}&size=10`, { signal })
+}

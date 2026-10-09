@@ -123,6 +123,73 @@ paths:
         '401': {description: Authentication required.}
         '403': {description: Enabled caregiver account required.}
         '404': {description: Missing or not submitted by this account; same unavailable response.}
+  /visits/{visitId}/health-records:
+    parameters:
+      - $ref: '#/components/parameters/VisitId'
+    post:
+      tags: [Visits]
+      summary: Record measured vital signs and a caregiver health observation (CG03)
+      operationId: recordCaregiverHealth
+      x-status: implemented
+      x-implemented-roles: [CAREGIVER]
+      security: [{sessionCookie: []}]
+      description: >-
+        Requires CSRF, current assignment, a checked-in IN_PROGRESS visit and expectedVersion.
+        Saves one immutable batch, all supplied readings, the latest visit health summary, a parent
+        version increment and command receipt in one transaction. Blood pressure values are paired;
+        pulse and temperature may be absent. If no readings were measured, explain why in healthNote.
+        ATTENTION and MEDICAL_REVIEW require a note. Units, actor and Singapore recording time are
+        server-selected. Replays retain the original key and payload and do not append readings.
+        Normalise equal numeric values, including temperature 36.7/36.70, to the same command.
+        No clinical threshold evaluation, incident notification, check-out or completion is implied.
+        A valid original receipt may be replayed after the visit pauses, while assignment remains valid.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/CaregiverHealthCommand'}
+      responses:
+        '201':
+          description: Measurement and observation saved atomically.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/CaregiverHealthResult'}
+        '200':
+          description: Original successful command replayed without further writes.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/CaregiverHealthResult'}
+        '400': {description: Invalid measurement format or incomplete observation.}
+        '401': {description: Authentication required.}
+        '403': {description: Wrong role, assignment or CSRF token.}
+        '404': {description: Visit not found.}
+        '409': {description: State, version or command key conflict.}
+        '503': {description: Storage unavailable; check saved results before retrying the original command.}
+    get:
+      tags: [Visits]
+      summary: Read current-assignment health history
+      operationId: getCaregiverHealthHistory
+      x-status: implemented
+      x-implemented-roles: [CAREGIVER]
+      security: [{sessionCookie: []}]
+      description: >-
+        Current assigned caregiver only; cancelled visits are unavailable. Newest recordedAt/id first.
+        Includes only real batches recorded since V20, not legacy demo readings without a batch.
+        Does not expose recording staff IDs, command hashes or internal audit entries.
+      parameters:
+        - {name: page, in: query, schema: {type: integer, minimum: 0, maximum: 100000, default: 0}}
+        - {name: size, in: query, schema: {type: integer, minimum: 1, maximum: 50, default: 10}}
+      responses:
+        '200':
+          description: Assigned visit's paged health records.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/CaregiverHealthPage'}
+        '400': {description: Invalid pagination.}
+        '401': {description: Authentication required.}
+        '403': {description: Wrong role or not currently assigned.}
+        '404': {description: Visit not found.}
+        '409': {description: Visit cancelled.}
   /visits/{visitId}/check-in:
     parameters:
       - $ref: '#/components/parameters/VisitId'
@@ -2936,6 +3003,66 @@ components:
             status: {type: string, enum: [DONE, SKIPPED, REFUSED]}
             outcome: {type: string, maxLength: 255, nullable: true}
             caregiverNote: {type: string, maxLength: 500, nullable: true, description: Nonblank factual reason required for SKIPPED or REFUSED.}
+    CaregiverHealthFlag:
+      type: string
+      enum: [NO_CONCERN, ATTENTION, MEDICAL_REVIEW]
+      description: Caregiver observation; NO_CONCERN means no concern marked, not a clinical normality assessment.
+    CaregiverHealthObservation:
+      type: object
+      required: [healthFlag, healthNote]
+      properties:
+        healthFlag:
+          type: string
+          enum: [NO_CONCERN, ATTENTION, MEDICAL_REVIEW, null]
+          nullable: true
+          description: Null means not yet recorded; never default old visits to NO_CONCERN.
+        healthNote: {type: string, nullable: true, maxLength: 1000}
+    CaregiverHealthCommand:
+      allOf:
+        - $ref: '#/components/schemas/CaregiverCommandIdentity'
+        - type: object
+          required: [healthFlag]
+          properties:
+            systolic: {type: integer, nullable: true, minimum: 1, maximum: 999999, description: mmHg; supply together with diastolic.}
+            diastolic: {type: integer, nullable: true, minimum: 1, maximum: 999999, description: mmHg; supply together with systolic.}
+            pulse: {type: integer, nullable: true, minimum: 1, maximum: 999999, description: bpm.}
+            temperature: {type: number, nullable: true, minimum: 0.01, maximum: 999999.99, multipleOf: 0.01, description: Celsius; bounds are storage limits, not clinical limits.}
+            healthFlag: {$ref: '#/components/schemas/CaregiverHealthFlag'}
+            healthNote: {type: string, nullable: true, maxLength: 1000, description: Nonblank for a concern or when no reading was measured.}
+    CaregiverHealthRecord:
+      type: object
+      required: [id, visitId, healthFlag, healthNote, recordedAt, readings]
+      properties:
+        id: {type: integer, format: int64}
+        visitId: {type: integer, format: int64}
+        healthFlag: {$ref: '#/components/schemas/CaregiverHealthFlag'}
+        healthNote: {type: string, nullable: true}
+        recordedAt: {type: string, description: Server-generated Singapore local date-time.}
+        readings:
+          type: array
+          maxItems: 4
+          items:
+            type: object
+            required: [metric, value, unit]
+            properties:
+              metric: {type: string, enum: [systolic, diastolic, pulse, temperature]}
+              value: {type: number}
+              unit: {type: string, enum: [mmHg, bpm, °C]}
+    CaregiverHealthResult:
+      type: object
+      required: [record, visitVersion, replayed]
+      properties:
+        record: {$ref: '#/components/schemas/CaregiverHealthRecord'}
+        visitVersion: {type: integer, description: Original saved version; reload the work pack for the current version.}
+        replayed: {type: boolean}
+    CaregiverHealthPage:
+      type: object
+      required: [items, page, size, total]
+      properties:
+        items: {type: array, items: {$ref: '#/components/schemas/CaregiverHealthRecord'}}
+        page: {type: integer}
+        size: {type: integer}
+        total: {type: integer, format: int64}
     CaregiverExecutionResult:
       type: object
       required: [visitId, visitVersion, savedState, taskId, replayed]
@@ -2948,7 +3075,7 @@ components:
     CaregiverExecutionContext:
       type: object
       properties:
-        allowedActions: {type: array, items: {type: string, enum: [CHECK_IN, TASK_RESULT, REPORT_INCIDENT]}}
+        allowedActions: {type: array, items: {type: string, enum: [CHECK_IN, TASK_RESULT, HEALTH_RECORD, REPORT_INCIDENT]}}
         blockedReason: {type: string, nullable: true}
         serverNow: {type: string, description: Singapore local date-time}
         checkInOpensAt: {type: string, description: Singapore local date-time}
@@ -3016,6 +3143,7 @@ components:
       type: object
       required: [visit, elder, carePlanId, carePlanVersion, serviceInstructions, tasks, requiredEvidenceKinds]
       properties:
+        healthObservation: {$ref: '#/components/schemas/CaregiverHealthObservation'}
         execution: {$ref: '#/components/schemas/CaregiverExecutionContext'}
         visit: {$ref: '#/components/schemas/CaregiverAssignedVisit'}
         elder:
@@ -4034,17 +4162,28 @@ components:
       type: object
       additionalProperties: false
       properties:
+        key:
+          type: string
+          description: Stable chapter key, derived from its title for legacy reports.
         title:
           type: string
           minLength: 1
         body:
           type: string
+        figures:
+          type: array
+          items:
+            $ref: '#/components/schemas/ReportFigure'
+        series:
+          type: array
+          description: FAMILY daily ranges only; never individual timestamped readings from other audiences.
+          items:
+            $ref: '#/components/schemas/ReportSeries'
       description: >-
-        Family-filtered text. Caregiver identity is name only, no staff performance, vital signs are
-        ranges rather than raw readings, and other elders are excluded.
-      required:
-        - title
-        - body
+        Saved FAMILY chapters including Overview, Services and Ratings and spot checks.
+        No internal basis, staff identifiers, medical notes or inspection findings are exposed.
+        Legacy reports retain their original text with empty figures and series.
+      required: [key, title, body, figures, series]
     FamilyReportAmendment:
       type: object
       additionalProperties: false
@@ -4053,16 +4192,17 @@ components:
           type: integer
           format: int64
           minimum: 1
+        kind:
+          type: string
+          enum: [CORRECTION, FOLLOW_UP]
+          description: Older notes default to CORRECTION.
         note:
           type: string
         createdAt:
           type: string
           format: date-time
-      description: A family-safe correction; internal author account identifiers are not exposed.
-      required:
-        - id
-        - note
-        - createdAt
+      description: A family-safe correction or follow-up; internal author identifiers are not exposed.
+      required: [id, kind, note, createdAt]
     ReportDetail:
       allOf:
         - $ref: '#/components/schemas/Report'
