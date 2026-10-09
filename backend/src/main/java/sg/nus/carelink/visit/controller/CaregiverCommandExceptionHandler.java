@@ -9,7 +9,7 @@ import sg.nus.carelink.visit.application.CaregiverCommandUnavailable;
 
 /** Scoped to these command endpoints; does not alter other modules' error contracts. */
 @Order(-1)
-@RestControllerAdvice(assignableTypes={CaregiverIncidentController.class,CaregiverVisitExecutionController.class})
+@RestControllerAdvice(assignableTypes={CaregiverIncidentController.class,CaregiverVisitExecutionController.class,CaregiverHealthController.class})
 class CaregiverCommandExceptionHandler {
     @ExceptionHandler(CaregiverCommandUnavailable.class)
     ProblemDetail unavailable() {
