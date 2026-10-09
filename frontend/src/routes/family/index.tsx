@@ -17,6 +17,8 @@ import { FamilySpotChecksPage } from './spot-checks/FamilySpotChecksPage'
 import { FamilyIncidentPage } from './incidents/FamilyIncidentPage'
 import { FamilyValueAddedServicesPage } from './services/FamilyValueAddedServicesPage'
 import { FamilyCaregiverReviewsPage } from './reviews/FamilyCaregiverReviewsPage'
+import { FamilyEldersPage } from './elders/FamilyEldersPage'
+import { FamilyElderProfilePage } from './elders/FamilyElderProfilePage'
 import { FamilyBindingsPage } from './bindings/FamilyBindingsPage'
 
 /**
@@ -63,6 +65,10 @@ export default function FamilyHome() {
       </Route>
       <Route element={<FamilyLayout title="Caregiver reviews" />}>
         <Route path="caregiver-reviews" element={<FamilyCaregiverReviewsPage />} />
+      </Route>
+      <Route element={<FamilyLayout title="My elders" />}>
+        <Route path="elders" element={<FamilyEldersPage />} />
+        <Route path="elders/:elderId" element={<FamilyElderProfilePage />} />
       </Route>
       <Route element={<FamilyLayout title="Family bindings" />}>
         <Route path="family-bindings" element={<FamilyBindingsPage />} />

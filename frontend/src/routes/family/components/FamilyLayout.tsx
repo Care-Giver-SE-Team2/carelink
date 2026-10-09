@@ -51,6 +51,10 @@ const tabs: (RailItem & { phone?: false })[] = [
     icon: <svg {...iconProps}><path d="M7 4h10v16H7z" /><path d="M9 9h6M9 13h6M9 17h4" /></svg>,
   },
   {
+    label: 'My elders', to: '/family/elders', match: ['/family/elders'], phone: false,
+    icon: <svg {...iconProps}><circle cx="12" cy="8" r="4" /><path d="M4 21c0-5 3-8 8-8s8 3 8 8" /></svg>,
+  },
+  {
     label: 'Family bindings', to: '/family/family-bindings', match: ['/family/family-bindings'], phone: false,
     icon: <svg {...iconProps}><circle cx="8" cy="9" r="3" /><circle cx="17" cy="9" r="3" /><path d="M2 20c0-4 3-6 6-6s6 2 6 6M12 20c0-3 2-5 5-5s5 2 5 5" /></svg>,
   },

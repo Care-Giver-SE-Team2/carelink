@@ -62,14 +62,17 @@ export function FamilyAccountPage() {
           const age = ageOn(elder.dateOfBirth, today)
           return <div className={styles.row} key={elder.id}>
             <div>
-              <p className={styles.rowTitle}>{elder.fullName}</p>
+              <Link className={styles.action} to={`/family/elders/${elder.id}`}>{elder.fullName}</Link>
               <p className={styles.rowSub}>{[age === null ? null : String(age), elder.sector].filter(Boolean).join(' · ') || 'Linked elder'}</p>
             </div>
             <span className={styles.pill}>LINKED</span>
           </div>
         })}
-        <Link className={`${styles.row} ${styles.action}`} to="/family/intake/new">
-          <span>Link another elder</span><span aria-hidden="true">→</span>
+        <Link className={`${styles.row} ${styles.action}`} to="/family/elders">
+          <span>My elders</span><span aria-hidden="true">→</span>
+        </Link>
+        <Link className={`${styles.row} ${styles.action}`} to="/family/family-bindings">
+          <span>Review binding requests</span><span aria-hidden="true">→</span>
         </Link>
       </div>
     </section>

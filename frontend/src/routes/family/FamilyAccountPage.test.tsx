@@ -74,7 +74,9 @@ describe('Family account', () => {
     expect(within(following).getByText('Lim Ah Kow')).toBeInTheDocument()
     expect(within(following).getByText('Linked elder')).toBeInTheDocument()
     expect(within(following).getAllByText('LINKED')).toHaveLength(2)
-    expect(within(following).getByRole('link', { name: /Link another elder/ })).toHaveAttribute('href', '/family/intake/new')
+    expect(within(following).getByRole('link', { name: /My elders/ })).toHaveAttribute('href', '/family/elders')
+    expect(within(following).getByRole('link', { name: /Review binding requests/ })).toHaveAttribute('href', '/family/family-bindings')
+    expect(within(following).getByRole('link', { name: 'Chan Bee Choo' })).toHaveAttribute('href', '/family/elders/21')
 
     const notifications = screen.getByRole('region', { name: 'Notifications' })
     expect(within(notifications).getByText('Urgent alerts').nextSibling).toHaveTextContent('App and email')
@@ -119,7 +121,7 @@ describe('Family account', () => {
     installApi((url) => url.pathname === '/api/elders' ? json([]) : undefined)
     openAccount()
     expect(await screen.findByText('No linked elders yet.')).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: /Link another elder/ })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /My elders/ })).toBeInTheDocument()
   })
 
   it('returns to the landing page when the session has expired', async () => {

@@ -1,8 +1,13 @@
 import { useEffect, useState } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
+import { refreshFamilyElders } from '../../../features/family-elders/queries'
+import { useSelectedElder } from '../components/selectedElder'
 import { decideIncomingFamilyBinding, getIncomingFamilyBindings } from '../../../features/family-binding/api'
 import type { IncomingFamilyBinding } from '../../../features/family-binding/api'
 
 export function FamilyBindingsPage() {
+  const client = useQueryClient()
+  const { setElderId } = useSelectedElder()
   const [bindings, setBindings] = useState<IncomingFamilyBinding[]>([])
   const [loading, setLoading] = useState(true)
   const [busy, setBusy] = useState<number | null>(null)
@@ -20,7 +25,9 @@ export function FamilyBindingsPage() {
   async function decide(id: number, approve: boolean) {
     setBusy(id); setError(''); setNotice('')
     try {
-      await decideIncomingFamilyBinding(id, approve)
+      const decided = await decideIncomingFamilyBinding(id, approve)
+      if (approve) setElderId(decided.elderId)
+      await refreshFamilyElders(client)
       setNotice(approve ? 'Binding confirmed.' : 'Binding rejected.')
       await refresh()
     } catch { setError('Unable to update binding. Please refresh and try again.') }
