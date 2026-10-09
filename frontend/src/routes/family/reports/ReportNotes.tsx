@@ -2,6 +2,20 @@ import type { FamilyReportDetail } from '../../../features/reports/types'
 import { amendmentKindLabels, familyReportTime } from '../../../features/reports/presentation'
 import styles from './FamilyReports.module.css'
 
+/** Read the filed overview, never today's assignment: historical reports keep their original context. */
+export function ReportCareContext({ sections }: { sections: FamilyReportDetail['sections'] }) {
+  const overview = sections.find((section) => section.key === 'overview' || section.title === 'Overview')
+  const lines = overview?.body.split('\n').map((line) => line.trim()) ?? []
+  const caregiver = lines.find((line) => line.startsWith('Main caregiver: '))?.slice('Main caregiver: '.length).replace(/\.$/, '')
+  const plan = lines.find((line) => line.startsWith('Care plan version ') || line === 'No care plan in force.')
+    ?.replace(/\.$/, '').replace(/^Care plan version /, 'Care plan v').replace(/ h a week$/, ' h/week')
+  return <p className={styles.careContext} aria-label="Care context at report generation">
+    <span>Main caregiver: {caregiver || 'Not recorded'}</span>
+    <span aria-hidden="true"> · </span>
+    <span>{plan ?? 'Care plan: Not recorded'}</span>
+  </p>
+}
+
 /** The same completeness notice accompanies both the report and weekly summary.
  * @author Wang Zhili
  */

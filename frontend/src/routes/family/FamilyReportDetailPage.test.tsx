@@ -68,6 +68,7 @@ describe('Family care report reading', () => {
       expect(init.method ?? 'GET').toBe('GET')
     }
     expect(within(article).getByText('Elder profile #21')).toBeInTheDocument()
+    expect(within(article).getByLabelText('Care context at report generation')).toHaveTextContent('Main caregiver: Not recorded · Care plan: Not recorded')
     expect(within(article).getByText('Published')).toBeInTheDocument()
     expect(within(article).getByText('Structured template')).toBeInTheDocument()
     expect(within(article).getByText('Some care records are missing')).toBeInTheDocument()

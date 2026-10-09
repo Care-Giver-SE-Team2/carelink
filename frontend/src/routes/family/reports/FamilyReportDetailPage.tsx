@@ -2,7 +2,7 @@ import { Link, useParams, useSearchParams } from 'react-router-dom'
 import { useFamilyReport } from '../../../features/reports/useFamilyReport'
 import { familyReportTime, generatedByLabels, reportPeriod, statusLabels } from '../../../features/reports/presentation'
 import { ReportDetailFeedback } from './ReportDetailFeedback'
-import { ReportCompleteness, ReportCorrections } from './ReportNotes'
+import { ReportCareContext, ReportCompleteness, ReportCorrections } from './ReportNotes'
 import { FamilyReportContent } from './FamilyReportContent'
 import { isScheduleDate, weekStart } from '../../../features/schedule/presentation'
 import styles from './FamilyReports.module.css'
@@ -41,6 +41,7 @@ export function FamilyReportDetailPage() {
         </div>
         <p className={styles.eyebrow}>Weekly care report</p>
         <h1 id="report-period">{reportPeriod(report.periodStart, report.periodEnd)}</h1>
+        <ReportCareContext sections={report.sections} />
         <p>Elder profile #{report.elderId}</p>
         <p className={styles.source}>{generatedByLabels[report.generatedBy]}</p>
         {report.createdAt && <p className={styles.timestamp}>Created <time dateTime={report.createdAt}>{familyReportTime(report.createdAt)}</time></p>}

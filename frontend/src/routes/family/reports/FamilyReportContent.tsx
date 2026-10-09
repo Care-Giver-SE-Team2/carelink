@@ -88,9 +88,9 @@ export function FamilyReportContent({ sections }: { sections: ReportSection[] })
   return <div className={styles.content}>
     {!!overview?.figures?.length && <Figures figures={overview.figures} overview />}
     {sections.length === 0 && <p className={styles.section}>No report sections were recorded.</p>}
-    {ordered.map((section, index) => {
+    {ordered.filter((section) => section !== overview).map((section, index) => {
       const key = section.key ?? section.title.toLowerCase().replaceAll(' ', '-')
-      const title = { overview: 'This week', 'service-completion': 'Visits', observations: 'Caregiver notes' }[key] ?? section.title
+      const title = { 'service-completion': 'Visits', observations: 'Caregiver notes' }[key] ?? section.title
       return <section className={styles.section} key={index} aria-labelledby={`${id}-${index}`}>
         <div className={styles.sectionHeading}><h2 id={`${id}-${index}`}>{title}</h2>
           {!!section.series?.length && <span>Daily ranges</span>}</div>

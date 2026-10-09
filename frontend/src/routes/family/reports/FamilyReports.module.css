@@ -44,6 +44,13 @@
 .hero h1 {
   font-variant-numeric: tabular-nums;
 }
+.hero .careContext {
+  margin-top: 10px;
+  color: var(--fm-muted);
+  font-size: 13px;
+  line-height: 1.7;
+  overflow-wrap: anywhere;
+}
 .hero > p:not(.reference, .source, .timestamp, .eyebrow, .intro) {
   margin-top: 6px;
   color: var(--fm-muted);

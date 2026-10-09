@@ -76,7 +76,7 @@ describe('Family weekly care summary', () => {
 
   it('uses the source report visual sections for a new weekly report', async () => {
     installApi((url) => url.pathname === '/api/reports/301' ? json({ ...detail, sections: [
-      { key: 'overview', title: 'Overview', body: 'Care plan version 3.', figures: [
+      { key: 'overview', title: 'Overview', body: 'Care plan version 3 · 6.5 h a week.\nMain caregiver: Mei.\nVisits: 2 of 3 carried out.', figures: [
         { key: 'visits', label: 'Visits carried out', value: 2, outOf: 3, unit: null },
       ] },
       { key: 'services', title: 'Services', body: 'Personal care: 2 of 3 carried out' },
@@ -84,7 +84,9 @@ describe('Family weekly care summary', () => {
     openSummary()
     const article = await screen.findByRole('article', { name: 'Weekly care summary' })
     expect(within(article).getByText('2 of 3')).toBeInTheDocument()
-    expect(within(article).getByRole('heading', { name: 'This week' })).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'This week' })).not.toBeInTheDocument()
+    expect(screen.getByLabelText('Care context at report generation')).toHaveTextContent('Main caregiver: Mei · Care plan v3 · 6.5 h/week')
+    expect(screen.queryByText('Visits: 2 of 3 carried out.')).not.toBeInTheDocument()
     expect(within(article).getByText('Personal care: 2 of 3 carried out')).toBeInTheDocument()
     expect(within(article).queryByLabelText('Summary text')).not.toBeInTheDocument()
     expect(within(article).getByText('Some care records are missing')).toBeInTheDocument()

@@ -2,12 +2,28 @@ import { cleanup, render, screen, within } from '@testing-library/react'
 import { afterEach, describe, expect, it } from 'vitest'
 import userEvent from '@testing-library/user-event'
 import { FamilyReportContent } from './FamilyReportContent'
-import { ReportCompleteness, ReportCorrections } from './ReportNotes'
+import { ReportCareContext, ReportCompleteness, ReportCorrections } from './ReportNotes'
 import type { ReportSection } from '../../../features/reports/types'
 
 afterEach(cleanup)
 
 describe('Family report presentation', () => {
+  it('shows only saved care context and marks missing historical fields without borrowing a visit caregiver', () => {
+    const { rerender } = render(<ReportCareContext sections={[{ title: 'Overview', body:
+      'Care plan version 3 · 6.5 h a week.\nMain caregiver: Dr. Mei.\nVisits: 2 of 3 carried out.',
+    }]} />)
+    expect(screen.getByLabelText('Care context at report generation')).toHaveTextContent('Main caregiver: Dr. Mei · Care plan v3 · 6.5 h/week')
+    expect(screen.queryByText(/Visits:/)).not.toBeInTheDocument()
+    rerender(<ReportCareContext sections={[{ title: 'Service completion', body: 'Mon 21 Sep · Amy · verified' }]} />)
+    expect(screen.getByLabelText('Care context at report generation')).toHaveTextContent('Main caregiver: Not recorded · Care plan: Not recorded')
+    expect(screen.queryByText(/Amy/)).not.toBeInTheDocument()
+  })
+
+  it('retains an explicitly absent care plan instead of inventing its version or hours', () => {
+    render(<ReportCareContext sections={[{ key: 'overview', title: 'Overview', body: 'No care plan in force.' }]} />)
+    expect(screen.getByLabelText('Care context at report generation')).toHaveTextContent('Main caregiver: Not recorded · No care plan in force')
+  })
+
   it('displays saved figures, daily ranges and flags without inferring clinical advice', () => {
     const sections: ReportSection[] = [
       { key: 'overview', title: 'Overview', body: 'Care plan version 3 · 6.5 h a week.', figures: [
