@@ -117,7 +117,7 @@ export function FamilySchedulePage() {
         {resource.data.elders.length === 0 && <section className={styles.state}>
           <h2>No linked elders yet</h2>
           <p>Your available elders will appear here once a family binding is active. Contact your care team if you need help with access.</p>
-          <Link to="/family/intake">View my applications</Link>
+          <Link to="/family/service-applications">View my applications</Link>
         </section>}
         {resource.data.visits && <ScheduleVisitList
           visits={resource.data.visits}

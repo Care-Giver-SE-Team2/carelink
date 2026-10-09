@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { FamilyBindingsPage } from './FamilyBindingsPage'
 
 const mocks = vi.hoisted(() => ({
@@ -12,6 +13,11 @@ vi.mock('../../../features/family-binding/api', () => ({
   decideIncomingFamilyBinding: mocks.decide,
 }))
 
+function renderPage() {
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+  return render(<QueryClientProvider client={client}><FamilyBindingsPage /></QueryClientProvider>)
+}
+
 const pending = {
   id: 42, elderId: 1, elderName: 'Test Elder', relationship: 'SON',
   primaryContact: false, accessScope: 'FULL', status: 'PENDING_CONFIRMATION',
@@ -22,13 +28,13 @@ beforeEach(() => {
   mocks.load.mockReset()
   mocks.decide.mockReset()
   mocks.load.mockResolvedValue([pending])
-  mocks.decide.mockResolvedValue({})
+  mocks.decide.mockResolvedValue({ ...pending, status: 'ACTIVE' })
 })
 afterEach(() => cleanup())
 
 describe('EL04 family binding confirmation page', () => {
   it('loads and renders a pending request with the correct actions', async () => {
-    render(<FamilyBindingsPage />)
+    renderPage()
     expect(await screen.findByText('Test Elder')).toBeInTheDocument()
     expect(screen.getByText('Relationship: SON')).toBeInTheDocument()
     expect(screen.getByText('Access: Full access')).toBeInTheDocument()
@@ -40,7 +46,7 @@ describe('EL04 family binding confirmation page', () => {
   it('confirms a binding and reloads the updated state', async () => {
     const user = userEvent.setup()
     mocks.load.mockResolvedValueOnce([pending]).mockResolvedValueOnce([{ ...pending, status: 'ACTIVE' }])
-    render(<FamilyBindingsPage />)
+    renderPage()
     await screen.findByText('Test Elder')
     await user.click(screen.getByRole('button', { name: 'Confirm binding' }))
     await waitFor(() => expect(mocks.decide).toHaveBeenCalledWith(42, true))
@@ -52,7 +58,7 @@ describe('EL04 family binding confirmation page', () => {
   it('rejects a binding and removes decision actions', async () => {
     const user = userEvent.setup()
     mocks.load.mockResolvedValueOnce([pending]).mockResolvedValueOnce([{ ...pending, status: 'REJECTED' }])
-    render(<FamilyBindingsPage />)
+    renderPage()
     await screen.findByText('Test Elder')
     await user.click(screen.getByRole('button', { name: 'Reject binding' }))
     await waitFor(() => expect(mocks.decide).toHaveBeenCalledWith(42, false))
@@ -63,14 +69,14 @@ describe('EL04 family binding confirmation page', () => {
 
   it('shows the empty state when no requests exist', async () => {
     mocks.load.mockResolvedValue([])
-    render(<FamilyBindingsPage />)
+    renderPage()
     expect(await screen.findByText('No binding requests.')).toBeInTheDocument()
   })
 
   it('shows a load error and supports manual retry', async () => {
     const user = userEvent.setup()
     mocks.load.mockRejectedValueOnce(new Error('network')).mockResolvedValueOnce([pending])
-    render(<FamilyBindingsPage />)
+    renderPage()
     expect(await screen.findByRole('alert')).toHaveTextContent('Unable to load family binding requests.')
     await user.click(screen.getByRole('button', { name: 'Refresh' }))
     expect(await screen.findByText('Test Elder')).toBeInTheDocument()
@@ -80,7 +86,7 @@ describe('EL04 family binding confirmation page', () => {
   it('shows a decision error without pretending the binding was changed', async () => {
     const user = userEvent.setup()
     mocks.decide.mockRejectedValue(new Error('conflict'))
-    render(<FamilyBindingsPage />)
+    renderPage()
     await screen.findByText('Test Elder')
     await user.click(screen.getByRole('button', { name: 'Confirm binding' }))
     expect(await screen.findByRole('alert')).toHaveTextContent('Unable to update binding.')
@@ -90,7 +96,7 @@ describe('EL04 family binding confirmation page', () => {
 
   it('displays read-only access and multiple binding requests', async () => {
     mocks.load.mockResolvedValue([pending, { ...pending, id: 43, elderName: 'Another Elder', accessScope: 'READ_ONLY' }])
-    render(<FamilyBindingsPage />)
+    renderPage()
     expect(await screen.findByText('Another Elder')).toBeInTheDocument()
     expect(screen.getByText('Access: Read-only')).toBeInTheDocument()
     expect(screen.getAllByRole('button', { name: 'Confirm binding' })).toHaveLength(2)
@@ -100,7 +106,7 @@ describe('EL04 family binding confirmation page', () => {
     const user = userEvent.setup()
     let resolve!: (value: unknown) => void
     mocks.decide.mockImplementation(() => new Promise(r => { resolve = r }))
-    render(<FamilyBindingsPage />)
+    renderPage()
     await screen.findByText('Test Elder')
     await user.click(screen.getByRole('button', { name: 'Confirm binding' }))
     expect(screen.getByRole('button', { name: 'Confirm binding' })).toBeDisabled()

@@ -8,6 +8,7 @@ import styles from './Caregiver.module.css'
 import ExecutionPanel, { ExecutionTasks } from './ExecutionPanel'
 import { useExecutionCommands } from './useExecutionCommands'
 import { ApiError } from '../../shared/api/client'
+import HealthPanel from './HealthPanel'
 
 export default function WorkPackPage() {
   const { visitId = '' } = useParams()
@@ -24,7 +25,7 @@ function WorkPack({ id, back }: { id: string; back: string }) {
   const { result, reload } = useCaregiverQuery(id, load, true)
   const command = useExecutionCommands(reload)
   const accessError = command.accessError ?? (result.status === 'error' && result.error instanceof ApiError && [401,403,404,409].includes(result.error.status) ? result.error : null)
-  if (accessError && (Object.keys(command.drafts).length || command.attempt || command.fix || command.note || command.saved || command.locating)) command.clearProtected()
+  if (accessError && (Object.keys(command.drafts).length || command.attempt || command.fix || command.note || command.saved || command.locating || command.hasHealthDraft)) command.clearProtected()
   if (accessError) return <QueryError error={accessError} retry={command.recover} back={back} />
   if (result.status === 'loading') return <p role="status">Loading assigned work pack…</p>
   if (result.status === 'error') return <QueryError error={result.error} retry={reload} back={back} />
@@ -52,6 +53,7 @@ function WorkPack({ id, back }: { id: string; back: string }) {
       {pack.serviceInstructions.length > 0 && <ul>{pack.serviceInstructions.map((instruction, i) => <li key={i}>{instruction}</li>)}</ul>}
     </section>
     <ExecutionTasks pack={pack} command={command} />
+    {pack.healthObservation && <HealthPanel pack={pack} command={command} revision={result.receivedAt} />}
     <section className={styles.card} aria-label="Required evidence"><h2>Required evidence</h2><p className={styles.muted}>Requirements for the tasks assigned to this visit.</p>
       {pack.requiredEvidenceKinds.length ? <div className={styles.pills}>{pack.requiredEvidenceKinds.map(kind => <span className={styles.badge} key={kind}>{titleCase(kind)}</span>)}</div> : <p>No evidence requirements recorded.</p>}
     </section>

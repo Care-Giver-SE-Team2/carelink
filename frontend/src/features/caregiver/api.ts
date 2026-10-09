@@ -19,6 +19,7 @@ export type WorkPack = {
   carePlanId: number | null; carePlanVersion: number | null; serviceInstructions: string[]
   tasks: { id: number; name: string; status: string; outcome: string | null; caregiverNote: string | null; completedAt?: string | null }[]
   requiredEvidenceKinds: string[]
+  healthObservation?: { healthFlag: import('../caregiver-execution/api').HealthFlag | null; healthNote: string | null }
   execution?: { allowedActions: string[]; blockedReason: string | null; serverNow: string; checkInOpensAt: string; checkInClosesAt: string; checkedInAt: string | null; checkedOutAt: string | null; lateArrival: boolean; locationSource: string | null }
 }
 export function getMyProfile(signal?: AbortSignal) { return api<CaregiverProfile>('/caregivers/me', { signal }) }

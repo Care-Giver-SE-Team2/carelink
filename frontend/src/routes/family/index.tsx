@@ -2,7 +2,9 @@ import { Link, Navigate, Route, Routes } from 'react-router-dom'
 import { IntakeLayout } from './intake/IntakeLayout'
 import { IntakeListPage } from './intake/IntakeListPage'
 import { IntakeDetailPage } from './intake/IntakeDetailPage'
-import { IntakeCreatePage } from './intake/IntakeCreatePage'
+import { ServiceApplicationCreatePage } from './service-applications/ServiceApplicationCreatePage'
+import { ServiceApplicationListPage } from './service-applications/ServiceApplicationListPage'
+import { ServiceApplicationDetailPage } from './service-applications/ServiceApplicationDetailPage'
 import { FamilyLayout } from './components/FamilyLayout'
 import { FamilySchedulePage } from './schedule/FamilySchedulePage'
 import { FamilyReportListPage } from './reports/FamilyReportListPage'
@@ -17,6 +19,8 @@ import { FamilySpotChecksPage } from './spot-checks/FamilySpotChecksPage'
 import { FamilyIncidentPage } from './incidents/FamilyIncidentPage'
 import { FamilyValueAddedServicesPage } from './services/FamilyValueAddedServicesPage'
 import { FamilyCaregiverReviewsPage } from './reviews/FamilyCaregiverReviewsPage'
+import { FamilyEldersPage } from './elders/FamilyEldersPage'
+import { FamilyElderProfilePage } from './elders/FamilyElderProfilePage'
 import { FamilyBindingsPage } from './bindings/FamilyBindingsPage'
 
 /**
@@ -64,12 +68,19 @@ export default function FamilyHome() {
       <Route element={<FamilyLayout title="Caregiver reviews" />}>
         <Route path="caregiver-reviews" element={<FamilyCaregiverReviewsPage />} />
       </Route>
+      <Route element={<FamilyLayout title="My elders" />}>
+        <Route path="elders" element={<FamilyEldersPage />} />
+        <Route path="elders/:elderId" element={<FamilyElderProfilePage />} />
+      </Route>
       <Route element={<FamilyLayout title="Family bindings" />}>
         <Route path="family-bindings" element={<FamilyBindingsPage />} />
       </Route>
       <Route element={<IntakeLayout />}>
         <Route path="intake" element={<IntakeListPage />} />
-        <Route path="intake/new" element={<IntakeCreatePage />} />
+        <Route path="intake/new" element={<Navigate to="/family/service-applications/new" replace />} />
+        <Route path="service-applications" element={<ServiceApplicationListPage />} />
+        <Route path="service-applications/new" element={<ServiceApplicationCreatePage />} />
+        <Route path="service-applications/:id" element={<ServiceApplicationDetailPage />} />
         <Route path="intake/:id" element={<IntakeDetailPage />} />
         <Route
           path="*"
