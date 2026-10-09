@@ -6,6 +6,7 @@ import type {
   ReportGeneratedBy,
   ReportMetrics,
   ReportPoint,
+  ReportSection,
   ReportStatus,
 } from './types'
 
@@ -273,4 +274,78 @@ export function sparkline(points: ReportPoint[], width: number, height: number, 
   }))
   const line = placed.map((point, index) => `${index === 0 ? 'M' : 'L'}${point.x.toFixed(1)} ${point.mid.toFixed(1)}`).join(' ')
   return { line, points: placed, min, max }
+}
+
+/**
+ * The key a section is found by. Sections filed before keys existed have none,
+ * and get the one the backend would make from the title.
+ * @param section A section of a report
+ * @return "vital-signs", "ratings-and-spot-checks"
+ */
+export function sectionKey(section: Pick<ReportSection, 'key' | 'title'>): string {
+  if (section.key) return section.key
+  return section.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')
+}
+
+/** How a status reads at a glance: done, waiting, wrong, or neither. */
+export type ReportTone = 'ok' | 'warn' | 'bad' | 'neutral'
+
+/** One line of a section body, split into what a row shows. */
+export interface ReportLine {
+  /** The line as the report wrote it. */
+  text: string
+  /** A timeline step under the line before it. */
+  nested: boolean
+  /** "Tue 15 Sep 10:15", "Mon 14 Sep" or "14 Sep – 20 Sep", when the line has one. */
+  time: string | null
+  /** The other parts, in the report's order, without the time and the status. */
+  parts: string[]
+  /** The part that says how the thing stands, when there is one. */
+  status: { text: string; tone: ReportTone } | null
+}
+
+const DAY_PART = /^(Mon|Tue|Wed|Thu|Fri|Sat|Sun) \d{1,2} (Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)( \d{2}:\d{2})?$/
+const SPAN_PART = /^\d{1,2} (Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec) – \d{1,2} (Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)$/
+
+/*
+ * The states the report's sections write, as the assemblers word them
+ * (ReportAssembler and the three readers' versions). A part has to be one of
+ * these whole; "evidence 2 of 2 verified" is not "verified".
+ */
+const STATUSES: [RegExp, ReportTone][] = [
+  [/^(verified|done|approved|meets the standard)$/, 'ok'],
+  [/^resolved( .+)?$/i, 'ok'],
+  [/^approved and booked( as visit \d+)?$/, 'ok'],
+  [/ took the visit$/, 'ok'],
+  [/^replaced by .+$/, 'ok'],
+  [/^(scheduled|caregiver arrived|in progress|awaiting the elder's confirmation|planned)$/, 'warn'],
+  [/^(still being followed up|waiting for the family's choice|awaiting the family|awaiting the family's approval|awaiting the family's consent)$/, 'warn'],
+  [/^(OPEN|UNRESOLVED_ESCALATED)$/, 'bad'],
+  [/^(ACKNOWLEDGED|IN_PROGRESS)$/, 'warn'],
+  [/^(ended in an exception|needs improvement|the caregiver did not turn up|no replacement found yet|uncovered|out of range)$/, 'bad'],
+  [/^(cancelled|cancelled at the family's request|closed without the elder's confirmation|declined|declined by the family|withdrawn|called off|skipped|skipped at the family's request|moved to another time)$/, 'neutral'],
+  [/^rescheduled( with .+)?$/, 'neutral'],
+]
+
+/**
+ * Splits a body line on the report's own separator, " · ", into the time it
+ * happened, the state it ended in, and everything else. A line the report wrote
+ * as a sentence comes back with no time, one part and no status, so a screen
+ * can show it as it is.
+ * @param line A line of a section body, as sectionLines gives it
+ * @return The line in parts
+ */
+export function reportLine(line: { text: string; nested: boolean }): ReportLine {
+  const all = line.text.split(' · ')
+  const timeAt = all.findIndex((part) => DAY_PART.test(part) || SPAN_PART.test(part))
+  const rest = timeAt < 0 ? all : all.filter((_, index) => index !== timeAt)
+  let status: ReportLine['status'] = null
+  const parts: string[] = []
+  for (const part of rest) {
+    const match: [RegExp, ReportTone] | undefined =
+      status === null && rest.length > 1 ? STATUSES.find(([pattern]) => pattern.test(part)) : undefined
+    if (match) status = { text: part, tone: match[1] }
+    else parts.push(part)
+  }
+  return { text: line.text, nested: line.nested, time: timeAt < 0 ? null : all[timeAt], parts, status }
 }

@@ -472,11 +472,32 @@ describe('one report', () => {
 
     expect(await screen.findByText('Internal report — Elder #1')).toBeInTheDocument()
     expect(screen.queryByText(DISCLAIMER)).not.toBeInTheDocument()
-    expect(
-      screen.getByText('Tue 15 Sep 10:21 · CLAIMED · Ben Lim (demo-ben) · taken over; countdown stopped'),
-    ).toBeInTheDocument()
+
+    const incidents = screen.getByRole('region', { name: 'Incidents' })
+    expect(within(incidents).getByText('RESOLVED')).toHaveAttribute('data-tone', 'ok')
+    expect(within(incidents).getByText('incident 2')).toBeInTheDocument()
+    const steps = [...incidents.querySelectorAll('ol li')].map((step) => step.textContent)
+    expect(steps).toEqual([
+      'Tue 15 Sep 10:21CLAIMED · Ben Lim (demo-ben) · taken over; countdown stopped',
+      'Resolution: HANDLED_ON_SITE :: No injury. Bathroom grab bar to be fitted this week.',
+    ])
     expect(screen.getByText('Visit 13 was cancelled by the family.')).toBeInTheDocument()
     expect(screen.getByText('21 Sep 2026 09:30 · user #11')).toBeInTheDocument()
+  })
+
+  it('lays visits out as rows with their state, and the notes as quotes', async () => {
+    createServer({ alreadyFiled: true })
+    openConsole('/manager/reports/42')
+
+    const visits = await screen.findByRole('region', { name: 'Service completion' })
+    expect(within(visits).getByText('3 visits: 1 scheduled, 2 verified.')).toBeInTheDocument()
+    expect(within(visits).getByText('Mon 14 Sep 09:00')).toBeInTheDocument()
+    expect(within(visits).getByText('verified')).toHaveAttribute('data-tone', 'ok')
+    expect(within(visits).getByText('Daniel Goh (caregiver #3) · evidence 2 of 2 verified')).toBeInTheDocument()
+
+    const notes = screen.getByRole('region', { name: 'Observations' })
+    expect(within(notes).getByText('Mon 14 Sep 09:00 · visit 11 · Daniel Goh (caregiver #3) · Mobility')).toBeInTheDocument()
+    expect(within(notes).getByText('Walked to the void deck with the cane, steady on her feet.')).toBeInTheDocument()
   })
 
   it('appends a correction and reads the report again rather than adding it on screen', async () => {
@@ -522,13 +543,21 @@ describe('one report', () => {
     openConsole('/manager/reports/42')
 
     const overview = await screen.findByRole('region', { name: 'Overview' })
-    expect(within(overview).getByText('Visits carried out').nextSibling).toHaveTextContent('2 of 3')
-    expect(within(overview).getByText('Fulfilment').nextSibling).toHaveTextContent('66.67%')
-    expect(within(overview).getByText('Average visit rating').nextSibling).toHaveTextContent('3.5 of 5')
+    const visits = within(overview).getByRole('group', { name: 'Visits carried out: 2 of 3' })
+    expect(within(visits).getByText('66.67% as planned')).toBeInTheDocument()
+    expect(within(overview).getByRole('group', { name: 'Average visit rating: 3.5 of 5' })).toBeInTheDocument()
+    expect(within(overview).queryByRole('group', { name: /^Fulfilment/ })).not.toBeInTheDocument()
+    expect(within(overview).getByText('Tan Ah Mei · 85 years old · female · walks with a cane · lives alone')).toBeInTheDocument()
 
     const vitals = screen.getByRole('region', { name: 'Vital signs' })
     expect(within(vitals).getByRole('img', { name: 'Systolic: 2 points, 128–142 mmHg, 1 out of range' })).toBeInTheDocument()
-    expect(within(vitals).getByText('Wed 16 Sep 09:10 · visit 12 · Systolic 142 mmHg · out of range')).toBeInTheDocument()
+    expect(within(vitals).getByText('128–142 mmHg')).toBeInTheDocument()
+    expect(within(vitals).getByText('1 point out of range')).toBeInTheDocument()
+    expect(within(vitals).getByText('Every reading (2)')).toBeInTheDocument()
+    expect(within(vitals).getByText('Wed 16 Sep 09:10 · visit 12 · Systolic 142 mmHg · out of range')).toHaveAttribute(
+      'data-flagged',
+      'true',
+    )
   })
 
   it('tells a follow-up from a correction and appends one', async () => {
