@@ -59,6 +59,98 @@ class FamilyServiceApplicationApiIT {
                 + "(1,42,'ACTIVE','FULL'),(2,42,'ACTIVE','READ_ONLY'),(3,42,'ACTIVE','FULL'),(1,43,'ACTIVE','FULL')");
     }
 
+    /** Exercise EL04, My elders and FM01 together; no fixture grants access after invitation. */
+    @Test
+    void confirmedInvitationEnablesProfileMaintenanceAndSubmissionUntilElderRevokes() throws Exception {
+        long bindingId = invite("FULL");
+        jdbc.update("UPDATE elder SET address=NULL,postal_code=NULL WHERE id=1");
+        mvc.perform(get("/api/family/elders/1").with(user("family").roles("FAMILY")))
+                .andExpect(status().isForbidden());
+        deniedSubmission();
+        decide(bindingId, true);
+        mvc.perform(get("/api/family/elders").with(user("family").roles("FAMILY")))
+                .andExpect(status().isOk()).andExpect(jsonPath("$[?(@.id == 1)].accessScope").value("FULL"));
+        mvc.perform(post(PATH).with(user("family").roles("FAMILY")).with(csrf())
+                .contentType(MediaType.APPLICATION_JSON).content(REQUEST))
+                .andExpect(status().isConflict()).andExpect(jsonPath("$.code").value("ELDER_PROFILE_INCOMPLETE"));
+        updateProfile("12 Saved Road");
+        long id = submit(REQUEST);
+        updateProfile("34 Changed Road");
+        mvc.perform(get(PATH + "/" + id).with(user("family").roles("FAMILY")))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.elderSnapshot.address").value("12 Saved Road"));
+        mvc.perform(get("/api/family/elders/1").with(user("family").roles("FAMILY")))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.address").value("34 Changed Road"));
+        mvc.perform(delete("/api/elders/me/family-bindings/" + bindingId)
+                .with(user("elder").roles("ELDER")).with(csrf()))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.status").value("REVOKED"));
+        mvc.perform(get(PATH + "/" + id).with(user("family").roles("FAMILY")))
+                .andExpect(status().isForbidden());
+        mvc.perform(get(PATH).with(user("family").roles("FAMILY")))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.totalElements").value(0));
+        mvc.perform(put("/api/family/elders/1").with(user("family").roles("FAMILY")).with(csrf())
+                .contentType(MediaType.APPLICATION_JSON).content(profileBody("Not allowed")))
+                .andExpect(status().isForbidden());
+        mvc.perform(post(PATH).with(user("family").roles("FAMILY")).with(csrf())
+                .contentType(MediaType.APPLICATION_JSON).content(REQUEST)).andExpect(status().isForbidden());
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM care_service_application", Integer.class)).isEqualTo(1);
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM app_user", Integer.class)).isEqualTo(3);
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM elder", Integer.class)).isEqualTo(3);
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM intake_application", Integer.class)).isZero();
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM care_plan", Integer.class)).isZero();
+        assertThat(jdbc.queryForObject("SELECT medical_notes FROM elder WHERE id=1", String.class))
+                .isEqualTo("Private clinical record");
+    }
+
+    @Test
+    void confirmingReadOnlyInvitationNeverGrantsProfileOrServiceWriteAccess() throws Exception {
+        long bindingId = invite("READ_ONLY");
+        decide(bindingId, true);
+        mvc.perform(get("/api/family/elders/1").with(user("family").roles("FAMILY")))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.accessScope").value("READ_ONLY"));
+        mvc.perform(put("/api/family/elders/1").with(user("family").roles("FAMILY")).with(csrf())
+                .contentType(MediaType.APPLICATION_JSON).content(profileBody("Not allowed")))
+                .andExpect(status().isForbidden());
+        deniedSubmission();
+    }
+
+    @Test
+    void rejectedInvitationDoesNotEnableProfileReadOrServiceSubmission() throws Exception {
+        long bindingId = invite("FULL");
+        decide(bindingId, false);
+        mvc.perform(get("/api/family/elders/1").with(user("family").roles("FAMILY")))
+                .andExpect(status().isForbidden());
+        deniedSubmission();
+    }
+
+    private long invite(String scope) throws Exception {
+        jdbc.update("DELETE FROM elder_family_binding WHERE elder_id=1 AND family_member_id=42");
+        jdbc.update("INSERT INTO app_user(id,username,password_hash,display_name) VALUES (71,'elder','{noop}test','Elder')");
+        jdbc.update("INSERT INTO user_role(user_id,role) VALUES (71,'ELDER')");
+        String response = mvc.perform(post("/api/elders/me/family-bindings")
+                .with(user("elder").roles("ELDER")).with(csrf()).contentType(MediaType.APPLICATION_JSON)
+                .content("{\"familyUsername\":\"family\",\"relationship\":\"DAUGHTER\",\"primaryContact\":false,\"accessScope\":\"" + scope + "\"}"))
+                .andExpect(status().isCreated()).andExpect(jsonPath("$.status").value("PENDING_CONFIRMATION"))
+                .andReturn().getResponse().getContentAsString();
+        return json.readTree(response).get("id").longValue();
+    }
+
+    private void decide(long id, boolean approve) throws Exception {
+        mvc.perform(post("/api/family/family-bindings/" + id + "/decision")
+                .with(user("family").roles("FAMILY")).with(csrf()).contentType(MediaType.APPLICATION_JSON)
+                .content("{\"approve\":" + approve + "}"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.status").value(approve ? "ACTIVE" : "REJECTED"));
+    }
+
+    private void updateProfile(String address) throws Exception {
+        mvc.perform(put("/api/family/elders/1").with(user("family").roles("FAMILY")).with(csrf())
+                .contentType(MediaType.APPLICATION_JSON).content(profileBody(address)))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.address").value(address));
+    }
+
+    private String profileBody(String address) {
+        return "{\"fullName\":\"Tan Mei\",\"address\":\"" + address + "\",\"postalCode\":\"012345\"}";
+    }
+
     private long submit(String body) throws Exception {
         String response = mvc.perform(post(PATH).with(user("family").roles("FAMILY")).with(csrf())
                 .contentType(MediaType.APPLICATION_JSON).content(body))

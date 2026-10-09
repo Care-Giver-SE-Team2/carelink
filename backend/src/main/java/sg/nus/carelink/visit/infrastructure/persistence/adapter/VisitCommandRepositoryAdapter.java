@@ -29,10 +29,11 @@ class VisitCommandRepositoryAdapter implements VisitCommandRepository {
     public Visit save(Visit visit) {
         // Advance the parent version even for a task result or another report in EXCEPTION.
         int changed = jdbc.update("""
-                update visit set status=?, checked_in_at=?, checked_out_at=?, state_deadline=?, version=version+1
+                update visit set status=?, checked_in_at=?, checked_out_at=?, state_deadline=?, health_flag=?, health_note=?, version=version+1
                 where id=? and version=?
                 """, visit.status().name(), timestamp(visit.checkedInAt()), timestamp(visit.checkedOutAt()),
-                timestamp(visit.stateDeadline()), visit.id(), visit.version());
+                timestamp(visit.stateDeadline()), visit.healthFlag() == null ? null : visit.healthFlag().name(),
+                visit.healthNote(), visit.id(), visit.version());
         if (changed != 1) throw new BusinessRuleViolation("VISIT_VERSION_CONFLICT", "Visit changed. Refresh before continuing.");
         var row = jpa.findById(visit.id()).orElseThrow();
         em.refresh(row);
