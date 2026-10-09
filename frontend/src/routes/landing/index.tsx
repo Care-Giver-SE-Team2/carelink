@@ -344,6 +344,13 @@ export default function LandingHome() {
                 within two working days.
               </div>
             </Link>
+            <Link to="/elder/register" className={styles.applyCard}>
+              <div className={styles.applyCardRow}>
+                <span className={styles.applyCardLabel}>Register as an elder</span>
+                <span className={styles.applyCardArrow}>→</span>
+              </div>
+              <div className={styles.applyCardCaption}>Create a login with a username and password.</div>
+            </Link>
           </div>
         </form>
       </div>
