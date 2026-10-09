@@ -6,6 +6,7 @@ import type {
   ReportGeneratedBy,
   ReportMetrics,
   ReportPoint,
+  ReportSection,
   ReportStatus,
 } from './types'
 
@@ -218,6 +219,11 @@ export function figureText(figure: ReportFigure): string {
   if (figure.unit === '%') return reportNumber(figure.value) + '%'
   if (figure.outOf !== null) return `${reportNumber(figure.value)} of ${reportNumber(figure.outOf)}`
   return reportNumber(figure.value)
+}
+
+/** Old filed reports remain readable without inventing numbers from their prose. */
+export function hasReportVisuals(sections: ReportSection[]): boolean {
+  return sections.some((section) => section.title === 'Overview' || !!section.figures?.length || !!section.series?.length)
 }
 
 /**

@@ -1,5 +1,5 @@
 import type { FamilyReportDetail } from '../../../features/reports/types'
-import { familyReportTime } from '../../../features/reports/presentation'
+import { amendmentKindLabels, familyReportTime } from '../../../features/reports/presentation'
 import styles from './FamilyReports.module.css'
 
 /** The same completeness notice accompanies both the report and weekly summary.
@@ -17,9 +17,10 @@ export function ReportCompleteness({ report }: { report: Pick<FamilyReportDetail
  */
 export function ReportCorrections({ amendments }: { amendments: FamilyReportDetail['amendments'] }) {
   return <section className={styles.card} aria-labelledby="report-corrections">
-    <h2 id="report-corrections">Corrections</h2>
-    {amendments.length === 0 && <p className={styles.body}>No corrections have been added.</p>}
+    <h2 id="report-corrections">Corrections and follow-ups</h2>
+    {amendments.length === 0 && <p className={styles.body}>No corrections or follow-ups have been added.</p>}
     {amendments.map((amendment) => <div className={styles.correction} key={amendment.id}>
+      <span className={styles.amendmentKind}>{amendmentKindLabels[amendment.kind ?? 'CORRECTION']}</span>
       <time className={styles.timestamp} dateTime={amendment.createdAt}>{familyReportTime(amendment.createdAt)}</time>
       <p className={styles.body}>{amendment.note}</p>
     </div>)}

@@ -59,6 +59,22 @@ afterEach(() => {
 })
 
 describe('Family weekly care summary', () => {
+  it('uses the source report visual sections for a new weekly report', async () => {
+    installApi((url) => url.pathname === '/api/reports/301' ? json({ ...detail, sections: [
+      { key: 'overview', title: 'Overview', body: 'Care plan version 3.', figures: [
+        { key: 'visits', label: 'Visits carried out', value: 2, outOf: 3, unit: null },
+      ] },
+      { key: 'services', title: 'Services', body: 'Personal care: 2 of 3 carried out' },
+    ] }) : undefined)
+    openSummary()
+    const article = await screen.findByRole('article', { name: 'Weekly care summary' })
+    expect(within(article).getByText('2 of 3')).toBeInTheDocument()
+    expect(within(article).getByRole('heading', { name: 'This week' })).toBeInTheDocument()
+    expect(within(article).getByText('Personal care: 2 of 3 carried out')).toBeInTheDocument()
+    expect(within(article).queryByLabelText('Summary text')).not.toBeInTheDocument()
+    expect(within(article).getByText('Some care records are missing')).toBeInTheDocument()
+  })
+
   it('reads the selected week and its source report together, preserving text, completeness and corrections', async () => {
     const fetchMock = installApi()
     openSummary()
@@ -79,7 +95,7 @@ describe('Family weekly care summary', () => {
     expect(within(article).getByLabelText('Summary text').textContent).toBe(summary.summaryText)
     expect(within(article).getByText('One visit record is missing.')).toBeInTheDocument()
     expect(within(article).getByText('Some care records are missing')).toBeInTheDocument()
-    expect(within(article).getByRole('region', { name: 'Corrections' }).querySelector('p')?.textContent).toBe(detail.amendments[0].note)
+    expect(within(article).getByRole('region', { name: 'Corrections and follow-ups' }).querySelector('p')?.textContent).toBe(detail.amendments[0].note)
     expect(within(article).getByText('28 Sept 2026, 00:30')).toBeInTheDocument()
     expect(within(article).getByText(summary.disclaimer)).toBeInTheDocument()
     expect(screen.queryByRole('link', { name: /Download/ })).not.toBeInTheDocument()
@@ -240,7 +256,7 @@ describe('Family weekly care summary', () => {
     await userEvent.setup().selectOptions(screen.getByRole('combobox', { name: 'Care for' }), '22')
     await screen.findByText('Care for Lim Wei.')
     expect(screen.getByText('Records complete')).toBeInTheDocument()
-    expect(screen.getByText('No corrections have been added.')).toBeInTheDocument()
+    expect(screen.getByText('No corrections or follow-ups have been added.')).toBeInTheDocument()
     expect(screen.queryByText('One visit record is missing.')).not.toBeInTheDocument()
     expect(screen.getByLabelText('Current URL')).toHaveTextContent('/family/reports/weekly?elderId=22&weekStart=2026-09-21')
     expect(fetchMock.mock.calls.map(([path]) => path).slice(-2)).toEqual(['/api/elders/22/weekly-summary?weekStart=2026-09-21', '/api/reports/302'])
@@ -299,7 +315,7 @@ describe('Family weekly care summary', () => {
     expect(screen.getByLabelText('Summary text').textContent).toBe(text)
     expect(screen.getByRole('article').querySelector('img')).toBeNull()
     expect(screen.getByRole('article').querySelector('strong')).toBeNull()
-    expect(Array.from(screen.getByRole('region', { name: 'Corrections' }).querySelectorAll('p')).map((node) => node.textContent))
+    expect(Array.from(screen.getByRole('region', { name: 'Corrections and follow-ups' }).querySelectorAll('p')).map((node) => node.textContent))
       .toEqual(['Visit duration corrected to 45 minutes.\nOriginal report retained.', 'Additional correction.'])
   })
 

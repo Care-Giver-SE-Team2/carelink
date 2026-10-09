@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { useFamilyWeeklySummary } from '../../../features/reports/useFamilyWeeklySummary'
-import { generatedByLabels, reportPeriod, statusLabels } from '../../../features/reports/presentation'
+import { generatedByLabels, hasReportVisuals, reportPeriod, statusLabels } from '../../../features/reports/presentation'
 import { isScheduleDate, scheduleDateBounds, shiftDays, singaporeToday, weekStart } from '../../../features/schedule/presentation'
 import { ReportCompleteness, ReportCorrections } from './ReportNotes'
 import { ReportListFeedback } from './ReportListFeedback'
@@ -9,6 +9,7 @@ import styles from './FamilyReports.module.css'
 import { useSelectedElder } from '../components/selectedElder'
 import { useIsDesktop } from '../components/useIsDesktop'
 import { WeekVisits } from './WeekVisits'
+import { FamilyReportContent } from './FamilyReportContent'
 
 /** Reads an exact Singapore calendar week alongside its report's care notes.
  * @author Wang Zhili
@@ -124,13 +125,14 @@ export function FamilyWeeklySummaryPage() {
         {refreshButton}
       </div>
       <section className={styles.card}>
-        <p className={styles.body} aria-label="Summary text">{weekly.summary.summaryText}</p>
+        {!hasReportVisuals(weekly.detail.sections) && <p className={styles.body} aria-label="Summary text">{weekly.summary.summaryText}</p>}
         <ReportCompleteness report={weekly.detail} />
         <div className={styles.cardFoot}>
           <span className={styles.reference}>REPORT #{weekly.summary.reportId}</span>
           <span className={styles.badge} data-status={weekly.detail.status}>{statusLabels[weekly.detail.status]}</span>
         </div>
       </section>
+      {hasReportVisuals(weekly.detail.sections) && <FamilyReportContent sections={weekly.detail.sections} />}
       <p className={styles.disclaimer}>{weekly.summary.disclaimer}</p>
       <ReportCorrections amendments={weekly.detail.amendments} />
       {!desktop && fullReport && <div className={styles.actions}>

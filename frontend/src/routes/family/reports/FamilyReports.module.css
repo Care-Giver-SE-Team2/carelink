@@ -1,6 +1,22 @@
 .reports {
   composes: page from '../components/FamilyScreen.module.css';
 }
+.reportDetail { max-width: 1060px; }
+.reports.reportDetail > article { max-width: none; }
+.hero.detailHero { display: block; }
+.detailHero > .eyebrow { margin-top: 18px; }
+.amendmentKind {
+  display: inline-block;
+  padding: 5px 9px;
+  margin-bottom: 8px;
+  border-radius: 8px;
+  background: var(--fm-accent-tint);
+  color: var(--fm-accent);
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: .05em;
+}
 /* The weekly summary is a two-column page on desktop, so it does not take the 640px column. */
 .weekly {
   overflow-wrap: anywhere;
