@@ -27,7 +27,25 @@ public record Visit(
 		Long carePlanId,
 		Integer version,
 		LocalDateTime createdAt,
-		LocalDateTime updatedAt) {
+		LocalDateTime updatedAt,
+		@com.fasterxml.jackson.annotation.JsonIgnore HealthObservation.Flag healthFlag,
+		@com.fasterxml.jackson.annotation.JsonIgnore String healthNote) {
+
+    public Visit(Long id, Long elderId, Long caregiverId, Long carePlanNodeId, Long absenceId, String serviceType,
+            LocalDateTime scheduledStart, LocalDateTime scheduledEnd, LocalDateTime checkedInAt, LocalDateTime checkedOutAt,
+            Status status, LocalDateTime stateDeadline, Long carePlanId, Integer version, LocalDateTime createdAt, LocalDateTime updatedAt) {
+        this(id, elderId, caregiverId, carePlanNodeId, absenceId, serviceType, scheduledStart, scheduledEnd,
+                checkedInAt, checkedOutAt, status, stateDeadline, carePlanId, version, createdAt, updatedAt, null, null);
+    }
+
+    public Visit observedHealth(HealthMeasurement measurement) {
+        if (status != Status.IN_PROGRESS || checkedInAt == null) {
+            throw new sg.nus.carelink.shared.error.BusinessRuleViolation("VISIT_HEALTH_NOT_ALLOWED", "Check in before recording health observations in an active visit.");
+        }
+        return new Visit(id, elderId, caregiverId, carePlanNodeId, absenceId, serviceType, scheduledStart, scheduledEnd,
+                checkedInAt, checkedOutAt, status, stateDeadline, carePlanId, version, createdAt, updatedAt,
+                measurement.healthFlag(), measurement.healthNote());
+    }
 
 	/**
 	 * A new visit generated from a care plan task (UC-MG03): SCHEDULED, not yet versioned, and
@@ -140,13 +158,13 @@ public record Visit(
 	private Visit withAbsence(Long newCaregiverId, Status newStatus, Long forAbsenceId) {
 		return new Visit(id, elderId, newCaregiverId, carePlanNodeId, forAbsenceId, serviceType, scheduledStart,
 				scheduledEnd, checkedInAt, checkedOutAt, newStatus, stateDeadline, carePlanId, version,
-				createdAt, updatedAt);
+				createdAt, updatedAt, healthFlag, healthNote);
 	}
 
 	private Visit withAssignmentAndStatus(Long newCaregiverId, Status newStatus) {
 		return new Visit(id, elderId, newCaregiverId, carePlanNodeId, absenceId, serviceType, scheduledStart,
 				scheduledEnd, checkedInAt, checkedOutAt, newStatus, stateDeadline, carePlanId, version,
-				createdAt, updatedAt);
+				createdAt, updatedAt, healthFlag, healthNote);
 	}
 
 	public enum Status {
@@ -156,7 +174,7 @@ public record Visit(
     public Visit arrivedAt(LocalDateTime now) {
         if (status != Status.SCHEDULED) throw new sg.nus.carelink.shared.error.BusinessRuleViolation("VISIT_EXECUTION_NOT_ALLOWED", "Visit is not scheduled.");
         return new Visit(id, elderId, caregiverId, carePlanNodeId, absenceId, serviceType, scheduledStart, scheduledEnd,
-                now, checkedOutAt, Status.ARRIVED, null, carePlanId, version, createdAt, updatedAt);
+                now, checkedOutAt, Status.ARRIVED, null, carePlanId, version, createdAt, updatedAt, healthFlag, healthNote);
     }
     public Visit started() {
         if (status != Status.ARRIVED) throw new sg.nus.carelink.shared.error.BusinessRuleViolation("VISIT_EXECUTION_NOT_ALLOWED", "Visit has not arrived.");

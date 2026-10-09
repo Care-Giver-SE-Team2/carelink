@@ -37,7 +37,7 @@ class VisitCommandRepositoryAdapterTest {
         when(jpa.findById(1L)).thenReturn(java.util.Optional.of(row));
         adapter.save(VisitMapper.toDomain(row));
         verify(jdbc).update(anyString(),eq("SCHEDULED"),eq(java.sql.Timestamp.valueOf(at)),
-                eq(java.sql.Timestamp.valueOf(at.plusHours(1))),eq(java.sql.Timestamp.valueOf(at.plusHours(2))),eq(1L),eq(7));
+                eq(java.sql.Timestamp.valueOf(at.plusHours(1))),eq(java.sql.Timestamp.valueOf(at.plusHours(2))),isNull(),isNull(),eq(1L),eq(7));
         verify(em).refresh(row);
     }
 }
