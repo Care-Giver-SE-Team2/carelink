@@ -17,6 +17,7 @@ import { FamilySpotChecksPage } from './spot-checks/FamilySpotChecksPage'
 import { FamilyIncidentPage } from './incidents/FamilyIncidentPage'
 import { FamilyValueAddedServicesPage } from './services/FamilyValueAddedServicesPage'
 import { FamilyCaregiverReviewsPage } from './reviews/FamilyCaregiverReviewsPage'
+import { FamilyBindingsPage } from './bindings/FamilyBindingsPage'
 
 /**
  * Family home, application, schedule, visit progress and care report routes.
@@ -62,6 +63,9 @@ export default function FamilyHome() {
       </Route>
       <Route element={<FamilyLayout title="Caregiver reviews" />}>
         <Route path="caregiver-reviews" element={<FamilyCaregiverReviewsPage />} />
+      </Route>
+      <Route element={<FamilyLayout title="Family bindings" />}>
+        <Route path="family-bindings" element={<FamilyBindingsPage />} />
       </Route>
       <Route element={<IntakeLayout />}>
         <Route path="intake" element={<IntakeListPage />} />

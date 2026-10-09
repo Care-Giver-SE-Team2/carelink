@@ -94,7 +94,7 @@ describe('Family desktop layout', () => {
     openFamily('/family/home')
 
     const nav = screen.getByRole('navigation', { name: 'Family pages' })
-    expect(within(nav).getAllByRole('link').map((link) => link.textContent)).toEqual(['Home', 'Schedule', 'Visit changes', 'Spot checks', 'Reports', 'Services', 'Extra services', 'Caregiver reviews'])
+    expect(within(nav).getAllByRole('link').map((link) => link.textContent)).toEqual(['Home', 'Schedule', 'Visit changes', 'Spot checks', 'Reports', 'Services', 'Extra services', 'Caregiver reviews', 'Family bindings'])
     expect(within(nav).getByRole('link', { name: 'Home' })).toHaveAttribute('aria-current', 'page')
     expect(await screen.findByRole('link', { name: /Lim Wei Ling.*Account/ })).toHaveAttribute('href', '/family/account')
     expect(screen.getByRole('link', { name: 'CareLink' })).toHaveAttribute('href', '/family/home')
