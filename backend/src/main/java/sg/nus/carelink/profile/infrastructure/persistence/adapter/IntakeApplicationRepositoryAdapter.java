@@ -56,6 +56,12 @@ class IntakeApplicationRepositoryAdapter implements IntakeApplicationRepository 
 	}
 
 	@Override
+	public List<IntakeApplication> findApprovedByElderId(Long elderId) {
+		return jpa.findByElderIdAndStatus(elderId, IntakeApplicationJpaEntity.Status.APPROVED).stream()
+				.map(IntakeApplicationMapper::toDomain).toList();
+	}
+
+	@Override
 	public IntakeApplicationPage findForApplicant(Long familyMemberId, IntakeApplication.Status status,
 			int page, int size) {
 		var pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt", "id"));

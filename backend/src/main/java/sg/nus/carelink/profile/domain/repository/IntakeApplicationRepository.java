@@ -29,6 +29,9 @@ public interface IntakeApplicationRepository {
 	 */
 	Optional<IntakeApplication> findByIdForUpdate(Long id);
 
+	/** The approved application(s) that created this elder's record — what the family first asked for. */
+	List<IntakeApplication> findApprovedByElderId(Long elderId);
+
 	/**
 	 * Find applications after filtering by owner and optional status, ordered by creation time then id descending.
 	 *

@@ -117,6 +117,11 @@ class IntakeSubmissionServiceTest {
 			public Optional<IntakeApplication> findByIdForUpdate(Long id) {
 				throw failure;
 			}
+
+			@Override
+			public List<IntakeApplication> findApprovedByElderId(Long elderId) {
+				throw failure;
+			}
 		};
 		var failingService = new IntakeSubmissionService(users, families, unavailableStorage, elders);
 

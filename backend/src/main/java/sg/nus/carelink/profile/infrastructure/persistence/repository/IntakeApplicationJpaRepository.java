@@ -43,6 +43,8 @@ public interface IntakeApplicationJpaRepository extends JpaRepository<IntakeAppl
 	List<IntakeApplicationJpaEntity> findByPostalCodeAndStatusIn(String postalCode,
 			List<IntakeApplicationJpaEntity.Status> statuses);
 
+	List<IntakeApplicationJpaEntity> findByElderIdAndStatus(Long elderId, IntakeApplicationJpaEntity.Status status);
+
 	@Lock(LockModeType.PESSIMISTIC_WRITE)
 	@Query("SELECT application FROM IntakeApplicationJpaEntity application WHERE application.id = :id")
 	Optional<IntakeApplicationJpaEntity> findByIdForUpdate(@Param("id") Long id);

@@ -6,7 +6,8 @@ import { initialiseCsrf } from '../../../features/auth/api'
 import type { FamilyElderProfile } from '../../../features/family-elders/api'
 import { useFamilyElderProfiles } from '../../../features/family-elders/queries'
 import { serviceApplicationKey } from '../../../features/service-applications/queries'
-import { careLabels, submitServiceApplication } from '../../../features/service-applications/api'
+import { submitServiceApplication } from '../../../features/service-applications/api'
+import { groupCareActivities, useCareActivities } from '../../../features/careplan/careActivities'
 import { ApiError } from '../../../shared/api/client'
 import { useSelectedElder } from '../components/selectedElder'
 import { ElderSnapshot } from './ElderSnapshot'
@@ -44,8 +45,8 @@ function ServiceForm({ elders, selected, select, refreshing, refresh }: {
 }) {
   const navigate = useNavigate()
   const client = useQueryClient()
+  const activities = useCareActivities()
   const [needs, setNeeds] = useState<string[]>([])
-  const [other, setOther] = useState('')
   const [notes, setNotes] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
@@ -60,10 +61,9 @@ function ServiceForm({ elders, selected, select, refreshing, refresh }: {
   async function submit(event: FormEvent) {
     event.preventDefault()
     if (request.current || !selected || incomplete || blocked || refreshing) return
-    const careNeeds = [...new Set([...needs, ...other.split('\n')].map((need) => need.trim()).filter(Boolean))]
-    if (!careNeeds.length || careNeeds.length > 20 || careNeeds.some((need) => [...need].length > 100)) {
-      setError('Choose at least one care service, up to 20 in total. Each service can contain up to 100 characters.'); return
-    }
+    // Only catalog codes: the manager builds the care plan from this same list.
+    const careNeeds = [...new Set(needs)]
+    if (!careNeeds.length) { setError('Choose at least one care service.'); return }
     if ([...notes.trim()].length > 2000) { setError('Notes must be 2000 characters or fewer.'); return }
     const controller = new AbortController()
     request.current = controller
@@ -122,22 +122,22 @@ function ServiceForm({ elders, selected, select, refreshing, refresh }: {
       </section>
       <section className={formStyles.section}>
         <div className={formStyles.sectionHeading}><span>02</span><h2>Care services</h2></div>
-        <fieldset className={formStyles.choices}><legend>Choose care services</legend>
-          {Object.entries(careLabels).map(([value, label]) => <label key={value}><input type="checkbox" checked={needs.includes(value)}
-            onChange={(event) => setNeeds(event.target.checked ? [...needs, value] : needs.filter((need) => need !== value))} />{label}</label>)}
-        </fieldset>
-        <div className={formStyles.field}><label htmlFor="service-other">Other care needs</label>
-          <textarea id="service-other" rows={3} value={other} onChange={(event) => setOther(event.target.value)} aria-describedby="service-other-hint" />
-          <p id="service-other-hint" className={formStyles.hint}>One service per line; up to 20 services in total, 100 characters each.</p>
-        </div>
+        {activities.isError ? <p role="alert">Unable to load care services.{' '}
+          <button type="button" onClick={() => void activities.refetch()}>Try again</button></p>
+          : activities.isPending ? <p role="status">Loading care services…</p>
+          : groupCareActivities(activities.data).map((group) => <fieldset key={group.category} className={formStyles.choices}>
+            <legend>{group.category}</legend>
+            {group.activities.map(({ code, label }) => <label key={code}><input type="checkbox" checked={needs.includes(code)}
+              onChange={(event) => setNeeds(event.target.checked ? [...needs, code] : needs.filter((need) => need !== code))} />{label}</label>)}
+          </fieldset>)}
         <div className={formStyles.field}><label htmlFor="service-notes">Notes for this application (optional)</label>
           <textarea id="service-notes" rows={4} value={notes} onChange={(event) => setNotes(event.target.value)} aria-describedby="service-notes-hint" />
-          <p id="service-notes-hint" className={formStyles.hint}>Up to 2000 characters. These notes apply to this request.</p>
+          <p id="service-notes-hint" className={formStyles.hint}>Up to 2000 characters. Anything else the care team should know, such as preferred times.</p>
         </div>
       </section>
     </fieldset>
     <aside className={formStyles.side}>
-      <p className={formStyles.intro}>Basic details come from My elders. You only need to choose care services and add any notes.</p>
+      <p className={formStyles.intro}>Basic details come from My elders. You only need to choose care services and add any notes. The care manager plans your elder's care from the services you choose.</p>
       <section className={formStyles.next}><h2>After submission</h2><p>Your application will be saved as Submitted, waiting for review.</p></section>
       <div className={formStyles.submitArea}>
         <button type="submit" disabled={busy || !selected || incomplete || blocked || refreshing}>{busy ? 'Submitting…' : 'Submit service application'}</button>

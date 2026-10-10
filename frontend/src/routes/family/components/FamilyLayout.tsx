@@ -27,6 +27,10 @@ const tabs: (RailItem & { phone?: false })[] = [
     icon: <svg {...iconProps}><rect x="4" y="5" width="16" height="15" rx="2" /><path d="M4 10h16M9 3v4M15 3v4" /></svg>,
   },
   {
+    label: 'Care plan', to: '/family/care-plan', match: ['/family/care-plan'], phone: false,
+    icon: <svg {...iconProps}><path d="M9 4h6v3H9z" /><path d="M7 5H5v16h14V5h-2" /><path d="m9 13 2 2 4-4" /></svg>,
+  },
+  {
     label: 'Visit changes', to: '/family/changes', match: ['/family/changes'], phone: false,
     icon: <svg {...iconProps}><path d="M4 9h13l-3-3M20 15H7l3 3" /></svg>,
   },
