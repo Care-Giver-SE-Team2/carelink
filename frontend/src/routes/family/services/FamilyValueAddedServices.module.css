@@ -30,3 +30,9 @@ dt { color: var(--fm-muted); } dd { margin: 0; font-weight: 700; text-align: rig
 .form label { display: grid; gap: 6px; font-weight: 700; }
 .form select, .form input, .form textarea { min-height: 42px; padding: 8px 12px; border: 1px solid var(--fm-line-card); border-radius: 12px; font: inherit; font-weight: 400; }
 .form textarea { min-height: 84px; resize: vertical; }
+.formField { display: grid; gap: 6px; }
+.formField > label { font-weight: 700; }
+.form [aria-invalid='true'] { border-color: var(--fm-urgent); }
+.fieldError, .fieldHint { font-size: 13px; line-height: 1.4; }
+.fieldError { color: var(--fm-urgent); }
+.fieldHint { color: var(--fm-muted); }

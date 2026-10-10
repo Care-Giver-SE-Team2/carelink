@@ -331,7 +331,7 @@ export default function LandingHome() {
             >
               <div className={styles.applyCardRow}>
                 <span className={styles.applyCardLabel}>
-                  Apply for care for a family member
+                  Register as a family member
                 </span>
 
                 <span className={styles.applyCardArrow}>
@@ -340,8 +340,8 @@ export default function LandingHome() {
               </div>
 
               <div className={styles.applyCardCaption}>
-                Create a family account, then link to your
-                loved one to request care.
+                Create a family account. Your loved one links to
+                it from their own account, then you can request care.
               </div>
             </Link>
             <Link to="/elder/register" className={styles.applyCard}>

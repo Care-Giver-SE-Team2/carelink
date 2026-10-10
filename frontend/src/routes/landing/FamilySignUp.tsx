@@ -5,6 +5,8 @@ import { Link, useNavigate } from 'react-router-dom'
 import { initialiseCsrf, signInWithSession } from '../../features/auth/api'
 import { ApiError } from '../../shared/api/client'
 import { registerFamily } from '../../shared/api/profile'
+import { serverFieldErrors } from '../../shared/validation/serverErrors'
+import { normalizeName, normalizeSgPhone, personNameError, phoneError } from '../../shared/validation/sg'
 import styles from './Landing.module.css'
 import signUpStyles from './FamilySignUp.module.css'
 
@@ -14,10 +16,8 @@ type Errors = Partial<Record<keyof Values, string>>
 /** Mirrors the format checks on profile.controller.dto.FamilyRegistrationRequest. */
 function validate(values: Values): Errors {
   const errors: Errors = {}
-  const fullName = values.fullName.trim()
-  if (!fullName) errors.fullName = 'Enter your full name.'
-  else if ([...fullName].length > 100) errors.fullName = 'Use 100 characters or fewer.'
-  if (!/^\+?[0-9 ()-]{6,20}$/.test(values.phone.trim())) errors.phone = 'Enter a phone number.'
+  errors.fullName = personNameError(values.fullName, 'Enter your full name.')
+  errors.phone = values.phone.trim() ? phoneError(values.phone, { mobile: true }) : 'Enter your mobile number.'
   if (!/^[a-z0-9][a-z0-9._-]{2,63}$/.test(values.username))
     errors.username = 'Use 3 to 64 lower-case letters, digits, dots, dashes or underscores.'
   if (values.password.length < 8) errors.password = 'Use at least 8 characters.'
@@ -59,15 +59,17 @@ export default function FamilySignUp() {
       await registerFamily({
         username: values.username,
         password: values.password,
-        fullName: values.fullName.trim(),
-        phone: values.phone.trim(),
+        fullName: normalizeName(values.fullName),
+        phone: normalizeSgPhone(values.phone) ?? values.phone.trim(),
       })
     } catch (failure) {
       setBusy(false)
       if (failure instanceof ApiError && failure.status === 409) {
         setErrors({ username: 'That username is taken. Choose another.' })
       } else if (failure instanceof ApiError && failure.status === 400) {
-        setError('Please check your details and try again.')
+        const fields = serverFieldErrors(failure)
+        if (Object.keys(fields).length) setErrors(fields)
+        else setError('Please check your details and try again.')
       } else {
         setError('Unable to create your account. Check your connection and try again.')
       }
@@ -171,6 +173,7 @@ export default function FamilySignUp() {
                 type="tel"
                 autoComplete="tel"
                 inputMode="tel"
+                maxLength={15}
                 placeholder="9123 4567"
                 className={styles.textInput}
                 onChange={(event) => update('phone', event.target.value)}

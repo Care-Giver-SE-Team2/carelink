@@ -62,7 +62,7 @@ describe('Family sign-up', () => {
     const fetchMock = stubServer()
     open('/')
 
-    await userEvent.setup().click(screen.getByRole('link', { name: /Apply for care for a family member/ }))
+    await userEvent.setup().click(screen.getByRole('link', { name: /Register as a family member/ }))
 
     expect(screen.getByRole('heading', { name: 'Create your family account' })).toBeTruthy()
     expect(fetchMock).not.toHaveBeenCalledWith('/api/auth/me', expect.anything())
@@ -81,7 +81,7 @@ describe('Family sign-up', () => {
       username: 'lim.weiling',
       password: 'chosen-password',
       fullName: 'Lim Wei Ling',
-      phone: '9123 4567',
+      phone: '+6591234567',
     })
     expect(new Headers(signUp[1].headers).get('X-XSRF-TOKEN')).toBe('signup-token')
     const login = fetchMock.mock.calls.find(([url]) => url === '/api/auth/login')!
@@ -97,10 +97,18 @@ describe('Family sign-up', () => {
     await user.click(screen.getByRole('button', { name: 'Create account and continue' }))
 
     expect(screen.getByText('Enter your full name.')).toBeTruthy()
-    expect(screen.getByText('Enter a phone number.')).toBeTruthy()
+    expect(screen.getByText('Enter your mobile number.')).toBeTruthy()
     expect(screen.getByText('Use at least 8 characters.')).toBeTruthy()
     expect(screen.getByLabelText('Choose a username').getAttribute('aria-invalid')).toBe('true')
     expect(fetchMock).not.toHaveBeenCalled()
+  })
+
+  it('stops the mobile number at the longest way it can be written', async () => {
+    stubServer()
+    open()
+
+    // user-event does not apply maxlength to type="tel", so check the attribute browsers enforce.
+    expect(screen.getByLabelText('Mobile number')).toHaveAttribute('maxlength', '15')
   })
 
   it('asks for another username when the chosen one is taken, and stays on the page', async () => {

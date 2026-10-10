@@ -1,4 +1,4 @@
-import { cleanup, render, screen, waitFor, within } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { Link, MemoryRouter, Route, Routes } from 'react-router-dom'
@@ -79,6 +79,7 @@ describe('My elders and basic details', () => {
     profiles = []; installApi(); open()
     expect(await screen.findByRole('heading', { name: 'No linked elders yet' })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: /Go to Family bindings/ })).toHaveAttribute('href', '/family/family-bindings')
+    expect(screen.queryByRole('link', { name: /Review binding requests/ })).toBeNull()
   })
 
   it('shows an error and retries the elder list', async () => {
@@ -174,12 +175,47 @@ describe('My elders and basic details', () => {
     expect(screen.getByLabelText('Full name *')).toHaveValue('Tan Mei')
   })
 
+  it('saves the phone as +65 and eight digits, and languages from the list', async () => {
+    const request = installApi()
+    const user = userEvent.setup(); open('/family/elders/1')
+    await user.click(await screen.findByRole('button', { name: 'Edit basic details' }))
+    await user.clear(screen.getByLabelText('Phone')); await user.type(screen.getByLabelText('Phone'), '6123-4567')
+    expect(screen.getByRole('checkbox', { name: 'Hokkien' })).toBeChecked()
+    await user.click(screen.getByRole('checkbox', { name: 'Mandarin' }))
+    await user.click(screen.getByRole('button', { name: 'Save details' }))
+    expect(await screen.findByRole('status')).toHaveTextContent('Basic details saved.')
+    const [, init] = request.mock.calls.find(([, init]) => init?.method === 'PUT')!
+    expect(JSON.parse(init!.body as string)).toMatchObject({ phone: '+6561234567', preferredDialects: 'Mandarin,Hokkien' })
+  })
+
+  it('shows what the server refused under the detail it refused', async () => {
+    installApi((path, init) => path === '/api/family/elders/1' && init?.method === 'PUT'
+      ? json({ title: 'Invalid request', fields: { postalCode: 'Enter a 6-digit Singapore postal code' } }, 400) : undefined)
+    const user = userEvent.setup(); open('/family/elders/1')
+    await user.click(await screen.findByRole('button', { name: 'Edit basic details' }))
+    await user.click(screen.getByRole('button', { name: 'Save details' }))
+    expect(await screen.findByRole('alert')).toHaveTextContent('Some details need correcting')
+    expect(screen.getByText('Enter a 6-digit Singapore postal code.')).toBeInTheDocument()
+    expect(screen.getByLabelText('Postal code')).toHaveAttribute('aria-invalid', 'true')
+  })
+
+  it('warns, without blocking, when the date of birth makes the elder under 50', async () => {
+    installApi()
+    const user = userEvent.setup(); open('/family/elders/1')
+    await user.click(await screen.findByRole('button', { name: 'Edit basic details' }))
+    fireEvent.change(screen.getByLabelText('Date of birth'), { target: { value: '1990-05-01' } })
+    expect(screen.getByText(/Check this is the elder's date of birth, not yours/)).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Save details' }))
+    expect(await screen.findByRole('status')).toHaveTextContent('Basic details saved.')
+  })
+
   it('rejects invalid postal codes before a request is sent', async () => {
     const request = installApi(); const user = userEvent.setup(); open('/family/elders/1')
     await user.click(await screen.findByRole('button', { name: 'Edit basic details' }))
-    await user.clear(screen.getByLabelText('Postal code')); await user.type(screen.getByLabelText('Postal code'), 'ABCDEF')
+    await user.clear(screen.getByLabelText('Postal code')); await user.type(screen.getByLabelText('Postal code'), '741234')
     await user.click(screen.getByRole('button', { name: 'Save details' }))
     expect(screen.getByLabelText('Postal code')).toBeInvalid()
+    expect(screen.getByText('Enter a 6-digit Singapore postal code.')).toBeInTheDocument()
     expect(request.mock.calls.some(([, init]) => init?.method === 'PUT')).toBe(false)
   })
 

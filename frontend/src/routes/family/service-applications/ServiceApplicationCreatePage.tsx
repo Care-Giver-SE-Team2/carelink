@@ -49,6 +49,7 @@ function ServiceForm({ elders, selected, select, refreshing, refresh }: {
   const [notes, setNotes] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
+  const [fieldErrors, setFieldErrors] = useState<{ careNeeds?: string; notes?: string }>({})
   const [uncertain, setUncertain] = useState(false)
   const [blocked, setBlocked] = useState(false)
   const request = useRef<AbortController | null>(null)
@@ -62,8 +63,12 @@ function ServiceForm({ elders, selected, select, refreshing, refresh }: {
     if (request.current || !selected || incomplete || blocked || refreshing) return
     // Only catalog codes: the manager builds the care plan from this same list.
     const careNeeds = [...new Set(needs)]
-    if (!careNeeds.length) { setError('Choose at least one care service.'); return }
-    if ([...notes.trim()].length > 2000) { setError('Notes must be 2000 characters or fewer.'); return }
+    const found = {
+      careNeeds: careNeeds.length ? undefined : 'Choose at least one care service.',
+      notes: [...notes.trim()].length > 2000 ? 'Notes must be 2000 characters or fewer.' : undefined,
+    }
+    setFieldErrors(found)
+    if (found.careNeeds || found.notes) return
     const controller = new AbortController()
     request.current = controller
     setBusy(true); setError(''); setUncertain(false)
@@ -127,10 +132,17 @@ function ServiceForm({ elders, selected, select, refreshing, refresh }: {
           : groupCareActivities(activities.data).map((group) => <fieldset key={group.category} className={formStyles.choices}>
             <legend>{group.category}</legend>
             {group.activities.map(({ code, label }) => <label key={code}><input type="checkbox" checked={needs.includes(code)}
-              onChange={(event) => setNeeds(event.target.checked ? [...needs, code] : needs.filter((need) => need !== code))} />{label}</label>)}
+              onChange={(event) => {
+                setNeeds(event.target.checked ? [...needs, code] : needs.filter((need) => need !== code))
+                setFieldErrors((current) => ({ ...current, careNeeds: undefined }))
+              }} />{label}</label>)}
           </fieldset>)}
+        {fieldErrors.careNeeds && <p className={formStyles.fieldError}>{fieldErrors.careNeeds}</p>}
         <div className={formStyles.field}><label htmlFor="service-notes">Notes for this application (optional)</label>
-          <textarea id="service-notes" rows={4} value={notes} onChange={(event) => setNotes(event.target.value)} aria-describedby="service-notes-hint" />
+          <textarea id="service-notes" rows={4} value={notes} aria-invalid={!!fieldErrors.notes}
+            aria-describedby={fieldErrors.notes ? 'service-notes-error service-notes-hint' : 'service-notes-hint'}
+            onChange={(event) => { setNotes(event.target.value); setFieldErrors((current) => ({ ...current, notes: undefined })) }} />
+          {fieldErrors.notes && <p id="service-notes-error" className={formStyles.fieldError}>{fieldErrors.notes}</p>}
           <p id="service-notes-hint" className={formStyles.hint}>Up to 2000 characters. Anything else the care team should know, such as preferred times.</p>
         </div>
       </section>
