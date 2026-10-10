@@ -25,7 +25,6 @@ export function ServiceApplicationCreatePage() {
     if (elderId === null && selectedId !== undefined) setElderId(selectedId)
   }, [elderId, selectedId, setElderId])
   return <div className={styles.page}>
-    <div className={styles.detailNav}><Link to="/family/service-applications">← Back to service applications</Link></div>
     <header className={styles.detailHeading}><p className={styles.eyebrow}>CARE SERVICES</p><h1>New service application</h1>
       <p className={styles.subtitle}>Choose a linked elder and the care they need.</p>
     </header>
@@ -110,7 +109,7 @@ function ServiceForm({ elders, selected, select, refreshing, refresh }: {
         <div className={formStyles.field}><label htmlFor="service-elder">Elder</label>
           <select id="service-elder" value={selected?.id ?? ''} onChange={(event) => select(Number(event.target.value))}>
             <option value="" disabled>Choose an elder with full access</option>
-            {elders.map((elder) => <option key={elder.id} value={elder.id}>{elder.fullName} (#{elder.id})</option>)}
+            {elders.map((elder) => <option key={elder.id} value={elder.id}>{elder.fullName}</option>)}
           </select>
           <p className={formStyles.hint}>Only elders with full access are available. Switching elders clears this application's services and notes.</p>
         </div>
@@ -137,10 +136,9 @@ function ServiceForm({ elders, selected, select, refreshing, refresh }: {
       </section>
     </fieldset>
     <aside className={formStyles.side}>
-      <p className={formStyles.intro}>Basic details come from My elders. You only need to choose care services and add any notes. The care manager plans your elder's care from the services you choose.</p>
       <section className={formStyles.next}><h2>After submission</h2><p>Your application will be saved as Submitted, waiting for review.</p></section>
       <div className={formStyles.submitArea}>
-        <button type="submit" disabled={busy || !selected || incomplete || blocked || refreshing}>{busy ? 'Submitting…' : 'Submit service application'}</button>
+        <button type="submit" className={styles.primaryButton} disabled={busy || !selected || incomplete || blocked || refreshing}>{busy ? 'Submitting…' : 'Submit service application'}</button>
         <Link to="/family/service-applications">Cancel and return to applications</Link>
       </div>
     </aside>

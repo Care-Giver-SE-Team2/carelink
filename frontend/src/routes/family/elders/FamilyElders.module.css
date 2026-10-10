@@ -16,9 +16,12 @@
   text-decoration: none;
 }
 .eyebrow {
+  margin-bottom: 8px !important;
   color: var(--fm-accent);
-  font-size: 12px !important;
-  letter-spacing: 0.1em;
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.12em !important;
+  line-height: 1.2 !important;
   text-transform: uppercase;
 }
 .content {
