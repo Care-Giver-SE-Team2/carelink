@@ -16,7 +16,7 @@ export function ServiceApplicationListPage() {
       <p className={styles.eyebrow}>CARE SERVICES</p><h1>My service applications</h1>
       <p className={styles.subtitle}>Request care for an elder you are linked to.</p>
     </header>
-    <div className={styles.toolbar}>
+    <div className={styles.listActions}>
       <Link className={styles.createLink} to="/family/service-applications/new">New service application</Link>
       <button onClick={() => void query.refetch()} disabled={query.isFetching}>Refresh</button>
       <Link to="/family/intake">Earlier registration applications</Link>
@@ -24,7 +24,7 @@ export function ServiceApplicationListPage() {
     {query.isPending && <IntakeLoading />}
     {query.isError && <p role="alert" className={styles.state}>Unable to load service applications. Check your access or try Refresh.</p>}
     {!query.isError && data && <>
-      <p aria-live="polite">{data.totalElements} service {data.totalElements === 1 ? 'application' : 'applications'}</p>
+      <p className={styles.listCount} aria-live="polite">{data.totalElements} service {data.totalElements === 1 ? 'application' : 'applications'}</p>
       {data.items.length === 0 ? <section className={styles.state}>
         <h2>{page > 0 ? 'No applications on this page' : 'No service applications yet'}</h2>
         <p>Applications you submit for your currently linked elders will appear here.</p>

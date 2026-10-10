@@ -33,7 +33,7 @@
 
 FM01 页面已接入现有后端接口：
 
-- `/family` 转到 `/family/home`（首页：当前／下一次服务、本周概况）；底部标签栏为 Home · Schedule · Reports（周摘要）· Services（申请）· Account。
+- `/family` 转到 `/family/home`（首页：待您回复的事项、当前／下一次服务、本周概况）；手机底部标签栏为 Home · Schedule · Reports（周摘要）· Applications（申请）· Menu，Menu 弹出全部页面（按 Care / Needs your answer / Your service 分组，Account 在最后）；桌面侧栏同样分组，Account 固定在底部。待回复数量显示在 Menu 及各页面旁。
 - `/family/account`：账户页，显示关注的老人、通知方式和帮助；退出登录只在此页。
 - 桌面（≥ 900px）：底部标签栏换成左侧导航栏（关注的老人切换、四个栏目、底部账户入口）。首页、周排程、周摘要为左右两栏，报告详情最宽 1060px，其余页面为 640px 单栏。所选老人在各页共享（`components/FamilyElderContext.tsx`）；报告页仍以 URL 的 `elderId` 为准。桌面版的特殊标记由 `useIsDesktop()` 控制，手机版行为和请求不变。
 - `/family/intake`：本人旧建档申请历史列表，按状态筛选、每页 20 条、刷新。

@@ -8,6 +8,12 @@ import type { FamilyElderProfile } from '../../../features/family-elders/api'
 import type { ServiceApplication } from '../../../features/service-applications/api'
 import { serviceApplicationKey } from '../../../features/service-applications/queries'
 
+// The navigation's waiting counts are tested with FamilyLayout and on Home; here they stay at zero so
+// only this page's own requests are made.
+vi.mock('../components/usePendingDecisions', () => ({
+  usePendingDecisions: () => ({ changes: [], spotChecks: [], requests: [], total: 0 }),
+}))
+
 const elder: FamilyElderProfile = {
   id: 1, fullName: 'Tan Mei', gender: 'FEMALE', dateOfBirth: '1948-02-03', phone: '81234567',
   address: '12 Example Road', postalCode: '012345', preferredDialects: 'Hokkien', livesAlone: true,
@@ -100,14 +106,16 @@ describe('Bound elder service applications', () => {
   it('preserves the elder chosen on My elders when entering the application', async () => {
     install(); open('/family/elders/2')
     await screen.findByRole('heading', { name: 'Chen Li' })
-    await userEvent.click(screen.getByRole('link', { name: 'Services' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Menu' }))
+    await userEvent.click(screen.getByRole('link', { name: 'Care applications' }))
     await userEvent.click(await screen.findByRole('link', { name: 'New service application' }))
     expect(await screen.findByLabelText('Elder')).toHaveValue('2')
   })
 
   it('does not silently choose another person when the shared elder has read-only access', async () => {
     install(); open('/family/elders/3'); await screen.findByRole('heading', { name: 'Lim Ai Hua' })
-    await userEvent.click(screen.getByRole('link', { name: 'Services' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Menu' }))
+    await userEvent.click(screen.getByRole('link', { name: 'Care applications' }))
     await userEvent.click(await screen.findByRole('link', { name: 'New service application' }))
     expect(await screen.findByLabelText('Elder')).toHaveValue('')
     expect(submit()).toBeDisabled()

@@ -6,6 +6,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import FamilyHome from '../index'
 import type { FamilyElderProfile } from '../../../features/family-elders/api'
 
+// The navigation's waiting counts are tested with FamilyLayout and on Home; here they stay at zero so
+// only this page's own requests are made.
+vi.mock('../components/usePendingDecisions', () => ({
+  usePendingDecisions: () => ({ changes: [], spotChecks: [], requests: [], total: 0 }),
+}))
+
 const elder: FamilyElderProfile = {
   id: 1, fullName: 'Tan Mei', gender: 'FEMALE', dateOfBirth: '1948-02-03', phone: '81234567',
   address: '12 Example Road', postalCode: '123456', preferredDialects: 'Hokkien', livesAlone: true,
@@ -247,6 +253,7 @@ describe('My elders and basic details', () => {
     expect(client.getQueryState(['elders', 'family'])?.isInvalidated).toBe(true)
     expect(client.getQueryState(['family-elder-profiles'])?.isInvalidated).toBe(true)
     // The active page uses the freshly fetched server list, rather than the formerly empty cache.
+    await user.click(screen.getByRole('button', { name: 'Menu' }))
     await user.click(screen.getByRole('link', { name: 'Account' }))
     const following = await screen.findByRole('region', { name: 'Following' })
     await user.click(await within(following).findByRole('link', { name: /My elders/ }))
