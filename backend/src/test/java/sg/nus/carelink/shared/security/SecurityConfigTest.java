@@ -73,10 +73,27 @@ class SecurityConfigTest {
 	@ParameterizedTest
 	@ValueSource(strings = {"/caregiver", "/caregiver/", "/caregiver/visits/42",
 			"/caregiver/visits/42/report-incident", "/caregiver/incidents", "/caregiver/incidents/7",
-			"/caregiver/absences", "/caregiver/spot-checks"})
-	void caregiverDocumentRoutesForwardWithoutOpeningTheApi(String path) throws Exception {
+			"/caregiver/absences", "/caregiver/spot-checks",
+			"/manager", "/manager/", "/manager/roster", "/manager/elders/42",
+			"/family", "/family/home", "/family/reports/weekly",
+			"/elder", "/elder/emergency", "/elder/register"})
+	void documentRoutesForwardWithoutOpeningTheApi(String path) throws Exception {
 		mockMvc.perform(get(path)).andExpect(status().isOk()).andExpect(forwardedUrl("/index.html"));
 		mockMvc.perform(get("/api/caregivers/me/schedule")).andExpect(status().isUnauthorized());
+	}
+
+	// Reloading a page while signed in used to reach no handler and come back as a 500.
+	@ParameterizedTest
+	@ValueSource(strings = {"/manager", "/manager/exceptions/7", "/family/home", "/elder"})
+	void documentRoutesForwardForASignedInUser(String path) throws Exception {
+		mockMvc.perform(get(path).with(user("someone").roles("MANAGER")))
+				.andExpect(status().isOk()).andExpect(forwardedUrl("/index.html"));
+	}
+
+	@Test
+	void unmappedPathIsNotFoundRatherThanAServerError() throws Exception {
+		mockMvc.perform(get("/no-such-page").with(user("someone").roles("MANAGER")))
+				.andExpect(status().isNotFound());
 	}
 
 	@Test

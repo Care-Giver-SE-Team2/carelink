@@ -63,13 +63,14 @@ class SecurityConfig {
 						// Family sign-up: the caller has no account, so no role, yet.
 						.requestMatchers(HttpMethod.POST, "/api/family-registrations", "/api/elder-registrations").permitAll()
 
-						// Front-end static assets.
+						// Front-end static assets and the SPA document routes SpaPageController
+						// forwards. These serve only the app shell; RequireRole sends a signed-out
+						// visitor back to the landing page, and every /api call is still checked.
 						.requestMatchers(
 								"/",
 								"/index.html",
 								"/apply",
-								"/caregiver", "/caregiver/", "/caregiver/visits/*", "/caregiver/visits/*/report-incident",
-                                "/caregiver/absences", "/caregiver/spot-checks", "/caregiver/incidents", "/caregiver/incidents/*",
+								"/manager/**", "/caregiver/**", "/family/**", "/elder/**",
 								"/favicon.ico",
 								"/assets/**",
 								"/vite.svg"

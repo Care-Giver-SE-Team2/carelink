@@ -12,6 +12,7 @@ import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 import org.springframework.web.server.ResponseStatusException;
 
 import sg.nus.carelink.shared.error.BusinessRuleViolation;
@@ -68,6 +69,14 @@ class GlobalExceptionHandler {
 	@ExceptionHandler(ResourceNotFound.class)
 	ProblemDetail onResourceNotFound(ResourceNotFound ex) {
 		ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.NOT_FOUND, ex.getMessage());
+		problem.setTitle("Resource not found");
+		return problem;
+	}
+
+	/** A path with no controller and no static file is a 404, not a server error. */
+	@ExceptionHandler(NoResourceFoundException.class)
+	ProblemDetail onNoResource(NoResourceFoundException ex) {
+		ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.NOT_FOUND, "No such resource");
 		problem.setTitle("Resource not found");
 		return problem;
 	}
