@@ -6,7 +6,8 @@ The matching operations and DTOs are in `docs/api/openapi.yaml`.
 
 ## Ownership and what is not changed
 
-Caregiver owns My credentials, new/renewal/resubmission commands, immutable submission facts,
+The caregiver module owns the My credentials page, certificate submission and renewal commands,
+explicit retries after rejection, immutable submission facts,
 private file storage and authorized read endpoints. MG06 owns manager review UI, existing
 Publish/Reject behaviour, review notifications, onboarding and rostering eligibility.
 No manager screen or approval algorithm is changed by this feature. Uploading is not approval,
