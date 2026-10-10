@@ -27,24 +27,6 @@ public class InMemoryIntakeApplicationRepository implements IntakeApplicationRep
 	}
 
 	@Override
-	public List<IntakeApplication> findPending() {
-		return rows.values().stream()
-				.filter(IntakeApplication::isPending)
-				.sorted(Comparator.comparing(IntakeApplication::createdAt).thenComparing(IntakeApplication::id).reversed())
-				.toList();
-	}
-
-	@Override
-	public List<IntakeApplication> findPendingByPostalCode(String postalCode) {
-		return findPending().stream().filter(row -> postalCode.equals(row.postalCode())).toList();
-	}
-
-	@Override
-	public Optional<IntakeApplication> findByIdForUpdate(Long id) {
-		return findById(id);
-	}
-
-	@Override
 	public List<IntakeApplication> findApprovedByElderId(Long elderId) {
 		return rows.values().stream()
 				.filter(row -> row.status() == IntakeApplication.Status.APPROVED && elderId.equals(row.elderId()))
@@ -63,7 +45,7 @@ public class InMemoryIntakeApplicationRepository implements IntakeApplicationRep
 				page, size, matching.size());
 	}
 
-	@Override
+	/** Test setup only: the port no longer writes, since families can no longer submit one. */
 	public IntakeApplication save(IntakeApplication application) {
 		IntakeApplication stored = application.id() == null
 				? new IntakeApplication(nextId++, application.applicantFamilyMemberId(),
