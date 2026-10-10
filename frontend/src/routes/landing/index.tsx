@@ -340,8 +340,8 @@ export default function LandingHome() {
               </div>
 
               <div className={styles.applyCardCaption}>
-                Takes about ten minutes. A care manager replies
-                within two working days.
+                Create a family account, then link to your
+                loved one to request care.
               </div>
             </Link>
             <Link to="/elder/register" className={styles.applyCard}>

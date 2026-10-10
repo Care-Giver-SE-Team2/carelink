@@ -20,9 +20,6 @@ import sg.nus.carelink.profile.infrastructure.persistence.repository.IntakeAppli
 @Repository
 class IntakeApplicationRepositoryAdapter implements IntakeApplicationRepository {
 
-	private static final List<IntakeApplicationJpaEntity.Status> PENDING =
-			List.of(IntakeApplicationJpaEntity.Status.SUBMITTED, IntakeApplicationJpaEntity.Status.UNDER_REVIEW);
-
 	private final IntakeApplicationJpaRepository jpa;
 
 	IntakeApplicationRepositoryAdapter(IntakeApplicationJpaRepository jpa) {
@@ -32,27 +29,6 @@ class IntakeApplicationRepositoryAdapter implements IntakeApplicationRepository 
 	@Override
 	public Optional<IntakeApplication> findById(Long id) {
 		return jpa.findById(id).map(IntakeApplicationMapper::toDomain);
-	}
-
-	@Override
-	public IntakeApplication save(IntakeApplication intakeApplication) {
-		return IntakeApplicationMapper.toDomain(jpa.save(IntakeApplicationMapper.toEntity(intakeApplication)));
-	}
-
-	@Override
-	public List<IntakeApplication> findPending() {
-		return jpa.findByStatusNewestFirst(PENDING).stream().map(IntakeApplicationMapper::toDomain).toList();
-	}
-
-	@Override
-	public List<IntakeApplication> findPendingByPostalCode(String postalCode) {
-		return jpa.findByPostalCodeAndStatusIn(postalCode, PENDING).stream().map(IntakeApplicationMapper::toDomain)
-				.toList();
-	}
-
-	@Override
-	public Optional<IntakeApplication> findByIdForUpdate(Long id) {
-		return jpa.findByIdForUpdate(id).map(IntakeApplicationMapper::toDomain);
 	}
 
 	@Override

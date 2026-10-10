@@ -15,7 +15,7 @@ function open(path = '/apply') {
       <Routes>
         <Route path="/" element={<LandingHome />} />
         <Route path="/apply" element={<FamilySignUp />} />
-        <Route path="/family/intake/new" element={<h1>New care application</h1>} />
+        <Route path="/family/family-bindings" element={<h1>Family bindings</h1>} />
       </Routes>
     </MemoryRouter>,
   )
@@ -68,14 +68,14 @@ describe('Family sign-up', () => {
     expect(fetchMock).not.toHaveBeenCalledWith('/api/auth/me', expect.anything())
   })
 
-  it('creates the account, signs in with it and continues to the care application', async () => {
+  it('creates the account, signs in with it and continues to family bindings', async () => {
     const fetchMock = stubServer()
     open()
 
     const user = await fillIn()
     await user.click(screen.getByRole('button', { name: 'Create account and continue' }))
 
-    expect(await screen.findByRole('heading', { name: 'New care application' })).toBeTruthy()
+    expect(await screen.findByRole('heading', { name: 'Family bindings' })).toBeTruthy()
     const signUp = fetchMock.mock.calls.find(([url]) => url === '/api/family-registrations')!
     expect(JSON.parse(signUp[1].body as string)).toEqual({
       username: 'lim.weiling',

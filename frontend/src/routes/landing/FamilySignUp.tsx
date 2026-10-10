@@ -28,7 +28,8 @@ function validate(values: Values): Errors {
 /**
  * Public sign-up for a family member applying for care for an elder. Reached from the landing
  * page's "No account yet?" card, so it sits outside every RequireRole. Creates a FAMILY account,
- * signs in with it, and continues to the care application form.
+ * signs in with it, and continues to family bindings: the elder links the account by its username,
+ * and only once that is accepted can the family apply for care services.
  */
 export default function FamilySignUp() {
   const navigate = useNavigate()
@@ -75,7 +76,7 @@ export default function FamilySignUp() {
 
     try {
       await signInWithSession({ username: values.username, password: values.password })
-      navigate('/family/intake/new', { replace: true })
+      navigate('/family/family-bindings', { replace: true })
     } catch {
       setBusy(false)
       setError('Your account was created, but signing in failed. Sign in from the home page to continue.')
@@ -121,19 +122,19 @@ export default function FamilySignUp() {
               <li>
                 <span className={signUpStyles.stepTitle}>Create your family account</span>
                 <span className={signUpStyles.stepText}>
-                  You use it to send the application and follow its progress.
+                  You use it to request care and follow its progress.
                 </span>
               </li>
               <li>
-                <span className={signUpStyles.stepTitle}>Tell us about your loved one</span>
+                <span className={signUpStyles.stepTitle}>Link to your loved one</span>
                 <span className={signUpStyles.stepText}>
-                  Their address, mobility and the care they need. Takes about ten minutes.
+                  Give them your username. They send you a request from their CareLink account, and you accept it.
                 </span>
               </li>
               <li>
-                <span className={signUpStyles.stepTitle}>Hear back from a care manager</span>
+                <span className={signUpStyles.stepTitle}>Request care services</span>
                 <span className={signUpStyles.stepText}>
-                  A care manager replies within two working days.
+                  Choose the care they need, and a care manager plans it.
                 </span>
               </li>
             </ol>
@@ -142,7 +143,7 @@ export default function FamilySignUp() {
 
         <form className={styles.formColumn} onSubmit={handleSubmit} aria-busy={busy} noValidate>
           <h2 className={styles.formTitle}>Create your family account</h2>
-          <p className={styles.formSubtitle}>Step 1 of 2. Next: the care application.</p>
+          <p className={styles.formSubtitle}>Step 1 of 3. Next: link to your loved one.</p>
 
           <div className={styles.fields}>
             <div>

@@ -1,7 +1,7 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { afterEach, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 
 import {
   createFamilyValueAddedServiceRequest,
@@ -20,9 +20,18 @@ const catalogue = [
   { id: 2, name: 'Companionship', description: 'Company at home', durationMinutes: 120, status: 'AVAILABLE' as const },
 ]
 
+// The picker's earliest time is "now" plus the notice period, and jsdom refuses to submit a value
+// below it, so pin the clock before the times the tests type in. Only Date is faked; user-event
+// still needs real timers.
+beforeEach(() => {
+  vi.useFakeTimers({ toFake: ['Date'] })
+  vi.setSystemTime(new Date(2026, 9, 1, 9, 0))
+})
+
 afterEach(() => {
   cleanup()
   vi.clearAllMocks()
+  vi.useRealTimers()
 })
 
 function renderForm(onCreated = vi.fn()) {
