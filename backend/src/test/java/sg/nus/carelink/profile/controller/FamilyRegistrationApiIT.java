@@ -63,7 +63,7 @@ class FamilyRegistrationApiIT {
 		assertThat(jdbc.queryForObject("SELECT role FROM user_role r JOIN app_user u ON u.id = r.user_id "
 				+ "WHERE u.username = 'lim.family'", String.class)).isEqualTo("FAMILY");
 		assertThat(jdbc.queryForObject("SELECT phone FROM family_member f JOIN app_user u ON u.id = f.user_id "
-				+ "WHERE u.username = 'lim.family'", String.class)).isEqualTo("91234567");
+				+ "WHERE u.username = 'lim.family'", String.class)).isEqualTo("+6591234567");
 
 		var login = mvc.perform(post("/api/auth/login").cookie(token).header("X-XSRF-TOKEN", token.getValue())
 				.contentType(MediaType.APPLICATION_JSON)

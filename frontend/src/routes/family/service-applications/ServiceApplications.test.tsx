@@ -138,10 +138,11 @@ describe('Bound elder service applications', () => {
 
   it('validates services and notes before sending', async () => {
     const fetch = install(); open(); await screen.findByLabelText('Elder'); await userEvent.click(submit())
-    expect(await screen.findByRole('alert')).toHaveTextContent('Choose at least one care service')
+    expect(await screen.findByText('Choose at least one care service.')).toBeInTheDocument()
     await userEvent.click(screen.getByLabelText('Vital-sign check'))
     fireEvent.change(screen.getByLabelText('Notes for this application (optional)'), { target: { value: 'a'.repeat(2001) } }); await userEvent.click(submit())
-    expect(screen.getByRole('alert')).toHaveTextContent('2000 characters')
+    expect(screen.getByText('Notes must be 2000 characters or fewer.')).toBeInTheDocument()
+    expect(screen.getByLabelText('Notes for this application (optional)')).toHaveAttribute('aria-invalid', 'true')
     expect(fetch.mock.calls.some(([, init]) => init.method === 'POST')).toBe(false)
   })
 
