@@ -1,0 +1,7 @@
+**
+!reports/
+!reports/main-sync/
+!reports/main-sync/credential-demo-build/
+!reports/main-sync/credential-demo-build/backend/
+!reports/main-sync/credential-demo-build/backend/target/
+!reports/main-sync/credential-demo-build/backend/target/backend-0.0.1-SNAPSHOT.jar

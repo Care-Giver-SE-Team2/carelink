@@ -1,0 +1,9 @@
+# Offline local verification only; requires the freshly packaged jar including frontend.
+FROM carelink:caregiver-demo
+USER root
+RUN mkdir -p /app/private/credentials /app/private/multipart \
+ && chown -R 1001:1001 /app/private
+ENV CARELINK_CREDENTIAL_STORAGE=/app/private/credentials \
+    CARELINK_MULTIPART_TEMP=/app/private/multipart
+COPY --chown=1001:1001 reports/main-sync/credential-demo-build/backend/target/backend-0.0.1-SNAPSHOT.jar /app/app.jar
+USER 1001
