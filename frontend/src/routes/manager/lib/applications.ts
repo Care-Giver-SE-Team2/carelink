@@ -1,4 +1,6 @@
 import type { IntakeCheck, IntakeMobilityLevel, IntakeReview } from '../../../shared/api/profile'
+import type { CareActivity } from '../../../shared/api/careplan'
+import { careNeedLabel } from '../../../features/careplan/careActivities'
 import type { TagTone } from '../../../shared/components/ui'
 
 /** Families are promised an answer within this many working days of submitting. */
@@ -74,14 +76,9 @@ export function mobilityLabel(level: IntakeMobilityLevel): string {
   return MOBILITY[level]
 }
 
-/** The two care needs the family form offers as checkboxes; anything else is the family's own words. */
-const CARE_NEEDS: Record<string, string> = {
-  BATHING: 'Bathing assistance',
-  VITALS: 'Vital signs monitoring',
-}
-
-export function careNeedsLabel(careNeeds: string[]): string {
-  return careNeeds.map((need) => CARE_NEEDS[need] ?? need).join(', ')
+/** Care activity codes as their catalog labels; anything else is the family's own words from an older form. */
+export function careNeedsLabel(careNeeds: string[], catalog: CareActivity[] | undefined): string {
+  return careNeeds.map((need) => careNeedLabel(catalog, need)).join(', ')
 }
 
 /** "83 · walking aid" — the age, and the mobility when it isn't independent. */

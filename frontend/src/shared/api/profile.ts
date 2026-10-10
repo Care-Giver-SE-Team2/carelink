@@ -36,6 +36,34 @@ export function fetchElderFamily(id: string): Promise<ElderFamilyContact[]> {
   return api<ElderFamilyContact[]>(`/elders/${id}/family`)
 }
 
+/** Care the family applied for on the elder's behalf: the intake that created the elder, or a later service
+ * application. careNeeds are care activity codes, or free text on applications that predate the catalog.
+ * outcome is worked out from the published plan versions: PLANNED once every activity is in one (this outranks
+ * a decline), DECLINED with the reason the family was given, SUBMITTED otherwise. */
+export type ElderCareRequest = {
+  source: 'INTAKE' | 'SERVICE_APPLICATION'
+  applicationId: number
+  careNeeds: string[]
+  notes: string | null
+  submittedAt: string
+  outcome: 'SUBMITTED' | 'PLANNED' | 'DECLINED'
+  needs: { need: string; plannedVersion: number | null; plannedFrom: string | null }[]
+  declineReason: string | null
+}
+
+/** Newest first; [] when the family hasn't applied for anything (e.g. the elder registered themselves). */
+export function fetchElderCareRequests(id: string): Promise<ElderCareRequest[]> {
+  return api<ElderCareRequest[]>(`/elders/${id}/care-requests`)
+}
+
+/** The care team won't plan a family's service application; the reason is shown to the family. */
+export function declineServiceApplication(applicationId: number, reason: string): Promise<void> {
+  return api<void>(`/service-applications/${applicationId}/decline`, {
+    method: 'POST',
+    body: JSON.stringify({ reason }),
+  })
+}
+
 /**
  * Row shape for GET /api/elders — profile.controller.dto.ElderListItemResponse. The three
  * primaryCaregiver fields are all null while the elder has no primary caregiver.

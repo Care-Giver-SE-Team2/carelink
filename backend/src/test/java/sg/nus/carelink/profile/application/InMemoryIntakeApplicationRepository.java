@@ -45,6 +45,13 @@ public class InMemoryIntakeApplicationRepository implements IntakeApplicationRep
 	}
 
 	@Override
+	public List<IntakeApplication> findApprovedByElderId(Long elderId) {
+		return rows.values().stream()
+				.filter(row -> row.status() == IntakeApplication.Status.APPROVED && elderId.equals(row.elderId()))
+				.toList();
+	}
+
+	@Override
 	public IntakeApplicationPage findForApplicant(Long familyMemberId, IntakeApplication.Status status,
 			int page, int size) {
 		var matching = rows.values().stream()

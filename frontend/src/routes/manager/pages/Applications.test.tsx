@@ -8,6 +8,7 @@ import Applications from './Applications'
 import * as authApi from '../../../features/auth/api'
 import * as incidentsApi from '../../../features/incidents/api'
 import * as profileApi from '../../../shared/api/profile'
+import * as carePlanApi from '../../../shared/api/careplan'
 import type { IntakeCheck, IntakeReview } from '../../../shared/api/profile'
 
 let pending: IntakeReview[]
@@ -74,6 +75,9 @@ beforeEach(() => {
   vi.spyOn(authApi, 'getCurrentUser').mockResolvedValue({ id: 1, username: 'tml', displayName: 'Tan Mei Ling', roles: ['MANAGER'] })
   vi.spyOn(profileApi, 'fetchCredentialRegister').mockResolvedValue([])
   vi.spyOn(profileApi, 'fetchIntakeReviews').mockImplementation(async () => [...pending])
+  vi.spyOn(carePlanApi, 'fetchCareActivities').mockResolvedValue([
+    { code: 'BATHING', label: 'Bathing assistance', category: 'Personal care' },
+  ])
 })
 
 function answer(id: number) {
@@ -121,7 +125,7 @@ it('lists pending applications with their check flag and opens the newest', asyn
   expect(within(detail).getByRole('heading', { name: 'Grace Tan Wei Ling, for Tan Bee Choo' })).toBeInTheDocument()
   expect(within(detail).getByText('Application · #42')).toBeInTheDocument()
   expect(within(detail).getByText('Blk 230 Bishan St 23, #04-117 · 570230')).toBeInTheDocument()
-  expect(within(detail).getByText('Bathing assistance, Companionship')).toBeInTheDocument()
+  expect(await within(detail).findByText('Bathing assistance, Companionship')).toBeInTheDocument()
   expect(within(detail).getByText('Hokkien-speaking caregiver')).toBeInTheDocument()
   expect(within(detail).getByText('✓ 2 in S31')).toBeInTheDocument()
 })

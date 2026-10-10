@@ -90,9 +90,13 @@ describe('careForMeta / careNeedsLabel', () => {
     expect(careForMeta(application({ mobilityLevel: 'INDEPENDENT', targetElderAge: null }))).toBe('age not given')
   })
 
-  it('spells out the form’s checkbox codes and keeps the family’s own words', () => {
-    expect(careNeedsLabel(['BATHING', 'VITALS', 'Meal preparation'])).toBe(
-      'Bathing assistance, Vital signs monitoring, Meal preparation',
+  it('spells out catalog codes and keeps the family’s own words', () => {
+    const catalog = [
+      { code: 'BATHING', label: 'Bathing assistance', category: 'Personal care' },
+      { code: 'VITALS', label: 'Vital-sign check', category: 'Health monitoring' },
+    ]
+    expect(careNeedsLabel(['BATHING', 'VITALS', 'Meal preparation'], catalog)).toBe(
+      'Bathing assistance, Vital-sign check, Meal preparation',
     )
   })
 })

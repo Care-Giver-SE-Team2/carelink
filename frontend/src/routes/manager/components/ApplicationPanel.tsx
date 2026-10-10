@@ -9,6 +9,7 @@ import {
   mobilityLabel,
   responseCountdown,
 } from '../lib/applications'
+import { useCareActivities } from '../../../features/careplan/careActivities'
 import { ChecksList } from './ChecksList'
 import styles from './ApplicationPanel.module.css'
 
@@ -35,6 +36,7 @@ export function ApplicationPanel({
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [now] = useState(() => new Date())
+  const { data: catalog } = useCareActivities()
 
   const applicant = application.applicant.fullName
   const elder = application.targetElderName
@@ -91,7 +93,7 @@ export function ApplicationPanel({
           <Detail label="Mobility">{capitalise(mobilityLabel(application.mobilityLevel))}</Detail>
           <Detail label="Dialects">{application.preferredDialects ?? <NotGiven />}</Detail>
           <Detail label="Care needs">
-            {application.careNeeds.length ? careNeedsLabel(application.careNeeds) : <NotGiven />}
+            {application.careNeeds.length ? careNeedsLabel(application.careNeeds, catalog) : <NotGiven />}
           </Detail>
           <Detail label="Medical notes">{application.medicalNotes ?? <NotGiven />}</Detail>
         </dl>
