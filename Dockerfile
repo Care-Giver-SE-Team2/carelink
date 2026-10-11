@@ -38,7 +38,11 @@ RUN apt-get update \
  && useradd --system --uid 1001 --create-home carelink
 WORKDIR /app
 COPY --from=backend /src/target/*.jar app.jar
-RUN chown carelink:carelink /app/app.jar
+RUN mkdir -p /app/private/credentials /app/private/multipart \
+ && chown -R carelink:carelink /app/app.jar /app/private
+# Private material is never served from the static web root. Deployments must persist it.
+ENV CARELINK_CREDENTIAL_STORAGE=/app/private/credentials \
+    CARELINK_MULTIPART_TEMP=/app/private/multipart
 # The commit this image was built from, exposed at /actuator/info so a deployment
 # can be verified from outside ("is staging running what I just pushed?").
 ARG GIT_SHA=unknown

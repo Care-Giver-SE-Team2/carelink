@@ -1,0 +1,4 @@
+# Confirmed false positive: prose "new/renewal/resubmission" in the ownership paragraph,
+# not a credential. Limit the exception to this exact historic finding; keep all rules
+# and future versions of the document scanned. No real secrets are allowlisted.
+e9e73b88e018cd1f1cca3b7c1cf5631be56fa39f:docs/caregiver/credential-upload-contract.md:generic-api-key:9

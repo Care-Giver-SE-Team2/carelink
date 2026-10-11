@@ -15,6 +15,7 @@ export default function CaregiverNavigation() {
   return <nav className={styles.navigation} aria-label="Caregiver navigation">
     <NavLink to={'/caregiver' + scheduleSearch} end>My schedule</NavLink>
     <NavLink to="/caregiver/absences">My leave</NavLink>
+    <NavLink to="/caregiver/credentials">My credentials</NavLink>
     <NavLink to="/caregiver/spot-checks">Spot checks</NavLink>
     <NavLink to="/caregiver/incidents">My reports</NavLink>
   </nav>

@@ -52,6 +52,9 @@ services:
       # A 2 GB machine shared with MySQL: cap the JVM heap at half of what the
       # container sees, otherwise the two fight and the kernel kills one of them.
       JAVA_TOOL_OPTIONS: -XX:MaxRAMPercentage=50
+    # Preserve uploaded qualifications across image replacement; back up with the DB.
+    volumes:
+      - credential-files:/app/private/credentials
     ports:
       - "80:8080"
     healthcheck:
@@ -63,6 +66,7 @@ services:
 
 volumes:
   db-data:
+  credential-files:
 
 networks:
   carelink:
