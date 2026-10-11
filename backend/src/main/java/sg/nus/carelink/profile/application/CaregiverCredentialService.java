@@ -35,7 +35,15 @@ public class CaregiverCredentialService {
             LocalDateTime submittedAt, String reviewNote, LocalDateTime reviewedAt,
             Long renewsCredentialId, Long resubmitsCredentialId, boolean historical, List<DocumentView> documents) { }
     public record Page(List<View> items, int page, int size, long total) { }
-    public record Content(DocumentView document, byte[] bytes) { }
+    public record Content(DocumentView document, byte[] bytes) {
+        public Content { bytes = bytes == null ? null : bytes.clone(); }
+        @Override public byte[] bytes() { return bytes == null ? null : bytes.clone(); }
+        @Override public boolean equals(Object other) {
+            return other instanceof Content value && Objects.equals(document, value.document) && Arrays.equals(bytes, value.bytes);
+        }
+        @Override public int hashCode() { return Objects.hash(document, Arrays.hashCode(bytes)); }
+        @Override public String toString() { return "Content[document=" + document + ", bytesHash=" + Arrays.hashCode(bytes) + "]"; }
+    }
     private record Actor(Long userId, Caregiver caregiver) { }
     private static final ZoneId SGT = ZoneId.of("Asia/Singapore");
     private final UserDirectory users;
@@ -256,7 +264,11 @@ public class CaregiverCredentialService {
     }
     private LocalDateTime now() { return LocalDateTime.now(clock.withZone(SGT)).withNano(0); }
     private static String requestId(String value) {
-        try { String canonical = UUID.fromString(value).toString(); if (!canonical.equals(value)) throw new IllegalArgumentException(); return canonical; }
+        try {
+            String canonical = UUID.fromString(value).toString();
+            if (!canonical.equals(value)) throw new IllegalArgumentException();
+            return canonical;
+        }
         catch (RuntimeException ex) { throw invalid("Use a canonical UUID request key."); }
     }
     private static ResponseStatusException invalid(String message) { return new ResponseStatusException(HttpStatus.BAD_REQUEST, message); }

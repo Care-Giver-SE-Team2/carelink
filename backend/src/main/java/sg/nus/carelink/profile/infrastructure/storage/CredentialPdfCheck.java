@@ -1,6 +1,7 @@
 package sg.nus.carelink.profile.infrastructure.storage;
 
 import java.io.File;
+import java.io.IOException;
 import java.util.*;
 import org.apache.pdfbox.Loader;
 import org.apache.pdfbox.cos.*;
@@ -15,7 +16,7 @@ public final class CredentialPdfCheck {
         try { verify(new File(args[0])); }
         catch (Exception | StackOverflowError ex) { System.exit(2); }
     }
-    static void verify(File file) throws Exception {
+    static void verify(File file) throws IOException {
         try (PDDocument pdf = Loader.loadPDF(file)) {
             if (pdf.isEncrypted() || pdf.getNumberOfPages() < 1 || pdf.getNumberOfPages() > 20)
                 throw new IllegalArgumentException("Unsupported PDF");

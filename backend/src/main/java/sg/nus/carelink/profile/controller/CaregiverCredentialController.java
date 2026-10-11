@@ -1,7 +1,6 @@
 package sg.nus.carelink.profile.controller;
 
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.util.*;
 import org.springframework.http.*;
@@ -43,7 +42,8 @@ public class CaregiverCredentialController {
             @RequestParam("files") List<MultipartFile> files) throws IOException {
         if (files.isEmpty() || files.size() > 3 || files.stream().anyMatch(f -> f.isEmpty() || f.getSize() > 5L * 1024 * 1024))
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Select 1 to 3 non-empty files, each at most 5 MiB.");
-        String action = id == null ? "NEW" : http.getRequestURI().endsWith("/resubmissions") ? "RESUBMIT" : "RENEWAL";
+        String action = "NEW";
+        if (id != null) action = http.getRequestURI().endsWith("/resubmissions") ? "RESUBMIT" : "RENEWAL";
         List<Upload> uploads = new ArrayList<>();
         for (MultipartFile file : files) uploads.add(new Upload(file.getOriginalFilename(), file.getContentType(), file.getBytes()));
         return service.submit(auth.getName(), action, id, new CaregiverCredentialService.Request(credentialTypeId,
