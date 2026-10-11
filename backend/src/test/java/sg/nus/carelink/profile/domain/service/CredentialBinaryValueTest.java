@@ -14,7 +14,8 @@ class CredentialBinaryValueTest {
         assertThat(first).isEqualTo(same).hasSameHashCodeAs(same);
         assertThat(first).isNotEqualTo(new Upload("other.png","image/png",new byte[]{1,2,3}));
         assertThat(first).isNotEqualTo(new Upload("demo.png","image/jpeg",new byte[]{1,2,3}));
-        assertThat(first).isNotEqualTo(new Upload("demo.png","image/png",new byte[]{3,2,1})).isNotEqualTo("not an upload");
+        assertThat(first).isNotEqualTo(new Upload("demo.png","image/png",new byte[]{3,2,1}));
+        assertThat(first.equals(null)).isFalse();
         assertThat(first.toString()).contains("bytesHash=").doesNotContain("[1, 2, 3]");
         var empty=new Upload(null,null,null);
         assertThat(empty.bytes()).isNull(); assertThat(empty).isEqualTo(new Upload(null,null,null));
@@ -27,7 +28,8 @@ class CredentialBinaryValueTest {
         assertThat(first).isNotEqualTo(new Prepared("other.pdf","application/pdf",new byte[]{1,2},"original"));
         assertThat(first).isNotEqualTo(new Prepared("demo.pdf","image/png",new byte[]{1,2},"original"));
         assertThat(first).isNotEqualTo(new Prepared("demo.pdf","application/pdf",new byte[]{2,1},"original"));
-        assertThat(first).isNotEqualTo(new Prepared("demo.pdf","application/pdf",new byte[]{1,2},"different")).isNotEqualTo("not prepared");
+        assertThat(first).isNotEqualTo(new Prepared("demo.pdf","application/pdf",new byte[]{1,2},"different"));
+        assertThat(first.equals(null)).isFalse();
         assertThat(first.toString()).contains("bytesHash=").doesNotContain("[1, 2]");
         var empty=new Prepared(null,null,null,null);
         assertThat(empty.bytes()).isNull(); assertThat(empty).isEqualTo(new Prepared(null,null,null,null));
@@ -36,7 +38,7 @@ class CredentialBinaryValueTest {
         byte[] bytes={1,2}; var first=new Content(null,bytes); var same=new Content(null,new byte[]{1,2});
         bytes[0]=8; first.bytes()[0]=9;
         assertThat(first).isEqualTo(same).hasSameHashCodeAs(same).isNotEqualTo(new Content(null,new byte[]{2,1}));
-        assertThat(first).isNotEqualTo("not content"); assertThat(first.toString()).contains("bytesHash=");
+        assertThat(first.equals(null)).isFalse(); assertThat(first.toString()).contains("bytesHash=");
         var empty=new Content(null,null);
         assertThat(empty.bytes()).isNull(); assertThat(empty).isEqualTo(new Content(null,null));
     }
