@@ -51,6 +51,15 @@ class WorkSettingsRulesTest {
         assertThatThrownBy(()->WorkSettingsRules.preferences(preferences(List.of(a,a,a)),catalog)).hasMessageContaining("two");
         assertThatThrownBy(()->WorkSettingsRules.preferences(preferences(Collections.nCopies(15,a)),catalog)).hasMessageContaining("14");
     }
+    @Test void weeklyWindowsAreGroupedByWeekdayBeforeOverlapValidation() {
+        var monday=new WeeklyWindow(DayOfWeek.MONDAY,LocalTime.parse("09:30"),LocalTime.parse("11:30"));
+        var tuesday=new WeeklyWindow(DayOfWeek.TUESDAY,LocalTime.parse("09:30"),LocalTime.parse("11:30"));
+        var allowed=preferences(List.of(tuesday,monday));
+        assertThat(WorkSettingsRules.preferences(allowed,catalog).weeklyWindows()).containsExactly(monday,tuesday);
+        var overlappingMonday=new WeeklyWindow(DayOfWeek.valueOf("MONDAY"),LocalTime.parse("10:30"),LocalTime.parse("12:30"));
+        var overlap=preferences(List.of(tuesday,monday,overlappingMonday));
+        assertThatThrownBy(()->WorkSettingsRules.preferences(overlap,catalog)).hasMessageContaining("overlap");
+    }
     @Test void numericLimitsAndHalfHoursAreValidated() {
         for(var hours:List.of("0","0.4","4.1","8.5")) assertThatThrownBy(()->WorkSettingsRules.preferences(new Preferences(List.of(),List.of(),List.of(),null,new BigDecimal(hours)),catalog)).hasMessageContaining("half-hour");
         for(int count:List.of(0,9)) assertThatThrownBy(()->WorkSettingsRules.preferences(new Preferences(List.of(),List.of(),List.of(),count,null),catalog)).hasMessageContaining("visit");

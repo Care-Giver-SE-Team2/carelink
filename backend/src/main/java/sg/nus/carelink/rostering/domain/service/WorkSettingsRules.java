@@ -36,7 +36,7 @@ public final class WorkSettingsRules {
         for(var w:input.weeklyWindows()) { if(w==null || w.weekday()==null) throw invalid("Choose a weekday."); time(w.start(),w.end()); }
         var weekly=input.weeklyWindows().stream().sorted(Comparator.comparing(WeeklyWindow::weekday).thenComparing(WeeklyWindow::start)).toList();
         for(var day:DayOfWeek.values()) {
-            var onDay=weekly.stream().filter(w -> w.weekday()==day).toList();
+            var onDay=weekly.stream().filter(w -> w.weekday().equals(day)).toList();
             if(onDay.size()>2) throw invalid("Use at most two preferred windows per weekday.");
             if(onDay.size()==2 && onDay.get(1).start().isBefore(onDay.get(0).end())) throw invalid("Weekly windows must not overlap.");
         }
