@@ -61,7 +61,7 @@ class SecurityConfig {
 						).permitAll()
 
 						// Family sign-up: the caller has no account, so no role, yet.
-						.requestMatchers(HttpMethod.POST, "/api/family-registrations", "/api/elder-registrations").permitAll()
+						.requestMatchers(HttpMethod.POST, "/api/family-registrations", "/api/elder-registrations", "/api/caregiver-registrations").permitAll()
 
 						// Front-end static assets and the SPA document routes SpaPageController
 						// forwards. These serve only the app shell; RequireRole sends a signed-out
@@ -81,6 +81,7 @@ class SecurityConfig {
 								"/docs/index.html",
 								"/openapi.yaml",
 								"/openapi-draft.yaml",
+								"/caregiver-self-service.yaml",
 								"/webjars/**"
 						).permitAll()
 

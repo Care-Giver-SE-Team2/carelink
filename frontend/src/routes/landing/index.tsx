@@ -351,6 +351,10 @@ export default function LandingHome() {
               </div>
               <div className={styles.applyCardCaption}>Create a login with a username and password.</div>
             </Link>
+            <Link to="/caregiver/register" className={styles.applyCard}>
+              <div className={styles.applyCardRow}><span className={styles.applyCardLabel}>Apply as a caregiver</span><span className={styles.applyCardArrow}>→</span></div>
+              <div className={styles.applyCardCaption}>Apply for admission. Certificates are optional and reviewed separately.</div>
+            </Link>
           </div>
         </form>
       </div>
