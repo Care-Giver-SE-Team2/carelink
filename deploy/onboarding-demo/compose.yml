@@ -1,0 +1,45 @@
+name: carelink-onboarding-demo
+services:
+  db:
+    image: mysql:8.4
+    environment:
+      MYSQL_ROOT_PASSWORD: local-onboarding-root
+      MYSQL_DATABASE: carelink
+      MYSQL_USER: carelink
+      MYSQL_PASSWORD: local-onboarding-db
+      TZ: Asia/Singapore
+    command: ["--default-time-zone=+08:00"]
+    volumes: [onboarding-demo-db:/var/lib/mysql]
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 --protocol=tcp -uroot -p$$MYSQL_ROOT_PASSWORD --silent"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+  backend:
+    image: carelink:onboarding-demo
+    build:
+      context: ../..
+      dockerfile: deploy/onboarding-demo/Dockerfile.local
+    depends_on:
+      db: {condition: service_healthy}
+    environment:
+      DB_URL: jdbc:mysql://db:3306/carelink?connectionTimeZone=Asia/Singapore
+      DB_USER: carelink
+      DB_PASSWORD: local-onboarding-db
+      CARELINK_CREDENTIAL_STORAGE: /app/private/credentials
+      CARELINK_CAREGIVER_EVIDENCE_STORAGE: /app/private/evidence
+      CARELINK_MULTIPART_TEMP: /app/private/multipart
+      JAVA_TOOL_OPTIONS: -Duser.timezone=Asia/Singapore
+      APP_COMMIT: onboarding-local-uncommitted
+      CARELINK_CAREGIVER_EXPIRY_SCAN_CRON: "-"
+      CARELINK_ROSTER_SCHEDULE_CRON: "-"
+    volumes:
+      - ../../reports/onboarding-demo/private:/app/private
+    ports: ["127.0.0.1:8086:8080"]
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8080/actuator/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 40
+volumes:
+  onboarding-demo-db:

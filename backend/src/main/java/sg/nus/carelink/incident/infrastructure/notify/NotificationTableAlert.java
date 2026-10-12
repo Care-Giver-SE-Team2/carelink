@@ -52,7 +52,7 @@ class NotificationTableAlert implements IncidentAlert {
 			insert into notification
 			    (recipient_user_id, event_type, channel, title, body, resource_type, resource_id, status,
 			     created_at)
-			values (:userId, :eventType, 'IN_APP', :title, :body, 'INCIDENT', :incidentId, 'PENDING',
+			values (:userId, :eventType, 'IN_APP', :title, :body, :resourceType, :incidentId, 'PENDING',
 			        :createdAt)
 			""";
 
@@ -66,8 +66,13 @@ class NotificationTableAlert implements IncidentAlert {
 
 	@Override
 	public int broadcastRaised(Incident incident) {
-		Set<Long> audience = new LinkedHashSet<>(managers());
-		audience.addAll(recentCaregiver(incident.elderId()));
+		Set<Long> managerAudience = new LinkedHashSet<>(managers());
+		Set<Long> audience = new LinkedHashSet<>(managerAudience);
+		// SYS03 runs while this exact Visit is locked. Never substitute a later visit's
+		// caregiver; the trigger ledger saved by the caller preserves this assignment.
+		boolean missedCheckIn = incident.source() == Incident.Source.SYSTEM_MISSED_CHECKIN;
+		List<Long> caregivers = missedCheckIn ? assignedCaregiver(incident.visitId()) : recentCaregiver(incident.elderId());
+		audience.addAll(caregivers);
 
 		String title = "%s: %s".formatted(incident.severity(), incident.category());
 		String body = "%s. %s".formatted(
@@ -75,7 +80,11 @@ class NotificationTableAlert implements IncidentAlert {
 				incident.description() == null ? "No description given." : incident.description());
 
 		for (Long userId : audience) {
-			write(userId, "INCIDENT_RAISED", title, body, incident.id());
+			if (missedCheckIn && caregivers.contains(userId) && !managerAudience.contains(userId)) {
+				write(userId, "INCIDENT_RAISED", "Missed check-in alert",
+						"Visit %d was not checked in by the allowed threshold. This alert does not block service within the check-in window.".formatted(incident.visitId()),
+						incident.id(), "CAREGIVER_SYSTEM_ALERT");
+			} else write(userId, "INCIDENT_RAISED", title, body, incident.id());
 		}
 		return audience.size();
 	}
@@ -100,6 +109,16 @@ class NotificationTableAlert implements IncidentAlert {
 		return jdbc.sql(MANAGERS).param("role", Role.MANAGER.name()).query(Long.class).list();
 	}
 
+	private List<Long> assignedCaregiver(Long visitId) {
+		if (visitId == null) return List.of();
+		return jdbc.sql("""
+				select c.user_id from visit v join caregiver c on c.id=v.caregiver_id
+				join app_user u on u.id=c.user_id
+				where v.id=:visitId and u.enabled=true
+				and exists(select 1 from user_role r where r.user_id=u.id and r.role='CAREGIVER')
+				""").param("visitId", visitId).query(Long.class).list();
+	}
+
 	private List<Long> recentCaregiver(Long elderId) {
 		if (elderId == null) {
 			return List.of();
@@ -111,12 +130,17 @@ class NotificationTableAlert implements IncidentAlert {
 	}
 
 	private void write(Long userId, String eventType, String title, String body, Long incidentId) {
+		write(userId,eventType,title,body,incidentId,"INCIDENT");
+	}
+
+	private void write(Long userId, String eventType, String title, String body, Long incidentId, String resourceType) {
 		jdbc.sql(INSERT)
 				.param("userId", userId)
 				.param("eventType", eventType)
 				.param("title", trim(title, 150))
 				.param("body", trim(body, 1000))
 				.param("incidentId", incidentId)
+				.param("resourceType", resourceType)
 				// Written here rather than left to the column default: the default is the
 				// database's clock, which JPA would read back sixteen hours out. A Timestamp from
 				// the application's clock lands where the application's own writes do.
