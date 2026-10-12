@@ -55,7 +55,10 @@ class CaregiverEvidenceIT {
         jdbc.update("insert into user_role(user_id,role) values (?,'CAREGIVER')",user);
         caregiver=insert("insert into caregiver(user_id,full_name,status) values (?,'Fictional caregiver','AVAILABLE')",user);
         long elder=insert("insert into elder(full_name) values ('Fictional elder')");
-        visit=insert("insert into visit(elder_id,caregiver_id,service_type,scheduled_start,scheduled_end,status) values (?,?,'EXTRA_SERVICE','2026-10-12 09:00:00','2026-10-12 10:00:00','SCHEDULED')",elder,caregiver);
+        // Match the production JDBC/JPA date representation even when the JVM is UTC.
+        visit=insert("insert into visit(elder_id,caregiver_id,service_type,scheduled_start,scheduled_end,status) values (?,?,'EXTRA_SERVICE',?,?,'SCHEDULED')",elder,caregiver,
+                java.sql.Timestamp.valueOf(LocalDateTime.of(2026,10,12,9,0)),
+                java.sql.Timestamp.valueOf(LocalDateTime.of(2026,10,12,10,0)));
         var bytes=new ByteArrayOutputStream(); try(var out=new MemoryCacheImageOutputStream(bytes)) { ImageIO.write(new BufferedImage(2,2,BufferedImage.TYPE_INT_RGB),"png",out); } image=bytes.toByteArray();
     }
     private long insert(String sql,Object...args) {

@@ -118,5 +118,13 @@ public class CaregiverEvidenceService {
     public record View(Long id,Long visitId,String kind,String verificationStatus,LocalDateTime capturedAt,Long taskId,String fileName,String contentType,Long byteSize,boolean available,String downloadPath) { }
     public record Saved(View evidence,Integer visitVersion,boolean replayed) { }
     public record Page(List<View> items,int page,int size,long total,int maxFiles) { }
-    public record Content(View metadata,byte[] bytes) { }
+    public record Content(View metadata,byte[] bytes) {
+        public Content { bytes=bytes.clone(); }
+        @Override public byte[] bytes() { return bytes.clone(); }
+        @Override public boolean equals(Object other) {
+            return other instanceof Content value && Objects.equals(metadata, value.metadata) && Arrays.equals(bytes, value.bytes);
+        }
+        @Override public int hashCode() { return Objects.hash(metadata, Arrays.hashCode(bytes)); }
+        @Override public String toString() { return "Private evidence content"; }
+    }
 }
