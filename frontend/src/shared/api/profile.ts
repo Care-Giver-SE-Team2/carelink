@@ -184,6 +184,25 @@ export function rejectCredential(id: number, reason: string): Promise<void> {
   return api<void>(`/credentials/${id}/reject`, { method: 'POST', body: JSON.stringify({ reason: reason.trim() }) })
 }
 
+/** One uploaded file of a certificate — CaregiverCredentialService.DocumentView. */
+export type CredentialDocument = {
+  id: number
+  credentialId: number
+  fileName: string
+  contentType: string
+  byteSize: number
+  uploadedAt: string
+  /** False when the stored file can't be found; `contentUrl` then won't load. */
+  contentAvailable: boolean
+  /** The file itself, served by the backend after its access check (e.g. /api/credentials/7/documents/3/content). */
+  contentUrl: string
+}
+
+/** The files uploaded with a certificate, in upload order (GET /api/credentials/{id}/documents). */
+export function fetchCredentialDocuments(id: number, signal?: AbortSignal): Promise<CredentialDocument[]> {
+  return api<CredentialDocument[]>(`/credentials/${id}/documents`, { signal })
+}
+
 /** One certificate an applicant uploaded — CaregiverApplicationReviewService.Certificate. */
 export type CaregiverApplicationCertificate = {
   /** Its row in the certification register, where it is published or rejected. */

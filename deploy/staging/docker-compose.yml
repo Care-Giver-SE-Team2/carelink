@@ -52,6 +52,11 @@ services:
       # A 2 GB machine shared with MySQL: cap the JVM heap at half of what the
       # container sees, otherwise the two fight and the kernel kills one of them.
       JAVA_TOOL_OPTIONS: -XX:MaxRAMPercentage=50
+      # Optional: certificate files on ImageKit instead of the volume below. Add the three
+      # CARELINK_IMAGEKIT_* lines to /opt/carelink/.env to switch it on.
+      CARELINK_IMAGEKIT_ENABLED: ${CARELINK_IMAGEKIT_ENABLED:-false}
+      CARELINK_IMAGEKIT_URL_ENDPOINT: ${CARELINK_IMAGEKIT_URL_ENDPOINT:-}
+      CARELINK_IMAGEKIT_PRIVATE_KEY: ${CARELINK_IMAGEKIT_PRIVATE_KEY:-}
     # Preserve uploaded qualifications across image replacement; back up with the DB.
     volumes:
       - credential-files:/app/private/credentials
