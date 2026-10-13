@@ -45,13 +45,17 @@ import tools.jackson.databind.json.JsonMapper;
 public class ImageKitCredentialStorage implements CredentialDocumentStorage {
     private static final Logger LOG = LoggerFactory.getLogger(ImageKitCredentialStorage.class);
     private static final JsonMapper JSON = JsonMapper.builder().build();
-    private static final Pattern KEY = Pattern.compile("ik:([A-Za-z0-9]{1,64}):((?:/[A-Za-z0-9_-]{1,64}){1,8}/[a-f0-9-]{36}\\.(?:jpg|png|pdf))");
-    private static final Pattern FOLDER = Pattern.compile("[A-Za-z0-9_-]{1,64}(?:/[A-Za-z0-9_-]{1,64}){0,6}");
+    private static final Pattern STORAGE_KEY = Pattern.compile("ik:([A-Za-z0-9]{1,64}):((?:/[A-Za-z0-9_-]{1,64}){1,8}/[a-f0-9-]{36}\\.(?:jpg|png|pdf))");
+    private static final Pattern FOLDER_PATH = Pattern.compile("[A-Za-z0-9_-]{1,64}(?:/[A-Za-z0-9_-]{1,64}){0,6}");
     private static final long URL_SECONDS = 60;
     private final PrivateCredentialStorage local;
     private final RestClient http;
     private final Clock clock;
-    private final String urlEndpoint, privateKey, folder, uploadUrl, filesUrl;
+    private final String urlEndpoint;
+    private final String privateKey;
+    private final String folder;
+    private final String uploadUrl;
+    private final String filesUrl;
 
     @Autowired
     public ImageKitCredentialStorage(PrivateCredentialStorage local, Clock clock,
@@ -68,12 +72,18 @@ public class ImageKitCredentialStorage implements CredentialDocumentStorage {
         if (urlEndpoint == null || !urlEndpoint.startsWith("https://") || privateKey == null || privateKey.isBlank())
             throw new IllegalStateException("ImageKit storage needs an https url-endpoint and a private key.");
         // credential_document.storage_key holds 255 characters: "ik:" + file id + ":/" + folder + "/" + file name.
-        if (folder == null || folder.length() > 100 || !FOLDER.matcher(folder).matches())
+        if (folder == null || folder.length() > 100 || !FOLDER_PATH.matcher(folder).matches())
             throw new IllegalStateException("The ImageKit folder must be a simple relative path of at most 100 characters.");
         this.local = local; this.clock = clock; this.http = http.build();
-        this.urlEndpoint = urlEndpoint.replaceAll("/+$", "");
+        this.urlEndpoint = withoutTrailingSlashes(urlEndpoint);
         this.privateKey = privateKey; this.folder = folder;
-        this.uploadUrl = uploadUrl; this.filesUrl = filesUrl.replaceAll("/+$", "");
+        this.uploadUrl = uploadUrl; this.filesUrl = withoutTrailingSlashes(filesUrl);
+    }
+
+    private static String withoutTrailingSlashes(String url) {
+        int end = url.length();
+        while (end > 0 && url.charAt(end - 1) == '/') end--;
+        return url.substring(0, end);
     }
 
     private static SimpleClientHttpRequestFactory timeouts() {
@@ -99,7 +109,7 @@ public class ImageKitCredentialStorage implements CredentialDocumentStorage {
             var reply = JSON.readTree(http.post().uri(URI.create(uploadUrl)).headers(this::authorize)
                     .contentType(MediaType.MULTIPART_FORM_DATA).body(form).retrieve().body(String.class));
             String key = "ik:" + reply.path("fileId").asString("") + ":" + reply.path("filePath").asString("");
-            if (key.length() <= 255 && KEY.matcher(key).matches()) return key;
+            if (key.length() <= 255 && STORAGE_KEY.matcher(key).matches()) return key;
             LOG.warn("ImageKit returned an unexpected upload reply; private orphan reconciliation required");
             throw unavailable();
         } catch (RestClientResponseException ex) {
@@ -138,21 +148,21 @@ public class ImageKitCredentialStorage implements CredentialDocumentStorage {
     /** No network call: this runs for every document in a list; read() still fails closed when a file is gone. */
     @Override public boolean available(String storageKey) {
         if (!storageKey.startsWith("ik:")) return local.available(storageKey);
-        return KEY.matcher(storageKey).matches();
+        return STORAGE_KEY.matcher(storageKey).matches();
     }
 
     @Override public void discard(String storageKey) {
         if (!storageKey.startsWith("ik:")) { local.discard(storageKey); return; }
         try {
             http.delete().uri(URI.create(filesUrl + "/" + parse(storageKey).group(1))).headers(this::authorize).retrieve().toBodilessEntity();
-        } catch (HttpClientErrorException.NotFound ex) { /* already gone */ }
-        catch (RestClientException | ResponseStatusException ex) {
+        } catch (HttpClientErrorException.NotFound _) { /* already gone */ }
+        catch (RestClientException | ResponseStatusException _) {
             LOG.warn("Rolled-back certificate cleanup deferred; private orphan reconciliation required");
         }
     }
 
     private Matcher parse(String storageKey) {
-        Matcher key = KEY.matcher(storageKey);
+        Matcher key = STORAGE_KEY.matcher(storageKey);
         if (!key.matches()) throw unavailable();
         return key;
     }
@@ -160,12 +170,13 @@ public class ImageKitCredentialStorage implements CredentialDocumentStorage {
     private void authorize(HttpHeaders headers) { headers.setBasicAuth(privateKey, ""); }
 
     /** ImageKit's signed-URL scheme: hex HMAC-SHA1 of the URL after the endpoint, followed by the expiry. */
+    @SuppressWarnings("java:S4790") // ImageKit only accepts HMAC-SHA1; keyed, so SHA-1 collisions don't weaken it
     private String sign(String value) {
         try {
             Mac mac = Mac.getInstance("HmacSHA1");
             mac.init(new SecretKeySpec(privateKey.getBytes(StandardCharsets.UTF_8), "HmacSHA1"));
             return HexFormat.of().formatHex(mac.doFinal(value.getBytes(StandardCharsets.UTF_8)));
-        } catch (GeneralSecurityException ex) { throw unavailable(); }
+        } catch (GeneralSecurityException _) { throw unavailable(); }
     }
 
     private static ResponseStatusException unavailable() { return new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "The document store is temporarily unavailable."); }

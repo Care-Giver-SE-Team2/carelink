@@ -49,7 +49,7 @@ class ImageKitCredentialStorageTest {
                 .andRespond(request -> {
                     String body = new String(((org.springframework.mock.http.client.MockClientHttpRequest) request).getBodyAsBytes(), StandardCharsets.ISO_8859_1);
                     assertThat(body).contains("\r\n\r\ntrue\r\n").contains("/carelink/credentials").doesNotContain("first-aid");
-                    String name = body.replaceAll("(?s).*name=\"fileName\"\r\n(?:[^\r\n]+\r\n)*\r\n([^\r\n]+)\r\n.*", "$1");
+                    String name = formField(body, "fileName");
                     return withSuccess("{\"fileId\":\"65f1a2b3c4d5e6f7a8b9c0d1\",\"filePath\":\"/carelink/credentials/" + name + "\",\"size\":1}",
                             MediaType.APPLICATION_JSON).createResponse(request);
                 });
@@ -57,6 +57,13 @@ class ImageKitCredentialStorageTest {
         assertThat(key).matches("ik:65f1a2b3c4d5e6f7a8b9c0d1:/carelink/credentials/[a-f0-9-]{36}\\.png");
         assertThat(store.available(key)).isTrue();
         server.verify();
+    }
+
+    /** The value of one text part of a multipart body: the line after the part's blank header separator. */
+    static String formField(String body, String name) {
+        int part = body.indexOf("name=\"" + name + "\"");
+        int start = body.indexOf("\r\n\r\n", part) + 4;
+        return body.substring(start, body.indexOf("\r\n", start));
     }
 
     @Test void unexpectedUploadReplyIsUnavailable() throws Exception {
