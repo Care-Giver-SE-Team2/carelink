@@ -13,7 +13,7 @@ import sg.nus.carelink.visit.application.MissedCheckInScanService;
 /** Positive Visit setup uses real manager commands, not Visit/Incident/notification SQL. */
 @Import(MissedCheckInITSupport.TimeConfiguration.class)
 public abstract class MissedCheckInITSupport extends CaregiverHttpITSupport {
-    protected static final Instant START = Instant.parse("2026-10-08T02:00:00Z");
+    protected static final Instant START = Instant.parse("2026-10-08T01:25:00Z");
     protected static final ZoneId SGT = ZoneId.of("Asia/Singapore");
     @Autowired protected ScenarioClock clock;
     @Autowired protected MissedCheckInScanService scan;
@@ -44,8 +44,9 @@ public abstract class MissedCheckInITSupport extends CaregiverHttpITSupport {
             body(mgr.put("/api/elders/" + elder + "/primary-caregiver", Map.of("caregiverId", caregiver)), 200);
             long plan = body(mgr.post("/api/care-plans", Map.of("elderId", elder)), 201).path("id").asLong();
             List<Map<String, Object>> nodes = new ArrayList<>();
+            // A plan's tasks may not overlap, so each further visit starts an hour after the one before.
             for (int i=0; i<count; i++) nodes.add(Map.of("groupName", "Personal care", "name", "SYS03 routine " + i,
-                    "evidenceType", "CHECKLIST", "visits", List.of(Map.of("day", "THURSDAY", "startTime", "10:05", "minutes", 60))));
+                    "evidenceType", "CHECKLIST", "visits", List.of(Map.of("day", "THURSDAY", "startTime", LocalTime.of(9, 30).plusHours(i).toString(), "minutes", 60))));
             body(mgr.post("/api/care-plans/" + plan + "/publish", Map.of("startDate", "2026-10-08", "nodes", nodes)), 200);
             List<Long> ids = new ArrayList<>();
             for (var row : mgr.read("/api/visits/roster?date=2026-10-08")) {
@@ -55,7 +56,9 @@ public abstract class MissedCheckInITSupport extends CaregiverHttpITSupport {
             return ids;
         }
     }
-    protected void overdue() { clock.at(START.plusSeconds(901)); }
+    protected void overdue() { overdue(1); }
+    /** Past the check-in deadline of the last of {@code plannedVisits(count)}. */
+    protected void overdue(int count) { clock.at(START.plusSeconds(901 + 3600L * (count - 1))); }
     protected Map<String,Object> check(int version) {
         return Map.of("expectedVersion",version,"clientRequestId",UUID.randomUUID().toString(),
                 "locationSource","MANUAL_LOCATION_NOTE","locationNote","At the fictional doorway");

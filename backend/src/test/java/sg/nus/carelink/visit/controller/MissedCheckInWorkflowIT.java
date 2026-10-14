@@ -36,7 +36,7 @@ class MissedCheckInWorkflowIT extends MissedCheckInITSupport {
             assertThat(detail.toString()).contains("SYSTEM_MISSED_CHECKIN","Assigned caregiver has not checked in","SERVICE","MEDIUM");
             assertThat(detail.path("reportedByUserId").isNull()).isTrue();
             assertThat(detail.path("responderUserId").asLong()).isEqualTo(manager);
-            assertThat(detail.path("respondBy").asString()).isEqualTo("2026-10-08T10:30:01");
+            assertThat(detail.path("respondBy").asString()).isEqualTo("2026-10-08T09:55:01");
             assertThat(cg.get("/api/incidents/"+event).statusCode()).isEqualTo(403);
             assertThat(a.read("/api/notifications/me").path("items").get(0).path("resourceId").asLong()).isEqualTo(event);
             assertThat(b.read("/api/notifications/me").path("items").get(0).path("resourceId").asLong()).isEqualTo(event);
@@ -184,7 +184,7 @@ class MissedCheckInWorkflowIT extends MissedCheckInITSupport {
         assertThat(jdbc.queryForObject("SELECT triggered_caregiver_id FROM visit_missed_check_in_trigger WHERE visit_id=?",Long.class,id)).isEqualTo(caregiver);
     }
     @Test void failedFirstCandidateDoesNotStarveLaterPage() throws Exception {
-        var ids=plannedVisits(3); overdue(); long bad=ids.stream().min(Long::compareTo).orElseThrow();
+        var ids=plannedVisits(3); overdue(3); long bad=ids.stream().min(Long::compareTo).orElseThrow();
         jdbc.execute("CREATE TRIGGER sys03_page_fault BEFORE INSERT ON visit_missed_check_in_trigger FOR EACH ROW BEGIN IF NEW.visit_id="+bad+" THEN SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='Synthetic first page failure'; END IF; END");
         try {
             var outcome=scan.scan(); assertThat(outcome.failed()).isEqualTo(1); assertThat(outcome.triggered()).isEqualTo(2);
@@ -193,20 +193,20 @@ class MissedCheckInWorkflowIT extends MissedCheckInITSupport {
         assertThat(scan.scan().triggered()).isEqualTo(1); assertThat(scan.scan().considered()).isZero();
     }
     @Test void candidateCursorAndLedgerUseExistingVisitTimeMapping() throws Exception {
-        var ids=plannedVisits(2).stream().sorted().toList();overdue();
+        var ids=plannedVisits(2).stream().sorted().toList();overdue(2);
         LocalDateTime persistedStart=jdbc.queryForObject("SELECT scheduled_start FROM visit WHERE id=?",
                 (row,_) -> row.getTimestamp(1).toLocalDateTime(),ids.getFirst());
         assertThat(persistedStart)
-                .as("Manager-published start using main's Visit time mapping").isEqualTo(LocalDateTime.of(2026,10,8,10,5));
+                .as("Manager-published start using main's Visit time mapping").isEqualTo(LocalDateTime.of(2026,10,8,9,30));
         // Separate preservation fixture: SYS03 must not reinterpret an existing deadline.
-        var deadline=LocalDateTime.of(2026,10,8,11,5);
+        var deadline=LocalDateTime.of(2026,10,8,10,30);
         jdbc.update("UPDATE visit SET state_deadline=? WHERE id=?",java.sql.Timestamp.valueOf(deadline),ids.getFirst());
         // Run the complete test JVM in UTC and Singapore separately. Changing its
         // default zone after connections/entities exist is not an application lifecycle.
         {
             var now=LocalDateTime.ofInstant(clock.instant(),SGT);
             var first=facts.candidates(now.minusHours(24),now.minusMinutes(10),null,1).getFirst();
-            assertThat(first.scheduledStart()).isEqualTo(LocalDateTime.of(2026,10,8,10,5));
+            assertThat(first.scheduledStart()).isEqualTo(LocalDateTime.of(2026,10,8,9,30));
             assertThat(first.visitId()).isEqualTo(ids.getFirst());
             var second=facts.candidates(now.minusHours(24),now.minusMinutes(10),first,1).getFirst();
             assertThat(second.visitId()).isEqualTo(ids.getLast());
@@ -217,8 +217,8 @@ class MissedCheckInWorkflowIT extends MissedCheckInITSupport {
             assertThat(retainedDeadline).isEqualTo(deadline);
             var recorded=jdbc.queryForObject("SELECT scheduled_start,check_in_due_at,triggered_at FROM visit_missed_check_in_trigger WHERE visit_id=?",
                     (row,_) -> List.of(row.getTimestamp(1).toLocalDateTime(),row.getTimestamp(2).toLocalDateTime(),row.getTimestamp(3).toLocalDateTime()),ids.getFirst());
-            assertThat(recorded).containsExactly(LocalDateTime.of(2026,10,8,10,5),
-                    LocalDateTime.of(2026,10,8,10,15),LocalDateTime.of(2026,10,8,10,15,1));
+            assertThat(recorded).containsExactly(LocalDateTime.of(2026,10,8,9,30),
+                    LocalDateTime.of(2026,10,8,9,40),LocalDateTime.of(2026,10,8,10,40,1));
         }
     }
     @Test void databaseCandidatesSkipOldFutureUnassignedArrivedCancelledAndTerminalFixtures() {

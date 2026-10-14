@@ -1,6 +1,7 @@
 package sg.nus.carelink.visit.application;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.tuple;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -76,6 +77,41 @@ class VisitSchedulingServiceTest {
 						org.assertj.core.groups.Tuple.tuple(MON_8, Visit.Status.SCHEDULED),
 						org.assertj.core.groups.Tuple.tuple(WED_8, Visit.Status.IN_PROGRESS),
 						org.assertj.core.groups.Tuple.tuple(WED_8.plusDays(1), Visit.Status.CANCELLED));
+	}
+
+	@Test
+	void releasesOnlyTheFormerPrimarysUntouchedPlanVisitsFromTheGivenTime() {
+		LocalDateTime thu8 = WED_8.plusDays(1);
+		scheduling.schedule(List.of(planned(MON_8, 5L), planned(WED_8, 5L), planned(thu8, 5L),
+				planned(thu8.plusHours(2), 6L)));
+		Visit started = visits.findByCarePlanIdStartingFrom(9L, WED_8).stream()
+				.filter(v -> v.scheduledStart().equals(WED_8)).findFirst().orElseThrow();
+		visits.save(new Visit(started.id(), started.elderId(), started.caregiverId(), started.carePlanNodeId(), null,
+				started.serviceType(), started.scheduledStart(), started.scheduledEnd(), WED_8, null,
+				Visit.Status.IN_PROGRESS, null, started.carePlanId(), 1, null, null));
+		Visit extraService = visits.save(new Visit(null, 42L, 5L, null, null, "Escort to clinic", thu8.plusHours(4),
+				null, null, null, Visit.Status.SCHEDULED, null, null, 0, null, null));
+		Visit absenceCover = visits.save(new Visit(null, 42L, 5L, 31L, 77L, "Meal preparation", thu8.plusHours(6),
+				null, null, null, Visit.Status.SCHEDULED, null, 9L, 0, null, null));
+
+		assertThat(scheduling.releaseUntouchedFrom(42L, 5L, WED_8)).isEqualTo(1);
+
+		assertThat(visits.findByCarePlanIdStartingFrom(9L, MON_8))
+				.extracting(Visit::scheduledStart, Visit::caregiverId)
+				.containsExactlyInAnyOrder(
+						tuple(MON_8, 5L), tuple(WED_8, 5L), tuple(thu8, null), tuple(thu8.plusHours(2), 6L),
+						tuple(absenceCover.scheduledStart(), 5L));
+		assertThat(visits.findById(extraService.id())).get().extracting(Visit::caregiverId).isEqualTo(5L);
+	}
+
+	@Test
+	void aReleasedVisitIsCoveredByTheNextCaregiverNamed() {
+		scheduling.schedule(List.of(planned(MON_8, 5L)));
+		scheduling.releaseUntouchedFrom(42L, 5L, MON_8);
+
+		assertThat(scheduling.schedule(List.of(planned(MON_8, 6L)))).isEqualTo(new Outcome(0, 1));
+		assertThat(visits.findByCarePlanIdStartingFrom(9L, MON_8)).singleElement()
+				.extracting(Visit::caregiverId).isEqualTo(6L);
 	}
 
 	@Test
