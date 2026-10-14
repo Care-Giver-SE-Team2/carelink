@@ -72,6 +72,26 @@ class VisitSchedulingService implements VisitScheduling {
 	}
 
 	@Override
+	public int releaseUntouchedFrom(Long elderId, Long caregiverId, LocalDateTime from) {
+		List<Visit> held = visits.findScheduledForElderAndCaregiverFrom(elderId, caregiverId, from).stream()
+				.filter(visit -> !visit.standalone() && visit.absenceId() == null)
+				.toList();
+		int released = 0;
+		// Same lock and re-read as cancelUntouchedFrom: a check-in may land between the read and the save.
+		// Saved through visits, not commands: the command save writes status and check-in fields only,
+		// never caregiver_id.
+		for (Visit candidate : held) {
+			var current = commands.lock(candidate.id())
+					.filter(visit -> visit.hasNotStarted() && caregiverId.equals(visit.caregiverId()));
+			if (current.isPresent()) {
+				visits.save(current.get().released());
+				released++;
+			}
+		}
+		return released;
+	}
+
+	@Override
 	@Transactional(readOnly = true)
 	public List<UncoveredVisit> findUncoveredStarted(LocalDateTime since, LocalDateTime now) {
 		return visits.findUnassignedScheduledStartingBetween(since, now).stream()

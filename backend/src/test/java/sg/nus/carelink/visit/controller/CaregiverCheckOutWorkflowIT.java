@@ -38,8 +38,8 @@ class CaregiverCheckOutWorkflowIT extends MissedCheckInITSupport {
             clock.at(START.plusSeconds(7200).plusNanos(987654321));
             var request=departure(2);var saved=body(cg.post(path(id),request),200);
             assertThat(saved.path("savedState").asString()).isEqualTo("COMPLETED");
-            assertThat(saved.path("checkedInAt").asString()).isEqualTo("2026-10-08T10:15:01");
-            assertThat(saved.path("checkedOutAt").asString()).isEqualTo("2026-10-08T12:00:00");
+            assertThat(saved.path("checkedInAt").asString()).isEqualTo("2026-10-08T09:40:01");
+            assertThat(saved.path("checkedOutAt").asString()).isEqualTo("2026-10-08T11:25:00");
             clock.at(START.plusSeconds(7500));var retry=body(cg.post(path(id),request),200);
             assertThat(retry.path("checkedOutAt")).isEqualTo(saved.path("checkedOutAt"));
             assertThat(retry.path("visitVersion")).isEqualTo(saved.path("visitVersion"));
@@ -63,7 +63,7 @@ class CaregiverCheckOutWorkflowIT extends MissedCheckInITSupport {
             assertThat(version(id)).isEqualTo(3);
         }
         try(var fresh=browser(caregiverName)) {
-            assertThat(fresh.read("/api/visits/"+id+"/work-pack").path("execution").path("checkedOutAt").asString()).isEqualTo("2026-10-08T12:00:00");
+            assertThat(fresh.read("/api/visits/"+id+"/work-pack").path("execution").path("checkedOutAt").asString()).isEqualTo("2026-10-08T11:25:00");
         }
     }
     @Test void permissionsCsrfValidationKeyReuseAndUnstartedVisitAreRejected() throws Exception {
@@ -86,7 +86,7 @@ class CaregiverCheckOutWorkflowIT extends MissedCheckInITSupport {
         try(var cg=browser(caregiverName)) {
             body(cg.post("/api/visits/"+id+"/check-in",check(0)),200);
             var pack=cg.read("/api/visits/"+id+"/work-pack");
-            assertThat(pack.path("execution").path("checkedInAt").asString()).isEqualTo("2026-10-08T10:05:00");
+            assertThat(pack.path("execution").path("checkedInAt").asString()).isEqualTo("2026-10-08T09:30:00");
             assertThat(pack.path("execution").path("allowedActions").toString()).contains("CHECK_OUT");
             var completed=body(cg.post(path(id),departure(1)),200);
             assertThat(completed.path("checkedOutAt")).isEqualTo(completed.path("checkedInAt"));

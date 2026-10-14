@@ -181,11 +181,6 @@ export default function Elders() {
     <PageHeader
       title="Elders"
       meta={`${elders.length} elders · ${eldersWithoutPublishedPlan} without a published plan`}
-      actions={
-        <Button variant="primary" size="md">
-          Add elder
-        </Button>
-      }
       toolbar={
         <div className={styles.filters}>
           <SearchField

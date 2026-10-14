@@ -19,7 +19,9 @@ class CaregiverVisitExecutionWorkflowIT extends CaregiverHttpITSupport {
     @DynamicPropertySource static void database(DynamicPropertyRegistry registry) { SharedMySql.register(registry,CaregiverVisitExecutionWorkflowIT.class,"+05:00"); }
     @MockitoSpyBean CaregiverCommandStore receipts;
     private long plannedVisit() throws Exception {
-        var start=LocalDateTime.now(ZoneId.of("Asia/Singapore")).plusMinutes(5).withSecond(0).withNano(0);
+        // Plans start visits on the hour or half hour: the next one, so check-in (open 30 minutes early) is open now.
+        var next=LocalDateTime.now(ZoneId.of("Asia/Singapore")).withSecond(0).withNano(0).plusMinutes(1);
+        var start=next.plusMinutes(Math.floorMod(-next.getMinute(),30));
         try(var mgr=browser(managerName)) {
             body(mgr.put("/api/elders/"+elder+"/primary-caregiver",Map.of("caregiverId",caregiver)),200);
             long plan=body(mgr.post("/api/care-plans",Map.of("elderId",elder)),201).path("id").asLong();
