@@ -29,10 +29,10 @@ beforeEach(() => {
   vi.spyOn(carePlanApi, 'fetchLatestCarePlan').mockResolvedValue(null)
 })
 
-function renderElders() {
+function renderElders(entry = '/manager/elders?list=all') {
   render(
     <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
-      <MemoryRouter initialEntries={['/manager/elders']}>
+      <MemoryRouter initialEntries={[entry]}>
         <Routes>
           <Route path="/manager/elders" element={<Elders />} />
           <Route path="/manager/elders/:elderId" element={<p>care plan page</p>} />
@@ -41,6 +41,30 @@ function renderElders() {
     </QueryClientProvider>,
   )
 }
+
+it('opens on the elders who still need a care plan, with a count on every tab', async () => {
+  renderElders('/manager/elders')
+
+  expect(await screen.findByRole('button', { name: 'NEEDS PLAN · 1' })).toHaveAttribute('aria-pressed', 'true')
+  expect(screen.getByRole('option', { name: /Goh Bee Lian/ })).toBeInTheDocument()
+  expect(screen.queryByRole('option', { name: /Chan Bee Choo/ })).not.toBeInTheDocument()
+  expect(screen.getByRole('button', { name: 'ASSIGNED · 0' })).toBeInTheDocument()
+  expect(screen.getByRole('button', { name: 'ALL · 3' })).toBeInTheDocument()
+
+  // A draft is enough of a plan to assign a caregiver against.
+  fireEvent.click(screen.getByRole('button', { name: 'NEEDS CAREGIVER · 2' }))
+  expect(screen.getByRole('option', { name: /Chan Bee Choo/ })).toBeInTheDocument()
+  expect(screen.getByRole('option', { name: /Kamala Devi Rajan/ })).toBeInTheDocument()
+  expect(screen.queryByRole('option', { name: /Goh Bee Lian/ })).not.toBeInTheDocument()
+})
+
+it('coming back from a care plan, opens on that elder’s tab with them still selected', async () => {
+  renderElders('/manager/elders?selected=1')
+
+  expect(await screen.findByRole('option', { name: /Chan Bee Choo/ })).toHaveAttribute('aria-selected', 'true')
+  expect(screen.getByRole('button', { name: 'NEEDS CAREGIVER · 2' })).toHaveAttribute('aria-pressed', 'true')
+  expect(screen.getByRole('button', { name: 'Assign caregiver' })).toBeInTheDocument()
+})
 
 it('previews the selected elder in the rail, offering Create care plan when there is none', async () => {
   renderElders()
@@ -58,10 +82,10 @@ it('moves the selection with the arrow keys and opens the plan on Enter', async 
   const list = await screen.findByRole('listbox', { name: 'Elders' })
   await screen.findByRole('option', { name: /Chan Bee Choo/ })
 
-  // No-plan elders float to the top: Goh Bee Lian, then Chan Bee Choo, then Kamala Devi Rajan.
+  // A–Z: Chan Bee Choo, then Goh Bee Lian, then Kamala Devi Rajan.
   fireEvent.keyDown(list, { key: 'ArrowDown' })
   fireEvent.keyDown(list, { key: 'ArrowDown' })
-  expect(screen.getByRole('option', { name: /Chan Bee Choo/ })).toHaveAttribute('aria-selected', 'true')
+  expect(screen.getByRole('option', { name: /Goh Bee Lian/ })).toHaveAttribute('aria-selected', 'true')
 
   fireEvent.keyDown(list, { key: 'Enter' })
   expect(await screen.findByText('care plan page')).toBeInTheDocument()

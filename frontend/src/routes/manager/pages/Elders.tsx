@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { KeyboardEvent } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { ManagerShell } from '../components/ManagerShell'
 import type { ElderRow, PlanStatus } from '../data/elders'
@@ -24,6 +24,7 @@ import {
   Callout,
   Card,
   Eyebrow,
+  FilterChips,
   IdentityHeader,
   KeyValueList,
   ListRow,
@@ -42,15 +43,48 @@ import { StopCarePlanButton } from '../components/StopCarePlanButton'
 import { StopCarePlanDialog } from '../components/StopCarePlanDialog'
 import styles from './Elders.module.css'
 
-type PlanFilter = 'all' | PlanStatus
 type SortOrder = 'name' | 'name-desc' | 'next-visit' | 'plan-status'
 
-const PLAN_FILTER_OPTIONS: { value: PlanFilter; label: string }[] = [
-  { value: 'all', label: 'any' },
-  { value: 'published', label: 'published' },
-  { value: 'draft', label: 'draft' },
-  { value: 'none', label: 'none' },
+/**
+ * Where an elder sits in the manager's onboarding work: a care plan first, then a primary
+ * caregiver. A draft counts as having a plan, since a caregiver can be assigned against it.
+ */
+type Worklist = 'needs-plan' | 'needs-caregiver' | 'assigned' | 'stopped'
+type WorklistFilter = Worklist | 'all'
+
+const WORKLIST_TABS: { value: WorklistFilter; label: string; empty: string }[] = [
+  { value: 'needs-plan', label: 'NEEDS PLAN', empty: 'Every elder has a care plan.' },
+  { value: 'needs-caregiver', label: 'NEEDS CAREGIVER', empty: 'Every elder with a plan has a primary caregiver.' },
+  { value: 'assigned', label: 'ASSIGNED', empty: 'No elder has both a plan and a primary caregiver yet.' },
+  { value: 'stopped', label: 'STOPPED', empty: 'No care plans have been stopped.' },
+  { value: 'all', label: 'ALL', empty: 'No elders yet.' },
 ]
+
+function worklistOf(elder: ElderRow): Worklist {
+  if (elder.planStatus === 'none') return 'needs-plan'
+  if (elder.planStatus === 'stopped') return 'stopped'
+  return elder.primaryCaregiver ? 'assigned' : 'needs-caregiver'
+}
+
+function isWorklistFilter(value: string | null): value is WorklistFilter {
+  return WORKLIST_TABS.some((tab) => tab.value === value)
+}
+
+/**
+ * The tab in the URL; with none chosen, the selected elder's tab (coming back from their care
+ * plan), else the first piece of outstanding work.
+ */
+function defaultWorklist(
+  listParam: string | null,
+  selected: ElderRow | undefined,
+  counts: Record<WorklistFilter, number>,
+): WorklistFilter {
+  if (isWorklistFilter(listParam)) return listParam
+  if (selected) return worklistOf(selected)
+  if (counts['needs-plan'] > 0) return 'needs-plan'
+  if (counts['needs-caregiver'] > 0) return 'needs-caregiver'
+  return 'all'
+}
 
 const SORT_OPTIONS: { value: SortOrder; label: string }[] = [
   { value: 'name', label: 'A–Z' },
@@ -73,8 +107,10 @@ function rowDomId(elderId: string): string {
 }
 
 /**
- * Elders index — UC-MG01's entry point. The manager finds an elder, previews their plan in
- * the rail, and opens it (or creates one). ↑/↓ move the selection, Enter opens the plan.
+ * Elders index — UC-MG01's entry point. The manager works through elders who need a plan,
+ * then those who need a caregiver, previewing each in the rail and opening their plan (or
+ * creating one). ↑/↓ move the selection, Enter opens the plan. The tab and the selected elder
+ * live in the URL, so coming back from a care plan lands on the same elder.
  */
 export default function Elders() {
   const navigate = useNavigate()
@@ -82,9 +118,9 @@ export default function Elders() {
   const [query, setQuery] = useState('')
   const [debouncedQuery, setDebouncedQuery] = useState('')
   const [sector, setSector] = useState('all')
-  const [planFilter, setPlanFilter] = useState<PlanFilter>('all')
   const [sort, setSort] = useState<SortOrder>('name')
-  const [selectedId, setSelectedId] = useState<string | null>(null)
+  const [searchParams, setSearchParams] = useSearchParams()
+  const selectedId = searchParams.get('selected')
   const [assignTarget, setAssignTarget] = useState<ElderRow | null>(null)
   const [removeTarget, setRemoveTarget] = useState<ElderRow | null>(null)
   const [stopTarget, setStopTarget] = useState<ElderRow | null>(null)
@@ -100,11 +136,30 @@ export default function Elders() {
   const sectors = useMemo(() => Array.from(new Set(elders.map((e) => e.sector))).sort(), [elders])
   const q = debouncedQuery.trim()
 
+  const worklistCounts = useMemo(() => {
+    const counts: Record<WorklistFilter, number> = {
+      'needs-plan': 0,
+      'needs-caregiver': 0,
+      assigned: 0,
+      stopped: 0,
+      all: elders.length,
+    }
+    for (const e of elders) counts[worklistOf(e)]++
+    return counts
+  }, [elders])
+
+  const listParam = searchParams.get('list')
+  const selectedRow = selectedId ? elders.find((e) => e.id === selectedId) : undefined
+  const worklist = useMemo(
+    () => defaultWorklist(listParam, selectedRow, worklistCounts),
+    [listParam, selectedRow, worklistCounts],
+  )
+
   const filtered = useMemo(() => {
     const needle = q.toLowerCase()
     const rows = elders.filter((e) => {
+      if (worklist !== 'all' && worklistOf(e) !== worklist) return false
       if (sector !== 'all' && e.sector !== sector) return false
-      if (planFilter !== 'all' && e.planStatus !== planFilter) return false
       if (needle && !e.name.toLowerCase().includes(needle) && !e.id.toLowerCase().includes(needle)) return false
       return true
     })
@@ -115,22 +170,27 @@ export default function Elders() {
       sorted.sort((a, b) => nextVisitRank(a.nextVisitAt).localeCompare(nextVisitRank(b.nextVisitAt)))
     else if (sort === 'plan-status')
       sorted.sort((a, b) => PLAN_STATUS_RANK[a.planStatus] - PLAN_STATUS_RANK[b.planStatus])
-    // Elders needing attention float to the top, regardless of the chosen sort — each stable
-    // sort only reorders across its own boundary, so the chosen order still holds within a group.
-    // No care plan outranks no caregiver.
-    sorted.sort((a, b) => (a.primaryCaregiver ? 1 : 0) - (b.primaryCaregiver ? 1 : 0))
-    sorted.sort((a, b) => (a.planStatus === 'none' ? 0 : 1) - (b.planStatus === 'none' ? 0 : 1))
-    // A stopped plan is history, not something to act on, so those elders sink to the bottom.
-    sorted.sort((a, b) => (a.planStatus === 'stopped' ? 1 : 0) - (b.planStatus === 'stopped' ? 1 : 0))
     return sorted
-  }, [elders, q, sector, planFilter, sort])
+  }, [elders, q, sector, worklist, sort])
 
-  const eldersWithoutPublishedPlan = useMemo(
-    () => elders.filter((e) => e.planStatus !== 'published').length,
-    [elders],
-  )
+  /** Updates the URL's tab/selection without adding a history entry per click. */
+  function setParam(name: 'list' | 'selected', value: string | null) {
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev)
+        if (value === null) next.delete(name)
+        else next.set(name, value)
+        return next
+      },
+      { replace: true },
+    )
+  }
 
-  const selected: ElderRow | undefined = selectedId ? elders.find((e) => e.id === selectedId) : undefined
+  function setSelectedId(id: string) {
+    setParam('selected', id)
+  }
+
+  const selected: ElderRow | undefined = selectedRow
 
   const { data: selectedLatestPlan } = useQuery({
     queryKey: ['carePlan', 'latest', selected?.id],
@@ -153,7 +213,6 @@ export default function Elders() {
     setQuery('')
     setDebouncedQuery('')
     setSector('all')
-    setPlanFilter('all')
   }
 
   function openCarePlan(elder: ElderRow) {
@@ -180,38 +239,38 @@ export default function Elders() {
   const header = (
     <PageHeader
       title="Elders"
-      meta={`${elders.length} elders · ${eldersWithoutPublishedPlan} without a published plan`}
+      meta={`${elders.length} elders`}
       toolbar={
-        <div className={styles.filters}>
-          <SearchField
-            className={styles.search}
-            placeholder="Search elders by name or ID"
-            value={query}
-            onChange={setQuery}
+        <div className={styles.toolbar}>
+          <FilterChips
+            label="Elder worklist"
+            options={WORKLIST_TABS.map(({ value, label }) => ({ value, label, count: worklistCounts[value] }))}
+            value={worklist}
+            onChange={(next) => setParam('list', next)}
           />
-          <Select
-            variant="filter"
-            prefix="sector"
-            aria-label="Filter by sector"
-            value={sector}
-            onChange={setSector}
-            options={[{ value: 'all', label: 'all' }, ...sectors.map((s) => ({ value: s, label: s }))]}
-          />
-          <Select
-            variant="filter"
-            prefix="plan"
-            aria-label="Filter by plan status"
-            value={planFilter}
-            onChange={(v) => setPlanFilter(v as PlanFilter)}
-            options={PLAN_FILTER_OPTIONS}
-          />
-          <Select
-            variant="filter"
-            aria-label="Sort order"
-            value={sort}
-            onChange={(v) => setSort(v as SortOrder)}
-            options={SORT_OPTIONS}
-          />
+          <div className={styles.filters}>
+            <SearchField
+              className={styles.search}
+              placeholder="Search elders by name or ID"
+              value={query}
+              onChange={setQuery}
+            />
+            <Select
+              variant="filter"
+              prefix="sector"
+              aria-label="Filter by sector"
+              value={sector}
+              onChange={setSector}
+              options={[{ value: 'all', label: 'all' }, ...sectors.map((s) => ({ value: s, label: s }))]}
+            />
+            <Select
+              variant="filter"
+              aria-label="Sort order"
+              value={sort}
+              onChange={(v) => setSort(v as SortOrder)}
+              options={SORT_OPTIONS}
+            />
+          </div>
         </div>
       }
     />
@@ -227,16 +286,21 @@ export default function Elders() {
       </MetaText>
     )
   } else if (filtered.length === 0) {
+    const filteredOut = q !== '' || sector !== 'all'
     body = (
       <div className={styles.empty}>
         <MetaText>
-          {q
-            ? `No elders match "${q}"${sector !== 'all' ? ` in sector ${sector}` : ''}.`
-            : 'No elders match these filters.'}
+          {!filteredOut
+            ? WORKLIST_TABS.find((tab) => tab.value === worklist)!.empty
+            : q
+              ? `No elders match "${q}"${sector !== 'all' ? ` in sector ${sector}` : ''}.`
+              : 'No elders match these filters.'}
         </MetaText>
-        <Button variant="ghost" onClick={clearFilters}>
-          Clear filters
-        </Button>
+        {filteredOut && (
+          <Button variant="ghost" onClick={clearFilters}>
+            Clear filters
+          </Button>
+        )}
       </div>
     )
   } else {
@@ -298,7 +362,7 @@ export default function Elders() {
         </div>
       </div>
       <MetaText tone="faint" className={styles.footer}>
-        {filtered.length} of {elders.length} shown{q ? ` · matching "${q}"` : ''}
+        {filtered.length} of {worklistCounts[worklist]} shown{q ? ` · matching "${q}"` : ''}
       </MetaText>
     </>
   )
