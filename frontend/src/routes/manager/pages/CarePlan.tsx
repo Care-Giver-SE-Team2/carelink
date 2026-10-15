@@ -630,7 +630,7 @@ export default function CarePlan() {
           key="profile"
           variant="ruled"
           items={[
-            { label: 'Dialect', value: dialectsLabel(elder.preferredDialects) },
+            { label: 'Languages', value: dialectsLabel(elder.preferredDialects) },
             { label: 'Lives', value: livesLabel(elder.livesAlone) },
             { label: 'Family', value: family ? familyLabel(family) : '…' },
             { label: 'Mobility', value: mobilityLabel(elder.mobilityLevel) },
