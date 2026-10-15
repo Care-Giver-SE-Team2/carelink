@@ -1,13 +1,14 @@
 /*
  * The pieces caregiver sign-up adds on top of the family sign-up page's: the hint under the
  * preferred area, the language checkboxes and the sign-in link styled as the submit button.
- * Colours come from the local tokens Landing.module.css declares on .page.
+ * Colours come from the --fm-* tokens Landing.module.css declares on .page.
  */
 
 .hint {
   margin: 6px 0 0;
-  font: 400 12px/1.4 'IBM Plex Mono', monospace;
-  color: var(--muted);
+  color: var(--fm-muted);
+  font-size: 13px;
+  line-height: 1.4;
 }
 
 .languages {
@@ -33,9 +34,9 @@
 }
 
 .submitLink {
-  display: block;
-  box-sizing: border-box;
-  text-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   text-decoration: none;
 }
 
