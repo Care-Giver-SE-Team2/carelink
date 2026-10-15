@@ -63,13 +63,14 @@ export function Tag({
   )
 }
 
-export type VisitState = 'closed' | 'in_visit' | 'exception' | 'scheduled' | 'needs_cover'
+export type VisitState = 'closed' | 'in_visit' | 'exception' | 'scheduled' | 'not_checked_in' | 'needs_cover'
 
 const VISIT_LABELS: Record<VisitState, string> = {
   closed: 'COMPLETED',
   in_visit: 'IN VISIT',
   exception: 'EXCEPTION',
   scheduled: 'SCHEDULED',
+  not_checked_in: 'NOT CHECKED IN',
   needs_cover: 'NEEDS COVER',
 }
 

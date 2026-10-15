@@ -101,6 +101,11 @@
   color: var(--text-muted);
 }
 
+.visit_not_checked_in {
+  border-color: var(--warning);
+  color: var(--warning-text);
+}
+
 .visit_needs_cover {
   border-color: var(--accent);
   color: var(--accent);

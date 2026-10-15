@@ -28,10 +28,30 @@ const COLUMNS: DataTableColumn<Visit>[] = [
       ),
   },
   { key: 'service', label: 'Service', width: '1fr', render: (v) => <span className={styles.service}>{v.service}</span> },
+  {
+    key: 'attendance',
+    label: 'Check-in',
+    width: '120px',
+    render: ({ attendance }) =>
+      attendance ? (
+        <span className={styles.attendance}>
+          <span>
+            in {attendance.checkedIn}
+            {attendance.lateMinutes > 0 && <span className={styles.late}> +{attendance.lateMinutes}m</span>}
+          </span>
+          {attendance.checkedOut && <span className={styles.out}>out {attendance.checkedOut}</span>}
+        </span>
+      ) : (
+        <span className={styles.noAttendance}>—</span>
+      ),
+  },
   { key: 'state', label: 'State', width: '150px', render: (v) => <VisitStateBadge state={v.state} /> },
 ]
 
-/** Today's visits, an exception tinted danger and an unassigned visit tinted for the model. */
+/**
+ * Today's visits with when the caregiver checked in and out, an exception tinted danger and an
+ * unassigned visit tinted for the model.
+ */
 export function VisitRosterTable({ visits, footer, empty }: { visits: Visit[]; footer?: ReactNode; empty?: ReactNode }) {
   return (
     <DataTable
