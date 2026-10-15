@@ -31,8 +31,7 @@ function WorkPack({ id, back }: { id: string; back: string }) {
   if (result.status === 'error') return <QueryError error={result.error} retry={reload} back={back} />
   const pack = result.data
   return <>
-    <p className={styles.eyebrow}>Assigned visit · #{pack.visit.id}</p>
-    <div className={styles.heading}><div><h1>{pack.elder.preferredName}</h1><p className={styles.muted}>{titleCase(pack.visit.serviceType)}</p></div><button className={styles.button} disabled={command.write.pending} onClick={reload}>Refresh</button></div>
+    <div className={styles.heading}><div><p className={styles.eyebrow}>Assigned visit · #{pack.visit.id}</p><h1>{pack.elder.preferredName}</h1><p className={styles.muted}>{titleCase(pack.visit.serviceType)}</p></div></div><div className={styles.toolbar}><button className={styles.refresh} disabled={command.write.pending} onClick={reload}>Refresh</button></div>
     {pack.execution?.allowedActions.includes('REPORT_INCIDENT') && !command.blocked && <Link className={styles.linkButton} to={'/caregiver/visits/' + id + '/report-incident' + (back.includes('?') ? back.slice(back.indexOf('?')) : '')}>Report incident</Link>}
     <ExecutionPanel pack={pack} command={command} />
     <LastFetched at={result.receivedAt} />
