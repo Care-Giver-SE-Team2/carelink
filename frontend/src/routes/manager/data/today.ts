@@ -20,6 +20,16 @@ export type Visit = {
   caregiver?: { name: string }
   service: string
   state: VisitState
+  /** Absent until the caregiver checks in. Times are "HH:MM", Singapore time. */
+  attendance?: Attendance
+}
+
+export type Attendance = {
+  checkedIn: string
+  /** Absent until the caregiver checks out. */
+  checkedOut?: string
+  /** Minutes after the scheduled start the caregiver checked in; 0 when on time or early. */
+  lateMinutes: number
 }
 
 export type TodayRoster = {
@@ -45,7 +55,40 @@ const VISIT_STATES: Record<VisitResponse['status'], VisitState> = {
   CANCELLED: 'closed',
 }
 
-export function toRoster(visits: VisitResponse[], elders: ElderRow[], caregivers: CaregiverOption[]): TodayRoster {
+/** The backend's visit times are Singapore wall-clock `LocalDateTime`s with no offset; Singapore has no DST. */
+function singaporeInstant(localDateTime: string): number {
+  return new Date(`${localDateTime}+08:00`).getTime()
+}
+
+function attendanceOf(visit: VisitResponse): Attendance | undefined {
+  if (visit.checkedInAt == null) return undefined
+  const late = (singaporeInstant(visit.checkedInAt) - singaporeInstant(visit.scheduledStart)) / 60_000
+  return {
+    checkedIn: visit.checkedInAt.slice(11, 16),
+    checkedOut: visit.checkedOutAt?.slice(11, 16),
+    lateMinutes: Math.max(0, Math.floor(late)),
+  }
+}
+
+/**
+ * An assigned visit whose start has passed with nobody checked in. Flagged from the start
+ * time, not the backend's lateness threshold — the missed check-in incident covers that.
+ */
+function overdue(visit: VisitResponse, now: Date): boolean {
+  return (
+    visit.caregiverId != null &&
+    visit.status === 'SCHEDULED' &&
+    visit.checkedInAt == null &&
+    singaporeInstant(visit.scheduledStart) < now.getTime()
+  )
+}
+
+export function toRoster(
+  visits: VisitResponse[],
+  elders: ElderRow[],
+  caregivers: CaregiverOption[],
+  now: Date = new Date(),
+): TodayRoster {
   const elderById = new Map(elders.map((elder) => [elder.id, elder]))
   const caregiverById = new Map(caregivers.map((caregiver) => [caregiver.id, caregiver.fullName]))
 
@@ -60,7 +103,13 @@ export function toRoster(visits: VisitResponse[], elders: ElderRow[], caregivers
       caregiver: caregiver ? { name: caregiver } : undefined,
       service: visit.serviceType ?? '—',
       // An exception outranks the gap: an uncovered visit past its start is an exception.
-      state: visit.caregiverId == null && visit.status !== 'EXCEPTION' ? 'needs_cover' : VISIT_STATES[visit.status],
+      state:
+        visit.caregiverId == null && visit.status !== 'EXCEPTION'
+          ? 'needs_cover'
+          : overdue(visit, now)
+            ? 'not_checked_in'
+            : VISIT_STATES[visit.status],
+      attendance: attendanceOf(visit),
     }
   })
   const sectors = [...new Set(rows.map((row) => row.elder.sector).filter(Boolean))].sort()
