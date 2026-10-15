@@ -284,7 +284,7 @@
   border-color: var(--fm-faint);
 }
 
-.textInput:focus,
+.page .textInput:focus,
 .passwordBox:focus-within {
   outline: none;
   border-color: var(--fm-accent);
@@ -312,9 +312,10 @@
   padding: 0 6px 0 14px;
 }
 
-/* The box draws the focus ring, so the bare input inside it doesn't. */
+/* The box draws the focus ring, so the bare input inside it doesn't; .page outranks the page-wide
+   input:focus-visible outline. */
 .passwordInput,
-.passwordInput:focus-visible {
+.page .passwordInput:focus-visible {
   flex: 1;
   min-width: 0;
   border: none;
