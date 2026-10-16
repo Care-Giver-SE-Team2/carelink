@@ -47,23 +47,32 @@ type SortOrder = 'name' | 'name-desc' | 'next-visit' | 'plan-status'
 
 /**
  * Where an elder sits in the manager's onboarding work: a care plan first, then a primary
- * caregiver. A draft counts as having a plan, since a caregiver can be assigned against it.
+ * caregiver. Only a published plan moves an elder on; a draft revising one leaves them where they
+ * were, since the published version stays in force until the revision is published.
  */
 type Worklist = 'needs-plan' | 'needs-caregiver' | 'assigned' | 'stopped'
 type WorklistFilter = Worklist | 'all'
 
 const WORKLIST_TABS: { value: WorklistFilter; label: string; empty: string }[] = [
   { value: 'needs-plan', label: 'NEEDS PLAN', empty: 'Every elder has a care plan.' },
-  { value: 'needs-caregiver', label: 'NEEDS CAREGIVER', empty: 'Every elder with a plan has a primary caregiver.' },
-  { value: 'assigned', label: 'ASSIGNED', empty: 'No elder has both a plan and a primary caregiver yet.' },
+  { value: 'needs-caregiver', label: 'NEEDS CAREGIVER', empty: 'Every elder with a published plan has a primary caregiver.' },
+  { value: 'assigned', label: 'ASSIGNED', empty: 'No elder has both a published plan and a primary caregiver yet.' },
   { value: 'stopped', label: 'STOPPED', empty: 'No care plans have been stopped.' },
   { value: 'all', label: 'ALL', empty: 'No elders yet.' },
 ]
 
 function worklistOf(elder: ElderRow): Worklist {
-  if (elder.planStatus === 'none') return 'needs-plan'
   if (elder.planStatus === 'stopped') return 'stopped'
+  if (!elder.hasPublishedPlan) return 'needs-plan'
   return elder.primaryCaregiver ? 'assigned' : 'needs-caregiver'
+}
+
+/**
+ * An elder is the manager's to plan for once the family has applied for care. One who already has
+ * a plan stays listed even without an application, so the plan is never out of reach.
+ */
+function isOnWorklist(elder: ElderRow): boolean {
+  return elder.hasCareRequest || elder.planStatus !== 'none'
 }
 
 function isWorklistFilter(value: string | null): value is WorklistFilter {
@@ -117,7 +126,6 @@ export default function Elders() {
   const queryClient = useQueryClient()
   const [query, setQuery] = useState('')
   const [debouncedQuery, setDebouncedQuery] = useState('')
-  const [sector, setSector] = useState('all')
   const [sort, setSort] = useState<SortOrder>('name')
   const [searchParams, setSearchParams] = useSearchParams()
   const selectedId = searchParams.get('selected')
@@ -131,9 +139,9 @@ export default function Elders() {
     return () => clearTimeout(id)
   }, [query])
 
-  const { data: elders = [], isLoading, isError, error } = useElders()
+  const { data: allElders = [], isLoading, isError, error } = useElders()
+  const elders = useMemo(() => allElders.filter(isOnWorklist), [allElders])
 
-  const sectors = useMemo(() => Array.from(new Set(elders.map((e) => e.sector))).sort(), [elders])
   const q = debouncedQuery.trim()
 
   const worklistCounts = useMemo(() => {
@@ -159,7 +167,6 @@ export default function Elders() {
     const needle = q.toLowerCase()
     const rows = elders.filter((e) => {
       if (worklist !== 'all' && worklistOf(e) !== worklist) return false
-      if (sector !== 'all' && e.sector !== sector) return false
       if (needle && !e.name.toLowerCase().includes(needle) && !e.id.toLowerCase().includes(needle)) return false
       return true
     })
@@ -171,7 +178,7 @@ export default function Elders() {
     else if (sort === 'plan-status')
       sorted.sort((a, b) => PLAN_STATUS_RANK[a.planStatus] - PLAN_STATUS_RANK[b.planStatus])
     return sorted
-  }, [elders, q, sector, worklist, sort])
+  }, [elders, q, worklist, sort])
 
   /** Updates the URL's tab/selection without adding a history entry per click. */
   function setParam(name: 'list' | 'selected', value: string | null) {
@@ -209,10 +216,9 @@ export default function Elders() {
     [selectedPlanNodes],
   )
 
-  function clearFilters() {
+  function clearSearch() {
     setQuery('')
     setDebouncedQuery('')
-    setSector('all')
   }
 
   function openCarePlan(elder: ElderRow) {
@@ -257,14 +263,6 @@ export default function Elders() {
             />
             <Select
               variant="filter"
-              prefix="sector"
-              aria-label="Filter by sector"
-              value={sector}
-              onChange={setSector}
-              options={[{ value: 'all', label: 'all' }, ...sectors.map((s) => ({ value: s, label: s }))]}
-            />
-            <Select
-              variant="filter"
               aria-label="Sort order"
               value={sort}
               onChange={(v) => setSort(v as SortOrder)}
@@ -286,19 +284,14 @@ export default function Elders() {
       </MetaText>
     )
   } else if (filtered.length === 0) {
-    const filteredOut = q !== '' || sector !== 'all'
     body = (
       <div className={styles.empty}>
         <MetaText>
-          {!filteredOut
-            ? WORKLIST_TABS.find((tab) => tab.value === worklist)!.empty
-            : q
-              ? `No elders match "${q}"${sector !== 'all' ? ` in sector ${sector}` : ''}.`
-              : 'No elders match these filters.'}
+          {q ? `No elders match "${q}".` : WORKLIST_TABS.find((tab) => tab.value === worklist)!.empty}
         </MetaText>
-        {filteredOut && (
-          <Button variant="ghost" onClick={clearFilters}>
-            Clear filters
+        {q && (
+          <Button variant="ghost" onClick={clearSearch}>
+            Clear search
           </Button>
         )}
       </div>
@@ -314,9 +307,6 @@ export default function Elders() {
         title={e.name}
         meta={`${ageLabel(e.age)} · ${e.street || 'no address on file'}`}
         cells={[
-          <MetaText key="sector" as="span">
-            {e.sector}
-          </MetaText>,
           <span key="plan" className={styles.badgeCell}>
             <Badge status={e.planStatus} version={e.planVersion} />
           </span>,
@@ -344,7 +334,6 @@ export default function Elders() {
         <div className={styles.rows}>
           <div className={styles.headerRow} aria-hidden="true">
             <Eyebrow>Elder</Eyebrow>
-            <Eyebrow>Sector</Eyebrow>
             <Eyebrow>Care plan</Eyebrow>
             <Eyebrow className={styles.optional}>Primary caregiver</Eyebrow>
             <Eyebrow className={styles.nextVisit}>Next visit</Eyebrow>

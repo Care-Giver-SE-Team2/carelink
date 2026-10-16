@@ -15,7 +15,7 @@ export type Visit = {
   id: string
   /** "HH:MM", Singapore time. */
   time: string
-  elder: { name: string; sector: string }
+  elder: { name: string }
   /** Absent while the visit is unassigned. */
   caregiver?: { name: string }
   service: string
@@ -34,7 +34,6 @@ export type Attendance = {
 
 export type TodayRoster = {
   visits: Visit[]
-  sectors: string[]
 }
 
 export type Kpis = {
@@ -49,7 +48,7 @@ const VISIT_STATES: Record<VisitResponse['status'], VisitState> = {
   ARRIVED: 'in_visit',
   IN_PROGRESS: 'in_visit',
   COMPLETED: 'closed',
-  VERIFIED: 'closed',
+  VERIFIED: 'verified',
   AUTO_CLOSED: 'closed',
   EXCEPTION: 'exception',
   CANCELLED: 'closed',
@@ -99,7 +98,7 @@ export function toRoster(
     return {
       id,
       time: visit.scheduledStart.slice(11, 16),
-      elder: { name: elder?.name ?? `Elder #${visit.elderId}`, sector: elder?.sector ?? '' },
+      elder: { name: elder?.name ?? `Elder #${visit.elderId}` },
       caregiver: caregiver ? { name: caregiver } : undefined,
       service: visit.serviceType ?? '—',
       // An exception outranks the gap: an uncovered visit past its start is an exception.
@@ -112,14 +111,13 @@ export function toRoster(
       attendance: attendanceOf(visit),
     }
   })
-  const sectors = [...new Set(rows.map((row) => row.elder.sector).filter(Boolean))].sort()
-  return { visits: rows, sectors }
+  return { visits: rows }
 }
 
 export function toKpis(roster: TodayRoster, openExceptions: number): Kpis {
   return {
     scheduled: roster.visits.length,
-    completed: roster.visits.filter((visit) => visit.state === 'closed').length,
+    completed: roster.visits.filter((visit) => visit.state === 'closed' || visit.state === 'verified').length,
     unassigned: roster.visits.filter((visit) => !visit.caregiver).length,
     openExceptions,
   }

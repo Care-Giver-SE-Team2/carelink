@@ -11,9 +11,7 @@ const COLUMNS: DataTableColumn<Visit>[] = [
     label: 'Elder',
     width: '1.3fr',
     render: (v) => (
-      <span className={styles.elder}>
-        {v.elder.name} <span className={styles.sector}>{v.elder.sector}</span>
-      </span>
+      <span className={styles.elder}>{v.elder.name}</span>
     ),
   },
   {

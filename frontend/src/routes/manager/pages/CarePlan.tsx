@@ -554,15 +554,6 @@ export default function CarePlan() {
         </Field>
       </PageHeader>
 
-      {editable && unscheduled.length > 0 && (
-        <div className={styles.banner}>
-          <Callout tone="info" role="status">
-            Set days and times for {unscheduled.map((task) => task.name).join(', ')} before publishing — the family
-            chose these activities, not when they happen.
-          </Callout>
-        </div>
-      )}
-
       {editable ? (
         <PlanTreeEditor
           items={treeItems}

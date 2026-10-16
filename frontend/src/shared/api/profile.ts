@@ -66,7 +66,8 @@ export function declineServiceApplication(applicationId: number, reason: string)
 
 /**
  * Row shape for GET /api/elders — profile.controller.dto.ElderListItemResponse. The three
- * primaryCaregiver fields are all null while the elder has no primary caregiver.
+ * primaryCaregiver fields are all null while the elder has no primary caregiver. hasPublishedPlan
+ * stays true while a newer version of a published plan is still a draft.
  */
 export type ElderListItem = {
   id: number
@@ -80,6 +81,9 @@ export type ElderListItem = {
   primaryCaregiverId: number | null
   primaryCaregiverName: string | null
   primaryCaregiverAssignedAt: string | null
+  hasPublishedPlan: boolean
+  /** The family has applied for care: the approved intake application or a service application. */
+  hasCareRequest: boolean
 }
 
 /**
