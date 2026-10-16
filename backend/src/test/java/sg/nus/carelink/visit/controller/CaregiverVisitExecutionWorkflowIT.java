@@ -7,20 +7,25 @@ import java.time.*;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Import;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 import sg.nus.carelink.testsupport.CaregiverHttpITSupport;
+import sg.nus.carelink.testsupport.CaregiverExecutionClock;
 import sg.nus.carelink.testsupport.SharedMySql;
 import sg.nus.carelink.visit.domain.repository.CaregiverCommandStore;
 
 /** Every positive execution begins with manager HTTP plan publication and assignment. */
+@Import(CaregiverExecutionClock.class)
 class CaregiverVisitExecutionWorkflowIT extends CaregiverHttpITSupport {
+    @Autowired Clock businessClock;
     @DynamicPropertySource static void database(DynamicPropertyRegistry registry) { SharedMySql.register(registry,CaregiverVisitExecutionWorkflowIT.class,"+05:00"); }
     @MockitoSpyBean CaregiverCommandStore receipts;
     private long plannedVisit() throws Exception {
         // Plans start visits on the hour or half hour: the next one, so check-in (open 30 minutes early) is open now.
-        var next=LocalDateTime.now(ZoneId.of("Asia/Singapore")).withSecond(0).withNano(0).plusMinutes(1);
+        var next=LocalDateTime.now(businessClock).withSecond(0).withNano(0).plusMinutes(1);
         var start=next.plusMinutes(Math.floorMod(-next.getMinute(),30));
         try(var mgr=browser(managerName)) {
             body(mgr.put("/api/elders/"+elder+"/primary-caregiver",Map.of("caregiverId",caregiver)),200);
@@ -79,7 +84,7 @@ class CaregiverVisitExecutionWorkflowIT extends CaregiverHttpITSupport {
     @Test void gpsValidationRolesCsrfPlanMismatchAndTaskParentAreChecked() throws Exception {
         long id=plannedVisit();
         try(var a=browser(caregiverName);var b=browser(otherName);var relative=browser(familyName)) {
-            var gps=new HashMap<>(Map.<String,Object>of("expectedVersion",0,"clientRequestId",UUID.randomUUID().toString(),"locationSource","GPS","latitude",91,"longitude",103.8,"accuracy",5,"clientCapturedAt",Instant.now().toString()));
+            var gps=new HashMap<>(Map.<String,Object>of("expectedVersion",0,"clientRequestId",UUID.randomUUID().toString(),"locationSource","GPS","latitude",91,"longitude",103.8,"accuracy",5,"clientCapturedAt",businessClock.instant().toString()));
             assertThat(a.post("/api/visits/"+id+"/check-in",gps).statusCode()).isEqualTo(400);
             assertThat(a.withoutCsrf("/api/visits/"+id+"/check-in",check(0)).statusCode()).isEqualTo(403);
             assertThat(b.post("/api/visits/"+id+"/check-in",check(0)).statusCode()).isEqualTo(403);

@@ -29,7 +29,7 @@ it('distinguishes no declaration, soft preference and actual roster, and shows a
   view.leave = [{ id: 1, startDate: date, endDate: date, status: 'APPROVED' }]
   mount()
   expect(await screen.findByText('Unspecified — no windows declared.')).toBeInTheDocument()
-  expect(screen.getByText(/Saved settings are not yet applied/)).toBeInTheDocument()
+  expect(screen.getByText(/Availability and preferences are declarations/)).toBeInTheDocument()
   expect(screen.getByText(/Visit 9/)).toBeInTheDocument()
   expect(screen.getByText(new RegExp(date + '–' + date + ' · APPROVED'))).toBeInTheDocument()
 })

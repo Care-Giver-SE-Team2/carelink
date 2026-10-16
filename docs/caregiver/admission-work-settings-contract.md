@@ -1,7 +1,7 @@
 # Caregiver admission and work settings — integration contract
 
-Local implementation on `codex/caregiver-onboarding-work-settings`, based on main `dbfcce1`.
-Not pushed, merged, or deployed. Manager HTTP/UI consumers and roster consumption are **not implemented by this batch**.
+Admission and settings were merged in #99. Manager admission HTTP/UI is connected by #100 and certificate attachment viewing/storage extended by #101. Plan 017 closeout starts from main `d6f3656`; its local changes are not yet published.
+Settings are for manual reference only; integration into automatic rostering is outside the agreed scope.
 
 ## Ownership and independent decisions
 
@@ -17,7 +17,7 @@ Approval changes PENDING to APPROVED and ONBOARDING to AVAILABLE. It does not pu
 - V28: `caregiver_work_settings_state`, `caregiver_work_settings_receipt`.
 - Existing `caregiver_availability` and `caregiver_preference` hold settings. Existing V1–V26 migrations are unchanged. Admission and settings have separate caregiver-level versions and separate command receipts; no fictitious Visit ID is used.
 
-Use Flyway on a fresh/compatible database. Do not overwrite an old demo volume or edit migration checksums. Migrations are local/unreleased and must be rechecked against main before publication.
+Use Flyway on a fresh/compatible database. Do not overwrite an old demo volume or edit migration checksums. V27–V31 are already on main; plan 017 adds no migration.
 
 ## Caregiver HTTP endpoints
 
@@ -62,7 +62,9 @@ Example preferences (empty service selection is valid while the directory is una
 
 Registration uses lower-case ASCII usernames (3–64), the existing password encoder, and a 72 UTF-8 byte password limit (minimum 8 characters). No password fingerprint/receipt is stored. On an unknown registration result, try normal login before resubmitting. Contact numbers normalize to Singapore mobile format; requestedSector is an intention and never overwrites authoritative caregiver.sector.
 
-## Manager application ports to connect
+## Connected manager application APIs and ports
+
+The manager UI uses authenticated `GET /api/caregiver-applications?page=0&size=100`, `GET /api/caregiver-applications/{id}`, and `POST /api/caregiver-applications/{id}/approve` or `/reject`. Approval carries optional `message`; rejection requires `reason`. Both commands carry `expectedVersion` and `clientRequestId`. Certificate scans are context only; admission never publishes them. `ManagerCaregiverApplicationIT` covers zero-certificate registration through HTTP approval, stale decisions and role/CSRF rejection.
 
 `profile.application.CaregiverApplicationReader`:
 
@@ -74,7 +76,7 @@ Registration uses lower-case ASCII usernames (3–64), the existing password enc
 - `decide(managerUsername, applicationId, approve, reason, expectedVersion, clientRequestId)`.
 - The application boundary checks an enabled MANAGER account, locks the profile, checks current status/version and records the real reviewer. Never take manager identity or approval status from a caregiver request.
 - Same actor/key/payload returns the original result. Changed payload under a key or stale versions return a conflict. Mutation, activation, history, audit and receipt are one transaction.
-- This port is not a public manager controller. The manager owner should replace application mock data/IDs and wire their own authenticated controller/UI to it. No real user approval is simulated through SQL for acceptance.
+- The existing manager controller uses these ports; mock application IDs have been removed. No real user approval is simulated through SQL for acceptance.
 
 `rostering.application.CaregiverWorkSettingsReader.read(caregiverIds, from, to)`:
 
@@ -82,6 +84,7 @@ Registration uses lower-case ASCII usernames (3–64), the existing password enc
 - Three batch persistence reads, not one query per caregiver; output has structured preferences/windows, version, updatedAt and dataIssues, never JPA entities/CSV.
 - Missing caregiver IDs are omitted. Existing caregivers with no data return empty declarations, version 0, and `UNSPECIFIED` uncovered time.
 - `consumptionStatus` is `NOT_APPLIED_TO_ROSTERING`. Do not infer that saving changes candidate search, recurring generation or current visits.
+- This is intentional: no automatic filtering or scoring is planned for this batch. No authorized manager work-settings HTTP/UI consumer was found at the closeout baseline; its manual reference entry remains an explicit manager-owner handoff, not a completed UI claim.
 
 ## Time, directory and leave semantics
 
@@ -89,7 +92,8 @@ Registration uses lower-case ASCII usernames (3–64), the existing password enc
 - Dates can be edited from today through day +90 inclusive, maximum 8 windows/day. Weekly preferred windows: maximum 14 total / 2 per weekday.
 - Empty dates/uncovered time are UNSPECIFIED, not all-day unavailability. Empty preference arrays mean no preference, not rejection of every shift.
 - Weekly times, service/area selections and personal workload limits are soft preferences. They never relax institution constraints. Defaults cap the input at 8 visits/8 hours and respect lower enabled institution limits; hours use half-hour steps.
-- Approved whole-day leave takes precedence; pending leave is not effective approval. Settings do not cancel or reassign visits and do not request leave. The page shows existing bookings and leave separately.
+- Date availability (including UNAVAILABLE), weekly times and other preferences are for manual reference only. Managers may publish visits outside any declaration, subject to other existing business constraints. Within time declarations and leave, only approved whole-day leave is a hard restriction; pending/rejected requests do not grant absence. Settings do not cancel or reassign visits and do not request leave.
+- Published shifts take effect without caregiver acceptance/rejection. A caregiver unable to attend requests leave; approval and the manager's subsequent re-rostering/cover work are separate outcomes. APPROVED does not prove cover was arranged. Existing account, qualification, clash and travel rules still apply.
 - Sector choices currently come from existing profile sector identifiers, preserving leading zeros. This is not a new geographic catalog.
 - No authoritative ordinary-service code directory exists in the current source. Default service choices are empty and the UI says so. After owners agree stable codes/mappings, set `carelink.caregiver.work-settings.service-codes` (comma-separated uppercase codes). Do not use arbitrary Visit task labels or report-only value-added IDs as equivalent codes.
 - Legacy unknown codes are retained in responses and flagged; malformed legacy windows are flagged. Nothing is silently written back or erased on a read. The editor requires review confirmation before replacement; raw rows remain intact until explicit save.
@@ -104,10 +108,10 @@ Keep a command's version and request key together. After a timeout/5xx, retry on
 
 Local targeted admission/settings acceptance: 20 real MySQL tests (12 admission, including concurrent same-name registration, + 8 work settings), 14 domain tests plus 4 architecture rules. The 8086 browser demo registered a zero-certificate applicant, authenticated with restricted navigation and persisted a date window. Broader batch regression is recorded in external plan 016; this is not a remote CI or manager-UI acceptance claim. Evidence/history/SYS03 contracts are in `evidence-history-handoff.md` and the OpenAPI local fragment `docs/api/caregiver-self-service.yaml`.
 
-- [ ] Manager owner connects real application HTTP/UI and removes mock approval rows.
+- [x] Manager owner connected real application HTTP/UI and removed mock approval rows (#100).
 - [ ] Agree service-code directory and authoritative sector choices.
-- [ ] Confirm how explicit UNAVAILABLE constrains assignment, and how AVAILABLE uncovered time is treated.
-- [ ] Manager owner connects Reader in the selected MG03/MG04 paths and tests both recurring generation and reassignment.
+- [x] Time rules confirmed 2026-10-16: all declarations including UNAVAILABLE are advisory; uncovered time is UNSPECIFIED; only approved leave restricts scheduling within these declarations/leave rules.
+- [ ] Manager owner provides an authorized manual reference view for settings. Automatic MG03/MG04 consumption is explicitly out of scope.
 - [ ] Agree application notification producer/target routing before sending application notifications; this batch does not emit links to mock manager IDs.
 - [ ] Jointly demonstrate zero-certificate admission and real manager assignment through those consumers.
 

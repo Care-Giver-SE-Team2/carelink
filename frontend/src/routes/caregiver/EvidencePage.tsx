@@ -1,6 +1,6 @@
 import { useCallback, useState } from 'react'
 import type { FormEvent } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { Link, useParams, useSearchParams } from 'react-router-dom'
 import { api, ApiError } from '../../shared/api/client'
 import { getWorkPack } from '../../features/caregiver/api'
 import type { WorkPack } from '../../features/caregiver/api'
@@ -9,12 +9,14 @@ import { useSelfServiceWrite, isAccessFailure } from './selfService'
 import { useUnsavedCaregiverForm } from './useUnsavedCaregiverForm'
 import SelfServiceError from './SelfServiceError'
 import styles from './Caregiver.module.css'
+import { scheduleSearch } from './navigation'
 
 type Evidence = { id: number; visitId: number; kind: string; verificationStatus: string; capturedAt: string | null; taskId: number | null; fileName: string | null; contentType: string | null; byteSize: number | null; available: boolean; downloadPath: string | null }
 type EvidenceList = { items: Evidence[]; page: number; size: number; total: number; maxFiles: number }
 export default function EvidencePage() {
   const { visitId = '' } = useParams()
-  return <div className={styles.page}><Link className={styles.back} to={`/caregiver/visits/${encodeURIComponent(visitId)}`}>← Visit work pack</Link><div className={styles.heading}><h1>Visit evidence</h1></div>
+  const [params] = useSearchParams()
+  return <div className={styles.page}><Link className={styles.back} to={`/caregiver/visits/${encodeURIComponent(visitId)}${scheduleSearch(params)}`}>← Visit work pack</Link><div className={styles.heading}><h1>Visit evidence</h1></div>
     <p>PHOTO and SIGNATURE support JPEG/PNG only, up to 5 MiB and 20 megapixels. A signature image is not elder confirmation or identity verification. Uploaded evidence remains Unverified and does not complete a task.</p>
     <p>Captured time means server submission time, not the camera's timestamp. Do not include unnecessary personal information. Evidence is not required to check out.</p>
     {/^[1-9]\d*$/.test(visitId) ? <EvidenceWorkspace key={visitId} visitId={visitId} /> : <p role="alert">Invalid visit.</p>}

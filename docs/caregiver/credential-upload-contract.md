@@ -87,8 +87,10 @@ Historical material is collapsed in the list but expanded in its direct detail.
 1. Keep the existing register `GET /api/credentials` and existing Publish/Reject.
 2. Use register row ID to fetch `/api/credentials/{id}/documents`. Do not pass caregiver identity.
 3. Show honest missing/unavailable states; use each document ID in the authenticated content URL.
-4. Treat PDF as download, not inline HTML/iframe. Browser session is sufficient for same-origin GET;
-   downloads use attachment, no-store and nosniff. Do not cache or publish a file URL.
+4. Since #101, authorized certificate content uses inline disposition, no-store, nosniff and
+   X-Frame-Options SAMEORIGIN so the manager can view validated scans/PDFs. Browser session is
+   sufficient for same-origin GET. Do not cache or publish a file URL. Visit evidence is a
+   different endpoint and still uses attachment disposition.
 5. Existing rejection reason appears in the caregiver detail after refresh; explicit retry creates a
    new submitted row. Confirm directory/onboarding policy separately; this feature does not activate users.
 
@@ -112,6 +114,12 @@ Runtime Docker image uses `/app/private/credentials` and `/app/private/multipart
 1001. Staging compose adds named `credential-files` storage; do not apply remotely without deployment
 owner approval. Existing demos/old images are not automatically upgraded by these file edits.
 
+Main #101 optionally enables ImageKit certificate storage with CARELINK_IMAGEKIT_ENABLED,
+CARELINK_IMAGEKIT_URL_ENDPOINT and CARELINK_IMAGEKIT_PRIVATE_KEY (default disabled).
+Backend-authorized reads fetch private signed content and retain length/hash checks; old local
+keys remain readable. ImageKit is not used for Visit evidence. Do not put provider keys or
+signed URLs in frontend state/logs; mocked provider tests do not certify real cloud availability.
+
 Back up the DB and private documents as a consistent pair, with submissions paused; preserve metadata
 hash/size/storage keys and verify them on restore in an isolated environment before switching traffic.
 Never use `down -v` or delete production volumes to upgrade. DB rollback cleans only this command's
@@ -122,9 +130,11 @@ cleanup. Database metadata alone is not a certificate backup. Monitor disk capac
 
 ## Acceptance and outstanding collaboration
 
-Local tests/demo results are recorded in external `files/PLAN/014-plan.md`; do not claim hosted CI
-success for unpushed changes. Check actual upload, owner/manager download, another caregiver/family
+Historical local tests/demo results are recorded in external `files/PLAN/014-plan.md`; the upload
+feature merged in #98 and manager viewing was extended by #101. Plan 017 local edits require their
+own validation. Check actual upload, owner/manager read, another caregiver/family
 denial, existing rejection/approval via APIs, renewal reminders, unknown-result retry, rollback,
 restart/file persistence and unrelated schedule/execution regression.
-Manager attachment UI, onboarding status, genuine institution catalogue and existing cross-policy
-coverage discrepancies require owner confirmation; they are not implemented by this caregiver batch.
+Manager attachment UI and independent admission are now connected. Genuine institution catalogue
+and existing cross-policy coverage discrepancies remain owner follow-ups; do not reopen completed
+integration work based on older status notes.

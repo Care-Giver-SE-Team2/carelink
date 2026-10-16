@@ -21,9 +21,11 @@ The existing executor checks current assignment and locks the parent. Identical 
 
 ## Page and downstream boundary
 
-The English work pack shows `Check out` and non-blocking pending-task/evidence notices. Save desired drafts first: task/new-health writes stop after completion. Missing evidence cannot yet be uploaded/verified in this page. Server allowedActions is authoritative; each command rechecks in its transaction.
+The English work pack shows `Check out` and non-blocking pending-task/evidence notices. Images can be uploaded through the linked evidence page after check-in and before check-out, remaining UNVERIFIED. Actual unsaved task/health values trigger confirmation before departure: Cancel retains the draft; confirm checks out without submitting it. New task/health/image writes stop after completion. Server allowedActions is authoritative; each command rechecks in its transaction.
 
 COMPLETED and real times feed existing EL01, FM03 and reports. A supplemental CG04 report retains completed state. Ordinary CG04-first EXCEPTION still prevents check-out. Manager/elder/family/report workflow implementations and notification audience rules are not changed.
+
+Current main `d6f3656` also makes a confirmed elder review change Visit COMPLETED → VERIFIED, with a state-transition record. A dispute does not verify it. This is a downstream teammate implementation, separate from caregiver check-out and individual image verification. The dated records below describe earlier baselines.
 
 No schema migration is added by this slice. The synchronized main baseline is d16f7a3 (V1–V25), including teammates' V22–V25; no existing migration was edited. Health summaries/history, original alerts and task statuses are preserved. Main now supplies standalone FM08 visits with service instructions and one task initialized on check-in. End-to-end acceptance of those visits with this local check-out remains pending, rather than an absent basic execution implementation. Precise SYS03 caregiver recipients, authorized system-alert navigation, health-note report projection and evidence upload remain separate handoff items.
 

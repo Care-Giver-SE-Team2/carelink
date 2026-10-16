@@ -1,8 +1,8 @@
 import { useCallback, useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { Link, useParams, useSearchParams } from 'react-router-dom'
 import { api } from '../../shared/api/client'
 import { useCaregiverQuery } from '../../features/caregiver/useCaregiverQuery'
-import { todayInSingapore } from './format'
+import { historyFilters, historySearch, historyStatuses } from './navigation'
 import SelfServiceError from './SelfServiceError'
 import styles from './Caregiver.module.css'
 
@@ -16,35 +16,44 @@ type Fact = { action: string; sourceId: number; visitVersion: number; recordedAt
 type History = { visitId: number; facts: Fact[]; spotChecks: { id: number; result: string; checkedAt: string | null; ownResponse: string | null }[]; total: number }
 const timestamp = (value: string | null) => value ? value.replace('T', ' ') + ' (SGT)' : 'No attributable record'
 export default function HistoryPage() {
-  const [month, setMonth] = useState(() => todayInSingapore().slice(0, 7))
+  const [params, setParams] = useSearchParams()
+  const { month, status, page } = historyFilters(params)
   const [draft, setDraft] = useState(month)
-  const [status, setStatus] = useState('')
-  const [page, setPage] = useState(0)
+  const [draftMonth, setDraftMonth] = useState(month)
+  if (draftMonth !== month) { setDraftMonth(month); setDraft(month) }
+  const changeFilters = (changes: Partial<ReturnType<typeof historyFilters>>) => setParams(historySearch({ month, status, page, ...changes }))
   const [invalid, setInvalid] = useState('')
   const load = useCallback((signal: AbortSignal) => api<Month>(`/caregivers/me/history?month=${encodeURIComponent(month)}&page=${page}&size=20${status ? '&status=' + status : ''}`, { signal }), [month, page, status])
   const { result, reload } = useCaregiverQuery(`history:${month}:${status}:${page}`, load, true)
   return <div className={styles.page}><div className={styles.heading}><div><p className={styles.eyebrow}>Caregiver workspace</p><h1>My execution history</h1><p className={styles.muted}>Your own submitted actions, grouped by visit.</p></div></div><div className={styles.toolbar}><button className={styles.refresh} onClick={reload}>Refresh</button></div>
     <p>Read-only records of your own submitted actions, grouped by Visit. The month uses actual action times in Singapore, not the current schedule. No export or access to another caregiver's work is provided.</p>
-    <form className={styles.dateForm} onSubmit={event => { event.preventDefault(); if (!/^(20\d{2}|2100)-(0[1-9]|1[0-2])$/.test(draft)) { setInvalid('Enter a month as YYYY-MM.'); return } setInvalid(''); setMonth(draft); setPage(0) }}>
+    <form className={styles.dateForm} onSubmit={event => { event.preventDefault(); if (!/^(20\d{2}|2100)-(0[1-9]|1[0-2])$/.test(draft)) { setInvalid('Enter a month as YYYY-MM.'); return } setInvalid(''); changeFilters({ month: draft, page: 0 }) }}>
       <label>Month (YYYY-MM)<input inputMode="numeric" placeholder="YYYY-MM" value={draft} onChange={event => setDraft(event.target.value)} /></label><button className={styles.button}>Apply month</button>
-      <label>Current Visit status<select value={status} onChange={event => { setStatus(event.target.value); setPage(0) }}><option value="">All statuses</option>{['SCHEDULED', 'ARRIVED', 'IN_PROGRESS', 'COMPLETED', 'VERIFIED', 'AUTO_CLOSED', 'EXCEPTION', 'CANCELLED'].map(value => <option key={value}>{value}</option>)}</select></label>
+      <label>Current Visit status<select value={status} onChange={event => changeFilters({ status: event.target.value, page: 0 })}><option value="">All statuses</option>{historyStatuses.map(value => <option key={value}>{value}</option>)}</select></label>
     </form>
     {invalid && <p role="alert">{invalid}</p>}
     {result.status === 'loading' && <p role="status">Loading your history…</p>}
     {result.status === 'error' && <SelfServiceError error={result.error} retry={reload} subject="your history" />}
     {result.status === 'success' && <><p className={styles.readOnly}>{result.data.coverageNote}</p>
       {result.data.items.length === 0 && <p>No attributable actions found for this month and status.</p>}
-      {result.data.items.map(item => <article key={item.visitId} className={styles.card}><h2>Visit {item.visitId} · {item.currentVisitStatus}</h2><p>My check-in: {timestamp(item.ownCheckInAt)}</p><p>My check-out: {timestamp(item.ownCheckOutAt)}</p><p>{item.commandCount} recorded actions · Latest: {timestamp(item.lastOwnActionAt)}</p><Link to={`/caregiver/history/${item.visitId}`}>View my facts for Visit {item.visitId}</Link></article>)}
-      <Pager page={page} total={result.data.total} change={setPage} />
+      {result.data.items.map(item => <article key={item.visitId} className={styles.card}><h2>Visit {item.visitId} · {item.currentVisitStatus}</h2><p>My check-in: {timestamp(item.ownCheckInAt)}</p><p>My check-out: {timestamp(item.ownCheckOutAt)}</p><p>{item.commandCount} recorded actions · Latest: {timestamp(item.lastOwnActionAt)}</p><Link to={`/caregiver/history/${item.visitId}${historySearch({ month, status, page })}`}>View my facts for Visit {item.visitId}</Link></article>)}
+      <Pager page={page} total={result.data.total} change={next => changeFilters({ page: next })} />
     </>}
   </div>
 }
 export function HistoryDetailPage() {
   const { visitId = '' } = useParams()
-  const [page, setPage] = useState(0)
+  const [params, setParams] = useSearchParams()
+  const filters = historyFilters(params)
+  const page = historyFilters(new URLSearchParams({ page: params.get('factsPage') ?? '' })).page
+  const changePage = (next: number) => {
+    const query = new URLSearchParams(historySearch(filters))
+    query.set('factsPage', String(next))
+    setParams(query)
+  }
   const load = useCallback((signal: AbortSignal) => api<History>(`/caregivers/me/history/${encodeURIComponent(visitId)}?page=${page}&size=20`, { signal }), [visitId, page])
   const { result, reload } = useCaregiverQuery(`history-detail:${visitId}:${page}`, load, true)
-  return <div className={styles.page}><Link className={styles.back} to="/caregiver/history">← My execution history</Link><div className={styles.heading}><h1>My recorded facts · Visit {visitId}</h1></div><div className={styles.toolbar}><button className={styles.refresh} onClick={reload}>Refresh</button></div>
+  return <div className={styles.page}><Link className={styles.back} to={'/caregiver/history' + historySearch(filters)}>← My execution history</Link><div className={styles.heading}><h1>My recorded facts · Visit {visitId}</h1></div><div className={styles.toolbar}><button className={styles.refresh} onClick={reload}>Refresh</button></div>
     <p>This history does not grant access to the current work pack. Only your own submissions and your concluded spot checks are shown; missing older provenance is not reconstructed.</p>
     {result.status === 'loading' && <p role="status">Loading recorded facts…</p>}
     {result.status === 'error' && <SelfServiceError error={result.error} retry={reload} subject="your recorded facts" />}
@@ -55,7 +64,7 @@ export function HistoryDetailPage() {
         {fact.evidence && <><p>{fact.evidence.kind} · {fact.evidence.verificationStatus} · {fact.evidence.fileName}</p><a href={fact.evidence.downloadPath} download>Download my evidence {fact.evidence.evidenceId}</a></>}
         {fact.report && <p>My report {fact.report.id}: {fact.report.category} · {fact.report.severity} · {fact.report.status}<br />{fact.report.description}</p>}
       </article>)}
-      <Pager page={page} total={result.data.total} change={setPage} />
+      <Pager page={page} total={result.data.total} change={changePage} />
       <h2>My concluded spot checks for this Visit</h2>{result.data.spotChecks.length === 0 ? <p>No concluded spot checks linked to this Visit.</p> : result.data.spotChecks.map(check => <article className={styles.card} key={check.id}><p>Check {check.id}: {check.result} · {timestamp(check.checkedAt)}</p><p>My response: {check.ownResponse || 'Not responded'}</p><Link to={`/caregiver/spot-checks?spotCheckId=${check.id}`}>View my spot check</Link></article>)}
     </>}
   </div>

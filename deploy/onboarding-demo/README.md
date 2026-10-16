@@ -2,11 +2,13 @@
 
 Use only fictional data. New Compose project `carelink-onboarding-demo`, new MySQL volume, and project-local private files under `reports/onboarding-demo/private`. It does not replace 8081–8085 volumes or approve an existing applicant.
 
-The default compose file uses a prebuilt frontend-containing jar at `reports/main-sync/onboarding-demo-build/backend/target/backend-0.0.1-SNAPSHOT.jar` and the existing local development runtime image. For a source build, override the Dockerfile:
+The default Compose file builds the repository's root Dockerfile, including the frontend and all three API YAML files. It does not require an old local runtime image or a separately packaged JAR. `compose.source.yml` remains a compatible, optional override.
 
 ```powershell
 New-Item -ItemType Directory -Force reports/onboarding-demo/private/credentials,reports/onboarding-demo/private/evidence,reports/onboarding-demo/private/multipart
-docker compose -f deploy/onboarding-demo/compose.yml -f deploy/onboarding-demo/compose.source.yml up -d --build
+$env:CARELINK_DEMO_REVISION = (git rev-parse --short HEAD)
+if (git status --porcelain) { $env:CARELINK_DEMO_REVISION += '-dirty' }
+docker compose -f deploy/onboarding-demo/compose.yml up -d --build --wait
 ```
 
 On Linux, make these project-local private directories writable by the image user before startup. Docker writes to its own storage require the user's approval. Do not use these local-only passwords/settings in staging or production.
@@ -15,8 +17,8 @@ On Linux, make these project-local private directories writable by the image use
 
 1. Open `http://localhost:8086/caregiver/register`, use fictional details, and submit without certificates.
 2. Sign in. Application must say ONBOARDING/PENDING. Only application, credentials and settings navigation are offered; manually entering a work URL must not grant work access.
-3. Edit and save an application. Save a date declaration and preference, reload and inspect. The UI explicitly says settings are not yet consumed by rostering; saving does not create or cancel a Visit.
-4. Manager admission HTTP/UI is a separate owner's follow-up. Zero-certificate approval is verified through the real application port in `CaregiverAdmissionIT`, not a mock UI or SQL approval.
+3. Edit and save an application. Save a date declaration and preference, reload and inspect. All declarations, including Unavailable, are for the manager's manual reference only; automatic rostering does not consume them. Saving does not create or cancel a Visit. Only approved leave blocks scheduling within these declarations/leave rules.
+4. Manager admission HTTP/UI is connected on main (#100). Use an existing authorized manager account to approve the real pending application without certificates, then refresh the caregiver application/profile. Certificate decisions are independent. Do not simulate approval with SQL or create a manager demo account. If no authorized account is available, record human cross-role acceptance as pending; `ManagerCaregiverApplicationIT` covers the actual HTTP path in an isolated database.
 5. For an already-active fictional caregiver with a assigned Visit, check in, open evidence images, select a generated JPEG/PNG fixture and upload. Verify Unverified and server time. Check out with tasks still Pending. New uploads must then be unavailable.
 6. Open My history. Only attributed own commands/materials should appear. A replacement caregiver cannot use the original uploader's historical download route.
 
@@ -33,3 +35,34 @@ On Linux, make these project-local private directories writable by the image use
 - Local regression, backups/restart and outstanding checks are recorded in the external plan 016; use PR #99 for the hosted checks on the final published commit.
 
 Do not run `down -v` or delete private evidence to reset the demo. Preserve the DB and file directory together; use the read-only reconciliation procedure in `docs/caregiver/evidence-history-handoff.md`.
+
+## Closeout acceptance (plan 017)
+
+Before rebuilding an existing demo, stop application writes and back up its database and the complete `reports/onboarding-demo/private` directory together. Keep the old image ID for recovery. Recreate only the backend against the same database and private directory, then verify previous authenticated image downloads and hashes. `/actuator/info` reports the build revision (with `-dirty` for local modifications); it is not proof of a published commit.
+
+Use `docs/caregiver/closeout-acceptance.md` for the full checklist and unresolved owner handoffs. Earlier dated results above remain historical and do not certify the new build.
+
+### Local closeout run, 2026-10-16
+
+- Root-image build reports `d6f3656-dirty`. Three API YAML files match validated source;
+  UID 1001 can write a fresh evidence volume. The temporary empty test volume was removed.
+- The previous three fictional images were backed up before upgrade; an additional
+  Visit 2 image was uploaded through the real endpoint. All four retained their hashes
+  after backend recreation. Pending applicants were denied these private downloads.
+- Visit 2 was checked out during browser testing of the original native confirmation.
+  It is now COMPLETED and its upload control is intentionally absent; earlier Visit 2
+  upload instructions above describe the historical run.
+- The final implementation uses an explicit on-page decision instead of the native
+  browser confirmation for checkout. A separate `CLOSEOUT_DRAFT_DEMO` Visit 3 was created
+  as a fictional legacy fixture for the existing active caregiver and checked in through
+  HTTP. The browser confirmed Continue editing retained the draft, then Check out without
+  saving completed Visit 3 with its task still PENDING and no task/health draft submission.
+  This fixture is not evidence of a manager-created assignment or admission decision.
+- All three visits are now COMPLETED. Use their images/history for read-only review;
+  a new upload demonstration needs a new genuinely assigned, checked-in visit. Do not
+  reset their statuses with SQL. Existing fixture credentials remain those listed above.
+- Browser checks also covered restored history filters, schedule/evidence date links,
+  390px menu reachability and Escape focus restoration. Viewport override was reset.
+- Final paired backup: `reports/onboarding-demo/backup-20261016-230932`, four referenced
+  images, zero reconciliation issues/deletions. Final test totals and owner handoffs
+  remain in external `files/PLAN/017-plan.md`; no local result implies new hosted CI.

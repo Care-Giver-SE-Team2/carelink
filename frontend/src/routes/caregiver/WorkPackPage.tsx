@@ -9,13 +9,12 @@ import ExecutionPanel, { ExecutionTasks } from './ExecutionPanel'
 import { useExecutionCommands } from './useExecutionCommands'
 import { ApiError } from '../../shared/api/client'
 import HealthPanel from './HealthPanel'
+import { scheduleSearch } from './navigation'
 
 export default function WorkPackPage() {
   const { visitId = '' } = useParams()
   const [params] = useSearchParams()
-  const backParams = new URLSearchParams()
-  for (const name of ['dateFrom', 'dateTo']) if (params.has(name)) backParams.set(name, params.get(name)!)
-  const back = '/caregiver' + (backParams.size ? '?' + backParams.toString() : '')
+  const back = '/caregiver' + scheduleSearch(params)
   return <div className={styles.page}><Link className={styles.back} to={back}>← My schedule</Link>
     {!/^[1-9]\d*$/.test(visitId) ? <div role="alert" className={styles.error}>Visit not found</div> : <WorkPack key={visitId} id={visitId} back={back} />}
   </div>
@@ -59,7 +58,7 @@ function WorkPack({ id, back }: { id: string; back: string }) {
     <ExecutionTasks pack={pack} command={command} />
     {pack.healthObservation && <HealthPanel pack={pack} command={command} revision={result.receivedAt} />}
     <section className={styles.card} aria-label="Required evidence"><h2>Required evidence</h2><p className={styles.muted}>Requirements for the tasks assigned to this visit.</p>
-      <Link to={`/caregiver/visits/${id}/evidence`}>View or upload evidence images</Link>
+      <Link to={`/caregiver/visits/${id}/evidence${back.includes('?') ? back.slice(back.indexOf('?')) : ''}`}>View or upload evidence images</Link>
       {pack.requiredEvidenceKinds.length ? <div className={styles.pills}>{pack.requiredEvidenceKinds.map(kind => <span className={styles.badge} key={kind}>{titleCase(kind)}</span>)}</div> : <p>No evidence requirements recorded.</p>}
     </section>
   </>
