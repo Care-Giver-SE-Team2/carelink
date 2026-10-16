@@ -41,3 +41,7 @@ it('does not offer upload when the work pack is forbidden', async () => {
   vi.mocked(fetch).mockResolvedValue(reply({}, 403)); mount(); await screen.findByRole('alert')
   expect(screen.queryByRole('button', { name: 'Add evidence image' })).not.toBeInTheDocument()
 })
+it('returns to the work pack with the schedule dates but no unrelated query data', async () => {
+  render(<MemoryRouter initialEntries={['/caregiver/visits/1/evidence?dateFrom=2026-10-09&dateTo=2026-10-15&note=secret']}><Routes><Route path="/caregiver/visits/:visitId/evidence" element={<EvidencePage />} /></Routes></MemoryRouter>)
+  expect(await screen.findByRole('link', { name: '← Visit work pack' })).toHaveAttribute('href', '/caregiver/visits/1?dateFrom=2026-10-09&dateTo=2026-10-15')
+})

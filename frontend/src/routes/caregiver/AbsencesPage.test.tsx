@@ -58,7 +58,7 @@ describe('caregiver leave self-service', () => {
     expect(posts).toHaveLength(1)
     expect(JSON.parse(String(posts[0][1]?.body))).toEqual({ type: 'ANNUAL', startDate: today, endDate: today, reason: 'Family time' })
     expect(screen.getByLabelText('Reason (optional)')).toHaveValue('')
-    expect(screen.getByText(/arranges any roster changes separately/)).toBeInTheDocument()
+    expect(screen.getByText(/Approved leave does not mean replacement cover has been arranged/)).toBeInTheDocument()
   })
   it('allows an ongoing absence and an optional blank reason', async () => {
     mount(); await fill(addDays(today, -1), today)

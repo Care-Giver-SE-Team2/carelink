@@ -1,10 +1,10 @@
 # Visit evidence, own execution history and SYS03 handoff
 
-Local implementation for plan 016 E/F, based on main dbfcce1. Not a claim of deployment, manager UI acceptance or remote CI success.
+Plan 016 E/F was merged in #99. Main `d6f3656` includes manager admission and certificate viewing (#100/#101); plan 017 locally closes deployment and caregiver usability gaps. Dated acceptance below belongs to its stated source, not automatically to the closeout build.
 
 ## Ownership boundaries
 
-- Manager UI, approval controllers, roster algorithms, report projections and the family Observer are unchanged.
+- Plan 017 does not change manager UI, approval controllers, roster algorithms, report projections or the family Observer.
 - SYS03 continues to call the existing incident route once. Only its caregiver notification audience changes to the assigned caregiver at trigger time; manager recipients remain as before. No new family notification publisher.
 - New notifications use resource type `CAREGIVER_SYSTEM_ALERT`, opening `/caregiver/system-alerts/{incidentId}`. The safe summary is scoped to the stored trigger caregiver, not every caregiver. Reassignment preserves only that original minimal summary, never elder identity or the new work pack. Old already-stored INCIDENT notifications are not rewritten; use System alerts to read their attributable trigger summaries.
 - CG06 is a read-only first slice. No bulk export, offboard access or manager assessment is included. It does not represent full CG06 long-term retention policy.
@@ -41,8 +41,14 @@ Details are paginated (1–50) and project only attributed command sources: task
 
 ## Acceptance boundaries
 
-Tests cover database rollback (metadata/receipt), command replay/conflict, upload/check-out competition, count/version competition, current versus historical ownership, legacy paths, image validation and normal work with incomplete tasks. Browser, restart and full CI-equivalent results are recorded in the local plan, not inferred from these capabilities. Remote CI requires a future explicitly authorized push.
+Tests cover database rollback (metadata/receipt), command replay/conflict, upload/check-out competition, count/version competition, current versus historical ownership, legacy paths, image validation and normal work with incomplete tasks. Browser, restart and full CI-equivalent results are recorded in the local plan, not inferred from these capabilities. #99 has passed hosted checks and merged; hosted checks for plan 017 will require a later authorized push.
 
 Local acceptance on 2026-10-12/13: full backend verification passed 1,627 unit/architecture checks and 840 real-MySQL integration checks, with domain coverage gates met. The final security/API-fragment additions separately passed 41 unit/architecture and 22 real-MySQL checks (overlapping tests, not additive totals). A paired database/private-file backup was restored to an independent 8087 instance and authenticated reads succeeded. The user also confirmed the real Visit 2 browser upload with `Evidence saved — Unverified`; subsequent authenticated readback confirmed the saved file. A fresh paired backup includes all three fictional images with no reconciliation issues. See external plan 016 for the final frontend run and demo build; no remote CI is implied.
 
-Remaining team consumers: manager admission HTTP/UI and work-settings Reader consumption; agreed service catalog/UNAVAILABLE policy; manager evidence verification/read contract; report health-text projection and cross-role demonstration. This change does not implement those owners' rules.
+Remaining team handoffs: a manager-authorized manual settings view/service catalog; evidence verification/read contract if required by acceptance; report health-text projection and cross-role demonstration. Availability and preferences, including UNAVAILABLE, are confirmed advisory only; do not add automatic roster consumption. Manager admission HTTP/UI is already connected.
+
+## Plan 017 storage and navigation
+
+The root image uses non-root `/app/private/evidence` via `CARELINK_CAREGIVER_EVIDENCE_STORAGE`; staging Compose persists it in `evidence-files`, independently of certificate storage (including optional ImageKit). Back up the DB and both file stores as one recovery point. This repository change does not apply itself to a remote server or relocate existing files automatically.
+
+Work-pack/evidence navigation retains validated schedule dates only. History list month/status/page are URL filters and survive returning from details; `factsPage` paginates detail independently. Check-out warns about actual unsaved task/health values, permits explicit departure and never submits drafts automatically. Visit VERIFIED after elder confirmation does not verify individual images.

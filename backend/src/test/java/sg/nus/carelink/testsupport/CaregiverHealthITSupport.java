@@ -1,18 +1,22 @@
 package sg.nus.carelink.testsupport;
 
 import java.sql.Timestamp;
+import java.time.Clock;
 import java.time.LocalDateTime;
-import java.time.ZoneId;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Import;
 
 /** Positive fixtures are produced through manager plan publication and caregiver check-in. */
+@Import(CaregiverExecutionClock.class)
 public abstract class CaregiverHealthITSupport extends CaregiverHttpITSupport {
+    @Autowired protected Clock businessClock;
     protected long plannedVisit() throws Exception {
         // Plans start visits on the hour or half hour: the next one, so check-in (open 30 minutes early) is open now.
-        var next = LocalDateTime.now(ZoneId.of("Asia/Singapore")).withSecond(0).withNano(0).plusMinutes(1);
+        var next = LocalDateTime.now(businessClock).withSecond(0).withNano(0).plusMinutes(1);
         var start = next.plusMinutes(Math.floorMod(-next.getMinute(), 30));
         try (var mgr = browser(managerName)) {
             body(mgr.put("/api/elders/" + elder + "/primary-caregiver", Map.of("caregiverId", caregiver)), 200);

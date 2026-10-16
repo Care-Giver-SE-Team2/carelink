@@ -57,9 +57,10 @@ services:
       CARELINK_IMAGEKIT_ENABLED: ${CARELINK_IMAGEKIT_ENABLED:-false}
       CARELINK_IMAGEKIT_URL_ENDPOINT: ${CARELINK_IMAGEKIT_URL_ENDPOINT:-}
       CARELINK_IMAGEKIT_PRIVATE_KEY: ${CARELINK_IMAGEKIT_PRIVATE_KEY:-}
-    # Preserve uploaded qualifications across image replacement; back up with the DB.
+    # Preserve private certificates and visit evidence; back up both with the DB.
     volumes:
       - credential-files:/app/private/credentials
+      - evidence-files:/app/private/evidence
     ports:
       - "80:8080"
     healthcheck:
@@ -72,6 +73,7 @@ services:
 volumes:
   db-data:
   credential-files:
+  evidence-files:
 
 networks:
   carelink:

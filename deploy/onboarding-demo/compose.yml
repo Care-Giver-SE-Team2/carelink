@@ -19,7 +19,9 @@ services:
     image: carelink:onboarding-demo
     build:
       context: ../..
-      dockerfile: deploy/onboarding-demo/Dockerfile.local
+      dockerfile: Dockerfile
+      args:
+        GIT_SHA: ${CARELINK_DEMO_REVISION:-local-uncommitted}
     depends_on:
       db: {condition: service_healthy}
     environment:
@@ -30,7 +32,6 @@ services:
       CARELINK_CAREGIVER_EVIDENCE_STORAGE: /app/private/evidence
       CARELINK_MULTIPART_TEMP: /app/private/multipart
       JAVA_TOOL_OPTIONS: -Duser.timezone=Asia/Singapore
-      APP_COMMIT: onboarding-local-uncommitted
       CARELINK_CAREGIVER_EXPIRY_SCAN_CRON: "-"
       CARELINK_ROSTER_SCHEDULE_CRON: "-"
     volumes:

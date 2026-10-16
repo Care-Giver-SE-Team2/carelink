@@ -6,6 +6,7 @@ import { ApiError } from '../../shared/api/client'
 import { NotificationBell } from '../../shared/components/notifications/NotificationBell'
 import styles from './Caregiver.module.css'
 import layout from './CaregiverLayout.module.css'
+import { scheduleSearch as validatedScheduleSearch } from './navigation'
 
 /** `tab` is the shorter label the phone tab bar shows, where four columns share the width. */
 type NavItem = { label: string; tab?: string; to: string; match: string[]; exact?: boolean; icon: ReactNode }
@@ -95,10 +96,7 @@ export default function CaregiverLayout({ workAllowed, name, children }: { workA
   // The schedule link returns to the date range last viewed on the schedule or a work pack.
   const [scheduleSearch, setScheduleSearch] = useState('')
   if (pathname === '/caregiver' || pathname.startsWith('/caregiver/visits/')) {
-    const source = new URLSearchParams(search)
-    const dates = new URLSearchParams()
-    for (const key of ['dateFrom', 'dateTo']) if (source.has(key)) dates.set(key, source.get(key)!)
-    const nextSearch = dates.size ? '?' + dates.toString() : ''
+    const nextSearch = validatedScheduleSearch(new URLSearchParams(search))
     if (nextSearch !== scheduleSearch) setScheduleSearch(nextSearch)
   }
   // The menu belongs to the page it was opened on, so moving to another page closes it.

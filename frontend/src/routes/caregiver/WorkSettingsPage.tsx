@@ -24,8 +24,8 @@ export default function WorkSettingsPage({ mode }: { mode: 'availability' | 'pre
   const view = result.status === 'success' ? result.data : result.status === 'loading' ? retainedData : undefined
   return <div className={styles.page}>
     <div className={styles.heading}><div><p className={styles.eyebrow}>Caregiver workspace</p><h1>{mode === 'availability' ? 'My availability' : 'Work preferences'}</h1><p className={styles.muted}>{mode === 'availability' ? 'Declare when you can work on a given day.' : 'The services, areas and hours you prefer to work.'}</p></div></div><div className={styles.toolbar}><button className={styles.refresh} disabled={!!editing || result.status === 'loading'} onClick={reload}>Refresh</button></div>
-    <div className={styles.readOnly}><p>Saved settings are not yet applied to automatic rostering. Your manager assigns actual visits and may schedule outside your preferred hours. Updating settings never cancels an assigned visit.</p>
-    <p>Approved leave takes precedence over preferences. Pending leave is not approval. For an existing shift you cannot attend, use <Link to="/caregiver/absences">My leave</Link> after admission or contact your manager.</p>
+    <div className={styles.readOnly}><p>Availability and preferences are declarations for your manager's reference only. They are not used in automatic rostering. Your manager may assign visits outside these hours, including times you declare unavailable. Follow your published schedule; updating settings never cancels or moves an assigned visit.</p>
+    <p>Only approved leave blocks scheduling based on these time declarations. Pending or rejected leave is not permission to miss a visit. Approval and arranging cover are separate manager actions. For an existing shift you cannot attend, use <Link to="/caregiver/absences">My leave</Link> after admission or contact your manager. Published shifts do not require acceptance.</p>
     <p>All dates and times are Singapore time. No declaration means Unspecified, not Unavailable. Same-day windows use [start, end); overnight windows and 24:00 are not supported.</p></div>
     {mode === 'availability' && <form className={styles.dateForm} onSubmit={event => { event.preventDefault(); if (!editing && /^\d{4}-\d{2}-\d{2}$/.test(draftDate)) { setDate(draftDate); setNotice('') } }}>
       <fieldset disabled={!!editing}><EnglishDateField label="Availability date" value={draftDate} onChange={setDraftDate} /><button className={styles.button}>Load date</button></fieldset>
@@ -38,7 +38,7 @@ export default function WorkSettingsPage({ mode }: { mode: 'availability' | 'pre
       {view.settings.dataIssues.length > 0 && <p role="alert">Some existing settings need review: {view.settings.dataIssues.join(', ')}. They have not been silently cleared. Review all selections before replacing them.</p>}
       {mode === 'availability' ? <>
         <h2>{date}</h2>
-        {(view.settings.availability.find(day => day.date === date)?.windows ?? []).length === 0 ? <p>Unspecified — no windows declared.</p> : <ul>{view.settings.availability.find(day => day.date === date)!.windows.map((window, index) => <li key={index}>{window.status} · {shortTime(window.start)}–{shortTime(window.end)}</li>)}</ul>}
+        {(view.settings.availability.find(day => day.date === date)?.windows ?? []).length === 0 ? <p>Unspecified — no windows declared.</p> : <ul>{view.settings.availability.find(day => day.date === date)!.windows.map((window, index) => <li key={index}>{window.status === 'UNAVAILABLE' ? 'Declared unavailable (reference only)' : 'Declared available (reference only)'} · {shortTime(window.start)}–{shortTime(window.end)}</li>)}</ul>}
         {view.bookings.length > 0 && <aside><h3>Existing assigned visits — not changed by these settings</h3><ul>{view.bookings.map(booking => <li key={booking.visitId}>Visit {booking.visitId} · {booking.start.replace('T', ' ')}–{booking.end.replace('T', ' ')}</li>)}</ul><p>If a declared unavailable window conflicts, contact your manager; saving does not reassign it.</p></aside>}
         {view.leave.length > 0 && <aside><h3>Leave requests</h3><ul>{view.leave.map(leave => <li key={leave.id}>{leave.startDate}–{leave.endDate} · {leave.status}</li>)}</ul></aside>}
       </> : <>
@@ -50,7 +50,7 @@ export default function WorkSettingsPage({ mode }: { mode: 'availability' | 'pre
       </>}
       {!editing && view.canEdit && (mode === 'preferences' || date >= view.today && date <= view.editableUntil) && <button className={styles.button} onClick={() => { setEditing(view); setNotice('') }}>Edit {mode === 'availability' ? 'availability' : 'preferences'}</button>}
       </section>
-      {editing && <SettingsEditor mode={mode} date={date} source={editing} close={() => setEditing(null)} saved={() => { setEditing(null); setNotice('Settings saved. They are not yet applied to automatic rostering.'); reload() }} />}
+      {editing && <SettingsEditor mode={mode} date={date} source={editing} close={() => setEditing(null)} saved={() => { setEditing(null); setNotice('Settings saved for reference only. Your published schedule is unchanged.'); reload() }} />}
     </>}
   </div>
 }
@@ -79,7 +79,7 @@ function SettingsEditor({ mode, date, source, close, saved }: { mode: 'availabil
     <fieldset disabled={mutation.pending || uncertain || conflict}>
       {mode === 'availability' ? <>
         {windows.map((window, index) => <div className={styles.dateForm} key={index}>
-          <label>Status {index + 1}<select value={window.status} onChange={event => { setWindows(windows.map((w, i) => i === index ? { ...w, status: event.target.value as AvailabilityWindow['status'] } : w)); setKey(crypto.randomUUID()) }}><option value="AVAILABLE">Available</option><option value="UNAVAILABLE">Unavailable</option></select></label>
+          <label>Status {index + 1}<select value={window.status} onChange={event => { setWindows(windows.map((w, i) => i === index ? { ...w, status: event.target.value as AvailabilityWindow['status'] } : w)); setKey(crypto.randomUUID()) }}><option value="AVAILABLE">Available (reference only)</option><option value="UNAVAILABLE">Unavailable (reference only)</option></select></label>
           <TimeFields value={window} index={index} change={next => { setWindows(windows.map((w, i) => i === index ? { ...w, ...next } : w)); setKey(crypto.randomUUID()) }} />
           <button type="button" onClick={() => { setWindows(windows.filter((_, i) => i !== index)); setKey(crypto.randomUUID()) }}>Remove window {index + 1}</button>
         </div>)}

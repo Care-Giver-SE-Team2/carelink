@@ -14,18 +14,24 @@ desktop console, and caregivers, family members and elders in a phone browser.
 
 ## Status
 
-The repository holds a working skeleton and a complete pipeline. **There is no business
-functionality yet** — feature module boundaries are still being agreed.
+The application has connected manager, caregiver, family and elder workflows and is in
+cross-role acceptance and delivery closeout. Features present in source are not a claim
+that every manual scenario has passed. Baseline: main `d6f3656` (2026-10-16).
 
 | | |
 |---|---|
-| Application | Starts, serves health probes, authenticates against the database |
+| Application | Session/CSRF authentication, role-specific portals and health probes |
 | `shared/` | Security, error handling, business-threshold configuration |
 | `identity/` | Reference implementation of the four layers, with unit tests |
-| Feature modules | Packages for profile, care plan, rostering, visit, incident, report, notification, with a validated JPA entity and repository per table; domain and application layers are each owner's next step |
-| Schema | V1 accounts + V2 care domain, 37 tables merged from the four member submissions; no seed data |
-| Pipeline | All nine jobs green, image published to GHCR, staging VM updated and scanned |
-| Not yet wired | Branch protection (deferred until feature work starts) |
+| Manager | Real admission/certificate review, care plans, primary assignments, rostering/leave cover, incidents, spot checks and reports |
+| Caregiver | Registration/application, certificate upload, assigned work, leave/settings, arrival/tasks/vitals/evidence/departure, incidents and attributed history |
+| Family / elder | Binding and service applications, progress/reports/incident awareness; elder confirmation/disputes and emergency help |
+| Schema | Flyway V1–V31; apply migrations rather than editing released scripts |
+| Pipeline | Baseline main passed nine CI/CD jobs including MySQL, quality/security gates, image delivery and staging checks; later changes need their own verification |
+| Remaining boundaries | Settings are manual reference only, not automatic roster inputs; report health-text projection, optional evidence review and CG06 extensions remain owner handoffs |
+
+See [caregiver closeout acceptance](docs/caregiver/closeout-acceptance.md) for current
+rules, manual scenarios and the distinction between planned and completed checks.
 
 ---
 
@@ -89,7 +95,7 @@ CareLink/
 │     ├─ report/                 reports, value-added services, periodic caregiver reviews
 │     ├─ notification/           subscriptions and notifications
 │     └─ shared/                 security, error handling, request interceptor, config, audit
-│  └─ src/main/resources/db/migration/   Flyway scripts: V1 accounts, V2 care domain (37 tables)
+│  └─ src/main/resources/db/migration/   Flyway scripts V1–V31
 │  └─ src/test/java/             unit tests, ArchUnit rules, *IT integration tests (need Docker)
 ├─ frontend/src/
 │  ├─ routes/<role>/             manager, caregiver, family, elder pages; landing; not-found
@@ -105,13 +111,10 @@ Inside every module the folders are the same: `controller/` (HTTP in and out),
 `application/` (use cases), `domain/model/` and `domain/repository/` (business rules and
 ports, plain Java), `infrastructure/persistence/entity/`, `/repository/` and `/adapter/`
 (the JPA entity, the Spring Data repository, and the adapter that implements the domain
-port). Every module is filled the same way: per table a domain record, a port, an entity,
-a Spring Data repository, a mapper and an adapter, each with a unit test; per module a
-service and a controller. In `identity` these carry real behaviour; elsewhere they are a
-generated, compiling, tested starting point that mirrors the V2 migration, for the module
-owner to reshape. The order of work is in ARCHITECTURE.md, section 4.
+port). Modules now contain their implemented use cases and published cross-module
+application interfaces; keep each owner's boundaries and the architecture tests intact.
 
-The schema is code. A table changes by adding `V3__<what>.sql` next to V1 and V2, never by
+The schema is code. A table changes by adding the next unused `V<n>__<what>.sql`, never by
 editing the database by hand: every environment (each developer's machine, the CI
 containers, the staging VM) rebuilds the same tables from these scripts on start-up, and
 the application refuses to start if its entities and the tables disagree.

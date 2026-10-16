@@ -1,7 +1,0 @@
-# Reuses the already available development runtime; never for production publishing.
-FROM carelink:caregiver-demo
-USER root
-RUN mkdir -p /app/private/credentials /app/private/evidence /app/private/multipart \
- && chown -R 1001:1001 /app/private
-COPY --chown=1001:1001 reports/main-sync/onboarding-demo-build/backend/target/backend-0.0.1-SNAPSHOT.jar /app/app.jar
-USER 1001

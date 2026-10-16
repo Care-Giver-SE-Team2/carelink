@@ -22,9 +22,8 @@ COPY backend/src ./src
 COPY --from=frontend /app/dist ./src/main/resources/static
 # The hand-written OpenAPI contract lives at repo root, not in backend/; the pom
 # resolves it via a relative path (../docs/api), so it must land one level above WORKDIR.
-# Both the final contract and the superseded draft are copied - the pom picks up
-# whichever of the two it's configured to include.
-COPY docs/api/openapi.yaml docs/api/openapi-draft.yaml /docs/api/
+# Include local references too; the pom selects the published YAML resources.
+COPY docs/api/ /docs/api/
 RUN ./mvnw -B -ntp clean package -DskipTests
 
 # ---------- 3. Runtime ----------
@@ -38,10 +37,11 @@ RUN apt-get update \
  && useradd --system --uid 1001 --create-home carelink
 WORKDIR /app
 COPY --from=backend /src/target/*.jar app.jar
-RUN mkdir -p /app/private/credentials /app/private/multipart \
+RUN mkdir -p /app/private/credentials /app/private/evidence /app/private/multipart \
  && chown -R carelink:carelink /app/app.jar /app/private
 # Private material is never served from the static web root. Deployments must persist it.
 ENV CARELINK_CREDENTIAL_STORAGE=/app/private/credentials \
+    CARELINK_CAREGIVER_EVIDENCE_STORAGE=/app/private/evidence \
     CARELINK_MULTIPART_TEMP=/app/private/multipart
 # The commit this image was built from, exposed at /actuator/info so a deployment
 # can be verified from outside ("is staging running what I just pushed?").

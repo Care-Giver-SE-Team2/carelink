@@ -5,7 +5,6 @@ import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 import java.math.BigDecimal;
 import java.time.LocalDate;
-import java.time.ZoneId;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -55,7 +54,7 @@ class CaregiverHealthWorkflowIT extends CaregiverHealthITSupport {
             assertThat(a.read(path(id)).toString()).doesNotContain("recordedByUserId", "payloadHash");
             assertThat(familyBrowser.read("/api/visits/" + id).toString()).doesNotContain("healthNote", "Synthetic caregiver observation");
             assertThat(familyBrowser.read("/api/visits/" + id + "/timeline").size()).isEqualTo(2);
-            var today = LocalDate.now(ZoneId.of("Asia/Singapore"));
+            var today = LocalDate.now(businessClock);
             var reports = body(mgr.post("/api/reports/generate", Map.of("elderId", elder, "periodStart", today.toString(), "periodEnd", today.toString())), 202);
             for (var report : reports) {
                 assertThat(mgr.read("/api/reports/" + report.path("id").asLong()).toString())
