@@ -38,7 +38,7 @@ export default function Today() {
           footer={
             rosterData &&
             rosterData.visits.length > 0 &&
-            `${rosterData.visits.length} visits today · sector ${rosterData.sectors.join(' / ')}`
+            `${rosterData.visits.length} visits today`
           }
         />
       </section>

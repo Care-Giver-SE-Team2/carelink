@@ -18,9 +18,9 @@ afterEach(() => {
 const unassigned = { primaryCaregiverId: null, primaryCaregiverName: null, primaryCaregiverAssignedAt: null }
 
 const elders: ElderListItem[] = [
-  { id: 1, fullName: 'Chan Bee Choo', dateOfBirth: '1943-01-01', address: 'Bishan St 23', sector: 'S31', planStatus: 'published', planVersion: 4, nextVisitDate: null, ...unassigned },
-  { id: 2, fullName: 'Goh Bee Lian', dateOfBirth: '1938-01-01', address: 'Bishan St 11', sector: 'S31', planStatus: 'none', planVersion: null, nextVisitDate: null, ...unassigned },
-  { id: 3, fullName: 'Kamala Devi Rajan', dateOfBirth: '1950-01-01', address: 'Toa Payoh Lor 4', sector: 'S34', planStatus: 'draft', planVersion: 5, nextVisitDate: null, ...unassigned },
+  { id: 1, fullName: 'Chan Bee Choo', dateOfBirth: '1943-01-01', address: 'Bishan St 23', sector: 'S31', planStatus: 'published', planVersion: 4, nextVisitDate: null, hasPublishedPlan: true, hasCareRequest: true, ...unassigned },
+  { id: 2, fullName: 'Goh Bee Lian', dateOfBirth: '1938-01-01', address: 'Bishan St 11', sector: 'S31', planStatus: 'none', planVersion: null, nextVisitDate: null, hasPublishedPlan: false, hasCareRequest: true, ...unassigned },
+  { id: 3, fullName: 'Kamala Devi Rajan', dateOfBirth: '1950-01-01', address: 'Toa Payoh Lor 4', sector: 'S34', planStatus: 'draft', planVersion: 1, nextVisitDate: null, hasPublishedPlan: false, hasCareRequest: true, ...unassigned },
 ]
 
 beforeEach(() => {
@@ -45,24 +45,55 @@ function renderElders(entry = '/manager/elders?list=all') {
 it('opens on the elders who still need a care plan, with a count on every tab', async () => {
   renderElders('/manager/elders')
 
-  expect(await screen.findByRole('button', { name: 'NEEDS PLAN · 1' })).toHaveAttribute('aria-pressed', 'true')
+  // A first draft still needs its plan finished, so it stays alongside the elders with no plan.
+  expect(await screen.findByRole('button', { name: 'NEEDS PLAN · 2' })).toHaveAttribute('aria-pressed', 'true')
   expect(screen.getByRole('option', { name: /Goh Bee Lian/ })).toBeInTheDocument()
+  expect(screen.getByRole('option', { name: /Kamala Devi Rajan/ })).toBeInTheDocument()
   expect(screen.queryByRole('option', { name: /Chan Bee Choo/ })).not.toBeInTheDocument()
   expect(screen.getByRole('button', { name: 'ASSIGNED · 0' })).toBeInTheDocument()
   expect(screen.getByRole('button', { name: 'ALL · 3' })).toBeInTheDocument()
 
-  // A draft is enough of a plan to assign a caregiver against.
-  fireEvent.click(screen.getByRole('button', { name: 'NEEDS CAREGIVER · 2' }))
+  // Only a published plan moves an elder on to needing a caregiver.
+  fireEvent.click(screen.getByRole('button', { name: 'NEEDS CAREGIVER · 1' }))
   expect(screen.getByRole('option', { name: /Chan Bee Choo/ })).toBeInTheDocument()
-  expect(screen.getByRole('option', { name: /Kamala Devi Rajan/ })).toBeInTheDocument()
+  expect(screen.queryByRole('option', { name: /Kamala Devi Rajan/ })).not.toBeInTheDocument()
   expect(screen.queryByRole('option', { name: /Goh Bee Lian/ })).not.toBeInTheDocument()
+})
+
+it('leaves out elders the family has not applied for care for, unless they already have a plan', async () => {
+  vi.mocked(profileApi.fetchElderList).mockResolvedValue([
+    ...elders,
+    { ...elders[1], id: 6, fullName: 'Not Applied Yet', hasCareRequest: false },
+    { ...elders[0], id: 7, fullName: 'Planned Without Application', hasCareRequest: false },
+  ])
+  renderElders()
+
+  expect(await screen.findByRole('button', { name: 'ALL · 4' })).toBeInTheDocument()
+  expect(screen.queryByRole('option', { name: /Not Applied Yet/ })).not.toBeInTheDocument()
+  expect(screen.getByRole('option', { name: /Planned Without Application/ })).toBeInTheDocument()
+  expect(screen.getByRole('button', { name: 'NEEDS PLAN · 2' })).toBeInTheDocument()
+})
+
+it('keeps an elder whose published plan is being revised on their caregiver tab', async () => {
+  const assigned = { primaryCaregiverId: 114, primaryCaregiverName: 'Devi Raman', primaryCaregiverAssignedAt: '2026-09-01T00:00:00Z' }
+  vi.mocked(profileApi.fetchElderList).mockResolvedValue([
+    { ...elders[0], id: 4, fullName: 'Lim Ah Kow', planStatus: 'draft', planVersion: 2, hasPublishedPlan: true },
+    { ...elders[0], id: 5, fullName: 'Ong Siew Lan', planStatus: 'draft', planVersion: 3, hasPublishedPlan: true, hasCareRequest: true, ...assigned },
+  ])
+  renderElders('/manager/elders')
+
+  expect(await screen.findByRole('button', { name: 'ALL · 2' })).toBeInTheDocument()
+  expect(screen.getByRole('button', { name: 'NEEDS PLAN · 0' })).toBeInTheDocument()
+  expect(screen.getByRole('button', { name: 'NEEDS CAREGIVER · 1' })).toHaveAttribute('aria-pressed', 'true')
+  expect(screen.getByRole('option', { name: /Lim Ah Kow/ })).toBeInTheDocument()
+  expect(screen.getByRole('button', { name: 'ASSIGNED · 1' })).toBeInTheDocument()
 })
 
 it('coming back from a care plan, opens on that elder’s tab with them still selected', async () => {
   renderElders('/manager/elders?selected=1')
 
   expect(await screen.findByRole('option', { name: /Chan Bee Choo/ })).toHaveAttribute('aria-selected', 'true')
-  expect(screen.getByRole('button', { name: 'NEEDS CAREGIVER · 2' })).toHaveAttribute('aria-pressed', 'true')
+  expect(screen.getByRole('button', { name: 'NEEDS CAREGIVER · 1' })).toHaveAttribute('aria-pressed', 'true')
   expect(screen.getByRole('button', { name: 'Assign caregiver' })).toBeInTheDocument()
 })
 

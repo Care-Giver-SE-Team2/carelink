@@ -124,6 +124,16 @@
   font-weight: 400;
 }
 
+/* The browser's own arrow sits against the edge; draw it instead, inset to match the text. */
+:where(.shell) select {
+  appearance: none;
+  padding-right: 44px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%233a4f48' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-position: right 16px center;
+  background-repeat: no-repeat;
+  background-size: 18px;
+}
+
 :where(.shell) input:is([type='checkbox'], [type='radio']) {
   width: 20px;
   min-height: 20px;
@@ -149,7 +159,8 @@
 /* Primary actions: a work pack link on a visit card, and a form's submit button. */
 .card .linkButton,
 .formPanel > button:not([type='button']),
-.formPanel > fieldset > button:not([type='button']) {
+.formPanel > fieldset > button:not([type='button']),
+.formPanel > form > fieldset > button:not([type='button']) {
   border-color: var(--fm-accent);
   background: var(--fm-accent);
   color: #fff;
@@ -157,12 +168,14 @@
 
 .card .linkButton:hover,
 .formPanel > button:not([type='button']):not(:disabled):hover,
-.formPanel > fieldset > button:not([type='button']):not(:disabled):hover {
+.formPanel > fieldset > button:not([type='button']):not(:disabled):hover,
+.formPanel > form > fieldset > button:not([type='button']):not(:disabled):hover {
   background: var(--fm-accent-strong);
 }
 
 .formPanel > button:not([type='button']):disabled,
-.formPanel > fieldset > button:not([type='button']):disabled {
+.formPanel > fieldset > button:not([type='button']):disabled,
+.formPanel > form > fieldset > button:not([type='button']):disabled {
   border-color: var(--fm-disabled);
   background: var(--fm-disabled);
   color: #fff;
@@ -208,8 +221,22 @@
 /* Refresh: a quiet accent text action at the top of the content, under the header rather than in it. */
 .toolbar {
   display: flex;
+  align-items: center;
   justify-content: flex-end;
+  gap: 12px;
   margin: -10px 0 6px;
+}
+
+/*
+ * A page action sharing the row with Refresh (Report incident on a visit) takes the left end. A
+ * bordered button needs the row to keep the heading's full 18px above it, and the same below.
+ */
+.toolbar > .linkButton {
+  margin-right: auto;
+}
+
+.toolbar:has(> .linkButton) {
+  margin: 0 0 18px;
 }
 
 .refresh {
@@ -627,6 +654,11 @@
   margin-top: 8px;
 }
 
+/* A note under a card's text gets the same breathing room above it as below. */
+.card > .readOnly {
+  margin-top: 14px;
+}
+
 :is(.card, .formPanel, .error) .readOnly {
   border-color: transparent;
   background: var(--fm-note);
@@ -729,8 +761,37 @@
 }
 
 .formPanel > button,
-.formPanel > fieldset > button {
+.formPanel > fieldset > button,
+.formPanel > form > fieldset > button {
   margin: 8px 8px 0 0;
+}
+
+/*
+ * A panel that holds a form rather than being one (the visit execution card): the form starts a
+ * new block under the panel's text, and the notes after it are spaced from it and from each other
+ * instead of trailing a bottom margin into the panel's padding.
+ */
+.formPanel > form {
+  margin-top: 16px;
+}
+
+/* A status line under the form's buttons (e.g. the GPS fix). */
+.formPanel > form > fieldset > p {
+  margin: 12px 0 0;
+  color: var(--fm-secondary);
+  font-size: 14px;
+}
+
+.formPanel > .readOnly {
+  margin: 16px 0 0;
+}
+
+.formPanel > .readOnly + .readOnly {
+  margin-top: 10px;
+}
+
+.formPanel > .readOnly + button {
+  margin-top: 16px;
 }
 
 .highlighted {

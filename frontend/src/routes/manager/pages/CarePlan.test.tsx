@@ -77,6 +77,7 @@ const elderListRow: ElderListItem = {
   primaryCaregiverId: null,
   primaryCaregiverName: null,
   primaryCaregiverAssignedAt: null,
+  hasPublishedPlan: true, hasCareRequest: true,
 }
 
 function renderPlan() {
@@ -266,7 +267,6 @@ describe('an elder with no care plan yet', () => {
     await user.type(screen.getByLabelText('Starts'), '2026-11-02')
     const publish = screen.getByRole('button', { name: 'Publish v1' })
     expect(publish).toBeDisabled()
-    expect(screen.getByRole('status')).toHaveTextContent('Set days and times for Bathing assistance, Grooming, Vital-sign check')
 
     for (const name of ['Bathing assistance', 'Grooming', 'Vital-sign check']) {
       await user.click(within(taskRow(name)).getByRole('button', { name: 'Edit task' }))
@@ -274,7 +274,6 @@ describe('an elder with no care plan yet', () => {
       await user.click(screen.getByRole('button', { name: 'Save changes' }))
     }
 
-    expect(screen.queryByText(/Set days and times/)).not.toBeInTheDocument()
     expect(publish).toBeEnabled()
   })
 

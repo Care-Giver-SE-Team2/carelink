@@ -24,6 +24,7 @@ const elder = (id: number, fullName: string, sector: string): ElderListItem => (
   primaryCaregiverId: null,
   primaryCaregiverName: null,
   primaryCaregiverAssignedAt: null,
+  hasPublishedPlan: false, hasCareRequest: true,
 })
 
 const visit = (
@@ -109,7 +110,9 @@ it('counts visits from the roster, and shows the same open-exceptions figure as 
   const kpis = screen.getByLabelText('Today at a glance')
   const scheduled = within(kpis).getByText('Visits scheduled').closest('div')
   await vi.waitFor(() => expect(scheduled).toHaveTextContent('Visits scheduled5'))
+  // The elder-confirmed visit counts as completed, but its badge says it was verified.
   expect(within(kpis).getByText('Completed').closest('div')).toHaveTextContent('Completed1')
+  expect(screen.getByText('VERIFIED')).toBeInTheDocument()
   expect(within(kpis).getByText('Unassigned').closest('div')).toHaveTextContent('Unassigned1')
   expect(within(kpis).getByText('Open exceptions').closest('div')).toHaveTextContent('Open exceptions7')
   expect(within(kpis).queryByText('Escalated')).not.toBeInTheDocument()
@@ -154,7 +157,7 @@ it('lists today’s visits by name, flagging the unassigned one and the exceptio
   const missed = rows.find((row) => row.textContent?.includes('Mohd Yusof'))!
   expect(within(missed).getByText('Hafiz Rahman')).toBeInTheDocument()
   expect(within(missed).getByText('EXCEPTION')).toBeInTheDocument()
-  expect(screen.getByText('5 visits today · sector S31 / S45 / S52')).toBeInTheDocument()
+  expect(screen.getByText('5 visits today')).toBeInTheDocument()
 })
 
 it('shows when each caregiver checked in, and flags an assigned visit past its start with no check-in', async () => {

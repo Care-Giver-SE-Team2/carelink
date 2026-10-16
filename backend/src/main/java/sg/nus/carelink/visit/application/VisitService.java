@@ -15,8 +15,10 @@ import sg.nus.carelink.shared.error.BusinessRuleViolation;
 import sg.nus.carelink.shared.error.ResourceNotFound;
 import sg.nus.carelink.visit.domain.model.ElderConfirmation;
 import sg.nus.carelink.visit.domain.model.Visit;
+import sg.nus.carelink.visit.domain.model.VisitStateTransition;
 import sg.nus.carelink.visit.domain.repository.ElderConfirmationRepository;
 import sg.nus.carelink.visit.domain.repository.VisitRepository;
+import sg.nus.carelink.visit.domain.repository.VisitStateTransitionRepository;
 
 /**
  * Application layer of the visit module
@@ -37,17 +39,20 @@ public class VisitService {
     private final VisitRepository visits;
     private final ElderConfirmationRepository confirmations;
     private final IncidentService incidents;
+    private final VisitStateTransitionRepository transitions;
     private final Clock clock;
 
     public VisitService(
             VisitRepository visits,
             ElderConfirmationRepository confirmations,
             IncidentService incidents,
+            VisitStateTransitionRepository transitions,
             Clock clock) {
 
         this.visits = visits;
         this.confirmations = confirmations;
         this.incidents = incidents;
+        this.transitions = transitions;
         this.clock = clock;
     }
 
@@ -154,22 +159,12 @@ public class VisitService {
         }
 
         /*
-         * EL01 only applies once the caregiver has completed the visit.
-         */
-        if (visit.status()
-                != Visit.Status.COMPLETED) {
-
-            throw new BusinessRuleViolation(
-                    "VISIT_NOT_AWAITING_ELDER_CONFIRMATION",
-                    "Only a completed visit can be confirmed by the elder."
-            );
-        }
-
-        /*
          * visit_id is unique in elder_confirmation at database level.
          *
          * Check explicitly as well so the caller receives a meaningful
          * business conflict instead of a raw database constraint failure.
+         * Checked first: a confirmed visit is no longer COMPLETED, and
+         * "already confirmed" is the answer the elder needs.
          */
         if (confirmations
                 .existsByVisitId(
@@ -182,6 +177,23 @@ public class VisitService {
             );
         }
 
+        /*
+         * EL01 only applies once the caregiver has completed the visit.
+         */
+        if (visit.status()
+                != Visit.Status.COMPLETED) {
+
+            throw new BusinessRuleViolation(
+                    "VISIT_NOT_AWAITING_ELDER_CONFIRMATION",
+                    "Only a completed visit can be confirmed by the elder."
+            );
+        }
+
+        LocalDateTime now =
+                LocalDateTime.now(
+                        clock
+                );
+
         ElderConfirmation confirmation =
                 ElderConfirmation.submit(
                         visitId,
@@ -189,15 +201,41 @@ public class VisitService {
                         status,
                         rating,
                         comment,
-                        LocalDateTime.now(
-                                clock
-                        )
+                        now
                 );
 
         ElderConfirmation saved =
                 confirmations.save(
                         confirmation
                 );
+
+        /*
+         * Confirming is what verifies the visit: it leaves COMPLETED
+         * (awaiting the elder) for VERIFIED, recorded like any other
+         * state change.
+         */
+        if (status
+                == ElderConfirmation
+                        .ConfirmationStatus
+                        .CONFIRMED) {
+
+            visits.save(
+                    visit.verifiedByElder()
+            );
+
+            transitions.save(
+                    new VisitStateTransition(
+                            null,
+                            visitId,
+                            Visit.Status.COMPLETED.name(),
+                            Visit.Status.VERIFIED.name(),
+                            reportedByUserId,
+                            VisitStateTransition.Result.APPLIED,
+                            null,
+                            now
+                    )
+            );
+        }
 
         /*
          * A dispute is operationally different from ordinary feedback.
