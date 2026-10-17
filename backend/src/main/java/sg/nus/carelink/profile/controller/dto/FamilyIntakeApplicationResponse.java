@@ -2,7 +2,7 @@ package sg.nus.carelink.profile.controller.dto;
 
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
-import java.time.ZoneOffset;
+import java.time.ZoneId;
 import java.util.List;
 
 import sg.nus.carelink.profile.domain.model.IntakeApplication;
@@ -21,9 +21,9 @@ public record FamilyIntakeApplicationResponse(
 		OffsetDateTime createdAt, OffsetDateTime reviewedAt, Long elderId) {
 
 	/**
-	 * Map an application to family-visible details with explicit UTC offsets.
+	 * Map an application to family-visible details with explicit Singapore offsets.
 	 *
-	 * @param application Application whose stored timestamps use UTC
+	 * @param application Application whose stored timestamps are Singapore wall-clock times
 	 * @return Family response containing the application details and review status
 	 *
 	 * @author Wang Zhili
@@ -33,10 +33,10 @@ public record FamilyIntakeApplicationResponse(
 				application.targetElderName(), application.targetElderAge(), application.targetAddress(),
 				application.postalCode(), application.mobilityLevel(), application.preferredDialects(),
 				application.careNeeds(), application.medicalNotes(), application.status(), application.reviewRemarks(),
-				utc(application.createdAt()), utc(application.reviewedAt()), application.elderId());
+				singapore(application.createdAt()), singapore(application.reviewedAt()), application.elderId());
 	}
 
-	private static OffsetDateTime utc(LocalDateTime time) {
-		return time == null ? null : time.atOffset(ZoneOffset.UTC);
+	private static OffsetDateTime singapore(LocalDateTime time) {
+		return time == null ? null : time.atZone(ZoneId.of("Asia/Singapore")).toOffsetDateTime();
 	}
 }

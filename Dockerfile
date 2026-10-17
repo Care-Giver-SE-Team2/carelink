@@ -43,6 +43,9 @@ RUN mkdir -p /app/private/credentials /app/private/evidence /app/private/multipa
 ENV CARELINK_CREDENTIAL_STORAGE=/app/private/credentials \
     CARELINK_CAREGIVER_EVIDENCE_STORAGE=/app/private/evidence \
     CARELINK_MULTIPART_TEMP=/app/private/multipart
+# The JVM's default zone decides how a LocalDateTime is stored, so it must match the
+# connectionTimeZone in the JDBC URL; otherwise every timestamp lands eight hours ahead.
+ENV TZ=Asia/Singapore
 # The commit this image was built from, exposed at /actuator/info so a deployment
 # can be verified from outside ("is staging running what I just pushed?").
 ARG GIT_SHA=unknown

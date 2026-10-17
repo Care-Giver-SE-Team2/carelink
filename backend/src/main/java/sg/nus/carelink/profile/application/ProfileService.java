@@ -67,7 +67,7 @@ public class ProfileService {
 	 */
 	@Transactional(readOnly = true)
 	public List<ElderSummary> listElders() {
-		return summarize(elders.findAll(), LocalDate.now(ZoneId.systemDefault()));
+		return summarize(elders.findAll(), LocalDate.now(ZoneId.of("Asia/Singapore")));
 	}
 
 	/**

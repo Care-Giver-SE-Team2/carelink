@@ -1,6 +1,9 @@
 services:
   db:
     image: mysql:8.4
+    # Singapore time for NOW() and CURRENT_TIMESTAMP column defaults, matching the
+    # application. A fixed offset, because the image has no named-zone tables to rely on.
+    command: --default-time-zone=+08:00
     environment:
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-devroot}
       MYSQL_DATABASE: carelink
@@ -34,6 +37,7 @@ services:
       DB_URL: jdbc:mysql://db:3306/carelink?connectionTimeZone=Asia/Singapore
       DB_USER: carelink
       DB_PASSWORD: ${MYSQL_PASSWORD:-devpass}
+      TZ: Asia/Singapore
     ports:
       - "8080:8080"
     healthcheck:

@@ -240,7 +240,7 @@ class IntakeListingApiIT {
 	}
 
 	@Test
-	void exposesOnlyFamilyFieldsWithNullableReviewDetailsAndUtcTimestamps() throws Exception {
+	void exposesOnlyFamilyFieldsWithNullableReviewDetailsAndSingaporeTimestamps() throws Exception {
 		seedApplication(101, 42, "SUBMITTED", "2026-09-19 10:00:00");
 		seedApplication(102, 42, "APPROVED", "2026-09-20 10:00:00");
 		jdbc.update("INSERT INTO elder (id, full_name) VALUES (301, 'Approved elder')");
@@ -258,8 +258,8 @@ class IntakeListingApiIT {
 				.andExpect(jsonPath("$.items[0].careNeeds[1]").value("VITALS"))
 				.andExpect(jsonPath("$.items[0].medicalNotes").value("Needs assistance"))
 				.andExpect(jsonPath("$.items[0].reviewRemarks").value("Approved after review"))
-				.andExpect(jsonPath("$.items[0].createdAt").value("2026-09-20T10:00:00Z"))
-				.andExpect(jsonPath("$.items[0].reviewedAt").value("2026-09-20T11:00:00Z"))
+				.andExpect(jsonPath("$.items[0].createdAt").value("2026-09-20T10:00:00+08:00"))
+				.andExpect(jsonPath("$.items[0].reviewedAt").value("2026-09-20T11:00:00+08:00"))
 				.andExpect(jsonPath("$.items[0].elderId").value(301))
 				.andReturn().getResponse();
 		var items = json.readTree(response.getContentAsString()).path("items");

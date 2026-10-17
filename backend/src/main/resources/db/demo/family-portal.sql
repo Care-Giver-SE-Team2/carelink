@@ -49,8 +49,8 @@
 
 -- Hand-written DATETIMEs must be stored the way the application would have
 -- stored them; see TIMESTAMPS in demo-seed.sql. A backend started with
--- ./mvnw spring-boot:run on a machine set to Singapore time needs 0. Use 8 when
--- the backend runs in the compose container (its JVM is on UTC) or on staging.
+-- ./mvnw spring-boot:run on a machine set to Singapore time, the compose container
+-- and staging all run the JVM on Singapore time and need 0.
 SET @appOffsetHours := 0;
 
 -- CURRENT_DATE() follows the session zone, and the MySQL container runs on UTC.

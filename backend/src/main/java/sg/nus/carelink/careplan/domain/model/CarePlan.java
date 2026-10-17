@@ -3,6 +3,7 @@ package sg.nus.carelink.careplan.domain.model;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -113,7 +114,7 @@ public record CarePlan(
 		}
 		return new CarePlan(
 				id, elderId, createdByUserId, supersedesPlanId, version, Status.PUBLISHED,
-				totalHours, LocalDateTime.now(), createdAt, updatedAt,
+				totalHours, LocalDateTime.now(ZoneId.of("Asia/Singapore")), createdAt, updatedAt,
 				startDate, null, null, null, null);
 	}
 
@@ -168,6 +169,6 @@ public record CarePlan(
 		return new CarePlan(
 				id, elderId, createdByUserId, supersedesPlanId, version, Status.STOPPED,
 				totalHours, publishedAt, createdAt, updatedAt,
-				startDate, effectiveDate, reason, stoppedByUserId, LocalDateTime.now());
+				startDate, effectiveDate, reason, stoppedByUserId, LocalDateTime.now(ZoneId.of("Asia/Singapore")));
 	}
 }

@@ -140,7 +140,7 @@ class IntakeDetailApiIT {
 				.andExpect(jsonPath("$.careNeeds[1]").value("VITALS"))
 				.andExpect(jsonPath("$.medicalNotes").value("Needs assistance"))
 				.andExpect(jsonPath("$.status").value(applicationStatus))
-				.andExpect(jsonPath("$.createdAt").value("2026-09-20T10:00:00Z"))
+				.andExpect(jsonPath("$.createdAt").value("2026-09-20T10:00:00+08:00"))
 				.andReturn().getResponse();
 		var body = json.readTree(response.getContentAsString());
 		assertThat(body.propertyNames()).containsExactlyInAnyOrder("id", "applicantFamilyMemberId",
@@ -149,7 +149,7 @@ class IntakeDetailApiIT {
 				"reviewedAt", "elderId");
 		if (reviewed) {
 			assertThat(body.path("reviewRemarks").stringValue()).isEqualTo("Review result: " + applicationStatus);
-			assertThat(body.path("reviewedAt").stringValue()).isEqualTo("2026-09-20T11:00:00Z");
+			assertThat(body.path("reviewedAt").stringValue()).isEqualTo("2026-09-20T11:00:00+08:00");
 		} else {
 			assertThat(body.path("reviewRemarks").isNull()).isTrue();
 			assertThat(body.path("reviewedAt").isNull()).isTrue();

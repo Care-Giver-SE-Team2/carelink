@@ -50,7 +50,7 @@
 -- wall-clock plus @appOffsetHours, for the reason given in demo-seed.sql.
 -- Dates (leave days, certificate expiry) are stored as they are.
 SET time_zone = '+08:00';
-SET @appOffsetHours := 8;
+SET @appOffsetHours := 0;
 
 START TRANSACTION;
 
