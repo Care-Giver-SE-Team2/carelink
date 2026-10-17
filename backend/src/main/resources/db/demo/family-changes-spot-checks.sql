@@ -39,8 +39,8 @@
 -- the two demo elders, then writes them fresh, relative to today.
 -- =====================================================================
 
--- See TIMESTAMPS in demo-seed.sql: 0 for a backend started with ./mvnw on a
--- machine set to Singapore time, 8 for the compose container or staging.
+-- See TIMESTAMPS in demo-seed.sql: 0 wherever the backend's JVM runs on
+-- Singapore time, which includes the compose container and staging.
 SET @appOffsetHours := 0;
 
 SET time_zone = '+08:00';

@@ -55,18 +55,12 @@
 -- TIMESTAMPS. Every time below is written as the Singapore wall-clock it should
 -- display, plus @appOffsetHours.
 --
--- Not a quirk of this file. The application's own clock is Asia/Singapore, the JVM
--- default zone is UTC, and the JDBC connection declares the server to be in
--- Asia/Singapore. The driver converts on the way in and again on the way out, so a
--- LocalDateTime the application writes lands in the column eight hours ahead of the
--- time it means and reads back correct. Rows inserted here by hand get no such
--- conversion, so they have to be written the way the application would have stored
--- them. Without the shift the demonstration timeline reads eight hours early, which
--- is what happened the first time this was loaded.
---
--- Singapore keeps no daylight saving, so the offset is constant. Set it to 0 when
--- loading into a database whose reader runs in the same zone as its writer.
-SET @appOffsetHours := 8;
+-- The application stores Singapore wall-clock time as-is: its clock, the JVM default
+-- zone (TZ in the Dockerfile and compose) and the JDBC connectionTimeZone are all
+-- Asia/Singapore, so the driver does not shift anything. The offset is therefore 0.
+-- It only needs to be 8 for a backend whose JVM runs on UTC, which then stores every
+-- LocalDateTime eight hours ahead of the time it means.
+SET @appOffsetHours := 0;
 
 -- ---------------------------------------------------------------- accounts ---
 -- username is unique, so IGNORE makes a second run a no-op rather than an error.

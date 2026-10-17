@@ -91,7 +91,7 @@ class IntakeApplicationControllerTest {
 				.andExpect(jsonPath("$.items[0].targetElderName").value("Tan Mei"))
 				.andExpect(jsonPath("$.items[0].applicantFamilyMemberId").value(42))
 				.andExpect(jsonPath("$.items[0].careNeeds").isEmpty())
-				.andExpect(jsonPath("$.items[0].createdAt").value("2026-09-15T10:00:00Z"))
+				.andExpect(jsonPath("$.items[0].createdAt").value("2026-09-15T10:00:00+08:00"))
 				.andExpect(jsonPath("$.items[0].reviewedByUserId").doesNotExist())
 				.andExpect(jsonPath("$.totalElements").value(1));
 	}
