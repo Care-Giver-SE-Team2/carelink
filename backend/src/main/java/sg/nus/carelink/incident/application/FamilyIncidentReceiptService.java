@@ -12,6 +12,7 @@ import sg.nus.carelink.identity.application.UserDirectory;
 import sg.nus.carelink.incident.domain.model.Incident;
 import sg.nus.carelink.incident.domain.model.IncidentAcknowledgement;
 import sg.nus.carelink.incident.domain.repository.IncidentAcknowledgementRepository;
+import sg.nus.carelink.incident.domain.repository.FamilyAlertDeliveryStore;
 import sg.nus.carelink.incident.domain.repository.IncidentReceiptAudit;
 import sg.nus.carelink.incident.domain.repository.IncidentRepository;
 import sg.nus.carelink.profile.application.FamilyAccessQuery;
@@ -39,10 +40,11 @@ public class FamilyIncidentReceiptService {
 	private final AccessAudit failureAudit;
 	private final TransactionTemplate transaction;
 	private final Clock clock;
+	private final FamilyAlertDeliveryStore deliveries;
 
 	public FamilyIncidentReceiptService(IncidentRepository incidents, IncidentAcknowledgementRepository receipts,
 			FamilyIdentityQuery identity, FamilyAccessQuery access, UserDirectory users, IncidentReceiptAudit successAudit,
-			AccessAudit failureAudit, PlatformTransactionManager transactions, Clock clock) {
+			AccessAudit failureAudit, PlatformTransactionManager transactions, Clock clock, FamilyAlertDeliveryStore deliveries) {
 		this.incidents = incidents;
 		this.receipts = receipts;
 		this.identity = identity;
@@ -52,6 +54,7 @@ public class FamilyIncidentReceiptService {
 		this.failureAudit = failureAudit;
 		this.transaction = new TransactionTemplate(transactions);
 		this.clock = clock;
+		this.deliveries = deliveries;
 	}
 
 	public IncidentAcknowledgement view(String username, Long incidentId) {
@@ -73,6 +76,8 @@ public class FamilyIncidentReceiptService {
 				Incident incident = incidents.findById(incidentId)
 						.orElseThrow(() -> new ResourceNotFound("Incident", incidentId));
 				access.requireReadableElder(username, incident.elderId());
+				// Serialize awareness with reminder creation without manufacturing an empty receipt.
+				deliveries.lockWindow(incidentId, familyId);
 				var receipt = receipts.findOrCreateForUpdate(incidentId, familyId);
 				// Receipt DATETIME columns store seconds; return the same first time that a reload reads.
 				LocalDateTime now = LocalDateTime.now(clock.withZone(Incident.CARELINK_ZONE)).withNano(0);

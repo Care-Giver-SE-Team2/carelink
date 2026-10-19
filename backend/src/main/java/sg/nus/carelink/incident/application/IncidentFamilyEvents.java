@@ -12,4 +12,5 @@ import java.util.UUID;
 public interface IncidentFamilyEvents {
 	void raised(UUID eventId, Long incidentId, Long elderId, OffsetDateTime occurredAt);
 	void unresolved(UUID eventId, Long incidentId, Long elderId, OffsetDateTime occurredAt);
+	void acknowledgementDue(Long incidentId, Long elderId, Long familyMemberId, OffsetDateTime deadline);
 }

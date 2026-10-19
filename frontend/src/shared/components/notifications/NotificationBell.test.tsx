@@ -198,8 +198,8 @@ it('a click outside closes it', async () => {
   await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
 })
 
-it('family incident navigation carries context but does not mark the notification read', async () => {
-  const stub = source([{ ...incident, status: 'SENT', readAt: null }])
+it.each(['INCIDENT_RAISED', 'INCIDENT_ACKNOWLEDGEMENT_DUE'])('family %s navigation carries context but does not mark the notification read', async (eventType) => {
+  const stub = source([{ ...incident, eventType, status: 'SENT', readAt: null }])
   renderAt('/family/schedule', stub)
   await userEvent.click(await screen.findByRole('button', { name: 'Notifications, 1 unread' }))
   await userEvent.click(await screen.findByRole('button', { name: /HIGH: FALL/ }))

@@ -50,7 +50,8 @@ class FamilyIncidentAlertObserver implements IncidentEventObserver {
 						&& incident.status() != Incident.Status.UNRESOLVED_ESCALATED) {
 					throw new IllegalArgumentException("Event facts do not match the incident");
 				}
-				return new Context(incident, recipients.familyMemberIds(event.elderId()));
+				return new Context(incident, event.familyMemberId() == null
+						? recipients.familyMemberIds(event.elderId()) : List.of(event.familyMemberId()));
 			});
 		} catch (RuntimeException failure) {
 			transaction.executeWithoutResult(status -> deliveries.complete(event.eventId(), EventState.FAILED, "EVENT_PROCESSING_FAILED", now()));
@@ -63,6 +64,13 @@ class FamilyIncidentAlertObserver implements IncidentEventObserver {
 			try {
 				boolean success = transaction.execute(status -> {
 					if (deliveries.alreadyCreated(event.eventId(), familyId, now())) { return true; }
+					if (event.type() == FamilyAlertEvent.Type.INCIDENT_ACKNOWLEDGEMENT_DUE) {
+						var waiting = deliveries.lockReminderWindow(event.incidentId(), familyId);
+						if (!waiting.isDueAt(now()) || !event.occurredAt().toLocalDateTime().equals(waiting.acknowledgeBy())) {
+							deliveries.skipped(event.eventId(), familyId, null, "REMINDER_NOT_DUE", now());
+							return false;
+						}
+					}
 					var candidate = recipients.resolve(event.elderId(), familyId);
 					if (!candidate.eligible()) {
 						deliveries.skipped(event.eventId(), familyId, candidate.userId(), candidate.exclusionReason(), now());

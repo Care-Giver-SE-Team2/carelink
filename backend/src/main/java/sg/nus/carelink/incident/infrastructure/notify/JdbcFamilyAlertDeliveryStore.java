@@ -5,6 +5,7 @@ import java.sql.Timestamp;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.Optional;
+import java.util.List;
 import java.util.UUID;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.support.GeneratedKeyHolder;
@@ -13,6 +14,7 @@ import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import sg.nus.carelink.incident.domain.model.FamilyAlertEvent;
 import sg.nus.carelink.incident.domain.model.FamilyUrgentNotice;
+import sg.nus.carelink.incident.domain.model.FamilyReminderWindow;
 import sg.nus.carelink.incident.domain.repository.FamilyAlertDeliveryStore;
 
 /** FM05-owned writes alongside the existing inbox, without altering its delivery implementation. @author Wang Zhili */
@@ -24,13 +26,14 @@ class JdbcFamilyAlertDeliveryStore implements FamilyAlertDeliveryStore {
 
 	@Override public void register(FamilyAlertEvent event, LocalDateTime now) {
 		jdbc.update("""
-				INSERT INTO family_alert_event (event_id, event_type, incident_id, elder_id, occurred_at, state, last_attempt_at)
-				VALUES (?, ?, ?, ?, ?, 'PENDING', ?) ON DUPLICATE KEY UPDATE event_id = event_id
+				INSERT INTO family_alert_event (event_id, event_type, incident_id, elder_id, occurred_at, family_member_id, state, last_attempt_at)
+				VALUES (?, ?, ?, ?, ?, ?, 'PENDING', ?) ON DUPLICATE KEY UPDATE event_id = event_id
 				""", event.eventId().toString(), event.type().name(), event.incidentId(), event.elderId(),
-				time(event.occurredAt().toLocalDateTime()), time(now));
+				time(event.occurredAt().toLocalDateTime()), event.familyMemberId(), time(now));
 		FamilyAlertEvent existing = jdbc.queryForObject("SELECT * FROM family_alert_event WHERE event_id = ? FOR UPDATE",
 				(rs, row) -> new FamilyAlertEvent(UUID.fromString(rs.getString("event_id")), FamilyAlertEvent.Type.valueOf(rs.getString("event_type")),
-						rs.getLong("incident_id"), rs.getLong("elder_id"), rs.getTimestamp("occurred_at").toLocalDateTime().atOffset(ZoneOffset.ofHours(8))),
+						rs.getLong("incident_id"), rs.getLong("elder_id"), rs.getTimestamp("occurred_at").toLocalDateTime().atOffset(ZoneOffset.ofHours(8)),
+						rs.getObject("family_member_id", Long.class)),
 				event.eventId().toString());
 		if (!event.equals(existing)) { throw new IllegalArgumentException("An eventId cannot be reused for different facts"); }
 	}
@@ -96,4 +99,33 @@ class JdbcFamilyAlertDeliveryStore implements FamilyAlertDeliveryStore {
 				(rs, row) -> rs.getTimestamp("acknowledge_by").toLocalDateTime(), incidentId, familyId).stream().findFirst();
 	}
 	private static Timestamp time(LocalDateTime value) { return Timestamp.valueOf(value); }
+
+	@Override public List<FamilyAlertEvent> pendingReminders(LocalDateTime now) {
+		return jdbc.query("""
+				SELECT w.incident_id, i.elder_id, w.family_member_id, w.acknowledge_by
+				FROM family_alert_window w JOIN incident i ON i.id = w.incident_id
+				LEFT JOIN incident_acknowledgement a ON a.incident_id = w.incident_id AND a.family_member_id = w.family_member_id
+				WHERE w.acknowledge_by <= ? AND i.status <> 'RESOLVED' AND a.acknowledged_at IS NULL
+				AND NOT EXISTS (
+					SELECT 1 FROM family_alert_event e JOIN family_alert_delivery d ON d.event_id = e.event_id
+					WHERE e.incident_id = w.incident_id AND e.family_member_id = w.family_member_id
+					AND e.event_type = 'INCIDENT_ACKNOWLEDGEMENT_DUE' AND d.family_member_id = w.family_member_id AND d.status = 'CREATED')
+				ORDER BY w.acknowledge_by, w.incident_id, w.family_member_id
+				""", (rs, row) -> FamilyAlertEvent.acknowledgementDue(rs.getLong("incident_id"), rs.getLong("elder_id"),
+					rs.getLong("family_member_id"), rs.getTimestamp("acknowledge_by").toLocalDateTime().atOffset(ZoneOffset.ofHours(8))), time(now));
+	}
+
+	@Override public Optional<LocalDateTime> lockWindow(Long incidentId, Long familyId) {
+		return jdbc.query("SELECT acknowledge_by FROM family_alert_window WHERE incident_id = ? AND family_member_id = ? FOR UPDATE",
+				(rs, row) -> rs.getTimestamp("acknowledge_by").toLocalDateTime(), incidentId, familyId).stream().findFirst();
+	}
+
+	@Override public FamilyReminderWindow lockReminderWindow(Long incidentId, Long familyId) {
+		// Current locking reads see resolution/awareness committed while this transaction waited.
+		String status = jdbc.queryForObject("SELECT status FROM incident WHERE id = ? FOR UPDATE", String.class, incidentId);
+		var deadline = lockWindow(incidentId, familyId).orElse(null);
+		var awareness = jdbc.query("SELECT acknowledged_at FROM incident_acknowledgement WHERE incident_id = ? AND family_member_id = ? FOR UPDATE",
+				(rs, row) -> rs.getTimestamp("acknowledged_at") == null ? null : rs.getTimestamp("acknowledged_at").toLocalDateTime(), incidentId, familyId);
+		return new FamilyReminderWindow(deadline, awareness.isEmpty() ? null : awareness.getFirst(), "RESOLVED".equals(status));
+	}
 }

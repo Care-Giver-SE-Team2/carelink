@@ -18,4 +18,8 @@ public final class RecordingIncidentFamilyEvents implements IncidentFamilyEvents
         events.add(new FamilyAlertEvent(id, FamilyAlertEvent.Type.INCIDENT_UNRESOLVED, incident, elder, at));
     }
     public List<FamilyAlertEvent> events() { return List.copyOf(events); }
+
+    @Override public void acknowledgementDue(Long incident, Long elder, Long family, OffsetDateTime deadline) {
+        events.add(FamilyAlertEvent.acknowledgementDue(incident, elder, family, deadline));
+    }
 }
