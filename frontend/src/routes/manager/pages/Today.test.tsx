@@ -24,7 +24,7 @@ const elder = (id: number, fullName: string, sector: string): ElderListItem => (
   primaryCaregiverId: null,
   primaryCaregiverName: null,
   primaryCaregiverAssignedAt: null,
-  hasPublishedPlan: false, hasCareRequest: true,
+  hasPublishedPlan: false, hasCareRequest: true, openCareRequests: 0,
 })
 
 const visit = (

@@ -13,6 +13,7 @@ public interface ServiceApplicationJpaRepository extends JpaRepository<ServiceAp
     List<ServiceApplicationJpaEntity> findByApplicantFamilyMemberIdAndElderIdIn(
             Long familyId, Set<Long> elderIds, Pageable pageable);
     List<ServiceApplicationJpaEntity> findByElderIdOrderByCreatedAtDescIdDesc(Long elderId);
+    List<ServiceApplicationJpaEntity> findByElderIdInAndStatusNot(Set<Long> elderIds, String status);
     @Query("SELECT DISTINCT a.elderId FROM ServiceApplicationJpaEntity a WHERE a.elderId IN :elderIds")
     List<Long> findElderIdsIn(@Param("elderIds") Set<Long> elderIds);
 }

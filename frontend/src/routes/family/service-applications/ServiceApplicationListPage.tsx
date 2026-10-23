@@ -2,6 +2,7 @@ import { Link, useSearchParams } from 'react-router-dom'
 import { useServiceApplications } from '../../../features/service-applications/queries'
 import { intakeDate } from '../../../features/intake/presentation'
 import { IntakeLoading } from '../intake/IntakeLayout'
+import { partlyPlanned } from '../../../features/service-applications/api'
 import { OutcomeBadge } from './OutcomeBadge'
 import styles from '../intake/FamilyIntake.module.css'
 
@@ -31,7 +32,7 @@ export function ServiceApplicationListPage() {
         {page > 0 && <button onClick={() => setParams({})}>Back to first page</button>}
       </section> : <ul className={styles.cards}>{data.items.map((item) => <li key={item.id}>
         <Link className={styles.card} to={`/family/service-applications/${item.id}?page=${page}`}>
-          <div className={styles.cardTop}><span className={styles.reference}>SERVICE APPLICATION #{item.id}</span><OutcomeBadge outcome={item.outcome} /></div>
+          <div className={styles.cardTop}><span className={styles.reference}>SERVICE APPLICATION #{item.id}</span><OutcomeBadge outcome={item.outcome} partly={partlyPlanned(item)} /></div>
           <h2>{item.elderSnapshot.fullName}</h2><p className={styles.address}>{item.elderSnapshot.address}</p>
           <div className={styles.cardBottom}><span>Submitted <time dateTime={item.createdAt}>{intakeDate(item.createdAt)}</time></span></div>
         </Link>

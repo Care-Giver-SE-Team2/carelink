@@ -19,6 +19,7 @@ import java.util.Set;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.context.ApplicationEventPublisher;
 
 import sg.nus.carelink.careplan.application.CarePlanSchedules;
 import sg.nus.carelink.careplan.application.CarePlanSchedules.PlanSchedule;
@@ -38,8 +39,9 @@ class ServiceApplicationDeclineServiceTest {
 	private final CarePlanSchedules schedules = mock(CarePlanSchedules.class);
 	private final UserDirectory users = mock(UserDirectory.class);
 	private final Clock clock = Clock.fixed(Instant.parse("2026-10-10T02:00:00Z"), ZoneId.of("Asia/Singapore"));
+	private final ApplicationEventPublisher events = mock(ApplicationEventPublisher.class);
 	private final ServiceApplicationDeclineService service = new ServiceApplicationDeclineService(
-			applications, new CareRequestProgress(schedules), users, clock);
+			applications, new CareRequestProgress(schedules), users, clock, events);
 	private final ServiceApplication submitted = new ServiceApplication(9L, 42L, 5L,
 			new ElderBasicDetails("Tan Mei", null, null, null, "Road", "123456", null, null, null),
 			List.of("LIGHT_EXERCISE"), null, ServiceApplication.Status.SUBMITTED, LocalDateTime.of(2026, 10, 1, 9, 0));
@@ -59,6 +61,20 @@ class ServiceApplicationDeclineServiceTest {
 		assertThat(declined.status()).isEqualTo(ServiceApplication.Status.DECLINED);
 		assertThat(declined.decline()).isEqualTo(new ServiceApplication.Decline(
 				"No exercise coach in your sector yet", 3L, LocalDateTime.of(2026, 10, 10, 2, 0)));
+		verify(events).publishEvent(new ServiceApplicationDeclined(9L, 5L, 42L, "No exercise coach in your sector yet", false));
+	}
+
+	@Test
+	void saysWhenSomeOfItWasAlreadyPlanned() {
+		ServiceApplication twoNeeds = new ServiceApplication(9L, 42L, 5L, submitted.elderSnapshot(),
+				List.of("LIGHT_EXERCISE", "BATHING"), null, ServiceApplication.Status.SUBMITTED, LocalDateTime.of(2026, 10, 1, 9, 0));
+		when(applications.findById(9L)).thenReturn(Optional.of(twoNeeds));
+		when(schedules.forElder(5L)).thenReturn(List.of(new PlanSchedule(70L, 5L, 2, LocalDate.of(2026, 10, 5), null,
+				List.of(new Task(1L, "Personal care", "BATHING", "Bathing assistance", List.of())))));
+
+		service.decline(9L, "No exercise coach in your sector yet", "mei.ling");
+
+		verify(events).publishEvent(new ServiceApplicationDeclined(9L, 5L, 42L, "No exercise coach in your sector yet", true));
 	}
 
 	@Test
@@ -70,6 +86,7 @@ class ServiceApplicationDeclineServiceTest {
 				.isInstanceOfSatisfying(BusinessRuleViolation.class,
 						error -> assertThat(error.code()).isEqualTo("SERVICE_APPLICATION_ALREADY_PLANNED"));
 		verify(applications, never()).save(any());
+		verify(events, never()).publishEvent(any());
 	}
 
 	@Test

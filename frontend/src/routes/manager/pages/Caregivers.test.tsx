@@ -68,7 +68,7 @@ const elder: ElderListItem = {
   primaryCaregiverId: 114,
   primaryCaregiverName: 'Devi Raman',
   primaryCaregiverAssignedAt: '2026-09-01T00:00:00Z',
-  hasPublishedPlan: true, hasCareRequest: true,
+  hasPublishedPlan: true, hasCareRequest: true, openCareRequests: 0,
 }
 
 afterEach(() => {

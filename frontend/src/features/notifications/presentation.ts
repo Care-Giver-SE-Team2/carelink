@@ -17,7 +17,10 @@ export function portalOf(pathname: string): Portal {
 }
 
 /** Where a message leads in this client, or null when there is no screen for it there. */
-export function linkFor(item: Pick<NotificationItem, 'resourceType' | 'resourceId'>, portal: Portal): string | null {
+export function linkFor(
+  item: Pick<NotificationItem, 'resourceType' | 'resourceId'> & Partial<Pick<NotificationItem, 'elderId'>>,
+  portal: Portal,
+): string | null {
   if (portal === 'family' && item.resourceType === 'INCIDENT') {
     return validId(item.resourceId) ? `/family/incidents/${item.resourceId}` : null
   }
@@ -38,6 +41,12 @@ export function linkFor(item: Pick<NotificationItem, 'resourceType' | 'resourceI
     VALUE_ADDED_REQUEST: { family: '/family/extra-services', manager: '/manager/extra-services' },
     // A newly published care plan version, read on the family's Care plan page.
     CARE_PLAN: { family: '/family/care-plan' },
+    // A family's service application: planned or declined on the elder's care plan; for the
+    // family member who applied, the application itself.
+    SERVICE_APPLICATION: {
+      manager: validId(item.elderId) ? `/manager/elders/${item.elderId}` : '/manager/elders?list=open-requests',
+      family: validId(item.resourceId) ? `/family/service-applications/${item.resourceId}` : '/family/service-applications',
+    },
     // An elder asking to link with the family member, answered on Family bindings.
     FAMILY_BINDING: { family: '/family/family-bindings' },
   }

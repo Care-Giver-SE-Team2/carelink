@@ -77,7 +77,7 @@ const elderListRow: ElderListItem = {
   primaryCaregiverId: null,
   primaryCaregiverName: null,
   primaryCaregiverAssignedAt: null,
-  hasPublishedPlan: true, hasCareRequest: true,
+  hasPublishedPlan: true, hasCareRequest: true, openCareRequests: 0,
 }
 
 function renderPlan() {
@@ -471,6 +471,27 @@ describe('answering the family', () => {
     expect(await screen.findByText('Declined: No walking companion in your sector yet')).toBeInTheDocument()
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
     expect(within(screen.getByRole('region', { name: 'Service application #9' })).queryByRole('button', { name: 'Decline' })).not.toBeInTheDocument()
+  })
+
+  it('adds what an open application asks for to a published plan, as tasks still to be given days', async () => {
+    vi.mocked(profileApi.fetchElderCareRequests).mockResolvedValue([
+      { source: 'SERVICE_APPLICATION', applicationId: 9, careNeeds: ['GROOMING', 'BATHING'], notes: null, submittedAt: '2026-10-01T09:00:00', outcome: 'SUBMITTED', needs: [], declineReason: null },
+    ])
+    const user = userEvent.setup()
+    renderPlan()
+    const application = await screen.findByRole('region', { name: 'Service application #9' })
+    await screen.findByText('Grooming', { selector: ':not([role="region"] *)' })
+
+    await user.click(within(application).getByRole('button', { name: 'Add to plan' }))
+
+    // Opens a draft, files Bathing under the Personal care sub-plan Grooming is already in, and
+    // leaves Grooming alone.
+    expect(screen.getByRole('button', { name: 'Publish v5' })).toBeDisabled()
+    expect(screen.getAllByText('Bathing assistance')).toHaveLength(2)
+    expect(screen.getAllByText('Personal care', { selector: ':not([role="region"] *)' })).toHaveLength(1)
+    expect(within(application).getByText('Bathing assistance').parentElement).toHaveTextContent('Set days')
+    expect(within(application).queryByRole('button', { name: 'Add to plan' })).not.toBeInTheDocument()
+    expect(within(application).getByRole('button', { name: 'Decline' })).toBeInTheDocument()
   })
 
   it('shows an application the plan has answered as planned, with nothing to decline', async () => {

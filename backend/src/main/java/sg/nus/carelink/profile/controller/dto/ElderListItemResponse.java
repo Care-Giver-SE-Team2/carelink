@@ -9,7 +9,8 @@ import sg.nus.carelink.profile.application.ElderSummary;
  * Row shape for the Elders index (UC-MG01 step one): the elder plus its plan status and primary
  * caregiver. The three primaryCaregiver fields are all null while none is assigned.
  * hasPublishedPlan stays true while a newer version of a published plan is still a draft.
- * hasCareRequest is true once the family has applied for care (intake or service application).
+ * hasCareRequest is true once the family has applied for care (intake or service application);
+ * openCareRequests counts the service applications still waiting on the manager.
  */
 public record ElderListItemResponse(
 		Long id,
@@ -24,7 +25,8 @@ public record ElderListItemResponse(
 		String primaryCaregiverName,
 		LocalDateTime primaryCaregiverAssignedAt,
 		boolean hasPublishedPlan,
-		boolean hasCareRequest) {
+		boolean hasCareRequest,
+		int openCareRequests) {
 
 	public static ElderListItemResponse from(ElderSummary summary) {
 		var primary = summary.primaryCaregiver();
@@ -41,6 +43,7 @@ public record ElderListItemResponse(
 				primary == null ? null : primary.fullName(),
 				primary == null ? null : primary.assignedAt(),
 				summary.hasPublishedPlan(),
-				summary.hasCareRequest());
+				summary.hasCareRequest(),
+				summary.openCareRequests());
 	}
 }

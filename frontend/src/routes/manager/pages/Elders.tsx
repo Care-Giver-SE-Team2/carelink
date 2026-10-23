@@ -35,6 +35,7 @@ import {
   Select,
   SidePanel,
   SplitLayout,
+  Tag,
 } from '../../../shared/components/ui'
 import { CaregiverPickerModal } from '../components/CaregiverPickerModal'
 import { EmptyAssignSlot } from '../components/EmptyAssignSlot'
@@ -51,9 +52,14 @@ type SortOrder = 'name' | 'name-desc' | 'next-visit' | 'plan-status'
  * were, since the published version stays in force until the revision is published.
  */
 type Worklist = 'needs-plan' | 'needs-caregiver' | 'assigned' | 'stopped'
-type WorklistFilter = Worklist | 'all'
+/**
+ * Open requests cut across the worklists: an elder the family has asked for more care for still
+ * needs a plan, a caregiver or neither, so they are listed there too.
+ */
+type WorklistFilter = 'open-requests' | Worklist | 'all'
 
 const WORKLIST_TABS: { value: WorklistFilter; label: string; empty: string }[] = [
+  { value: 'open-requests', label: 'OPEN REQUESTS', empty: 'No family requests are waiting on you.' },
   { value: 'needs-plan', label: 'NEEDS PLAN', empty: 'Every elder has a care plan.' },
   { value: 'needs-caregiver', label: 'NEEDS CAREGIVER', empty: 'Every elder with a published plan has a primary caregiver.' },
   { value: 'assigned', label: 'ASSIGNED', empty: 'No elder has both a published plan and a primary caregiver yet.' },
@@ -71,6 +77,16 @@ function worklistOf(elder: ElderRow): Worklist {
  * An elder is the manager's to plan for once the family has applied for care. One who already has
  * a plan stays listed even without an application, so the plan is never out of reach.
  */
+function isInFilter(elder: ElderRow, filter: WorklistFilter): boolean {
+  if (filter === 'all') return true
+  if (filter === 'open-requests') return elder.openCareRequests > 0
+  return worklistOf(elder) === filter
+}
+
+function openRequestsLabel(count: number): string {
+  return count === 1 ? '1 OPEN REQUEST' : `${count} OPEN REQUESTS`
+}
+
 function isOnWorklist(elder: ElderRow): boolean {
   return elder.hasCareRequest || elder.planStatus !== 'none'
 }
@@ -90,6 +106,7 @@ function defaultWorklist(
 ): WorklistFilter {
   if (isWorklistFilter(listParam)) return listParam
   if (selected) return worklistOf(selected)
+  if (counts['open-requests'] > 0) return 'open-requests'
   if (counts['needs-plan'] > 0) return 'needs-plan'
   if (counts['needs-caregiver'] > 0) return 'needs-caregiver'
   return 'all'
@@ -146,13 +163,17 @@ export default function Elders() {
 
   const worklistCounts = useMemo(() => {
     const counts: Record<WorklistFilter, number> = {
+      'open-requests': 0,
       'needs-plan': 0,
       'needs-caregiver': 0,
       assigned: 0,
       stopped: 0,
       all: elders.length,
     }
-    for (const e of elders) counts[worklistOf(e)]++
+    for (const e of elders) {
+      counts[worklistOf(e)]++
+      if (e.openCareRequests > 0) counts['open-requests']++
+    }
     return counts
   }, [elders])
 
@@ -166,7 +187,7 @@ export default function Elders() {
   const filtered = useMemo(() => {
     const needle = q.toLowerCase()
     const rows = elders.filter((e) => {
-      if (worklist !== 'all' && worklistOf(e) !== worklist) return false
+      if (!isInFilter(e, worklist)) return false
       if (needle && !e.name.toLowerCase().includes(needle) && !e.id.toLowerCase().includes(needle)) return false
       return true
     })
@@ -309,6 +330,11 @@ export default function Elders() {
         cells={[
           <span key="plan" className={styles.badgeCell}>
             <Badge status={e.planStatus} version={e.planVersion} />
+            {e.openCareRequests > 0 && (
+              <Tag tone="danger" compact>
+                {openRequestsLabel(e.openCareRequests)}
+              </Tag>
+            )}
           </span>,
           <span key="caregiver" className={styles.optional}>
             {e.primaryCaregiver ? (

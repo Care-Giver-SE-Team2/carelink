@@ -22,6 +22,11 @@ export type ServiceApplication = {
   declineReason: string | null
   declinedAt: string | null
 }
+/** Declined, but some of what it asked for was already put in the care plan. */
+export function partlyPlanned(item: Pick<ServiceApplication, 'outcome' | 'needs'>): boolean {
+  return item.outcome === 'DECLINED' && item.needs.some((need) => need.plannedVersion)
+}
+
 export type ServiceApplicationPage = {
   items: ServiceApplication[]; page: number; size: number; totalElements: number
 }

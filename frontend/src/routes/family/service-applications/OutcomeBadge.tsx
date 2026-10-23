@@ -8,12 +8,15 @@ const look: Record<ServiceApplicationOutcome, { status: string; label: string }>
   DECLINED: { status: 'REJECTED', label: 'Declined' },
 }
 
-/** Where a service application stands: waiting, in the care plan, or declined by the care team. */
-export function OutcomeBadge({ outcome }: { outcome: ServiceApplicationOutcome }) {
+/**
+ * Where a service application stands: waiting, in the care plan, or declined by the care team —
+ * "Partly declined" when some of it was planned before the rest was declined.
+ */
+export function OutcomeBadge({ outcome, partly = false }: { outcome: ServiceApplicationOutcome; partly?: boolean }) {
   return (
     <span className={styles.badge} data-status={look[outcome].status}>
       <span aria-hidden="true" />
-      {look[outcome].label}
+      {partly ? 'Partly declined' : look[outcome].label}
     </span>
   )
 }

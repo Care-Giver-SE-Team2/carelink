@@ -7,6 +7,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import sg.nus.carelink.profile.domain.model.ServiceApplication;
@@ -27,16 +28,18 @@ public class FamilyServiceApplicationService {
     private final ServiceApplicationRepository applications;
     private final Clock clock;
     private final CareRequestProgress progress;
+    private final ApplicationEventPublisher events;
 
     FamilyServiceApplicationService(FamilyIdentityQuery identity, FamilyAccessQuery access,
             ElderRepository elders, ServiceApplicationRepository applications, Clock clock,
-            CareRequestProgress progress) {
+            CareRequestProgress progress, ApplicationEventPublisher events) {
         this.identity = identity;
         this.access = access;
         this.elders = elders;
         this.applications = applications;
         this.clock = clock;
         this.progress = progress;
+        this.events = events;
     }
 
     /**
@@ -56,8 +59,10 @@ public class FamilyServiceApplicationService {
         Long familyId = identity.requireFamilyMemberId(username);
         access.requireWritableElder(username, elderId);
         var elder = elders.findById(elderId).orElseThrow(() -> new ResourceNotFound("Elder", elderId));
-        return applications.save(ServiceApplication.submit(familyId, elder, careNeeds, notes,
+        ServiceApplication saved = applications.save(ServiceApplication.submit(familyId, elder, careNeeds, notes,
                 LocalDateTime.now(clock.withZone(ZoneOffset.UTC))));
+        events.publishEvent(new ServiceApplicationSubmitted(saved.id(), saved.elderId(), saved.careNeeds().size()));
+        return saved;
     }
 
     public ServiceApplicationPage list(String username, int page, int size) {

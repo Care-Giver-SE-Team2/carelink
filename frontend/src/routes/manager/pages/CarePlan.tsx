@@ -7,6 +7,7 @@ import type { PlanNode, SubPlanNode, TaskNode } from '../data/carePlans'
 import { careNeedLabel, groupCareActivities, useCareActivities } from '../../../features/careplan/careActivities'
 import {
   requestedNeedStatus,
+  addRequestedTasks,
   requestedNeeds,
   seedPlanFromRequests,
   unscheduledTasks,
@@ -342,6 +343,14 @@ export default function CarePlan() {
     setDeleteTarget(null)
   }
 
+  /** Files the request's missing catalog activities into the plan as tasks still to be given days. */
+  function addRequestToPlan(request: ElderCareRequest) {
+    if (!catalog) return
+    enterDraft(totalHours)
+    setTree((prev) => addRequestedTasks(prev, request.careNeeds, catalog))
+    markEdited()
+  }
+
   function submitAddSubPlan(activity: string, schedule: DayScheduleValue) {
     enterDraft(totalHours)
     const catalogActivity = catalog?.find((a) => a.label === activity)
@@ -440,6 +449,7 @@ export default function CarePlan() {
     try {
       await declineServiceApplication(declineTarget.applicationId, declineReason.trim())
       await queryClient.invalidateQueries({ queryKey: ['elderCareRequests', elderId] })
+      void queryClient.invalidateQueries({ queryKey: ['elders'] })
       setDeclineTarget(null)
     } catch (err) {
       setDeclineError(err instanceof Error ? err.message : 'Could not decline this application.')
@@ -634,6 +644,10 @@ export default function CarePlan() {
             requests={careRequests}
             label={(need) => careNeedLabel(catalog, need)}
             needTag={(need) => REQUESTED_NEED_TAG[requestedNeedStatus(need, catalog ?? [], tree)]}
+            canAdd={(request) =>
+              request.careNeeds.some((need) => requestedNeedStatus(need, catalog ?? [], tree) === 'missing')
+            }
+            onAdd={locked ? undefined : addRequestToPlan}
             onDecline={(request) => {
               setDeclineTarget(request)
               setDeclineReason('')

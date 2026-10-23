@@ -18,9 +18,9 @@ afterEach(() => {
 const unassigned = { primaryCaregiverId: null, primaryCaregiverName: null, primaryCaregiverAssignedAt: null }
 
 const elders: ElderListItem[] = [
-  { id: 1, fullName: 'Chan Bee Choo', dateOfBirth: '1943-01-01', address: 'Bishan St 23', sector: 'S31', planStatus: 'published', planVersion: 4, nextVisitDate: null, hasPublishedPlan: true, hasCareRequest: true, ...unassigned },
-  { id: 2, fullName: 'Goh Bee Lian', dateOfBirth: '1938-01-01', address: 'Bishan St 11', sector: 'S31', planStatus: 'none', planVersion: null, nextVisitDate: null, hasPublishedPlan: false, hasCareRequest: true, ...unassigned },
-  { id: 3, fullName: 'Kamala Devi Rajan', dateOfBirth: '1950-01-01', address: 'Toa Payoh Lor 4', sector: 'S34', planStatus: 'draft', planVersion: 1, nextVisitDate: null, hasPublishedPlan: false, hasCareRequest: true, ...unassigned },
+  { id: 1, fullName: 'Chan Bee Choo', dateOfBirth: '1943-01-01', address: 'Bishan St 23', sector: 'S31', planStatus: 'published', planVersion: 4, nextVisitDate: null, hasPublishedPlan: true, hasCareRequest: true, openCareRequests: 0, ...unassigned },
+  { id: 2, fullName: 'Goh Bee Lian', dateOfBirth: '1938-01-01', address: 'Bishan St 11', sector: 'S31', planStatus: 'none', planVersion: null, nextVisitDate: null, hasPublishedPlan: false, hasCareRequest: true, openCareRequests: 0, ...unassigned },
+  { id: 3, fullName: 'Kamala Devi Rajan', dateOfBirth: '1950-01-01', address: 'Toa Payoh Lor 4', sector: 'S34', planStatus: 'draft', planVersion: 1, nextVisitDate: null, hasPublishedPlan: false, hasCareRequest: true, openCareRequests: 0, ...unassigned },
 ]
 
 beforeEach(() => {
@@ -78,7 +78,7 @@ it('keeps an elder whose published plan is being revised on their caregiver tab'
   const assigned = { primaryCaregiverId: 114, primaryCaregiverName: 'Devi Raman', primaryCaregiverAssignedAt: '2026-09-01T00:00:00Z' }
   vi.mocked(profileApi.fetchElderList).mockResolvedValue([
     { ...elders[0], id: 4, fullName: 'Lim Ah Kow', planStatus: 'draft', planVersion: 2, hasPublishedPlan: true },
-    { ...elders[0], id: 5, fullName: 'Ong Siew Lan', planStatus: 'draft', planVersion: 3, hasPublishedPlan: true, hasCareRequest: true, ...assigned },
+    { ...elders[0], id: 5, fullName: 'Ong Siew Lan', planStatus: 'draft', planVersion: 3, hasPublishedPlan: true, hasCareRequest: true, openCareRequests: 0, ...assigned },
   ])
   renderElders('/manager/elders')
 
@@ -87,6 +87,23 @@ it('keeps an elder whose published plan is being revised on their caregiver tab'
   expect(screen.getByRole('button', { name: 'NEEDS CAREGIVER · 1' })).toHaveAttribute('aria-pressed', 'true')
   expect(screen.getByRole('option', { name: /Lim Ah Kow/ })).toBeInTheDocument()
   expect(screen.getByRole('button', { name: 'ASSIGNED · 1' })).toBeInTheDocument()
+})
+
+it('opens on elders with open family requests, who stay on their usual tab too', async () => {
+  vi.mocked(profileApi.fetchElderList).mockResolvedValue([
+    { ...elders[0], openCareRequests: 2 },
+    elders[1],
+    elders[2],
+  ])
+  renderElders('/manager/elders')
+
+  expect(await screen.findByRole('button', { name: 'OPEN REQUESTS · 1' })).toHaveAttribute('aria-pressed', 'true')
+  const row = screen.getByRole('option', { name: /Chan Bee Choo/ })
+  expect(within(row).getByText('2 OPEN REQUESTS')).toBeInTheDocument()
+  expect(screen.queryByRole('option', { name: /Goh Bee Lian/ })).not.toBeInTheDocument()
+
+  fireEvent.click(screen.getByRole('button', { name: 'NEEDS CAREGIVER · 1' }))
+  expect(screen.getByRole('option', { name: /Chan Bee Choo/ })).toBeInTheDocument()
 })
 
 it('coming back from a care plan, opens on that elder’s tab with them still selected', async () => {

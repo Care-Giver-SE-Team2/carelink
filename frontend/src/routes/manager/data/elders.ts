@@ -16,6 +16,8 @@ export type ElderRow = {
   hasPublishedPlan: boolean
   /** The family has applied for care (intake or service application). */
   hasCareRequest: boolean
+  /** Service applications from the family still waiting on the manager: not declined, not fully planned. */
+  openCareRequests: number
   primaryCaregiver: string | null
   /** Caregiver id as a string; null while unassigned. */
   primaryCaregiverId: string | null
@@ -42,6 +44,7 @@ export async function fetchElders(): Promise<ElderRow[]> {
     planVersion: r.planVersion,
     hasPublishedPlan: r.hasPublishedPlan,
     hasCareRequest: r.hasCareRequest,
+    openCareRequests: r.openCareRequests,
     primaryCaregiver: r.primaryCaregiverName,
     primaryCaregiverId: r.primaryCaregiverId == null ? null : String(r.primaryCaregiverId),
     primaryCaregiverSince: r.primaryCaregiverAssignedAt,

@@ -64,6 +64,13 @@ class ServiceApplicationRepositoryAdapter implements ServiceApplicationRepositor
         return Set.copyOf(jpa.findElderIdsIn(elderIds));
     }
 
+    @Override
+    public List<ServiceApplication> findUndeclinedByElderIds(Set<Long> elderIds) {
+        if (elderIds.isEmpty()) return List.of();
+        return jpa.findByElderIdInAndStatusNot(elderIds, ServiceApplication.Status.DECLINED.name()).stream()
+                .map(this::toDomain).toList();
+    }
+
     private ServiceApplication toDomain(ServiceApplicationJpaEntity entity) {
         return new ServiceApplication(entity.getId(), entity.getApplicantFamilyMemberId(), entity.getElderId(),
                 JSON.readValue(entity.getElderSnapshot(), ElderBasicDetails.class), entity.getCareNeeds(), entity.getNotes(),

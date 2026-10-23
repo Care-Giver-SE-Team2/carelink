@@ -15,4 +15,6 @@ public interface ServiceApplicationRepository {
     List<ServiceApplication> findByElderId(Long elderId);
     /** Which of these elders any family member has made a service application for, in any status. */
     Set<Long> findElderIdsWithApplications(Set<Long> elderIds);
+    /** These elders' service applications a manager has not declined, in no particular order. */
+    List<ServiceApplication> findUndeclinedByElderIds(Set<Long> elderIds);
 }

@@ -234,7 +234,7 @@ class FamilyElderListIT {
 		assertThat(body).isNotEmpty().allSatisfy(item -> assertThat(item.propertyNames()).containsExactlyInAnyOrder(
 				"id", "fullName", "dateOfBirth", "address", "sector", "planStatus", "planVersion", "nextVisitDate",
 				"primaryCaregiverId", "primaryCaregiverName", "primaryCaregiverAssignedAt", "hasPublishedPlan",
-				"hasCareRequest"));
+				"hasCareRequest", "openCareRequests"));
 	}
 
 	private void seedBinding(long elderId, long familyId, String scope, String bindingStatus, LocalDateTime expiresAt) {

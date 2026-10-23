@@ -84,6 +84,8 @@ export type ElderListItem = {
   hasPublishedPlan: boolean
   /** The family has applied for care: the approved intake application or a service application. */
   hasCareRequest: boolean
+  /** Service applications neither declined nor fully planned yet. The intake application isn't counted. */
+  openCareRequests: number
 }
 
 /**
