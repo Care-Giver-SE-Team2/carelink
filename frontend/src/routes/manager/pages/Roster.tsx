@@ -1,10 +1,13 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import { useSearchParams } from 'react-router-dom'
-import { useAbsences } from '../../../features/absences/useAbsenceQueries'
+import { reassignVisit } from '../../../shared/api/rostering'
+import { useAbsences, useRefreshAbsences } from '../../../features/absences/useAbsenceQueries'
 import { Button, Pagination, RowTitle, SearchField } from '../../../shared/components/ui'
 import { ManagerShell } from '../components/ManagerShell'
 import { RosterTimeline } from '../components/RosterTimeline'
 import { RosterToolbar } from '../components/RosterToolbar'
+import { ReassignVisitModal } from '../components/VisitCoverModal'
 import type { RosterView } from '../components/RosterToolbar'
 import { WeekGrid } from '../components/WeekGrid'
 import {
@@ -16,13 +19,14 @@ import {
   isoWeek,
   matchingName,
   pageOf,
+  singaporeNow,
   singaporeToday,
   toDayTimeline,
   toWeek,
   weekContext,
   weekDays,
 } from '../data/roster'
-import type { RosterAbsence } from '../data/roster'
+import type { RosterAbsence, RosterBlock } from '../data/roster'
 import { useCaregivers } from '../lib/useCaregivers'
 import { useElders } from '../lib/useElders'
 import { useDayVisits, useWeekVisits } from '../lib/useRoster'
@@ -32,7 +36,9 @@ import styles from './Roster.module.css'
  * Roster — MG03: the visits published care plans have put on the calendar, by caregiver. Day
  * shows one day hour by hour; Week shows each caregiver's daily load against the caps, and a
  * cell opens that day. It is each caregiver's schedule as it stands: visits nobody has are
- * left out, and re-rostering for an absence is done on the Absences screen. A caregiver on
+ * left out, and re-rostering for a whole absence is done on the Absences screen. In Day view a
+ * booked visit that has not started opens a picker to give it to someone else: the manager has
+ * the final say, within the hard rules, and gives a reason. A caregiver on
  * approved leave is marked on the days they are away, linking to the absence. Caregivers are
  * shown a page at a time, and Day and Week share the page. A search narrows the rows to the
  * caregivers whose name matches, in both views. The view, date, page and search live in the
@@ -117,13 +123,23 @@ function DayView({ date, page, query, onPageChange }: { date: string } & Paging)
   const caregivers = useCaregivers()
   const elders = useElders()
   const leave = useApprovedLeave()
+  const queryClient = useQueryClient()
+  const refreshAbsences = useRefreshAbsences()
+  const [reassigning, setReassigning] = useState<RosterBlock | null>(null)
   const timeline = useMemo(
     () =>
       visits.data && caregivers.data && elders.data
-        ? toDayTimeline(visits.data, caregivers.data, elders.data, absencesOn(leave, date))
+        ? toDayTimeline(visits.data, caregivers.data, elders.data, absencesOn(leave, date), singaporeNow())
         : null,
     [visits.data, caregivers.data, elders.data, leave, date],
   )
+
+  async function reassign(block: RosterBlock, caregiverId: number, reason: string) {
+    await reassignVisit(block.visitId, caregiverId, reason)
+    setReassigning(null)
+    // The visit may have settled an absence's change, so its screen is stale too.
+    await Promise.all([queryClient.invalidateQueries({ queryKey: ['roster'] }), refreshAbsences()])
+  }
 
   if (visits.isError || caregivers.isError || elders.isError) {
     return <p className={styles.status}>Could not load the roster for this day.</p>
@@ -135,10 +151,19 @@ function DayView({ date, page, query, onPageChange }: { date: string } & Paging)
   const shown = pageOf(matching, page)
   return (
     <>
-      <RosterTimeline timeline={{ ...timeline, rows: shown.rows }} />
+      <RosterTimeline timeline={{ ...timeline, rows: shown.rows }} onReassign={setReassigning} />
       <div className={styles.dayPagination}>
         <Pagination page={shown.page} pageSize={ROSTER_PAGE_SIZE} total={shown.total} noun="caregivers" onPageChange={onPageChange} />
       </div>
+      {reassigning && (
+        <ReassignVisitModal
+          visitId={reassigning.visitId}
+          title={`${reassigning.label} · ${reassigning.elderName}`}
+          meta={`${dayContext(date)}, ${reassigning.time} · ${reassigning.minutes} min`}
+          assign={(caregiverId, reason) => reassign(reassigning, caregiverId, reason)}
+          onClose={() => setReassigning(null)}
+        />
+      )}
     </>
   )
 }

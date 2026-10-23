@@ -11,6 +11,7 @@ import {
   mondayOf,
   pageOf,
   singaporeToday,
+  singaporeNow,
   toDayTimeline,
   toWeek,
   weekContext,
@@ -106,6 +107,25 @@ describe('toDayTimeline', () => {
     expect([timeline.startHour, timeline.endHour]).toEqual([8, 20])
   })
 
+  it('marks a booked visit still ahead of now as reassignable, and nothing without a now', () => {
+    const visits = [
+      visit(1, '2026-10-05T09:30:00', '2026-10-05T10:00:00', 5),
+      visit(2, '2026-10-05T11:00:00', '2026-10-05T12:00:00', 5),
+      visit(3, '2026-10-05T14:00:00', '2026-10-05T15:00:00', 5, 'EXCEPTION'),
+    ]
+    const caregivers = [caregiver(5, 'Ong Wei Jie')]
+    const elders = [elder('1', 'Tan Hock Seng')]
+
+    const blocks = toDayTimeline(visits, caregivers, elders, [], '2026-10-05T10:30:00').rows[0].blocks
+    expect(blocks.map((block) => [block.visitId, block.reassignable])).toEqual([
+      [1, false],
+      [2, true],
+      [3, false],
+    ])
+    expect(blocks[1]).toMatchObject({ time: '11:00', elderName: 'Tan Hock Seng' })
+    expect(toDayTimeline(visits, caregivers, elders).rows[0].blocks.some((block) => block.reassignable)).toBe(false)
+  })
+
   it('widens the hours to fit a visit outside 08–20', () => {
     const timeline = toDayTimeline([visit(1, '2026-10-05T07:00:00', '2026-10-05T07:30:00', 5)], [caregiver(5, 'Ong Wei Jie')], [])
     expect(timeline.startHour).toBe(7)
@@ -114,6 +134,12 @@ describe('toDayTimeline', () => {
   it('widens to the hour a late visit actually ends in', () => {
     const timeline = toDayTimeline([visit(1, '2026-10-05T19:30:00', '2026-10-05T20:30:00', 5)], [caregiver(5, 'Ong Wei Jie')], [])
     expect(timeline.endHour).toBe(21)
+  })
+})
+
+describe('singaporeNow', () => {
+  it('is the Singapore wall clock in the shape of a visit start', () => {
+    expect(singaporeNow(new Date('2026-10-05T16:30:05Z'))).toBe('2026-10-06T00:30:05')
   })
 })
 

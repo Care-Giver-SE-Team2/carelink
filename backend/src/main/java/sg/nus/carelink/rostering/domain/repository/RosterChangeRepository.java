@@ -24,6 +24,9 @@ public interface RosterChangeRepository {
 	/** Every change an absence has produced, earliest visit first. */
 	List<RosterChange> findByAbsenceId(Long absenceId);
 
+	/** The latest change recorded for this visit, if an absence ever vacated it. */
+	Optional<RosterChange> findLatestByVisitId(Long visitId);
+
 	/** Changes for these elders, earliest visit first: what a family member is shown. */
 	List<RosterChange> findByElderIds(Collection<Long> elderIds);
 

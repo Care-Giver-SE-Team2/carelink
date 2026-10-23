@@ -9,6 +9,7 @@ import * as absencesApi from '../../../features/absences/api'
 import * as authApi from '../../../features/auth/api'
 import * as incidentsApi from '../../../features/incidents/api'
 import * as profileApi from '../../../shared/api/profile'
+import * as rosteringApi from '../../../shared/api/rostering'
 import * as visitApi from '../../../shared/api/visit'
 import type { VisitResponse } from '../../../shared/api/visit'
 
@@ -219,4 +220,36 @@ it('narrows the roster to caregivers whose name matches the search, in Day and W
   await user.clear(screen.getByRole('searchbox'))
   await user.type(screen.getByRole('searchbox'), 'zzz')
   expect(await screen.findByText('No caregivers match “zzz”.')).toBeInTheDocument()
+})
+
+it('lets the manager give a visit still ahead to someone else, with a reason', async () => {
+  const user = userEvent.setup()
+  vi.mocked(visitApi.fetchDayRoster).mockResolvedValue([visit(7, '2099-01-05T09:00:00', 60, 5)])
+  vi.spyOn(rosteringApi, 'fetchReassignmentOptions').mockResolvedValue([
+    { caregiverId: 6, name: 'Aisyah N.', rank: 1, reason: 'Free all morning', eligible: true },
+    { caregiverId: 8, name: 'Bala K.', rank: null, reason: 'Busy with another visit', eligible: false },
+  ])
+  const reassign = vi.spyOn(rosteringApi, 'reassignVisit').mockResolvedValue(undefined)
+  renderAt('/manager/roster?view=day&date=2099-01-05')
+
+  await user.click(await screen.findByRole('button', { name: 'Reassign 09:00 Tan Hock Seng from Ong Wei Jie' }))
+  const dialog = await screen.findByRole('dialog')
+  const assign = await within(dialog).findByRole('button', { name: 'Assign' })
+  expect(within(dialog).getAllByRole('button', { name: 'Assign' })).toHaveLength(1)
+  expect(assign).toBeDisabled()
+
+  await user.type(within(dialog).getByRole('textbox'), 'Wei Jie is unwell')
+  await user.click(assign)
+
+  expect(reassign).toHaveBeenCalledWith(7, 6, 'Wei Jie is unwell')
+  expect(await screen.findByRole('rowheader', { name: /Ong Wei Jie/ })).toBeInTheDocument()
+  expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+})
+
+it('does not offer to reassign a visit that has already started', async () => {
+  vi.mocked(visitApi.fetchDayRoster).mockResolvedValue([visit(7, '2026-10-05T09:00:00', 60, 5)])
+  renderAt('/manager/roster?view=day&date=2026-10-05')
+
+  await screen.findByRole('rowheader', { name: /Ong Wei Jie/ })
+  expect(screen.queryByRole('button', { name: /^Reassign/ })).not.toBeInTheDocument()
 })

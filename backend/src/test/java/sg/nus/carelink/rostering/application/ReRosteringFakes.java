@@ -115,6 +115,11 @@ final class ReRosteringFakes {
 		}
 
 		@Override
+		public Optional<RosterChange> findLatestByVisitId(Long visitId) {
+			return rows.values().stream().filter(c -> c.visitId().equals(visitId)).reduce((a, b) -> b);
+		}
+
+		@Override
 		public List<RosterChange> findByElderIds(Collection<Long> elderIds) {
 			return rows.values().stream().filter(c -> elderIds.contains(c.elderId()))
 					.sorted(Comparator.comparing(RosterChange::visitStart)).toList();
@@ -226,6 +231,8 @@ final class ReRosteringFakes {
 		final Map<Long, VisitSlot> rows = new LinkedHashMap<>();
 		final Map<Long, Map<Long, Integer>> history = new HashMap<>();
 		final List<String> calls = new ArrayList<>();
+		/** Why each reassignment was made, in order, as the assignment history would record it. */
+		final List<Change> reasons = new ArrayList<>();
 		private long nextId = 500;
 
 		Visits add(Long id, Long elderId, Long caregiverId, LocalDateTime start, int minutes) {
@@ -272,6 +279,7 @@ final class ReRosteringFakes {
 			rows.put(visitId, new VisitSlot(visitId, v.elderId(), toCaregiverId, v.carePlanId(), v.serviceType(),
 					v.start(), v.end(), "SCHEDULED", why.absenceId()));
 			calls.add("reassign " + visitId + " to " + toCaregiverId);
+			reasons.add(why);
 		}
 
 		@Override
@@ -387,6 +395,12 @@ final class ReRosteringFakes {
 		@Override
 		public void settled(RosterChange change, Notice notice) {
 			record("settled " + change.outcome(), change, notice);
+		}
+
+		@Override
+		public void reassigned(Reassignment reassignment) {
+			sent.add("reassigned visit %d from %s to %d".formatted(reassignment.visitId(),
+					reassignment.fromCaregiverId(), reassignment.toCaregiverId()));
 		}
 
 		private void record(String what, RosterChange change, Notice notice) {

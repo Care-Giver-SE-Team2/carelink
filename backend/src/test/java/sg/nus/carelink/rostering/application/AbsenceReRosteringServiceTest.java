@@ -264,20 +264,27 @@ class AbsenceReRosteringServiceTest {
 	}
 
 	@Test
-	void aManagerMayNotPickWhileTheFamilyIsChoosingOrOverTheirChoice() {
+	void aManagerHasTheFinalSayWhileTheFamilyIsChoosingAndOverTheirChoice() {
 		service.reroster(absenceId, null, 11L);
 		Long deciding = changes.forVisit(30L).id();
 		Long chosen = changes.forVisit(31L).id();
 		service.decide(chosen, "alex", FamilyChoice.keepSuggestion());
+		assertThat(visits.rows.get(31L).caregiverId()).isEqualTo(9L);
 
-		assertThatThrownBy(() -> service.assignByManager(absenceId, deciding, 10L, 12L))
-				.isInstanceOf(BusinessRuleViolation.class)
-				.extracting("code").isEqualTo("FAMILY_STILL_DECIDING");
-		assertThatThrownBy(() -> service.assignByManager(absenceId, chosen, 10L, 12L))
+		RosterChange overOffer = service.assignByManager(absenceId, deciding, 10L, 12L, "Siti knows the elder");
+		RosterChange overFamily = service.assignByManager(absenceId, chosen, 10L, 12L);
+
+		assertThat(visits.rows.get(30L).caregiverId()).isEqualTo(10L);
+		assertThat(visits.rows.get(31L).caregiverId()).isEqualTo(10L);
+		assertThat(overOffer.decidedBy()).isEqualTo(RosterChange.DecidedBy.MANAGER);
+		assertThat(overOffer.note()).isEqualTo("A manager chose Siti for the visit: Siti knows the elder");
+		assertThat(alerts.notices.get(alerts.notices.size() - 2).why())
+				.as("the family is not shown the manager's reason").isEqualTo("A manager chose Siti for the visit");
+		assertThat(overFamily.decidedBy()).isEqualTo(RosterChange.DecidedBy.MANAGER);
+		assertThatThrownBy(() -> service.decide(deciding, "alex", FamilyChoice.keepSuggestion()))
+				.as("the family's offer is closed")
 				.isInstanceOf(BusinessRuleViolation.class)
 				.extracting("code").isEqualTo("ROSTER_CHANGE_NOT_OPEN");
-		assertThat(visits.rows.get(30L).caregiverId()).isEqualTo(5L);
-		assertThat(visits.rows.get(31L).caregiverId()).isEqualTo(9L);
 	}
 
 	@Test
