@@ -8,6 +8,8 @@ const OUTCOME_TAG: Record<ElderCareRequest['outcome'], { label: string; tone: Ta
   SUBMITTED: { label: 'Open', tone: 'ink' },
   PLANNED: { label: 'Planned', tone: 'accent' },
   DECLINED: { label: 'Declined', tone: 'danger' },
+  // An intake the first published plan answered, leaving out what its activity tags say.
+  ANSWERED: { label: 'Answered by first plan', tone: 'muted' },
 }
 
 /**

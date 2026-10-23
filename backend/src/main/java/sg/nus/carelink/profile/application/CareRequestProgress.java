@@ -49,10 +49,14 @@ class CareRequestProgress {
 				application.status() == ServiceApplication.Status.DECLINED, versions);
 	}
 
-	/** An approved intake application can't be declined; it is planned or still waiting. */
+	/**
+	 * An approved intake application can't be declined: it is planned, still waiting on the elder's
+	 * first care plan, or answered by it (ServiceApplicationProgress.answeredByFirstPlan).
+	 */
 	Progress of(IntakeApplication application, List<PlanVersion> versions) {
 		LocalDateTime createdAt = application.createdAt();
 		LocalDate submittedOn = createdAt == null ? LocalDate.MIN : createdAt.toLocalDate();
-		return ServiceApplicationProgress.of(application.careNeeds(), submittedOn, false, versions);
+		return ServiceApplicationProgress.answeredByFirstPlan(
+				ServiceApplicationProgress.of(application.careNeeds(), submittedOn, false, versions), versions);
 	}
 }

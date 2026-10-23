@@ -26,7 +26,11 @@ public final class ServiceApplicationProgress {
 	private ServiceApplicationProgress() {
 	}
 
-	public enum Outcome { SUBMITTED, PLANNED, DECLINED }
+	/**
+	 * ANSWERED is for an approved intake application only: the elder's first care plan has been
+	 * published without everything it asked for. See {@link #answeredByFirstPlan}.
+	 */
+	public enum Outcome { SUBMITTED, PLANNED, DECLINED, ANSWERED }
 
 	/**
 	 * One issued care plan version: the days it is in force ({@code until} exclusive, null while
@@ -81,6 +85,20 @@ public final class ServiceApplicationProgress {
 		boolean allPlanned = !progress.isEmpty() && progress.stream().allMatch(NeedProgress::planned);
 		Outcome outcome = allPlanned ? Outcome.PLANNED : declined ? Outcome.DECLINED : Outcome.SUBMITTED;
 		return new Progress(outcome, progress);
+	}
+
+	/**
+	 * The intake application is the onboarding form, and the elder's first published care plan is
+	 * the manager's answer to it: whatever that plan left out was decided then, when publishing
+	 * named it, so the intake is not left waiting on it. An intake still waiting on its first plan,
+	 * or one the plans cover in full, keeps its outcome. Later requests come as service
+	 * applications, which the manager plans or declines one by one.
+	 */
+	public static Progress answeredByFirstPlan(Progress intake, List<PlanVersion> versions) {
+		if (intake.outcome() != Outcome.SUBMITTED || versions.isEmpty()) {
+			return intake;
+		}
+		return new Progress(Outcome.ANSWERED, intake.needs());
 	}
 
 	/** A request whose care is already planned has been answered; it can no longer be declined. */

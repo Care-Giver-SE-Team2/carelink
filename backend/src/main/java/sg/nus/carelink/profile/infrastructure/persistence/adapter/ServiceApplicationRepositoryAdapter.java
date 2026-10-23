@@ -1,5 +1,6 @@
 package sg.nus.carelink.profile.infrastructure.persistence.adapter;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -65,10 +66,16 @@ class ServiceApplicationRepositoryAdapter implements ServiceApplicationRepositor
     }
 
     @Override
-    public List<ServiceApplication> findUndeclinedByElderIds(Set<Long> elderIds) {
+    public List<ServiceApplication> findUnansweredByElderIds(Set<Long> elderIds) {
         if (elderIds.isEmpty()) return List.of();
-        return jpa.findByElderIdInAndStatusNot(elderIds, ServiceApplication.Status.DECLINED.name()).stream()
-                .map(this::toDomain).toList();
+        return jpa.findByElderIdInAndStatusNotAndPlannedAtIsNull(elderIds, ServiceApplication.Status.DECLINED.name())
+                .stream().map(this::toDomain).toList();
+    }
+
+    @Override
+    public void recordPlanned(Set<Long> applicationIds, LocalDateTime at) {
+        if (applicationIds.isEmpty()) return;
+        jpa.recordPlanned(applicationIds, at);
     }
 
     private ServiceApplication toDomain(ServiceApplicationJpaEntity entity) {

@@ -35,12 +35,16 @@ import sg.nus.carelink.visit.application.VisitReassignment;
  * family still choosing has their offer closed by it. Any other visit is handed over directly,
  * recorded in its assignment history with the manager's reason, and everybody it touches is
  * told who is coming. The reason is kept for the record, never shown to the family.
+ *
+ * <p>The manager can also cancel a visit outright ({@link #cancel}): the care plan stays as it is,
+ * only that one visit is off.
  */
 @Service
 @Transactional
 public class ManagerReassignmentService {
 
 	static final String REASON_PREFIX = "Reassigned by a manager: ";
+	static final String CANCEL_PREFIX = "Cancelled by a manager: ";
 
 	private final VisitReassignment visits;
 	private final RosterChangeRepository changes;
@@ -116,6 +120,36 @@ public class ManagerReassignmentService {
 		String elderName = profiles.elder(visit.elderId()).map(RosteringProfiles.ElderFacts::fullName).orElse(null);
 		alert.reassigned(new RosterChangeAlert.Reassignment(visitId, visit.elderId(), visit.start(),
 				visit.caregiverId(), caregiverId, chosen.name(), elderName));
+	}
+
+	/**
+	 * Cancels one visit that has not started, leaving the care plan as it is: the visit is called
+	 * off with the manager's reason in its history, and whoever had it, the elder and the family
+	 * are told. A cancelled visit is never rostered again, and no missed check-in is raised for it.
+	 * A visit an absence vacated is settled on that absence instead, so the absence keeps
+	 * accounting for it.
+	 *
+	 * @param reason why the visit is off, for the record
+	 */
+	public void cancel(Long visitId, String reason, Long managerUserId) {
+		if (reason == null || reason.isBlank()) {
+			throw new BusinessRuleViolation("REASON_REQUIRED", "Say why the visit is cancelled");
+		}
+		VisitReassignment.VisitSlot visit = visits.find(visitId)
+				.orElseThrow(() -> new ResourceNotFound("Visit", visitId));
+		if (!visit.start().isAfter(LocalDateTime.now(clock)) || !"SCHEDULED".equals(visit.status())) {
+			throw new BusinessRuleViolation("VISIT_NOT_OPEN",
+					"Visit %d has started, passed or is %s, so it can no longer be cancelled".formatted(visitId,
+							visit.status()));
+		}
+		if (absenceChange(visitId).isPresent()) {
+			throw new BusinessRuleViolation("VISIT_IN_ABSENCE",
+					"Visit %d was vacated by an absence; settle it on the Absences screen".formatted(visitId));
+		}
+		visits.callOff(visitId, new VisitReassignment.Change(null, managerUserId, null, CANCEL_PREFIX + reason.strip()));
+		String elderName = profiles.elder(visit.elderId()).map(RosteringProfiles.ElderFacts::fullName).orElse(null);
+		alert.cancelled(new RosterChangeAlert.Cancellation(visitId, visit.elderId(), visit.start(), visit.caregiverId(),
+				elderName));
 	}
 
 	/**

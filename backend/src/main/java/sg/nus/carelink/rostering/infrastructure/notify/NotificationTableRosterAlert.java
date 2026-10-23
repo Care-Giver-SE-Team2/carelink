@@ -147,6 +147,23 @@ class NotificationTableRosterAlert implements RosterChangeAlert {
 				change.visitId()));
 	}
 
+	@Override
+	public void cancelled(Cancellation change) {
+		String when = change.visitStart().format(WHEN);
+		String elder = change.elderName() == null ? "The elder" : change.elderName();
+		boundFamily(change.elderId()).forEach(user -> write(user, "VISIT_CANCELLED",
+				"%s's visit on %s is cancelled".formatted(elder, when),
+				"The care team cancelled this visit. The care plan is unchanged, so the next visits go ahead.",
+				VISIT, change.visitId()));
+		jdbc.sql(ELDER_ACCOUNT).param("elderId", change.elderId()).query(Long.class).optional()
+				.ifPresent(user -> write(user, "VISIT_CANCELLED", "Your visit on %s is cancelled".formatted(when),
+						"Nobody is coming for this visit. Your other visits go ahead.", VISIT, change.visitId()));
+		caregiverAccount(change.caregiverId()).ifPresent(user -> write(user, "VISIT_CANCELLED",
+				"Your visit on %s is cancelled".formatted(when),
+				"A manager cancelled your visit to %s. Nothing more is needed from you for it.".formatted(elder),
+				VISIT, change.visitId()));
+	}
+
 	// -------------------------------------------------------------------- the three ends ---
 
 	private void tellFamily(RosterChange change, String title, String body) {

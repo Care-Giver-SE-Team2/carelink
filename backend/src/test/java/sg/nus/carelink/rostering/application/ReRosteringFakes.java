@@ -299,6 +299,7 @@ final class ReRosteringFakes {
 			rows.put(visitId, new VisitSlot(visitId, v.elderId(), v.caregiverId(), v.carePlanId(), v.serviceType(),
 					v.start(), v.end(), "CANCELLED", why.absenceId()));
 			calls.add("call off " + visitId);
+			reasons.add(why);
 		}
 
 		@Override
@@ -395,6 +396,11 @@ final class ReRosteringFakes {
 		@Override
 		public void settled(RosterChange change, Notice notice) {
 			record("settled " + change.outcome(), change, notice);
+		}
+
+		@Override
+		public void cancelled(Cancellation cancellation) {
+			sent.add("cancelled visit %d of %s".formatted(cancellation.visitId(), cancellation.caregiverId()));
 		}
 
 		@Override

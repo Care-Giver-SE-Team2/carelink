@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import type { ReactNode } from 'react'
 import type { UseQueryResult } from '@tanstack/react-query'
 import {
   Avatar,
@@ -62,13 +63,15 @@ export function VisitCoverModal({
 /**
  * Gives a visit that has not started to someone other than whoever has it now. The manager has
  * the final say over the roster, the default plan and the family's pick alike, but not over the
- * hard rules, and says why; the reason goes in the visit's history, not to the family.
+ * hard rules, and says why; the reason goes in the visit's history, not to the family. With
+ * `onCancelVisit`, the manager can instead call the visit off altogether.
  */
 export function ReassignVisitModal({
   visitId,
   title,
   meta,
   assign,
+  onCancelVisit,
   onClose,
 }: {
   visitId: number
@@ -76,6 +79,8 @@ export function ReassignVisitModal({
   meta: string
   /** Saves the pick with the reason; rejects with the error to show. */
   assign: (caregiverId: number, reason: string) => Promise<void>
+  /** Opens the cancellation step for this visit instead. */
+  onCancelVisit?: () => void
   onClose: () => void
 }) {
   return (
@@ -87,6 +92,13 @@ export function ReassignVisitModal({
       nobodyHint="Nobody else can take this visit as it stands."
       askReason
       assign={assign}
+      footerStart={
+        onCancelVisit && (
+          <Button variant="dangerOutline" size="md" onClick={onCancelVisit}>
+            Cancel this visit
+          </Button>
+        )
+      }
       onClose={onClose}
     />
   )
@@ -105,6 +117,7 @@ function CoverOptionsModal({
   nobodyHint,
   askReason = false,
   assign,
+  footerStart,
   onClose,
 }: {
   options: OptionsQuery
@@ -116,6 +129,8 @@ function CoverOptionsModal({
   /** Whether the manager must say why before assigning. */
   askReason?: boolean
   assign: (caregiverId: number, reason: string) => Promise<void>
+  /** Another action for this visit, before Close. */
+  footerStart?: ReactNode
   onClose: () => void
 }) {
   const [saving, setSaving] = useState(false)
@@ -182,9 +197,12 @@ function CoverOptionsModal({
       width={500}
       onClose={onClose}
       footer={
-        <Button variant="ghost" size="md" onClick={onClose}>
-          Cancel
-        </Button>
+        <>
+          {footerStart}
+          <Button variant="ghost" size="md" onClick={onClose}>
+            {footerStart ? 'Close' : 'Cancel'}
+          </Button>
+        </>
       }
     >
       {saveError && (

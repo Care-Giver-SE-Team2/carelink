@@ -84,6 +84,32 @@ class VisitReassignmentControllerTest {
 				.andExpect(status().isConflict());
 	}
 
+	@Test
+	void cancellingReturns204InTheManagersName() throws Exception {
+		mvc.perform(post("/api/visits/40/cancellation").with(as("alice")).contentType(MediaType.APPLICATION_JSON)
+						.content("{\"reason\":\"Mdm Tan is at the hospital\"}"))
+				.andExpect(status().isNoContent());
+
+		verify(reassignments).cancel(40L, "Mdm Tan is at the hospital", 11L);
+	}
+
+	@Test
+	void aCancellationWithoutAReasonIsABadRequest() throws Exception {
+		mvc.perform(post("/api/visits/40/cancellation").with(as("alice")).contentType(MediaType.APPLICATION_JSON)
+						.content("{\"reason\":\" \"}"))
+				.andExpect(status().isBadRequest());
+	}
+
+	@Test
+	void cancellingAVisitAnAbsenceStillAnswersForIsAConflict() throws Exception {
+		doThrow(new BusinessRuleViolation("VISIT_IN_ABSENCE", "Settle it on the Absences screen"))
+				.when(reassignments).cancel(42L, "Not needed", 11L);
+
+		mvc.perform(post("/api/visits/42/cancellation").with(as("alice")).contentType(MediaType.APPLICATION_JSON)
+						.content("{\"reason\":\"Not needed\"}"))
+				.andExpect(status().isConflict());
+	}
+
 	private static RequestPostProcessor as(String username) {
 		return request -> {
 			request.setUserPrincipal(() -> username);

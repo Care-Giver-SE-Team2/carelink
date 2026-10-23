@@ -173,7 +173,7 @@ class ProfileServiceTest {
                 Elder nothingOpen = saveElder(12L);
                 when(serviceApplications.findElderIdsWithApplications(any()))
                                 .thenReturn(Set.of(withPlan.id(), nothingOpen.id()));
-                when(serviceApplications.findUndeclinedByElderIds(any())).thenReturn(List.of(
+                when(serviceApplications.findUnansweredByElderIds(any())).thenReturn(List.of(
                                 serviceApplication(1L, withPlan.id(), "LIGHT_EXERCISE"),
                                 serviceApplication(2L, withPlan.id(), "BATHING"),
                                 serviceApplication(3L, withPlan.id(), "MEAL_PREPARATION")));

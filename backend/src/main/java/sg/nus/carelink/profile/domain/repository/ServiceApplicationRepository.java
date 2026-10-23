@@ -1,5 +1,6 @@
 package sg.nus.carelink.profile.domain.repository;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -15,6 +16,11 @@ public interface ServiceApplicationRepository {
     List<ServiceApplication> findByElderId(Long elderId);
     /** Which of these elders any family member has made a service application for, in any status. */
     Set<Long> findElderIdsWithApplications(Set<Long> elderIds);
-    /** These elders' service applications a manager has not declined, in no particular order. */
-    List<ServiceApplication> findUndeclinedByElderIds(Set<Long> elderIds);
+    /**
+     * These elders' service applications that are neither declined nor recorded as planned, in no
+     * particular order. Some may be planned already but not yet recorded (see recordPlanned).
+     */
+    List<ServiceApplication> findUnansweredByElderIds(Set<Long> elderIds);
+    /** Records that these applications are fully planned, keeping the first time it was recorded. */
+    void recordPlanned(Set<Long> applicationIds, LocalDateTime at);
 }

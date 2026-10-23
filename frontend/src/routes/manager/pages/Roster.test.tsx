@@ -1,4 +1,4 @@
-import { cleanup, render, screen, within } from '@testing-library/react'
+import { cleanup, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
@@ -244,6 +244,52 @@ it('lets the manager give a visit still ahead to someone else, with a reason', a
   expect(reassign).toHaveBeenCalledWith(7, 6, 'Wei Jie is unwell')
   expect(await screen.findByRole('rowheader', { name: /Ong Wei Jie/ })).toBeInTheDocument()
   expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+})
+
+it('lets the manager cancel a visit still ahead, with a reason, leaving the rest of the roster alone', async () => {
+  const user = userEvent.setup()
+  vi.mocked(visitApi.fetchDayRoster).mockResolvedValue([visit(7, '2099-01-05T09:00:00', 60, 5)])
+  vi.spyOn(rosteringApi, 'fetchReassignmentOptions').mockResolvedValue([])
+  const cancel = vi.spyOn(rosteringApi, 'cancelVisit').mockResolvedValue(undefined)
+  const reassign = vi.spyOn(rosteringApi, 'reassignVisit')
+  renderAt('/manager/roster?view=day&date=2099-01-05')
+
+  await user.click(await screen.findByRole('button', { name: 'Reassign 09:00 Tan Hock Seng from Ong Wei Jie' }))
+  await user.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Cancel this visit' }))
+
+  const dialog = await screen.findByRole('dialog', { name: /Tan Hock Seng/ })
+  expect(dialog).toHaveTextContent('The care plan is unchanged')
+  const confirm = within(dialog).getByRole('button', { name: 'Cancel visit' })
+  expect(confirm).toBeDisabled()
+  await user.type(within(dialog).getByRole('textbox'), 'At the hospital for a check-up')
+  vi.mocked(visitApi.fetchDayRoster).mockResolvedValue([])
+  await user.click(confirm)
+
+  expect(cancel).toHaveBeenCalledWith(7, 'At the hospital for a check-up')
+  expect(reassign).not.toHaveBeenCalled()
+  await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+})
+
+it('keeps the visit when the manager backs out, and shows why a cancellation failed', async () => {
+  const user = userEvent.setup()
+  vi.mocked(visitApi.fetchDayRoster).mockResolvedValue([visit(7, '2099-01-05T09:00:00', 60, 5)])
+  vi.spyOn(rosteringApi, 'fetchReassignmentOptions').mockResolvedValue([])
+  const cancel = vi.spyOn(rosteringApi, 'cancelVisit').mockRejectedValue(new Error('settle it on the Absences screen'))
+  renderAt('/manager/roster?view=day&date=2099-01-05')
+
+  await user.click(await screen.findByRole('button', { name: 'Reassign 09:00 Tan Hock Seng from Ong Wei Jie' }))
+  await user.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Cancel this visit' }))
+  let dialog = await screen.findByRole('dialog')
+  await user.click(within(dialog).getByRole('button', { name: 'Keep visit' }))
+  expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+  expect(cancel).not.toHaveBeenCalled()
+
+  await user.click(screen.getByRole('button', { name: 'Reassign 09:00 Tan Hock Seng from Ong Wei Jie' }))
+  await user.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Cancel this visit' }))
+  dialog = await screen.findByRole('dialog')
+  await user.type(within(dialog).getByRole('textbox'), 'Not needed')
+  await user.click(within(dialog).getByRole('button', { name: 'Cancel visit' }))
+  expect(await within(dialog).findByRole('alert')).toHaveTextContent('Could not cancel the visit: settle it on the Absences screen')
 })
 
 it('does not offer to reassign a visit that has already started', async () => {

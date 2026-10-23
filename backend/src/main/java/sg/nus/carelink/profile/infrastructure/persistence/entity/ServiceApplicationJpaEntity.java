@@ -53,6 +53,11 @@ public class ServiceApplicationJpaEntity {
     @Column(name = "decline_reason", length = 255)
     private String declineReason;
 
+    /** Written only by ServiceApplicationJpaRepository.recordPlanned (native SQL), so saving the application never clears it. */
+    @JdbcTypeCode(SqlTypes.LOCAL_DATE_TIME)
+    @Column(name = "planned_at", insertable = false, updatable = false)
+    private LocalDateTime plannedAt;
+
     public ServiceApplicationJpaEntity() { }
 
     public Long getId() { return id; }
@@ -77,4 +82,5 @@ public class ServiceApplicationJpaEntity {
     public void setDeclinedByUserId(Long declinedByUserId) { this.declinedByUserId = declinedByUserId; }
     public String getDeclineReason() { return declineReason; }
     public void setDeclineReason(String declineReason) { this.declineReason = declineReason; }
+    public LocalDateTime getPlannedAt() { return plannedAt; }
 }

@@ -18,11 +18,13 @@ import jakarta.validation.Valid;
 import sg.nus.carelink.identity.application.IdentityService;
 import sg.nus.carelink.rostering.application.ManagerReassignmentService;
 import sg.nus.carelink.rostering.controller.dto.ReassignmentOptionResponse;
+import sg.nus.carelink.rostering.controller.dto.VisitCancellationRequest;
 import sg.nus.carelink.rostering.controller.dto.VisitReassignmentRequest;
 
 /**
- * HTTP for a manager giving any visit that has not started to another caregiver. Presentation
- * only: 409 when a rule stops it (the visit has started, the caregiver fails a hard rule),
+ * HTTP for a manager giving any visit that has not started to another caregiver, or cancelling
+ * it. Presentation only: 409 when a rule stops it (the visit has started, the caregiver fails a
+ * hard rule, an absence still answers for it),
  * 404 for a missing visit or caregiver, 403 for the wrong role, 400 for a malformed body.
  */
 @RestController
@@ -52,5 +54,14 @@ public class VisitReassignmentController {
 			Principal principal) {
 		reassignments.reassign(visitId, body.caregiverId(), body.reason(),
 				identity.require(principal.getName()).id());
+	}
+
+	/** The manager cancels the visit; the care plan, and so every later visit, is unchanged. */
+	@PostMapping("/cancellation")
+	@ResponseStatus(HttpStatus.NO_CONTENT)
+	@PreAuthorize("hasRole('MANAGER')")
+	public void cancel(@PathVariable Long visitId, @Valid @RequestBody VisitCancellationRequest body,
+			Principal principal) {
+		reassignments.cancel(visitId, body.reason(), identity.require(principal.getName()).id());
 	}
 }

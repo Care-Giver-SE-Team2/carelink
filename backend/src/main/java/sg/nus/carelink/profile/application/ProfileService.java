@@ -120,10 +120,11 @@ public class ProfileService {
 
 	/**
 	 * How many of each elder's service applications are still open. One query for the
-	 * applications; plan versions are read only for elders with one not yet declined.
+	 * applications; plan versions are read only for elders with one neither declined nor recorded
+	 * as planned (ServiceApplicationPlannedRecorder), so answered history costs nothing.
 	 */
 	private Map<Long, Integer> openServiceApplicationsFor(Set<Long> elderIds) {
-		Map<Long, List<ServiceApplication>> undeclinedByElder = serviceApplications.findUndeclinedByElderIds(elderIds)
+		Map<Long, List<ServiceApplication>> undeclinedByElder = serviceApplications.findUnansweredByElderIds(elderIds)
 				.stream().collect(Collectors.groupingBy(ServiceApplication::elderId));
 		Map<Long, Integer> open = new HashMap<>();
 		undeclinedByElder.forEach((elderId, applications) -> {

@@ -13,9 +13,14 @@ export function useElderCareRequests(id: string | undefined) {
   })
 }
 
-/** Every care need across the elder's applications, once each, in the order the family first asked for them. */
+/**
+ * Every care need across the elder's applications still waiting on the manager or planned, once
+ * each, in the order the family first asked for them. A declined application was answered "not
+ * offered", and an intake answered by the first plan had what it left out decided then, so their
+ * missing activities aren't named again before every publish, nor put in a first draft.
+ */
 export function requestedNeeds(requests: ElderCareRequest[]): string[] {
-  const oldestFirst = [...requests].reverse()
+  const oldestFirst = [...requests].reverse().filter((request) => request.outcome !== 'DECLINED' && request.outcome !== 'ANSWERED')
   return [...new Set(oldestFirst.flatMap((request) => request.careNeeds))]
 }
 

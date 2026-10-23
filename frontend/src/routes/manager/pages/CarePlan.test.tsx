@@ -446,6 +446,34 @@ it('names what the family asked for that a version leaves out, before publishing
   expect(within(dialog).getByRole('button', { name: 'Publish' })).toBeEnabled()
 })
 
+it('treats an intake the first plan answered as settled, without naming what it left out again', async () => {
+  vi.mocked(profileApi.fetchElderCareRequests).mockResolvedValue([
+    { source: 'INTAKE', applicationId: 3, careNeeds: ['GROOMING', 'VITALS', 'Help with the cat'], notes: null, submittedAt: '2026-09-16T09:00:00', outcome: 'ANSWERED',
+      needs: [{ need: 'GROOMING', plannedVersion: 1, plannedFrom: '2024-04-11' }, { need: 'VITALS', plannedVersion: null, plannedFrom: null }, { need: 'Help with the cat', plannedVersion: null, plannedFrom: null }], declineReason: null },
+  ])
+  const user = await renderPlanInDraft()
+  const intake = screen.getByRole('region', { name: 'Intake application #3' })
+  expect(within(intake).getByText('Answered by first plan')).toBeInTheDocument()
+  expect(within(intake).getByText('Vital-sign check').parentElement).toHaveTextContent('Not in plan')
+  expect(within(intake).queryByRole('button')).not.toBeInTheDocument()
+
+  await user.click(screen.getByRole('button', { name: 'Publish v5' }))
+  expect(screen.getByRole('dialog')).not.toHaveTextContent('The family asked for')
+})
+
+it('does not name what the manager already declined as left out', async () => {
+  vi.mocked(profileApi.fetchElderCareRequests).mockResolvedValue([
+    { source: 'SERVICE_APPLICATION', applicationId: 9, careNeeds: ['COMPANIONSHIP_WALK'], notes: null, submittedAt: '2026-10-01T09:00:00', outcome: 'DECLINED', needs: [], declineReason: 'No walking companion in your sector yet' },
+    { source: 'SERVICE_APPLICATION', applicationId: 8, careNeeds: ['BATHING'], notes: null, submittedAt: '2026-09-20T09:00:00', outcome: 'SUBMITTED', needs: [], declineReason: null },
+  ])
+  const user = await renderPlanInDraft()
+  await user.click(screen.getByRole('button', { name: 'Publish v5' }))
+
+  const dialog = screen.getByRole('dialog')
+  expect(dialog).toHaveTextContent('The family asked for Bathing assistance, which is not in this version.')
+  expect(dialog).not.toHaveTextContent('Companionship walk')
+})
+
 describe('answering the family', () => {
   it('declines an open service application with a reason for the family', async () => {
     vi.mocked(profileApi.fetchElderCareRequests).mockResolvedValue([

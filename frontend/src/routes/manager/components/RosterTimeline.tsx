@@ -97,7 +97,7 @@ function TimelineRowView({
             startCol={column}
             span={span}
             slotsPerHour={SLOTS_PER_HOUR}
-            title={block.reassignable && onReassign ? `${block.title} · click to reassign` : block.title}
+            title={block.reassignable && onReassign ? `${block.title} · click to reassign or cancel` : block.title}
             onClick={block.reassignable && onReassign ? () => onReassign(block) : undefined}
             actionLabel={`Reassign ${block.time} ${block.elderName} from ${row.name}`}
           />
