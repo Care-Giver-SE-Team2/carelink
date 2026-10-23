@@ -195,7 +195,8 @@ final class SectionPainter {
 				PageFlow.baseline(flow.cursor(), style.label));
 		flow.advance(style.label.leading());
 		for (ReportLine reading : readings) {
-			boolean flagged = reading.status() != null && reading.status().tone() == ReportLine.Tone.BAD;
+			ReportLine.Status status = reading.status();
+			boolean flagged = status != null && status.tone() == ReportLine.Tone.BAD;
 			flow.paragraph(reading.text(), flagged ? style.note.in(ReportStyle.DANGER) : style.note,
 					flow.left(), flow.width());
 		}
@@ -281,7 +282,9 @@ final class SectionPainter {
 
 	private void row(Row row, boolean first) throws IOException {
 		ReportLine head = row.head();
-		float pillSpace = head.status() == null ? 0 : pillWidth(head.status().text()) + 10;
+		String time = head.time();
+		ReportLine.Status status = head.status();
+		float pillSpace = status == null ? 0 : pillWidth(status.text()) + 10;
 		float x = head.plain() ? flow.left() : flow.left() + TIME_COLUMN;
 		float width = flow.right() - x - pillSpace;
 		List<String> main = flow.wrap(head.plain() ? head.text() : firstPart(head), style.body, width);
@@ -291,11 +294,11 @@ final class SectionPainter {
 						width);
 		separate(first, style.body.leading() + (detail.isEmpty() ? 0 : style.detail.leading()));
 		float top = flow.cursor();
-		if (head.time() != null) {
-			flow.text(head.time(), style.time, flow.left(), PageFlow.baseline(top, style.body));
+		if (time != null) {
+			flow.text(time, style.time, flow.left(), PageFlow.baseline(top, style.body));
 		}
-		if (head.status() != null) {
-			pill(head.status().text(), head.status().tone(), flow.right() - pillSpace + 10, top, style.body.leading());
+		if (status != null) {
+			pill(status.text(), status.tone(), flow.right() - pillSpace + 10, top, style.body.leading());
 		}
 		if (main.isEmpty()) {
 			flow.advance(style.body.leading());

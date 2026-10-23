@@ -166,11 +166,10 @@ final class PageFlow {
 	/**
 	 * The text as the standard fonts can print it: spacing of every kind becomes a plain space,
 	 * an arrow or a comparison its ASCII spelling, anything else they lack a question mark.
+	 *
+	 * @param text never null: everything drawn is a filed report's own text or a label
 	 */
 	String clean(String text) {
-		if (text == null) {
-			return "";
-		}
 		StringBuilder out = new StringBuilder(text.length());
 		text.codePoints().forEach(point -> {
 			if (Character.isWhitespace(point) || Character.isSpaceChar(point)) {
@@ -287,19 +286,22 @@ final class PageFlow {
 
 	// --------------------------------------------------------------------- shapes ---
 
-	/** A rectangle hanging from {@code top}; either colour may be null for none. */
+	/** A rectangle hanging from {@code top}; either colour may be null for none, and with neither nothing is drawn. */
 	void box(float x, float top, float width, float height, Ink fill, Ink stroke) throws IOException {
+		if (fill == null && stroke == null) {
+			return;
+		}
 		stream.addRect(x, top - height, width, height);
-		if (fill != null && stroke != null) {
-			fill(fill);
+		if (fill == null) {
 			stroke(stroke, 0.6f);
-			stream.fillAndStroke();
-		} else if (fill != null) {
+			stream.stroke();
+		} else if (stroke == null) {
 			fill(fill);
 			stream.fill();
 		} else {
+			fill(fill);
 			stroke(stroke, 0.6f);
-			stream.stroke();
+			stream.fillAndStroke();
 		}
 	}
 
