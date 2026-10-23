@@ -24,6 +24,8 @@ public interface RosterChangeJpaRepository extends JpaRepository<RosterChangeJpa
 
 	List<RosterChangeJpaEntity> findByAbsenceIdOrderByVisitStartAscIdAsc(Long absenceId);
 
+	Optional<RosterChangeJpaEntity> findFirstByVisitIdOrderByIdDesc(Long visitId);
+
 	List<RosterChangeJpaEntity> findByElderIdInOrderByVisitStartAscIdAsc(Collection<Long> elderIds);
 
 	List<RosterChangeJpaEntity> findByStatusAndRespondByLessThanEqualOrderByRespondByAsc(

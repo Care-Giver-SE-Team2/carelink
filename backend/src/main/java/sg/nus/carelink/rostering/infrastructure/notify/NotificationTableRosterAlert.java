@@ -46,8 +46,12 @@ class NotificationTableRosterAlert implements RosterChangeAlert {
 	private static final String INSERT = """
 			insert into notification
 			    (recipient_user_id, event_type, channel, title, body, resource_type, resource_id, status, created_at)
-			values (:userId, :eventType, 'IN_APP', :title, :body, 'ROSTER_CHANGE', :changeId, 'PENDING', :createdAt)
+			values (:userId, :eventType, 'IN_APP', :title, :body, :resourceType, :resourceId, 'PENDING', :createdAt)
 			""";
+
+	private static final String ROSTER_CHANGE = "ROSTER_CHANGE";
+
+	private static final String VISIT = "VISIT";
 
 	private static final DateTimeFormatter WHEN = DateTimeFormatter.ofPattern("EEE d MMM, HH:mm", Locale.ENGLISH);
 
@@ -123,6 +127,26 @@ class NotificationTableRosterAlert implements RosterChangeAlert {
 				"Nothing more is needed from you for this visit.", change.id()));
 	}
 
+	@Override
+	public void reassigned(Reassignment change) {
+		String when = change.visitStart().format(WHEN);
+		String who = change.toCaregiverName();
+		String elder = change.elderName() == null ? "The elder" : change.elderName();
+		boundFamily(change.elderId()).forEach(user -> write(user, "ROSTER_CHANGE_SETTLED",
+				"%s will visit %s on %s".formatted(who, elder, when),
+				"The visit goes ahead with %s.".formatted(who), VISIT, change.visitId()));
+		jdbc.sql(ELDER_ACCOUNT).param("elderId", change.elderId()).query(Long.class).optional()
+				.ifPresent(user -> write(user, "VISIT_CHANGED", "%s will visit you on %s".formatted(who, when),
+						"%s is coming for this visit.".formatted(who), VISIT, change.visitId()));
+		caregiverAccount(change.toCaregiverId()).ifPresent(user -> write(user, "VISIT_ASSIGNED",
+				"New visit: %s on %s".formatted(elder, when),
+				"A manager gave you this visit. It is on your schedule.", VISIT, change.visitId()));
+		caregiverAccount(change.fromCaregiverId()).ifPresent(user -> write(user, "VISIT_RELEASED",
+				"Your visit on %s has been given to a colleague".formatted(when),
+				"A manager changed who takes this visit. Nothing more is needed from you for it.", VISIT,
+				change.visitId()));
+	}
+
 	// -------------------------------------------------------------------- the three ends ---
 
 	private void tellFamily(RosterChange change, String title, String body) {
@@ -159,12 +183,18 @@ class NotificationTableRosterAlert implements RosterChangeAlert {
 	}
 
 	private void write(Long userId, String eventType, String title, String body, Long changeId) {
+		write(userId, eventType, title, body, ROSTER_CHANGE, changeId);
+	}
+
+	private void write(Long userId, String eventType, String title, String body, String resourceType,
+			Long resourceId) {
 		jdbc.sql(INSERT)
 				.param("userId", userId)
 				.param("eventType", eventType)
 				.param("title", trim(title, 150))
 				.param("body", trim(body, 1000))
-				.param("changeId", changeId)
+				.param("resourceType", resourceType)
+				.param("resourceId", resourceId)
 				.param("createdAt", Timestamp.valueOf(LocalDateTime.now(clock)))
 				.update();
 	}

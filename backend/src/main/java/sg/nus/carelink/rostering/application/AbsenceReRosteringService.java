@@ -277,12 +277,23 @@ public class AbsenceReRosteringService {
 
 	/**
 	 * The manager puts a caregiver of their choosing on a vacated visit instead of whoever the
-	 * search ranked first: when nobody was free, or over the institution's own pick, never over
-	 * the family's ({@link RosterChange#managerMayAssign()}). The caregiver must still pass every
-	 * hard rule against the roster as it is now; if not, nothing changes and the manager is told
-	 * which rule stopped them. The family is told who is coming.
+	 * search ranked first. The manager has the final say ({@link RosterChange#managerMayAssign()}):
+	 * while the family is still choosing, which closes their offer, when nobody was free, and
+	 * over any earlier pick, the family's included. The caregiver must still pass every hard rule
+	 * against the roster as it is now; if not, nothing changes and the manager is told which rule
+	 * stopped them. The family is told who is coming.
 	 */
 	public RosterChange assignByManager(Long absenceId, Long changeId, Long caregiverId, Long managerUserId) {
+		return assignByManager(absenceId, changeId, caregiverId, managerUserId, null);
+	}
+
+	/**
+	 * As {@link #assignByManager(Long, Long, Long, Long)}, with the manager's reason kept on the
+	 * change and in the visit's assignment history. The family is not shown the reason: it may
+	 * say what is wrong with the caregiver who is not coming.
+	 */
+	public RosterChange assignByManager(Long absenceId, Long changeId, Long caregiverId, Long managerUserId,
+			String reason) {
 		RosterChange change = changes.lock(changeId)
 				.filter(c -> c.absenceId().equals(absenceId))
 				.orElseThrow(() -> new ResourceNotFound("RosterChange", changeId));
@@ -312,8 +323,10 @@ public class AbsenceReRosteringService {
 				managerUserId, now));
 		Map<Long, Long> candidateIds = search.record(run.id(), shortlist, rules);
 		runs.save(run.committed(1, 1, snapshot.elder(slot.elderId()).priorVisitsBy(caregiverId) > 0 ? 1 : 0, now));
+		String forFamily = "A manager chose %s for the visit".formatted(chosen.name());
+		String why = reason == null || reason.isBlank() ? forFamily : "%s: %s".formatted(forFamily, reason.strip());
 		return replace(change, slot, chosen, run.id(), candidateIds, RosterChange.DecidedBy.MANAGER, managerUserId,
-				"A manager chose %s for the visit".formatted(chosen.name()));
+				why, forFamily);
 	}
 
 	// ------------------------------------------------------------------ the family's three options ---
@@ -458,12 +471,18 @@ public class AbsenceReRosteringService {
 	/** The visit goes to {@code verdict}'s caregiver; everybody is told; a default plan is audited. */
 	private RosterChange replace(RosterChange change, VacatedSlot slot, Shortlist.Verdict verdict, Long runId,
 			Map<Long, Long> candidateIds, RosterChange.DecidedBy by, Long userId, String why) {
+		return replace(change, slot, verdict, runId, candidateIds, by, userId, why,
+				by == RosterChange.DecidedBy.FAMILY ? null : why);
+	}
+
+	/** As above, with {@code forFamily} as what the family is told of why, when it differs from the record. */
+	private RosterChange replace(RosterChange change, VacatedSlot slot, Shortlist.Verdict verdict, Long runId,
+			Map<Long, Long> candidateIds, RosterChange.DecidedBy by, Long userId, String why, String forFamily) {
 		Long candidateId = candidateIds.get(verdict.caregiverId());
 		visits.reassign(slot.visitId(), verdict.caregiverId(), new VisitReassignment.Change(change.absenceId(), userId,
 				candidateId, "%s (absence %d): %s".formatted(byWhom(by), change.absenceId(), why)));
 		search.select(candidateId);
 		RosterChange settled = changes.save(change.replacedBy(verdict.caregiverId(), runId, by, userId, why, now()));
-		String forFamily = by == RosterChange.DecidedBy.FAMILY ? null : why;
 		alert.settled(settled, notice(settled, verdict.name(), verdict.caregiverId(), null, forFamily));
 		if (by == RosterChange.DecidedBy.DEFAULT_PLAN) {
 			audit.defaultPlanApplied(settled, "%s; caregiver %d assigned to visit %d"

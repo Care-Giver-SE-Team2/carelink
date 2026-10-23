@@ -1,4 +1,5 @@
 import { useQueries, useQuery } from '@tanstack/react-query'
+import { fetchReassignmentOptions } from '../../../shared/api/rostering'
 import { fetchDayRoster } from '../../../shared/api/visit'
 import type { VisitResponse } from '../../../shared/api/visit'
 
@@ -22,5 +23,13 @@ export function useWeekVisits(dates: string[]) {
       isError: results.some((result) => result.isError),
       isPending: results.some((result) => result.isPending),
     }),
+  })
+}
+
+/** Who could take one visit instead of whoever has it now, best first, then who cannot and why. */
+export function useReassignmentOptions(visitId: number) {
+  return useQuery({
+    queryKey: ['roster', 'visit', visitId, 'reassignment-options'],
+    queryFn: ({ signal }) => fetchReassignmentOptions(visitId, signal),
   })
 }

@@ -30,7 +30,7 @@ class JdbcNotificationInbox implements NotificationInbox {
 	private static final String COLUMNS = """
 			select n.id, n.recipient_user_id, n.event_type, n.channel, n.title, n.body, n.resource_type,
 			       n.resource_id, n.status, n.created_at, n.sent_at, n.read_at,
-			       coalesce(i.elder_id, rc.elder_id, sc.elder_id, vasr.elder_id, cp.elder_id) as elder_id
+			       coalesce(i.elder_id, rc.elder_id, sc.elder_id, vasr.elder_id, cp.elder_id, v.elder_id) as elder_id
 			""";
 
 	/** The reader's own in-app messages in the asked statuses, with what each links to. */
@@ -41,6 +41,7 @@ class JdbcNotificationInbox implements NotificationInbox {
 			left join spot_check sc on n.resource_type = 'SPOT_CHECK' and sc.id = n.resource_id
 			left join value_added_service_request vasr on n.resource_type = 'VALUE_ADDED_REQUEST' and vasr.id = n.resource_id
 			left join care_plan cp on n.resource_type = 'CARE_PLAN' and cp.id = n.resource_id
+			left join visit v on n.resource_type = 'VISIT' and v.id = n.resource_id
 			where n.recipient_user_id = :userId
 			  and n.channel = 'IN_APP'
 			  and n.status in (:statuses)
@@ -60,11 +61,11 @@ class JdbcNotificationInbox implements NotificationInbox {
 			           and exists (select 1 from elder_family_binding fb
 			                  join family_member ff on ff.id = fb.family_member_id
 			                  where fb.id = n.resource_id and ff.user_id = :userId))
-			       or (n.resource_type in ('INCIDENT', 'ROSTER_CHANGE', 'SPOT_CHECK', 'VALUE_ADDED_REQUEST', 'CARE_PLAN')
+			       or (n.resource_type in ('INCIDENT', 'ROSTER_CHANGE', 'SPOT_CHECK', 'VALUE_ADDED_REQUEST', 'CARE_PLAN', 'VISIT')
 			           and exists (select 1 from elder_family_binding b
 			                  join family_member f on f.id = b.family_member_id
 			                  where f.user_id = :userId
-			                    and b.elder_id = coalesce(i.elder_id, rc.elder_id, sc.elder_id, vasr.elder_id, cp.elder_id)
+			                    and b.elder_id = coalesce(i.elder_id, rc.elder_id, sc.elder_id, vasr.elder_id, cp.elder_id, v.elder_id)
 			                    and b.status = 'ACTIVE'
 			                    and (b.expires_at is null or b.expires_at > :now))))
 			""";
@@ -90,6 +91,7 @@ class JdbcNotificationInbox implements NotificationInbox {
 			left join spot_check sc on n.resource_type = 'SPOT_CHECK' and sc.id = n.resource_id
 			left join value_added_service_request vasr on n.resource_type = 'VALUE_ADDED_REQUEST' and vasr.id = n.resource_id
 			left join care_plan cp on n.resource_type = 'CARE_PLAN' and cp.id = n.resource_id
+			left join visit v on n.resource_type = 'VISIT' and v.id = n.resource_id
 			set n.status = 'SENT', n.sent_at = :now
 			where n.recipient_user_id = :userId and n.channel = 'IN_APP' and n.status = 'PENDING'
 			""" + FAMILY_SCOPE;
@@ -110,6 +112,7 @@ class JdbcNotificationInbox implements NotificationInbox {
 			left join spot_check sc on n.resource_type = 'SPOT_CHECK' and sc.id = n.resource_id
 			left join value_added_service_request vasr on n.resource_type = 'VALUE_ADDED_REQUEST' and vasr.id = n.resource_id
 			left join care_plan cp on n.resource_type = 'CARE_PLAN' and cp.id = n.resource_id
+			left join visit v on n.resource_type = 'VISIT' and v.id = n.resource_id
 			set n.status = 'READ', n.read_at = :now
 			where n.recipient_user_id = :userId and n.channel = 'IN_APP' and n.status = 'SENT'
 			""" + FAMILY_SCOPE;
