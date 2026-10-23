@@ -192,7 +192,7 @@ final class PageFlow {
 		try {
 			sans.encode(String.valueOf(c));
 			return true;
-		} catch (IllegalArgumentException | IOException e) {
+		} catch (IllegalArgumentException | IOException _) {
 			return false;
 		}
 	}
@@ -237,24 +237,29 @@ final class PageFlow {
 			if (width(longer, type) <= width) {
 				line.setLength(0);
 				line.append(longer);
-				continue;
+			} else {
+				if (!line.isEmpty()) {
+					lines.add(line.toString());
+					line.setLength(0);
+				}
+				line.append(breakWord(word, type, width, lines));
 			}
-			if (!line.isEmpty()) {
-				lines.add(line.toString());
-				line.setLength(0);
-			}
-			String rest = word;
-			while (width(rest, type) > width) {
-				int fits = fitting(rest, type, width);
-				lines.add(rest.substring(0, fits));
-				rest = rest.substring(fits);
-			}
-			line.append(rest);
 		}
 		if (!line.isEmpty()) {
 			lines.add(line.toString());
 		}
 		return lines;
+	}
+
+	/** Adds whole lines of a word too wide for one, and returns the part left over to start the next line. */
+	private String breakWord(String word, Type type, float width, List<String> lines) throws IOException {
+		String rest = word;
+		while (width(rest, type) > width) {
+			int fits = fitting(rest, type, width);
+			lines.add(rest.substring(0, fits));
+			rest = rest.substring(fits);
+		}
+		return rest;
 	}
 
 	/** How many of the word's first characters fit in {@code width}; at least one. */

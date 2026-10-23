@@ -30,6 +30,7 @@ import sg.nus.carelink.report.infrastructure.pdf.PageFlow.Type;
 @Component
 class PdfReportRenderer implements ReportPdfRenderer {
 
+	private static final String PRODUCT = "CareLink";
 	private static final String CORRECTIONS = "Corrections and follow-ups";
 
 	@Override
@@ -69,14 +70,14 @@ class PdfReportRenderer implements ReportPdfRenderer {
 		PDDocumentInformation information = document.getDocumentInformation();
 		information.setTitle("RPT-" + report.id() + " " + title(report) + ", " + ReportText.period(report.period()));
 		information.setSubject("Periodic care report");
-		information.setCreator("CareLink");
+		information.setCreator(PRODUCT);
 	}
 
 	private static void header(PageFlow flow, ReportStyle style, Report report, LocalDateTime exportedAt)
 			throws IOException {
 		float baseline = PageFlow.baseline(flow.cursor(), style.brand);
-		flow.text("CareLink", style.brand, flow.left(), baseline);
-		flow.text("Periodic care report", style.brandNote, flow.left() + flow.width("CareLink", style.brand) + 8, baseline);
+		flow.text(PRODUCT, style.brand, flow.left(), baseline);
+		flow.text("Periodic care report", style.brandNote, flow.left() + flow.width(PRODUCT, style.brand) + 8, baseline);
 		flow.textRight("Exported " + ReportText.moment(exportedAt), style.footer, flow.right(), baseline);
 		flow.advance(style.brand.leading() + 3);
 		flow.rule(flow.cursor(), ReportStyle.INK, 1.1f);
@@ -109,14 +110,14 @@ class PdfReportRenderer implements ReportPdfRenderer {
 			items.add(flow.wrap(missing, item, flow.right() - 14 - inner - 10));
 		}
 		int lines = items.stream().mapToInt(List::size).sum();
-		float height = 9 + style.warning.leading() + lines * item.leading() + 8;
+		float height = 9 + style.gapHeading.leading() + lines * item.leading() + 8;
 		flow.ensure(height);
 		float top = flow.cursor();
 		flow.box(flow.left(), top, flow.width(), height, ReportStyle.WARNING_TINT, ReportStyle.WARNING);
 		flow.box(flow.left(), top, 3, height, ReportStyle.WARNING, null);
 		flow.advance(9);
-		flow.text("Data incomplete", style.warning, inner, PageFlow.baseline(flow.cursor(), style.warning));
-		flow.advance(style.warning.leading());
+		flow.text("Data incomplete", style.gapHeading, inner, PageFlow.baseline(flow.cursor(), style.gapHeading));
+		flow.advance(style.gapHeading.leading());
 		for (List<String> missing : items) {
 			for (int i = 0; i < missing.size(); i++) {
 				float baseline = PageFlow.baseline(flow.cursor(), item);
@@ -127,7 +128,8 @@ class PdfReportRenderer implements ReportPdfRenderer {
 				flow.advance(item.leading());
 			}
 		}
-		flow.advance(8 + 6);
+		// The box's own padding, then the space before the first heading.
+		flow.advance(8f + 6f);
 	}
 
 	/**

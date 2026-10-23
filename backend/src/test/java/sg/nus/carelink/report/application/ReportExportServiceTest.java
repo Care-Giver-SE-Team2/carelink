@@ -57,25 +57,26 @@ class ReportExportServiceTest {
 	@Test
 	void aDrawingThatFailsIsReportedAsUnavailableAndTheReportStaysAsItWas() {
 		Report filed = file();
+		Long id = filed.id();
 		ReportExportService failing = new ReportExportService(reports, (report, at) -> {
 			throw new IOException("disk full");
 		}, CLOCK);
 
-		assertThatThrownBy(() -> failing.exportPdf(filed.id()))
+		assertThatThrownBy(() -> failing.exportPdf(id))
 				.isInstanceOf(ReportExportUnavailable.class)
-				.hasMessageContaining("Report " + filed.id())
+				.hasMessageContaining("Report " + id)
 				.hasCauseInstanceOf(IOException.class);
 		assertThat(reports.findById(filed.id())).contains(filed);
 	}
 
 	@Test
 	void aRendererThatBreaksIsReportedTheSameWay() {
-		Report filed = file();
+		Long id = file().id();
 		ReportExportService broken = new ReportExportService(reports, (report, at) -> {
 			throw new IllegalStateException("no page");
 		}, CLOCK);
 
-		assertThatThrownBy(() -> broken.exportPdf(filed.id()))
+		assertThatThrownBy(() -> broken.exportPdf(id))
 				.isInstanceOf(ReportExportUnavailable.class)
 				.hasCauseInstanceOf(IllegalStateException.class);
 	}

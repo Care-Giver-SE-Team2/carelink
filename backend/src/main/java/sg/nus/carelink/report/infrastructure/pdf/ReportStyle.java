@@ -47,7 +47,8 @@ final class ReportStyle {
 	final Type pill;
 	final Type step;
 	final Type cite;
-	final Type warning;
+	/** "Data incomplete", over the gaps. */
+	final Type gapHeading;
 	final Type disclaimer;
 	final Type footer;
 
@@ -74,7 +75,7 @@ final class ReportStyle {
 		pill = new Type(flow.mono, 6.8f, MUTED, 9, 0.25f);
 		step = new Type(flow.mono, 7.4f, MUTED, 10.5f);
 		cite = new Type(flow.mono, 7.4f, MUTED, 10.5f);
-		warning = new Type(flow.bold, 9.5f, WARNING_TEXT, 13);
+		gapHeading = new Type(flow.bold, 9.5f, WARNING_TEXT, 13);
 		disclaimer = new Type(flow.italic, 8.5f, SECONDARY, 12);
 		footer = new Type(flow.mono, 6.8f, FAINT, 9);
 	}
