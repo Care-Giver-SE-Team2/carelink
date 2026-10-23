@@ -16,3 +16,37 @@ export type CredentialRisk = {
 export function fetchVisitsAtRisk(signal?: AbortSignal): Promise<CredentialRisk[]> {
   return api<CredentialRisk[]>('/credentials/visits-at-risk', { signal })
 }
+
+/**
+ * One caregiver in the picker for reassigning a visit — GET /api/visits/{id}/reassignment-options,
+ * rostering.controller.dto.ReassignmentOptionResponse.
+ */
+export type ReassignmentOption = {
+  caregiverId: number
+  name: string
+  /** 1 for the best suggestion; null when a hard rule excludes them. */
+  rank: number | null
+  /** Why they are suggested, or what excludes them. */
+  reason: string | null
+  eligible: boolean
+}
+
+/**
+ * Who could take a visit that has not started instead of whoever has it now: eligible first,
+ * best first, then who a hard rule excludes and why (manager only).
+ */
+export function fetchReassignmentOptions(visitId: number, signal?: AbortSignal): Promise<ReassignmentOption[]> {
+  return api<ReassignmentOption[]>(`/visits/${visitId}/reassignment-options`, { signal })
+}
+
+/**
+ * The manager gives the visit to another caregiver (manager only). The server checks the hard
+ * rules again; a visit an absence vacated is settled through that absence, closing any offer
+ * the family is still answering. `reason` is kept in the visit's history, never shown to the family.
+ */
+export function reassignVisit(visitId: number, caregiverId: number, reason: string): Promise<void> {
+  return api<void>(`/visits/${visitId}/reassignment`, {
+    method: 'POST',
+    body: JSON.stringify({ caregiverId, reason }),
+  })
+}

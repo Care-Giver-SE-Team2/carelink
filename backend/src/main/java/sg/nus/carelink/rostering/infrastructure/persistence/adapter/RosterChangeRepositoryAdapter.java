@@ -43,6 +43,11 @@ class RosterChangeRepositoryAdapter implements RosterChangeRepository {
 	}
 
 	@Override
+	public Optional<RosterChange> findLatestByVisitId(Long visitId) {
+		return jpa.findFirstByVisitIdOrderByIdDesc(visitId).map(RosterChangeMapper::toDomain);
+	}
+
+	@Override
 	public List<RosterChange> findByElderIds(Collection<Long> elderIds) {
 		if (elderIds.isEmpty()) {
 			return List.of();

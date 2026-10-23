@@ -27,6 +27,22 @@ public interface RosterChangeAlert {
 	void settled(RosterChange change, Notice notice);
 
 	/**
+	 * A manager gave a visit to another caregiver outside any absence. The same ends as
+	 * {@link #settled}: the caregiver who now has it, the one it was taken from, the elder and the
+	 * family. Nobody is told the manager's reason.
+	 */
+	void reassigned(Reassignment reassignment);
+
+	/**
+	 * One visit a manager moved from one caregiver to another.
+	 *
+	 * @param fromCaregiverId who had the visit; null when nobody did
+	 */
+	record Reassignment(Long visitId, Long elderId, LocalDateTime visitStart, Long fromCaregiverId,
+			Long toCaregiverId, String toCaregiverName, String elderName) {
+	}
+
+	/**
 	 * The words a message needs that the change itself does not hold.
 	 *
 	 * @param caregiverName who was suggested, or who now has the visit

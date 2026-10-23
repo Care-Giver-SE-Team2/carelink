@@ -1,7 +1,7 @@
 import type { CSSProperties } from 'react'
 import { Link } from 'react-router-dom'
 import { Tag, VisitBlock } from '../../../shared/components/ui'
-import type { DayTimeline, TimelineRow } from '../data/roster'
+import type { DayTimeline, RosterBlock, TimelineRow } from '../data/roster'
 import styles from './RosterTimeline.module.css'
 
 const cx = (...names: (string | false | undefined)[]) => names.filter(Boolean).join(' ')
@@ -16,9 +16,16 @@ const SLOT_MINUTES = 60 / SLOTS_PER_HOUR
  * the quarter hour it starts in and spans the quarter hours it runs, so a 10:30 visit starts
  * halfway across 10 and only visits that really overlap fall onto a second line.
  * A caregiver on approved leave has their row hatched and an "On leave" tag that opens the
- * absence, where any re-rostering is done.
+ * absence, where re-rostering for the whole absence is done. With `onReassign`, a booked visit
+ * that has not started is a button that hands it to the manager to give to someone else.
  */
-export function RosterTimeline({ timeline }: { timeline: DayTimeline }) {
+export function RosterTimeline({
+  timeline,
+  onReassign,
+}: {
+  timeline: DayTimeline
+  onReassign?: (block: RosterBlock) => void
+}) {
   const { rows, startHour, endHour } = timeline
   const hours = Array.from({ length: endHour - startHour }, (_, i) => startHour + i)
   const slots = hours.length * SLOTS_PER_HOUR
@@ -37,7 +44,14 @@ export function RosterTimeline({ timeline }: { timeline: DayTimeline }) {
         ))}
       </div>
       {rows.map((row) => (
-        <TimelineRowView key={row.id} row={row} startHour={startHour} slots={slots} grid={grid} />
+        <TimelineRowView
+          key={row.id}
+          row={row}
+          startHour={startHour}
+          slots={slots}
+          grid={grid}
+          onReassign={onReassign}
+        />
       ))}
     </div>
   )
@@ -49,11 +63,13 @@ function TimelineRowView({
   startHour,
   slots,
   grid,
+  onReassign,
 }: {
   row: TimelineRow
   startHour: number
   slots: number
   grid: CSSProperties
+  onReassign?: (block: RosterBlock) => void
 }) {
   return (
     <div className={cx(styles.row, styles.body, row.leave !== null && styles.onLeave)} style={grid} role="row">
@@ -81,7 +97,9 @@ function TimelineRowView({
             startCol={column}
             span={span}
             slotsPerHour={SLOTS_PER_HOUR}
-            title={block.title}
+            title={block.reassignable && onReassign ? `${block.title} · click to reassign` : block.title}
+            onClick={block.reassignable && onReassign ? () => onReassign(block) : undefined}
+            actionLabel={`Reassign ${block.time} ${block.elderName} from ${row.name}`}
           />
         )
       })}

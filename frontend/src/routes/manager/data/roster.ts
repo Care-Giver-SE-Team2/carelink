@@ -25,7 +25,11 @@ const DEFAULT_MINUTES = 60
 
 export type RosterBlock = {
   id: string
+  visitId: number
   elderShort: string
+  elderName: string
+  /** "09:30", the visit's start. */
+  time: string
   label: string
   state: VisitBlockState
   /** Hour the visit starts in, e.g. 9 for 09:30. */
@@ -34,6 +38,8 @@ export type RosterBlock = {
   startMinute: number
   minutes: number
   title: string
+  /** Booked and not yet started, so a manager may give it to someone else. */
+  reassignable: boolean
 }
 
 /** One caregiver's row. */
@@ -70,6 +76,22 @@ function toUtc(date: string): Date {
 
 function fromUtc(day: Date): string {
   return day.toISOString().slice(0, 10)
+}
+
+/** Singapore wall-clock now as "yyyy-MM-ddTHH:mm:ss", comparable with a visit's `scheduledStart`. */
+export function singaporeNow(now: Date = new Date()): string {
+  return new Intl.DateTimeFormat('sv-SE', {
+    timeZone: 'Asia/Singapore',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hourCycle: 'h23',
+  })
+    .format(now)
+    .replace(' ', 'T')
 }
 
 /** Today's date in Singapore, whatever the browser's zone. */
@@ -217,36 +239,42 @@ function rosterRows(visits: VisitResponse[], caregivers: CaregiverOption[]): Ros
   return rows
 }
 
-function toBlock(visit: VisitResponse, elderNames: Map<string, string>): RosterBlock {
+function toBlock(visit: VisitResponse, elderNames: Map<string, string>, now: string | null): RosterBlock {
   const elderName = elderNames.get(String(visit.elderId)) ?? `Elder #${visit.elderId}`
   const time = visit.scheduledStart.slice(11, 16)
   const service = visit.serviceType ?? 'visit'
   const minutes = minutesOf(visit)
   return {
     id: String(visit.id),
+    visitId: visit.id,
     elderShort: elderShort(elderName),
+    elderName,
+    time,
     label: visit.status === 'EXCEPTION' ? 'exception' : service,
     state: blockState(visit),
     hour: Number(visit.scheduledStart.slice(11, 13)),
     startMinute: Number(visit.scheduledStart.slice(11, 13)) * 60 + Number(visit.scheduledStart.slice(14, 16)),
     minutes,
     title: `${time} · ${elderName} · ${service} · ${minutes} min`,
+    reassignable: now !== null && visit.status === 'SCHEDULED' && visit.scheduledStart > now,
   }
 }
 
 /**
  * One day as caregiver rows of time-placed blocks, widened past 08–20 if a visit falls
- * outside. `absences` are the ones covering this day (see absencesOn).
+ * outside. `absences` are the ones covering this day (see absencesOn). With `now` (see
+ * singaporeNow), booked visits still ahead of it are marked reassignable.
  */
 export function toDayTimeline(
   visits: VisitResponse[],
   caregivers: CaregiverOption[],
   elders: ElderRow[],
   absences: RosterAbsence[] = [],
+  now: string | null = null,
 ): DayTimeline {
   const elderNames = new Map(elders.map((elder) => [elder.id, elder.name]))
   const mine = assigned(visits)
-  const blocks = mine.map((visit) => ({ rowId: String(visit.caregiverId), block: toBlock(visit, elderNames) }))
+  const blocks = mine.map((visit) => ({ rowId: String(visit.caregiverId), block: toBlock(visit, elderNames, now) }))
 
   const startHour = Math.min(DAY_START_HOUR, ...blocks.map(({ block }) => block.hour))
   const endHour = Math.max(

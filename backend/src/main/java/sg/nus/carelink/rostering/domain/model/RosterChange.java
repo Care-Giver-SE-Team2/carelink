@@ -20,8 +20,9 @@ import sg.nus.carelink.shared.error.BusinessRuleViolation;
  * <pre>
  *   AWAITING_FAMILY --family or default plan--> RESOLVED (REPLACED | RESCHEDULED | SKIPPED)
  *   AWAITING_FAMILY --nobody free any more----> UNCOVERED
+ *   AWAITING_FAMILY --manager picks-----------> RESOLVED (REPLACED by MANAGER)
  *   UNCOVERED       --manager or nightly run--> RESOLVED (REPLACED)
- *   RESOLVED (REPLACED, not by FAMILY) --manager picks another--> RESOLVED (REPLACED by MANAGER)
+ *   RESOLVED (REPLACED) --manager picks another--> RESOLVED (REPLACED by MANAGER)
  *   either open state --visit called off elsewhere--> RESOLVED (WITHDRAWN)
  * </pre>
  *
@@ -99,11 +100,6 @@ public record RosterChange(
 	 * {@link #managerMayAssign()}, and not to the caregiver who already has it.
 	 */
 	public void requireManagerMayAssign(Long caregiverId) {
-		if (status == Status.AWAITING_FAMILY) {
-			throw new BusinessRuleViolation("FAMILY_STILL_DECIDING",
-					"The family is still choosing who comes to visit %d; wait for their answer or the default plan"
-							.formatted(visitId));
-		}
 		if (!managerMayAssign()) {
 			throw notSettleable("given to another caregiver by a manager");
 		}
@@ -173,14 +169,14 @@ public record RosterChange(
 	}
 
 	/**
-	 * Whether a manager may put a caregiver of their choosing on the visit: when nobody was
-	 * free, or when the replacement was the institution's pick (the default plan or a manager)
-	 * rather than the family's. Not while the family is still choosing, and never over a
-	 * family's own choice.
+	 * Whether a manager may put a caregiver of their choosing on the visit. The manager has the
+	 * final say: while the family is still choosing (their offer is then closed), when nobody
+	 * was free, and over whoever replaced the absent caregiver, the family's pick included. Not
+	 * once the visit was moved, skipped or withdrawn - it is no longer this change's visit.
 	 */
 	public boolean managerMayAssign() {
-		return status == Status.UNCOVERED
-				|| status == Status.RESOLVED && outcome == Outcome.REPLACED && decidedBy != DecidedBy.FAMILY;
+		return status == Status.AWAITING_FAMILY || status == Status.UNCOVERED
+				|| status == Status.RESOLVED && outcome == Outcome.REPLACED;
 	}
 
 	/** Still waiting for the family, and their time is up: the default plan is due. */
