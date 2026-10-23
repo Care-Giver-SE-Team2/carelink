@@ -3347,7 +3347,8 @@ paths:
       tags:
       - Reports
       summary: Export a report
-      x-status: draft
+      x-status: implemented
+      x-implemented-roles: [MANAGER]
       responses:
         '200':
           description: Rendered file.
@@ -3378,6 +3379,10 @@ paths:
       - sessionCookie: []
       operationId: exportReport
       description: >-
+        MANAGER (UC-MG07) is implemented: any audience's filed report, drawn on every request from the archived
+        content and the notes appended to it, laid out as the manager's report page, and never cached
+        (Cache-Control: no-store). The FAMILY branch below (UC-FM04) is specified but not yet implemented; until
+        it is, a family caller receives 403.
         Family access is limited to FAMILY reports of elders currently in scope, in PUBLISHED or ARCHIVED state.
         DRAFT and non-FAMILY reports are forbidden. Apply the same current-authorisation and content rules on
         list, online detail, weekly summary and PDF export. Generation-time permission is not permanent reading

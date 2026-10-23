@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import { appendAmendment, generateReports, getReport, listReports } from './api'
-import { ApiError } from '../../shared/api/client'
+import { appendAmendment, exportReport, generateReports, getReport, listReports } from './api'
+import { ApiError, SESSION_EXPIRED_EVENT } from '../../shared/api/client'
 
 /**
  * The request each function makes and the body it hands back, against
@@ -142,5 +142,45 @@ describe('report API writes', () => {
 
     expect(JSON.parse(String(lastRequest(fetchMock).init.body))).toEqual({ note: 'Grab bar fitted.', kind: 'FOLLOW_UP' })
     expect(stored.kind).toBe('FOLLOW_UP')
+  })
+})
+
+describe('report export', () => {
+  it('reads the PDF of a report as a file, with the session cookie', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response('%PDF-1.7', {
+        headers: {
+          'Content-Type': 'application/pdf',
+          'Content-Disposition': 'attachment; filename="care-report-42.pdf"',
+        },
+      }),
+    )
+    vi.stubGlobal('fetch', fetchMock)
+
+    const pdf = await exportReport(42)
+
+    expect(fetchMock).toHaveBeenCalledWith('/api/reports/42/export', expect.objectContaining({ credentials: 'include' }))
+    expect(pdf.type).toBe('application/pdf')
+    expect(pdf.size).toBe('%PDF-1.7'.length)
+  })
+
+  it('hands a failure back as an ApiError carrying the problem body', async () => {
+    stubFetch({ status: 503, title: 'Report export unavailable', detail: 'The report itself is unchanged.' }, 503)
+
+    const failure = exportReport(42)
+
+    await expect(failure).rejects.toBeInstanceOf(ApiError)
+    await expect(failure).rejects.toMatchObject({ status: 503, body: { detail: 'The report itself is unchanged.' } })
+  })
+
+  it('ends the session on a 401, as every other request does', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(null, { status: 401 })))
+    const expired = vi.fn()
+    window.addEventListener(SESSION_EXPIRED_EVENT, expired)
+
+    await expect(exportReport(42)).rejects.toMatchObject({ status: 401, body: null })
+
+    window.removeEventListener(SESSION_EXPIRED_EVENT, expired)
+    expect(expired).toHaveBeenCalledTimes(1)
   })
 })

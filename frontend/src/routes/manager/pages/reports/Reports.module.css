@@ -315,6 +315,12 @@
   margin: 0;
 }
 
+.reportActions {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+
 .eyebrow {
   margin: 0;
   font: 500 10px/1.4 var(--font-mono);

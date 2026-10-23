@@ -2,7 +2,8 @@ import { useState } from 'react'
 import type { FormEvent } from 'react'
 import { Link, useParams } from 'react-router-dom'
 
-import { appendAmendment } from '../../../../features/reports/api'
+import { appendAmendment, exportReport } from '../../../../features/reports/api'
+import { saveFile } from '../../../../features/reports/download'
 import {
   amendmentKindLabels,
   audienceLabels,
@@ -34,6 +35,11 @@ import styles from './Reports.module.css'
  * a follow-up on something the report recorded; the report is read again
  * afterwards rather than having the note pushed onto it here, so what is on
  * the screen is what is on file.
+ *
+ * Download PDF saves the same report as a printable file, drawn by the server
+ * from what is on file at that moment, notes included. If the file cannot be
+ * drawn the report on screen is unaffected and the button can simply be
+ * pressed again.
  */
 export default function ReportDetail() {
   const { id } = useParams()
@@ -46,6 +52,8 @@ export default function ReportDetail() {
   const [kind, setKind] = useState<ReportAmendmentKind>('CORRECTION')
   const [busy, setBusy] = useState(false)
   const [amendError, setAmendError] = useState<unknown>(null)
+  const [exporting, setExporting] = useState(false)
+  const [exportError, setExportError] = useState<unknown>(null)
 
   if (!valid) {
     return (
@@ -101,6 +109,18 @@ export default function ReportDetail() {
     }
   }
 
+  async function download() {
+    setExporting(true)
+    setExportError(null)
+    try {
+      saveFile(await exportReport(report.id), `care-report-${report.id}.pdf`)
+    } catch (error) {
+      setExportError(error)
+    } finally {
+      setExporting(false)
+    }
+  }
+
   return (
     <ManagerShell
       headerContext={<>Reports / RPT-{report.id}</>}
@@ -124,6 +144,16 @@ export default function ReportDetail() {
             {reportPeriod(report.periodStart, report.periodEnd)} · {generatedByLabels[report.generatedBy]}
           </p>
           <p className={styles.readerNote}>{audienceNotes[report.audience]}</p>
+          <div className={styles.reportActions}>
+            <button type="button" onClick={download} disabled={exporting}>
+              {exporting ? 'Preparing the PDF…' : 'Download PDF'}
+            </button>
+          </div>
+          {exportError !== null && (
+            <p className={styles.inlineError} role="alert">
+              {problemDetail(exportError)}
+            </p>
+          )}
         </div>
 
         {!report.dataComplete && (

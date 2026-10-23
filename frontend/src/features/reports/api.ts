@@ -1,5 +1,5 @@
 import { initialiseCsrf } from '../auth/api'
-import { api } from '../../shared/api/client'
+import { ApiError, SESSION_EXPIRED_EVENT, api } from '../../shared/api/client'
 import type {
   FamilyReportDetail,
   FamilyWeeklySummary,
@@ -47,6 +47,26 @@ export function listReports(
  */
 export function getReport(id: number, signal?: AbortSignal): Promise<ReportDetail> {
   return api<ReportDetail>('/reports/' + id, { signal })
+}
+
+/**
+ * Reads a filed report as a PDF: the report as it is on file now, every note
+ * appended to it included. Fetched here rather than through the shared client,
+ * which reads any body that is not JSON as text; a failure still comes back as
+ * an ApiError carrying the server's problem body, and a 401 ends the session
+ * the same way.
+ * @param id Report identifier
+ * @param signal Cancels the request
+ * @return The PDF file
+ */
+export async function exportReport(id: number, signal?: AbortSignal): Promise<Blob> {
+  const response = await fetch('/api/reports/' + id + '/export', { credentials: 'include', signal })
+  if (!response.ok) {
+    const body: unknown = await response.json().catch(() => null)
+    if (response.status === 401) window.dispatchEvent(new Event(SESSION_EXPIRED_EVENT))
+    throw new ApiError(`The report could not be exported (HTTP ${response.status})`, response.status, body)
+  }
+  return response.blob()
 }
 
 /** Reads the family projection using the session's resource permissions.
