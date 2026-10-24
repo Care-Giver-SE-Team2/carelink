@@ -3,6 +3,7 @@ import { checkIn, checkOut, completeTask, saveHealthRecord, type CommandIdentity
 import { isAccessFailure, useSelfServiceWrite } from './selfService'
 import { unknownResult } from './commandErrors'
 import { useUnsavedCaregiverForm } from './useUnsavedCaregiverForm'
+import { newRequestId } from '../../shared/api/client'
 
 type TaskDraft = { status: 'DONE' | 'SKIPPED' | 'REFUSED'; outcome: string; caregiverNote: string }
 type Attempt = { visitId: number } & ({ kind: 'CHECK_IN'; input: CheckInInput } | { kind: 'CHECK_OUT'; input: CommandIdentity } | { kind: 'TASK_RESULT'; taskId: number; input: TaskInput } | { kind: 'HEALTH_RECORD'; input: HealthInput })
@@ -76,7 +77,7 @@ export function useExecutionCommands(reload: () => void) {
       if (!pendingCheckout || inFlight.current || retainedAttempt.current !== null) return
       const { visitId, version } = pendingCheckout
       setPendingCheckout(null)
-      send({ kind: 'CHECK_OUT', visitId, input: { expectedVersion: version, clientRequestId: crypto.randomUUID() } })
+      send({ kind: 'CHECK_OUT', visitId, input: { expectedVersion: version, clientRequestId: newRequestId() } })
     },
     uncertain: write.error != null && unknownResult(write.error),
     send, retry: () => { if (attempt) send(attempt) }, edit: () => { retainedAttempt.current = null; setAttempt(null); write.clearError(); reload() }, recover: () => { setHealthAccessError(null); write.clearError(); reload() },
@@ -92,22 +93,22 @@ export function useExecutionCommands(reload: () => void) {
       if (healthNote.length > 1000) { setValidation('Health note must not exceed 1000 characters.'); return }
       send({ kind: 'HEALTH_RECORD', visitId, input: { systolic: systolic ? Number(systolic) : null, diastolic: diastolic ? Number(diastolic) : null,
         pulse: pulse ? Number(pulse) : null, temperature: temperature ? Number(temperature) : null, healthFlag, healthNote: healthNote.trim() || null,
-        expectedVersion: version, clientRequestId: crypto.randomUUID() } })
+        expectedVersion: version, clientRequestId: newRequestId() } })
     },
     finishVisit: (visitId: number, version: number) => {
       if (inFlight.current || retainedAttempt.current !== null) return
       if (unsaved) { setPendingCheckout({ visitId, version }); return }
-      send({ kind: 'CHECK_OUT', visitId, input: { expectedVersion: version, clientRequestId: crypto.randomUUID() } })
+      send({ kind: 'CHECK_OUT', visitId, input: { expectedVersion: version, clientRequestId: newRequestId() } })
     },
     start: (visitId: number, version: number) => {
       if (mode === 'GPS' && !fix) { setValidation('Obtain a GPS fix before checking in.'); return }
       if (mode === 'MANUAL_LOCATION_NOTE' && (!note.trim() || note.trim().length > 500)) { setValidation('Write a manual location note of 1 to 500 characters.'); return }
-      send({ kind: 'CHECK_IN', visitId, input: { expectedVersion: version, clientRequestId: crypto.randomUUID(), locationSource: mode, ...(mode === 'GPS' ? fix! : { locationNote: note.trim() }) } })
+      send({ kind: 'CHECK_IN', visitId, input: { expectedVersion: version, clientRequestId: newRequestId(), locationSource: mode, ...(mode === 'GPS' ? fix! : { locationNote: note.trim() }) } })
     },
     finishTask: (visitId: number, taskId: number, version: number) => {
       const draft = drafts[taskId] ?? { status: 'DONE' as const, outcome: '', caregiverNote: '' }
       if (draft.status !== 'DONE' && !draft.caregiverNote.trim()) { setValidation('Skipped or refused tasks require a factual reason.'); return }
-      send({ kind: 'TASK_RESULT', visitId, taskId, input: { ...draft, expectedVersion: version, clientRequestId: crypto.randomUUID() } })
+      send({ kind: 'TASK_RESULT', visitId, taskId, input: { ...draft, expectedVersion: version, clientRequestId: newRequestId() } })
     },
   }
 }

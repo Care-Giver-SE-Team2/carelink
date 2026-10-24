@@ -1,4 +1,4 @@
-import { api } from './client'
+import { api, newRequestId } from './client'
 
 /** Mirrors profile.domain.model.Elder — GET /api/elders/{id} returns it as-is (no DTO yet). */
 export type ElderResponse = {
@@ -278,7 +278,7 @@ export function approveCaregiverApplication(
 ): Promise<CaregiverApplicationDecision> {
   return api<CaregiverApplicationDecision>(`/caregiver-applications/${id}/approve`, {
     method: 'POST',
-    body: JSON.stringify({ message, expectedVersion, clientRequestId: crypto.randomUUID() }),
+    body: JSON.stringify({ message, expectedVersion, clientRequestId: newRequestId() }),
   })
 }
 
@@ -290,7 +290,7 @@ export function rejectCaregiverApplication(
 ): Promise<CaregiverApplicationDecision> {
   return api<CaregiverApplicationDecision>(`/caregiver-applications/${id}/reject`, {
     method: 'POST',
-    body: JSON.stringify({ reason, expectedVersion, clientRequestId: crypto.randomUUID() }),
+    body: JSON.stringify({ reason, expectedVersion, clientRequestId: newRequestId() }),
   })
 }
 
