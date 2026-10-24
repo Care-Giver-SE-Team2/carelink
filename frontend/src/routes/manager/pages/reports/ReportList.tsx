@@ -160,6 +160,7 @@ export default function ReportList() {
             </button>
           </div>
           <p className={styles.hint}>
+            Every Sunday at 23:00 (Singapore time), the week's reports are filed automatically.
             One report for each reader: family, regulator and internal. A period already on
             file is not generated again, and a filed report is never changed - corrections are
             appended to it.
