@@ -86,6 +86,21 @@ scp -i ~/.ssh/care-link.pem -r deploy/staging ubuntu@<host>:/tmp/carelink-stagin
 ssh -i ~/.ssh/care-link.pem ubuntu@<host> 'sudo bash /tmp/carelink-staging/install.sh'
 ```
 
+## Checking a release from outside
+
+No SSH needed; anyone can run these:
+
+```bash
+curl -s http://<host>/actuator/info      # {"app":{"name":"carelink","commit":"<sha>"}}
+curl -s http://<host>/actuator/health    # "status":"UP"
+```
+
+The commit should be the newest commit on main whose pipeline has built its image; the
+deploy job waits for exactly this before its smoke test. The same run keeps the
+`zap-baseline-report` artifact, which is the OWASP ZAP scan of that release. If staging
+still reports the previous commit a few minutes after the run, look at the update job
+on the machine (below).
+
 ## Looking at it
 
 ```bash
