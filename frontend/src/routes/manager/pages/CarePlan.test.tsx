@@ -77,7 +77,7 @@ const elderListRow: ElderListItem = {
   primaryCaregiverId: null,
   primaryCaregiverName: null,
   primaryCaregiverAssignedAt: null,
-  hasPublishedPlan: true, hasCareRequest: true,
+  hasPublishedPlan: true, hasCareRequest: true, openCareRequests: 0,
 }
 
 function renderPlan() {
@@ -446,6 +446,34 @@ it('names what the family asked for that a version leaves out, before publishing
   expect(within(dialog).getByRole('button', { name: 'Publish' })).toBeEnabled()
 })
 
+it('treats an intake the first plan answered as settled, without naming what it left out again', async () => {
+  vi.mocked(profileApi.fetchElderCareRequests).mockResolvedValue([
+    { source: 'INTAKE', applicationId: 3, careNeeds: ['GROOMING', 'VITALS', 'Help with the cat'], notes: null, submittedAt: '2026-09-16T09:00:00', outcome: 'ANSWERED',
+      needs: [{ need: 'GROOMING', plannedVersion: 1, plannedFrom: '2024-04-11' }, { need: 'VITALS', plannedVersion: null, plannedFrom: null }, { need: 'Help with the cat', plannedVersion: null, plannedFrom: null }], declineReason: null },
+  ])
+  const user = await renderPlanInDraft()
+  const intake = screen.getByRole('region', { name: 'Intake application #3' })
+  expect(within(intake).getByText('Answered by first plan')).toBeInTheDocument()
+  expect(within(intake).getByText('Vital-sign check').parentElement).toHaveTextContent('Not in plan')
+  expect(within(intake).queryByRole('button')).not.toBeInTheDocument()
+
+  await user.click(screen.getByRole('button', { name: 'Publish v5' }))
+  expect(screen.getByRole('dialog')).not.toHaveTextContent('The family asked for')
+})
+
+it('does not name what the manager already declined as left out', async () => {
+  vi.mocked(profileApi.fetchElderCareRequests).mockResolvedValue([
+    { source: 'SERVICE_APPLICATION', applicationId: 9, careNeeds: ['COMPANIONSHIP_WALK'], notes: null, submittedAt: '2026-10-01T09:00:00', outcome: 'DECLINED', needs: [], declineReason: 'No walking companion in your sector yet' },
+    { source: 'SERVICE_APPLICATION', applicationId: 8, careNeeds: ['BATHING'], notes: null, submittedAt: '2026-09-20T09:00:00', outcome: 'SUBMITTED', needs: [], declineReason: null },
+  ])
+  const user = await renderPlanInDraft()
+  await user.click(screen.getByRole('button', { name: 'Publish v5' }))
+
+  const dialog = screen.getByRole('dialog')
+  expect(dialog).toHaveTextContent('The family asked for Bathing assistance, which is not in this version.')
+  expect(dialog).not.toHaveTextContent('Companionship walk')
+})
+
 describe('answering the family', () => {
   it('declines an open service application with a reason for the family', async () => {
     vi.mocked(profileApi.fetchElderCareRequests).mockResolvedValue([
@@ -471,6 +499,27 @@ describe('answering the family', () => {
     expect(await screen.findByText('Declined: No walking companion in your sector yet')).toBeInTheDocument()
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
     expect(within(screen.getByRole('region', { name: 'Service application #9' })).queryByRole('button', { name: 'Decline' })).not.toBeInTheDocument()
+  })
+
+  it('adds what an open application asks for to a published plan, as tasks still to be given days', async () => {
+    vi.mocked(profileApi.fetchElderCareRequests).mockResolvedValue([
+      { source: 'SERVICE_APPLICATION', applicationId: 9, careNeeds: ['GROOMING', 'BATHING'], notes: null, submittedAt: '2026-10-01T09:00:00', outcome: 'SUBMITTED', needs: [], declineReason: null },
+    ])
+    const user = userEvent.setup()
+    renderPlan()
+    const application = await screen.findByRole('region', { name: 'Service application #9' })
+    await screen.findByText('Grooming', { selector: ':not([role="region"] *)' })
+
+    await user.click(within(application).getByRole('button', { name: 'Add to plan' }))
+
+    // Opens a draft, files Bathing under the Personal care sub-plan Grooming is already in, and
+    // leaves Grooming alone.
+    expect(screen.getByRole('button', { name: 'Publish v5' })).toBeDisabled()
+    expect(screen.getAllByText('Bathing assistance')).toHaveLength(2)
+    expect(screen.getAllByText('Personal care', { selector: ':not([role="region"] *)' })).toHaveLength(1)
+    expect(within(application).getByText('Bathing assistance').parentElement).toHaveTextContent('Set days')
+    expect(within(application).queryByRole('button', { name: 'Add to plan' })).not.toBeInTheDocument()
+    expect(within(application).getByRole('button', { name: 'Decline' })).toBeInTheDocument()
   })
 
   it('shows an application the plan has answered as planned, with nothing to decline', async () => {

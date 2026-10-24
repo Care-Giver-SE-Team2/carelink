@@ -1,6 +1,7 @@
 package sg.nus.carelink.profile.application;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.tuple;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -70,6 +71,26 @@ class ElderCareRequestServiceTest {
 		assertThat(requests.get(0).declineReason()).isEqualTo("No caregiver for exercise in your sector yet");
 		assertThat(requests.get(1).outcome()).isEqualTo(Outcome.PLANNED);
 		assertThat(requests.get(1).needs()).allSatisfy(need -> assertThat(need.plannedVersion()).isEqualTo(1));
+	}
+
+	@Test
+	void theFirstPlanAnswersTheIntakeEvenWithoutEverythingItAskedFor() {
+		intakes.save(intake(IntakeApplication.Status.APPROVED, 5L, List.of("BATHING", "VITALS", "Help with the cat")));
+		when(schedules.forElder(5L)).thenReturn(List.of(new PlanSchedule(70L, 5L, 1, LocalDate.of(2026, 9, 20), null,
+				List.of(new Task(1L, "Personal care", "BATHING", "Bathing assistance", List.of())))));
+
+		ElderCareRequest intake = service.listForElder(5L).get(0);
+
+		assertThat(intake.outcome()).isEqualTo(Outcome.ANSWERED);
+		assertThat(intake.needs()).extracting(need -> need.need(), need -> need.plannedVersion())
+				.containsExactly(tuple("BATHING", 1), tuple("VITALS", null), tuple("Help with the cat", null));
+	}
+
+	@Test
+	void anIntakeWaitsUntilTheFirstPlanIsPublished() {
+		intakes.save(intake(IntakeApplication.Status.APPROVED, 5L, List.of("BATHING")));
+
+		assertThat(service.listForElder(5L).get(0).outcome()).isEqualTo(Outcome.SUBMITTED);
 	}
 
 	private static IntakeApplication intake(IntakeApplication.Status status, Long elderId, List<String> needs) {

@@ -44,6 +44,18 @@ export function fetchReassignmentOptions(visitId: number, signal?: AbortSignal):
  * rules again; a visit an absence vacated is settled through that absence, closing any offer
  * the family is still answering. `reason` is kept in the visit's history, never shown to the family.
  */
+/**
+ * The manager cancels one visit that has not started (manager only); the care plan, and so every
+ * later visit, stays as it is. Refused (409) for a visit an absence vacated, which is settled on
+ * the Absences screen. `reason` is kept in the visit's history, never shown to the family.
+ */
+export function cancelVisit(visitId: number, reason: string): Promise<void> {
+  return api<void>(`/visits/${visitId}/cancellation`, {
+    method: 'POST',
+    body: JSON.stringify({ reason }),
+  })
+}
+
 export function reassignVisit(visitId: number, caregiverId: number, reason: string): Promise<void> {
   return api<void>(`/visits/${visitId}/reassignment`, {
     method: 'POST',

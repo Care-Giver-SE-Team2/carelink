@@ -1,5 +1,6 @@
 package sg.nus.carelink.profile.infrastructure.persistence.adapter;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -62,6 +63,19 @@ class ServiceApplicationRepositoryAdapter implements ServiceApplicationRepositor
     public Set<Long> findElderIdsWithApplications(Set<Long> elderIds) {
         if (elderIds.isEmpty()) return Set.of();
         return Set.copyOf(jpa.findElderIdsIn(elderIds));
+    }
+
+    @Override
+    public List<ServiceApplication> findUnansweredByElderIds(Set<Long> elderIds) {
+        if (elderIds.isEmpty()) return List.of();
+        return jpa.findByElderIdInAndStatusNotAndPlannedAtIsNull(elderIds, ServiceApplication.Status.DECLINED.name())
+                .stream().map(this::toDomain).toList();
+    }
+
+    @Override
+    public void recordPlanned(Set<Long> applicationIds, LocalDateTime at) {
+        if (applicationIds.isEmpty()) return;
+        jpa.recordPlanned(applicationIds, at);
     }
 
     private ServiceApplication toDomain(ServiceApplicationJpaEntity entity) {

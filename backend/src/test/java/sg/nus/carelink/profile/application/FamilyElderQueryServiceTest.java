@@ -28,6 +28,7 @@ import org.springframework.dao.DataAccessResourceFailureException;
 import org.springframework.security.access.AccessDeniedException;
 
 import sg.nus.carelink.careplan.application.CarePlanLookup;
+import sg.nus.carelink.careplan.application.CarePlanSchedules;
 import sg.nus.carelink.careplan.domain.model.CarePlan;
 import sg.nus.carelink.profile.domain.model.Elder;
 import sg.nus.carelink.profile.domain.repository.ServiceApplicationRepository;
@@ -48,7 +49,8 @@ class FamilyElderQueryServiceTest {
 	private final FamilyElderQueryService service = new FamilyElderQueryService(
 			access, new ProfileService(elders, carePlans,
 					new InMemoryPrimaryCaregiverAssignmentRepository(), new InMemoryCaregiverRepository(),
-					new InMemoryIntakeApplicationRepository(), mock(ServiceApplicationRepository.class)),
+					new InMemoryIntakeApplicationRepository(), mock(ServiceApplicationRepository.class),
+					new CareRequestProgress(mock(CarePlanSchedules.class))),
 			Clock.fixed(Instant.parse("2026-09-22T16:30:00Z"), ZoneOffset.UTC), audit);
 
 	@BeforeEach

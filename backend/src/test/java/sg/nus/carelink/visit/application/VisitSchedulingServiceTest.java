@@ -44,6 +44,17 @@ class VisitSchedulingServiceTest {
 	}
 
 	@Test
+	void aCancelledVisitIsNotRosteredAgain() {
+		scheduling.schedule(List.of(planned(MON_8, 5L)));
+		Visit booked = visits.findByCarePlanIdStartingFrom(9L, MON_8).get(0);
+		visits.save(booked.cancelled());
+
+		assertThat(scheduling.schedule(List.of(planned(MON_8, 5L)))).isEqualTo(new Outcome(0, 0));
+		assertThat(visits.findByCarePlanIdStartingFrom(9L, MON_8)).singleElement()
+				.extracting(Visit::status).isEqualTo(Visit.Status.CANCELLED);
+	}
+
+	@Test
 	void givesAnUncoveredVisitToTheCaregiverNowNamed() {
 		scheduling.schedule(List.of(planned(MON_8, null)));
 

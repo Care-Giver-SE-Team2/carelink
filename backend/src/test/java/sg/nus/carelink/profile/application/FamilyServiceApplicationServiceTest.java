@@ -6,6 +6,7 @@ import java.time.*;
 import java.util.*;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.security.access.AccessDeniedException;
 import sg.nus.carelink.careplan.application.CarePlanSchedules;
 import sg.nus.carelink.careplan.application.CarePlanSchedules.PlanSchedule;
@@ -22,8 +23,9 @@ class FamilyServiceApplicationServiceTest {
     private final ServiceApplicationRepository applications = mock(ServiceApplicationRepository.class);
     private final Clock clock = Clock.fixed(Instant.parse("2026-10-09T06:00:00Z"), ZoneId.of("Asia/Singapore"));
     private final CarePlanSchedules schedules = mock(CarePlanSchedules.class);
+    private final ApplicationEventPublisher events = mock(ApplicationEventPublisher.class);
     private final FamilyServiceApplicationService service = new FamilyServiceApplicationService(identity, access, elders, applications, clock,
-            new CareRequestProgress(schedules));
+            new CareRequestProgress(schedules), events);
     private final Elder elder = new Elder(1L, 71L, "Tan Mei", null, null, null, "Road", "123456", null,
             null, null, null, Elder.ContinuityPreference.PREFERRED, "Private notes", null, null);
 
@@ -43,6 +45,7 @@ class FamilyServiceApplicationServiceTest {
         assertThat(result.createdAt()).isEqualTo(LocalDateTime.of(2026, 10, 9, 6, 0));
         verify(access).requireWritableElder("family", 1L);
         verify(elders, never()).save(any());
+        verify(events).publishEvent(new ServiceApplicationSubmitted(null, 1L, 1));
     }
 
     @Test
@@ -64,6 +67,7 @@ class FamilyServiceApplicationServiceTest {
         when(applications.save(any())).thenThrow(new IllegalStateException("Storage unavailable"));
         assertThatThrownBy(() -> service.submit("family", 1L, List.of("VITALS"), null))
                 .isInstanceOf(IllegalStateException.class);
+        verifyNoInteractions(events);
     }
 
     @Test

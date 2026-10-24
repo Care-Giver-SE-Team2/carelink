@@ -5,9 +5,11 @@ import { useQueryClient } from '@tanstack/react-query'
 import { initialiseCsrf } from '../../../features/auth/api'
 import type { FamilyElderProfile } from '../../../features/family-elders/api'
 import { useFamilyElderProfiles } from '../../../features/family-elders/queries'
-import { serviceApplicationKey } from '../../../features/service-applications/queries'
+import { serviceApplicationKey, useServiceApplications } from '../../../features/service-applications/queries'
 import { submitServiceApplication } from '../../../features/service-applications/api'
 import { groupCareActivities, useCareActivities } from '../../../features/careplan/careActivities'
+import { useFamilyCarePlan } from '../../../features/careplan/familyCarePlan'
+import { intakeDate } from '../../../features/intake/presentation'
 import { ApiError } from '../../../shared/api/client'
 import { useSelectedElder } from '../components/selectedElder'
 import { ElderSnapshot } from './ElderSnapshot'
@@ -45,6 +47,15 @@ function ServiceForm({ elders, selected, select, refreshing, refresh }: {
   const navigate = useNavigate()
   const client = useQueryClient()
   const activities = useCareActivities()
+  // What the elder already has, so the family can see what they need not ask for again. Either
+  // read failing just leaves the form as it was; neither blocks applying.
+  const carePlan = useFamilyCarePlan(selected?.id)
+  const applications = useServiceApplications(0)
+  const planVersion = carePlan.data?.current ?? carePlan.data?.upcoming ?? null
+  const inPlan = new Set([...(carePlan.data?.current?.tasks ?? []), ...(carePlan.data?.upcoming?.tasks ?? [])]
+    .flatMap((task) => (task.activityCode ? [task.activityCode] : [])))
+  // Only the first page, newest first: an older open application is still on the applications list.
+  const open = applications.data?.items.filter((item) => item.elderId === selected?.id && item.outcome === 'SUBMITTED') ?? []
   const [needs, setNeeds] = useState<string[]>([])
   const [notes, setNotes] = useState('')
   const [busy, setBusy] = useState(false)
@@ -126,6 +137,17 @@ function ServiceForm({ elders, selected, select, refreshing, refresh }: {
       </section>
       <section className={formStyles.section}>
         <div className={formStyles.sectionHeading}><span>02</span><h2>Care services</h2></div>
+        {selected && open.length > 0 && <p role="status" className={formStyles.hint}>
+          You already have {open.length === 1 ? 'an application' : `${open.length} applications`} for {selected.fullName} the care team
+          hasn't answered yet:{' '}
+          {open.map((item, index) => <span key={item.id}>{index > 0 && ', '}<Link to={`/family/service-applications/${item.id}`}>
+            #{item.id} from {intakeDate(item.createdAt)}</Link></span>)}. You can still send another.
+        </p>}
+        {selected && planVersion && <p className={formStyles.hint}>
+          {selected.fullName} already has care plan v{planVersion.version}. Services in it are marked “Already in care plan”;
+          ask for one again only if you want more or different visits, and say so in the notes.{' '}
+          <Link to="/family/care-plan">See the care plan</Link>
+        </p>}
         {activities.isError ? <p role="alert">Unable to load care services.{' '}
           <button type="button" onClick={() => void activities.refetch()}>Try again</button></p>
           : activities.isPending ? <p role="status">Loading care services…</p>
@@ -135,9 +157,12 @@ function ServiceForm({ elders, selected, select, refreshing, refresh }: {
               onChange={(event) => {
                 setNeeds(event.target.checked ? [...needs, code] : needs.filter((need) => need !== code))
                 setFieldErrors((current) => ({ ...current, careNeeds: undefined }))
-              }} />{label}</label>)}
+              }} />{label}{inPlan.has(code) && <span className={formStyles.hint}>Already in care plan</span>}</label>)}
           </fieldset>)}
         {fieldErrors.careNeeds && <p className={formStyles.fieldError}>{fieldErrors.careNeeds}</p>}
+        {needs.length > 0 && needs.every((need) => inPlan.has(need)) && <p role="status" className={formStyles.hint}>
+          Everything you've chosen is already in the care plan. If you want more or different visits, say so in the notes.
+        </p>}
         <div className={formStyles.field}><label htmlFor="service-notes">Notes for this application (optional)</label>
           <textarea id="service-notes" rows={4} value={notes} aria-invalid={!!fieldErrors.notes}
             aria-describedby={fieldErrors.notes ? 'service-notes-error service-notes-hint' : 'service-notes-hint'}

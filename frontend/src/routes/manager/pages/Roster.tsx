@@ -1,9 +1,19 @@
 import { useMemo, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { useSearchParams } from 'react-router-dom'
-import { reassignVisit } from '../../../shared/api/rostering'
+import { cancelVisit, reassignVisit } from '../../../shared/api/rostering'
 import { useAbsences, useRefreshAbsences } from '../../../features/absences/useAbsenceQueries'
-import { Button, Pagination, RowTitle, SearchField } from '../../../shared/components/ui'
+import {
+  BodyText,
+  Button,
+  Callout,
+  ConfirmDialog,
+  Field,
+  Pagination,
+  RowTitle,
+  SearchField,
+  TextInput,
+} from '../../../shared/components/ui'
 import { ManagerShell } from '../components/ManagerShell'
 import { RosterTimeline } from '../components/RosterTimeline'
 import { RosterToolbar } from '../components/RosterToolbar'
@@ -126,6 +136,7 @@ function DayView({ date, page, query, onPageChange }: { date: string } & Paging)
   const queryClient = useQueryClient()
   const refreshAbsences = useRefreshAbsences()
   const [reassigning, setReassigning] = useState<RosterBlock | null>(null)
+  const [cancelling, setCancelling] = useState<RosterBlock | null>(null)
   const timeline = useMemo(
     () =>
       visits.data && caregivers.data && elders.data
@@ -139,6 +150,12 @@ function DayView({ date, page, query, onPageChange }: { date: string } & Paging)
     setReassigning(null)
     // The visit may have settled an absence's change, so its screen is stale too.
     await Promise.all([queryClient.invalidateQueries({ queryKey: ['roster'] }), refreshAbsences()])
+  }
+
+  async function cancel(block: RosterBlock, reason: string) {
+    await cancelVisit(block.visitId, reason)
+    setCancelling(null)
+    await queryClient.invalidateQueries({ queryKey: ['roster'] })
   }
 
   if (visits.isError || caregivers.isError || elders.isError) {
@@ -161,7 +178,19 @@ function DayView({ date, page, query, onPageChange }: { date: string } & Paging)
           title={`${reassigning.label} · ${reassigning.elderName}`}
           meta={`${dayContext(date)}, ${reassigning.time} · ${reassigning.minutes} min`}
           assign={(caregiverId, reason) => reassign(reassigning, caregiverId, reason)}
+          onCancelVisit={() => {
+            setCancelling(reassigning)
+            setReassigning(null)
+          }}
           onClose={() => setReassigning(null)}
+        />
+      )}
+      {cancelling && (
+        <CancelVisitDialog
+          title={`${cancelling.label} · ${cancelling.elderName}`}
+          meta={`${dayContext(date)}, ${cancelling.time} · ${cancelling.minutes} min`}
+          cancel={(reason) => cancel(cancelling, reason)}
+          onClose={() => setCancelling(null)}
         />
       )}
     </>
@@ -203,6 +232,77 @@ function WeekView({
       }
       footer={`Week ${isoWeek(date)} · bars show hours against the ${CAP_HOURS_PER_DAY} h daily cap (green = completed days, black = scheduled, red = over cap) · hatched = on approved leave · click a cell to open that day in Day view`}
     />
+  )
+}
+
+/** Longest reason the server keeps in the visit's history. */
+const CANCEL_REASON_MAX = 150
+
+/**
+ * Calls one visit off, leaving the care plan as it is. The caregiver, the elder and the family
+ * are told it is off; the reason goes in the visit's history, not to the family.
+ */
+function CancelVisitDialog({
+  title,
+  meta,
+  cancel,
+  onClose,
+}: {
+  title: string
+  meta: string
+  /** Saves the cancellation; rejects with the error to show. */
+  cancel: (reason: string) => Promise<void>
+  onClose: () => void
+}) {
+  const [reason, setReason] = useState('')
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  async function confirm() {
+    setSaving(true)
+    setError(null)
+    try {
+      await cancel(reason.trim())
+    } catch (e) {
+      setError(`Could not cancel the visit: ${e instanceof Error ? e.message : 'something went wrong'}`)
+      setSaving(false)
+    }
+  }
+
+  return (
+    <ConfirmDialog
+      eyebrow="Cancel visit"
+      tone="danger"
+      title={title}
+      meta={meta}
+      confirmLabel={saving ? 'Cancelling…' : 'Cancel visit'}
+      cancelLabel="Keep visit"
+      confirmDisabled={!reason.trim()}
+      busy={saving}
+      onConfirm={() => void confirm()}
+      onCancel={onClose}
+    >
+      {error && (
+        <Callout tone="danger" role="alert">
+          {error}
+        </Callout>
+      )}
+      <BodyText>
+        Only this visit is off. The care plan is unchanged, so the next visits go ahead. The caregiver, the elder and
+        the family are told.
+      </BodyText>
+      <Field label="Why it is cancelled (kept in the visit's history, not shown to the family)">
+        {(id) => (
+          <TextInput
+            id={id}
+            value={reason}
+            onChange={setReason}
+            maxLength={CANCEL_REASON_MAX}
+            placeholder="e.g. Mdm Tan is at the hospital for a check-up"
+          />
+        )}
+      </Field>
+    </ConfirmDialog>
   )
 }
 

@@ -26,7 +26,7 @@ const elder: ElderRow = {
   sector: 'north',
   planStatus: 'published',
   planVersion: 2,
-  hasPublishedPlan: true, hasCareRequest: true,
+  hasPublishedPlan: true, hasCareRequest: true, openCareRequests: 0,
   primaryCaregiver: null,
   primaryCaregiverId: null,
   primaryCaregiverSince: null,

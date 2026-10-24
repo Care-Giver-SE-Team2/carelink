@@ -34,6 +34,21 @@ public interface RosterChangeAlert {
 	void reassigned(Reassignment reassignment);
 
 	/**
+	 * A manager cancelled a visit that had not started; the care plan is unchanged, so later
+	 * visits go ahead. The caregiver who had it, the elder and the family are told it is off.
+	 * Nobody is told the manager's reason.
+	 */
+	void cancelled(Cancellation cancellation);
+
+	/**
+	 * One visit a manager cancelled.
+	 *
+	 * @param caregiverId who had the visit; null when nobody did
+	 */
+	record Cancellation(Long visitId, Long elderId, LocalDateTime visitStart, Long caregiverId, String elderName) {
+	}
+
+	/**
 	 * One visit a manager moved from one caregiver to another.
 	 *
 	 * @param fromCaregiverId who had the visit; null when nobody did

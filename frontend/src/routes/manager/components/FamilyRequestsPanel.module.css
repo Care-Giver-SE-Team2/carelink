@@ -7,3 +7,9 @@
   display: grid;
   gap: 6px;
 }
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}

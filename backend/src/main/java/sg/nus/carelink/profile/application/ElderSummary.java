@@ -15,7 +15,9 @@ import sg.nus.carelink.profile.domain.model.Elder;
  * true while a published version is in force, including while a newer version is still a draft,
  * so the manager's worklist can tell a first draft from a revision. hasCareRequest is true once
  * the family has asked for care: the approved intake application that created the elder, or a
- * service application in any status.
+ * service application in any status. openCareRequests counts the service applications still open:
+ * neither declined nor fully answered by a published version (ServiceApplicationProgress). The
+ * intake application is left out, since it can't be declined and so could never be cleared.
  */
 public record ElderSummary(
 		Elder elder,
@@ -24,7 +26,8 @@ public record ElderSummary(
 		LocalDate nextVisitDate,
 		PrimaryCaregiverSummary primaryCaregiver,
 		boolean hasPublishedPlan,
-		boolean hasCareRequest) {
+		boolean hasCareRequest,
+		int openCareRequests) {
 
 	public ElderSummary(Elder elder, String planStatus, Integer planVersion, LocalDate nextVisitDate) {
 		this(elder, planStatus, planVersion, nextVisitDate, null);
@@ -33,16 +36,16 @@ public record ElderSummary(
 	/** For a latest plan that is not a revision: only a published one is in force. */
 	public ElderSummary(Elder elder, String planStatus, Integer planVersion, LocalDate nextVisitDate,
 			PrimaryCaregiverSummary primaryCaregiver) {
-		this(elder, planStatus, planVersion, nextVisitDate, primaryCaregiver, "published".equals(planStatus), false);
+		this(elder, planStatus, planVersion, nextVisitDate, primaryCaregiver, "published".equals(planStatus), false, 0);
 	}
 
 	public ElderSummary(Elder elder, String planStatus, Integer planVersion, LocalDate nextVisitDate,
 			PrimaryCaregiverSummary primaryCaregiver, boolean hasPublishedPlan) {
-		this(elder, planStatus, planVersion, nextVisitDate, primaryCaregiver, hasPublishedPlan, false);
+		this(elder, planStatus, planVersion, nextVisitDate, primaryCaregiver, hasPublishedPlan, false, 0);
 	}
 
-	ElderSummary withCareRequest(boolean hasCareRequest) {
+	ElderSummary withCareRequests(boolean hasCareRequest, int openCareRequests) {
 		return new ElderSummary(elder, planStatus, planVersion, nextVisitDate, primaryCaregiver, hasPublishedPlan,
-				hasCareRequest);
+				hasCareRequest, openCareRequests);
 	}
 }

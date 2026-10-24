@@ -230,9 +230,33 @@ describe('Bound elder service applications', () => {
   })
 
   it('invalidates cached lists after a successful submission', async () => {
-    install(); const { client } = open(); client.setQueryData([...serviceApplicationKey, 'list', 0], { items: [], totalElements: 0 })
+    const fetch = install(); const { client } = open(); client.setQueryData([...serviceApplicationKey, 'list', 0], { items: [], totalElements: 0 })
     const user = await fill(); await user.click(submit()); await screen.findByRole('heading', { name: 'Application submitted' })
-    expect(client.getQueryState([...serviceApplicationKey, 'list', 0])?.isInvalidated).toBe(true)
+    // The form reads the first page itself, so invalidating it refetches it straight away.
+    const paths = fetch.mock.calls.map(([path, init]) => `${init.method ?? 'GET'} ${path}`)
+    const posted = paths.indexOf('POST /api/family/service-applications')
+    expect(paths.slice(posted).some((call) => call.startsWith('GET /api/family/service-applications?'))).toBe(true)
+  })
+
+  it('shows what the care plan already covers and an application still waiting, without blocking a new one', async () => {
+    install((path) => path === '/api/family/elders/1/care-plan' ? json({
+      current: { version: 2, effectiveFrom: '2026-09-01', effectiveUntil: null,
+        tasks: [{ groupName: 'Personal care', activityCode: 'BATHING', name: 'Bathing assistance', slots: [] }] },
+      upcoming: null,
+    }) : undefined)
+    open()
+    expect(await screen.findByText(/already has care plan v2/)).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /#23 from/ })).toHaveAttribute('href', '/family/service-applications/23')
+    const bathing = screen.getByLabelText(/Bathing assistance/)
+    expect(bathing.closest('label')).toHaveTextContent('Already in care plan')
+    expect(screen.getByLabelText('Meal support').closest('label')).not.toHaveTextContent('Already in care plan')
+
+    const user = userEvent.setup()
+    await user.click(bathing)
+    expect(screen.getByText(/Everything you've chosen is already in the care plan/)).toBeInTheDocument()
+    expect(submit()).toBeEnabled()
+    await user.click(screen.getByLabelText('Meal support'))
+    expect(screen.queryByText(/Everything you've chosen is already in the care plan/)).not.toBeInTheDocument()
   })
 
   it('loads paginated applications, preserves the return page, and offers legacy history', async () => {
@@ -296,8 +320,22 @@ describe('Bound elder service applications', () => {
     open('/family/service-applications/23')
     expect(await screen.findByText('Declined')).toBeInTheDocument()
     expect(screen.getByText('Reason: No caregiver free for morning visits yet')).toBeInTheDocument()
-    expect(screen.getByText(/Bathing assistance — Not in the care plan yet/)).toBeInTheDocument()
+    expect(screen.getByText(/Bathing assistance — Not added to the care plan/)).toBeInTheDocument()
     expect(screen.queryByRole('link', { name: 'See the care plan' })).not.toBeInTheDocument()
+  })
+
+  it('does not tell the family nothing was added when part of a declined application is in the plan', async () => {
+    install((path) => path.endsWith('/service-applications/23') ? json({ ...saved, careNeeds: ['BATHING', 'VITALS'],
+      status: 'DECLINED', outcome: 'DECLINED', declineReason: 'No nurse free for vitals yet', declinedAt: '2026-10-10T02:00:00Z',
+      needs: [{ need: 'BATHING', plannedVersion: 2, plannedFrom: '2026-10-20' }, { need: 'VITALS', plannedVersion: null, plannedFrom: null }] }) : undefined)
+    open('/family/service-applications/23')
+    expect(await screen.findByText('Partly declined')).toBeInTheDocument()
+    expect(screen.getByText(/Some of what you asked for is in your elder's care plan; the care team could not add the rest/)).toBeInTheDocument()
+    expect(screen.queryByText(/could not add these services/)).not.toBeInTheDocument()
+    expect(screen.getByText('Reason: No nurse free for vitals yet')).toBeInTheDocument()
+    expect(await screen.findByText(/Bathing assistance — In care plan v2 from 20 Oct 2026/)).toBeInTheDocument()
+    expect(screen.getByText(/Vital-sign check — Not added to the care plan/)).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'See the care plan' })).toBeInTheDocument()
   })
 
   it('badges each application in the list with its outcome', async () => {

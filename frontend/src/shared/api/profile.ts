@@ -39,14 +39,15 @@ export function fetchElderFamily(id: string): Promise<ElderFamilyContact[]> {
 /** Care the family applied for on the elder's behalf: the intake that created the elder, or a later service
  * application. careNeeds are care activity codes, or free text on applications that predate the catalog.
  * outcome is worked out from the published plan versions: PLANNED once every activity is in one (this outranks
- * a decline), DECLINED with the reason the family was given, SUBMITTED otherwise. */
+ * a decline), DECLINED with the reason the family was given, SUBMITTED otherwise. An intake can't be declined:
+ * it is ANSWERED once the elder's first plan is published without everything it asked for. */
 export type ElderCareRequest = {
   source: 'INTAKE' | 'SERVICE_APPLICATION'
   applicationId: number
   careNeeds: string[]
   notes: string | null
   submittedAt: string
-  outcome: 'SUBMITTED' | 'PLANNED' | 'DECLINED'
+  outcome: 'SUBMITTED' | 'PLANNED' | 'DECLINED' | 'ANSWERED'
   needs: { need: string; plannedVersion: number | null; plannedFrom: string | null }[]
   declineReason: string | null
 }
@@ -84,6 +85,8 @@ export type ElderListItem = {
   hasPublishedPlan: boolean
   /** The family has applied for care: the approved intake application or a service application. */
   hasCareRequest: boolean
+  /** Service applications neither declined nor fully planned yet. The intake application isn't counted. */
+  openCareRequests: number
 }
 
 /**

@@ -2,6 +2,7 @@ package sg.nus.carelink.profile.application;
 
 import java.time.LocalDate;
 import java.time.ZoneId;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -18,11 +19,14 @@ import sg.nus.carelink.careplan.domain.model.CarePlan;
 import sg.nus.carelink.profile.domain.model.Caregiver;
 import sg.nus.carelink.profile.domain.model.Elder;
 import sg.nus.carelink.profile.domain.model.PrimaryCaregiverAssignment;
+import sg.nus.carelink.profile.domain.model.ServiceApplication;
 import sg.nus.carelink.profile.domain.repository.CaregiverRepository;
 import sg.nus.carelink.profile.domain.repository.ElderRepository;
 import sg.nus.carelink.profile.domain.repository.IntakeApplicationRepository;
 import sg.nus.carelink.profile.domain.repository.PrimaryCaregiverAssignmentRepository;
 import sg.nus.carelink.profile.domain.repository.ServiceApplicationRepository;
+import sg.nus.carelink.profile.domain.service.ServiceApplicationProgress.Outcome;
+import sg.nus.carelink.profile.domain.service.ServiceApplicationProgress.PlanVersion;
 import sg.nus.carelink.shared.error.ResourceNotFound;
 
 /**
@@ -44,16 +48,19 @@ public class ProfileService {
 	private final CaregiverRepository caregivers;
 	private final IntakeApplicationRepository intakeApplications;
 	private final ServiceApplicationRepository serviceApplications;
+	private final CareRequestProgress careRequestProgress;
 
-	public ProfileService(ElderRepository elders, CarePlanLookup carePlans,
+	ProfileService(ElderRepository elders, CarePlanLookup carePlans,
 			PrimaryCaregiverAssignmentRepository primaryCaregivers, CaregiverRepository caregivers,
-			IntakeApplicationRepository intakeApplications, ServiceApplicationRepository serviceApplications) {
+			IntakeApplicationRepository intakeApplications, ServiceApplicationRepository serviceApplications,
+			CareRequestProgress careRequestProgress) {
 		this.elders = elders;
 		this.carePlans = carePlans;
 		this.primaryCaregivers = primaryCaregivers;
 		this.caregivers = caregivers;
 		this.intakeApplications = intakeApplications;
 		this.serviceApplications = serviceApplications;
+		this.careRequestProgress = careRequestProgress;
 	}
 
 	@Transactional(readOnly = true)
@@ -89,13 +96,14 @@ public class ProfileService {
 	private List<ElderSummary> summarize(List<Elder> selectedElders, LocalDate fromDate) {
 		Map<Long, PrimaryCaregiverSummary> primaryByElder = primaryCaregiversOf(selectedElders);
 		Set<Long> withCareRequest = careRequestedFor(selectedElders);
+		Map<Long, Integer> openByElder = openServiceApplicationsFor(withCareRequest);
 		return selectedElders.stream()
 				.map(elder -> toSummary(
 						elder,
 						carePlans.findLatestByElderId(elder.id()).orElse(null),
 						carePlans.findNextVisitDate(elder.id(), fromDate).orElse(null),
 						primaryByElder.get(elder.id()))
-						.withCareRequest(withCareRequest.contains(elder.id())))
+						.withCareRequests(withCareRequest.contains(elder.id()), openByElder.getOrDefault(elder.id(), 0)))
 				.toList();
 	}
 
@@ -108,6 +116,27 @@ public class ProfileService {
 		Set<Long> requested = new HashSet<>(intakeApplications.findElderIdsWithApprovedApplication(elderIds));
 		requested.addAll(serviceApplications.findElderIdsWithApplications(elderIds));
 		return requested;
+	}
+
+	/**
+	 * How many of each elder's service applications are still open. One query for the
+	 * applications; plan versions are read only for elders with one neither declined nor recorded
+	 * as planned (ServiceApplicationPlannedRecorder), so answered history costs nothing.
+	 */
+	private Map<Long, Integer> openServiceApplicationsFor(Set<Long> elderIds) {
+		Map<Long, List<ServiceApplication>> undeclinedByElder = serviceApplications.findUnansweredByElderIds(elderIds)
+				.stream().collect(Collectors.groupingBy(ServiceApplication::elderId));
+		Map<Long, Integer> open = new HashMap<>();
+		undeclinedByElder.forEach((elderId, applications) -> {
+			List<PlanVersion> versions = careRequestProgress.versions(elderId);
+			int count = (int) applications.stream()
+					.filter(application -> careRequestProgress.of(application, versions).outcome() == Outcome.SUBMITTED)
+					.count();
+			if (count > 0) {
+				open.put(elderId, count);
+			}
+		});
+		return open;
 	}
 
 	/** One query for the assignments and one for their caregivers, however many elders are listed. */

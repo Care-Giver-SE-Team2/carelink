@@ -113,6 +113,24 @@ class NotificationInboxIT {
 	}
 
 	@Test
+	void aMessageAboutAServiceApplicationFollowsTheFamilyRuleForItsElder() throws Exception {
+		long gina = account("it-inbox-gina", "FAMILY");
+		long elder = elder();
+		long member = familyMember(gina);
+		long binding = bind(elder, member);
+		write(gina, "Application declined", NINE, "SERVICE_APPLICATION", serviceApplication(elder, member));
+
+		String bound = read("it-inbox-gina", "FAMILY", "/api/notifications/me");
+		assertThat(JsonPath.<List<String>>read(bound, "$.items[*].title")).containsExactly("Application declined");
+		assertThat(JsonPath.<Integer>read(bound, "$.items[0].elderId")).isEqualTo((int) elder);
+
+		jdbc.update("update elder_family_binding set status = 'REVOKED' where id = ?", binding);
+
+		String revoked = read("it-inbox-gina", "FAMILY", "/api/notifications/me");
+		assertThat(JsonPath.<List<String>>read(revoked, "$.items[*].title")).isEmpty();
+	}
+
+	@Test
 	void withoutASessionThereIsNoInbox() throws Exception {
 		mvc.perform(get("/api/notifications/me/unread-count")).andExpect(status().isUnauthorized());
 	}
@@ -156,6 +174,13 @@ class NotificationInboxIT {
 		jdbc.update("insert into spot_check (elder_id, proposed_time, reason) values (?, ?, 'Routine')", elderId,
 				Timestamp.valueOf(NINE.plusDays(3)));
 		return jdbc.queryForObject("select max(id) from spot_check where elder_id = ?", Long.class, elderId);
+	}
+
+	private long serviceApplication(long elderId, long familyMemberId) {
+		jdbc.update("insert into care_service_application (applicant_family_member_id, elder_id, elder_snapshot, "
+				+ "care_needs, created_at) values (?, ?, '{}', '[\"BATHING\"]', ?)", familyMemberId, elderId,
+				Timestamp.valueOf(NINE));
+		return jdbc.queryForObject("select max(id) from care_service_application where elder_id = ?", Long.class, elderId);
 	}
 
 	private long write(long recipient, String title, LocalDateTime at, String resourceType, Long resourceId) {

@@ -61,6 +61,8 @@ class AbsenceReRosteringIT {
 	@Autowired
 	private RosterChangeScanService scan;
 	@Autowired
+	private ManagerReassignmentService managerChanges;
+	@Autowired
 	private MovableClock clock;
 	@Autowired
 	private JdbcTemplate jdbc;
@@ -227,6 +229,27 @@ class AbsenceReRosteringIT {
 		jdbc.update("insert into caregiver (user_id, full_name, sector, dialects, status) values (?, ?, ?, ?, 'AVAILABLE')",
 				user, name, sector, dialects);
 		return lastId();
+	}
+
+	@Test
+	void aManagerCancelsOneVisitAndEverybodyItTouchesIsTold() {
+		Long walk = visit(farah, TOMORROW.atTime(10, 0), "SCHEDULED");
+		Long nextDay = visit(farah, TOMORROW.plusDays(1).atTime(10, 0), "SCHEDULED");
+
+		managerChanges.cancel(walk, "Mdm Tan is at the hospital", manager);
+
+		assertThat(jdbc.queryForObject("select status from visit where id = ?", String.class, walk)).isEqualTo("CANCELLED");
+		assertThat(jdbc.queryForObject("select status from visit where id = ?", String.class, nextDay))
+				.as("only that visit").isEqualTo("SCHEDULED");
+		assertThat(jdbc.queryForList("select status from visit_assignment where visit_id = ?", String.class, walk))
+				.containsExactly("CANCELLED");
+		assertThat(count("select count(*) from visit_assignment where visit_id = ? and reason like ?", walk,
+				"%Cancelled by a manager: Mdm Tan is at the hospital%")).isEqualTo(1);
+		assertThat(notifications(userOf(farah), "VISIT_CANCELLED")).isEqualTo(1);
+		assertThat(notifications(elderAccount, "VISIT_CANCELLED")).isEqualTo(1);
+		assertThat(notifications(familyAccount, "VISIT_CANCELLED")).isEqualTo(1);
+		assertThat(count("select count(*) from notification where event_type = 'VISIT_CANCELLED' and body like ?",
+				"%hospital%")).as("the reason stays in the record").isZero();
 	}
 
 	private Long visit(Long caregiverId, LocalDateTime start, String status) {

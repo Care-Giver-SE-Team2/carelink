@@ -133,6 +133,52 @@ class ManagerReassignmentServiceTest {
 	}
 
 	@Test
+	void aManagerCancelsABookedVisitAndEverybodyIsTold() {
+		service.cancel(40L, "  Mdm Tan is at the hospital  ", 12L);
+
+		assertThat(visits.rows.get(40L).status()).isEqualTo("CANCELLED");
+		assertThat(visits.reasons).singleElement().satisfies(why -> {
+			assertThat(why.byUserId()).isEqualTo(12L);
+			assertThat(why.absenceId()).isNull();
+			assertThat(why.reason()).isEqualTo("Cancelled by a manager: Mdm Tan is at the hospital");
+		});
+		assertThat(alerts.sent).containsExactly("cancelled visit 40 of 9");
+		assertThat(visits.rows.get(42L).status()).as("only that visit").isEqualTo("SCHEDULED");
+	}
+
+	@Test
+	void cancellingNeedsAReasonAndAVisitStillAhead() {
+		assertThatThrownBy(() -> service.cancel(40L, " ", 12L))
+				.isInstanceOf(BusinessRuleViolation.class)
+				.extracting("code").isEqualTo("REASON_REQUIRED");
+
+		clock.set(TENTH.plusMinutes(5));
+		assertThatThrownBy(() -> service.cancel(40L, "Too late", 12L))
+				.isInstanceOf(BusinessRuleViolation.class)
+				.extracting("code").isEqualTo("VISIT_NOT_OPEN");
+
+		clock.set(NOW);
+		visits.setStatus(40L, "CANCELLED");
+		assertThatThrownBy(() -> service.cancel(40L, "Twice", 12L))
+				.isInstanceOf(BusinessRuleViolation.class)
+				.extracting("code").isEqualTo("VISIT_NOT_OPEN");
+		assertThat(alerts.sent).isEmpty();
+	}
+
+	@Test
+	void aVisitAnAbsenceVacatedIsSettledOnTheAbsenceNotCancelledHere() {
+		Long absenceId = absences.save(AbsenceReport.recordedByManager(5L, AbsenceReport.Type.SICK,
+				TWELFTH.toLocalDate(), TWELFTH.toLocalDate(), "flu", 12L, NOW.toLocalDate())).id();
+		reRostering.reroster(absenceId, null, 12L);
+		alerts.sent.clear();
+
+		assertThatThrownBy(() -> service.cancel(42L, "Not needed", 12L))
+				.isInstanceOf(BusinessRuleViolation.class)
+				.extracting("code").isEqualTo("VISIT_IN_ABSENCE");
+		assertThat(alerts.sent).isEmpty();
+	}
+
+	@Test
 	void anUnknownVisitIsNotFound() {
 		assertThatThrownBy(() -> service.options(999L)).isInstanceOf(ResourceNotFound.class);
 	}

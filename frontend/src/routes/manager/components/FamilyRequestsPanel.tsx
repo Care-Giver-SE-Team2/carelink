@@ -8,17 +8,22 @@ const OUTCOME_TAG: Record<ElderCareRequest['outcome'], { label: string; tone: Ta
   SUBMITTED: { label: 'Open', tone: 'ink' },
   PLANNED: { label: 'Planned', tone: 'accent' },
   DECLINED: { label: 'Declined', tone: 'danger' },
+  // An intake the first published plan answered, leaving out what its activity tags say.
+  ANSWERED: { label: 'Answered by first plan', tone: 'muted' },
 }
 
 /**
  * The care plan rail's "Requested by family" section: each application the family made for the
  * elder, newest first, with whether a published version has answered it, each activity tagged
- * against the plan being edited, the family's notes, and Decline for an open service application.
+ * against the plan being edited, the family's notes, Add to plan for an open request whose
+ * activities aren't all in the plan yet, and Decline for an open service application.
  */
 export function FamilyRequestsPanel({
   requests,
   label,
   needTag,
+  canAdd,
+  onAdd,
   onDecline,
 }: {
   requests: ElderCareRequest[]
@@ -26,6 +31,10 @@ export function FamilyRequestsPanel({
   label: (need: string) => string
   /** How the plan being edited answers one need. */
   needTag: (need: string) => { label: string; tone: TagTone }
+  /** Whether the plan being edited lacks a task for some catalog activity this request asked for. */
+  canAdd: (request: ElderCareRequest) => boolean
+  /** Absent while the plan can't be edited (a stopped plan). */
+  onAdd?: (request: ElderCareRequest) => void
   onDecline: (request: ElderCareRequest) => void
 }) {
   return (
@@ -60,11 +69,18 @@ export function FamilyRequestsPanel({
             {request.outcome === 'DECLINED' && request.declineReason && (
               <MetaText tone="faint">Declined: {request.declineReason}</MetaText>
             )}
-            {request.source === 'SERVICE_APPLICATION' && request.outcome === 'SUBMITTED' && (
-              <div>
-                <Button variant="ghost" onClick={() => onDecline(request)}>
-                  Decline
-                </Button>
+            {request.outcome === 'SUBMITTED' && (
+              <div className={styles.actions}>
+                {onAdd && canAdd(request) && (
+                  <Button variant="secondary" onClick={() => onAdd(request)}>
+                    Add to plan
+                  </Button>
+                )}
+                {request.source === 'SERVICE_APPLICATION' && (
+                  <Button variant="ghost" onClick={() => onDecline(request)}>
+                    Decline
+                  </Button>
+                )}
               </div>
             )}
           </section>

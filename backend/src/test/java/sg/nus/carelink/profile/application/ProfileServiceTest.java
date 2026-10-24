@@ -15,11 +15,16 @@ import java.util.Set;
 
 import org.junit.jupiter.api.Test;
 
+import sg.nus.carelink.careplan.application.CarePlanSchedules;
+import sg.nus.carelink.careplan.application.CarePlanSchedules.PlanSchedule;
+import sg.nus.carelink.careplan.application.CarePlanSchedules.Task;
 import sg.nus.carelink.careplan.domain.model.CarePlan;
 import sg.nus.carelink.profile.domain.model.Caregiver;
 import sg.nus.carelink.profile.domain.model.Elder;
+import sg.nus.carelink.profile.domain.model.ElderBasicDetails;
 import sg.nus.carelink.profile.domain.model.IntakeApplication;
 import sg.nus.carelink.profile.domain.model.PrimaryCaregiverAssignment;
+import sg.nus.carelink.profile.domain.model.ServiceApplication;
 import sg.nus.carelink.profile.domain.repository.ServiceApplicationRepository;
 import sg.nus.carelink.shared.error.ResourceNotFound;
 
@@ -38,8 +43,10 @@ class ProfileServiceTest {
 
         private final ServiceApplicationRepository serviceApplications = mock(ServiceApplicationRepository.class);
 
+        private final CarePlanSchedules schedules = mock(CarePlanSchedules.class);
+
         private final ProfileService service = new ProfileService(repository, carePlans, primaryCaregivers, caregivers,
-                        intakeApplications, serviceApplications);
+                        intakeApplications, serviceApplications, new CareRequestProgress(schedules));
 
         @Test
         void findsWhatWasSaved() {
@@ -161,6 +168,28 @@ class ProfileServiceTest {
         }
 
         @Test
+        void countsOnlyTheServiceApplicationsStillWaitingOnTheManager() {
+                Elder withPlan = saveElder(11L);
+                Elder nothingOpen = saveElder(12L);
+                when(serviceApplications.findElderIdsWithApplications(any()))
+                                .thenReturn(Set.of(withPlan.id(), nothingOpen.id()));
+                when(serviceApplications.findUnansweredByElderIds(any())).thenReturn(List.of(
+                                serviceApplication(1L, withPlan.id(), "LIGHT_EXERCISE"),
+                                serviceApplication(2L, withPlan.id(), "BATHING"),
+                                serviceApplication(3L, withPlan.id(), "MEAL_PREPARATION")));
+                when(schedules.forElder(withPlan.id())).thenReturn(List.of(new PlanSchedule(70L, withPlan.id(), 1,
+                                LocalDate.of(2026, 9, 1), null,
+                                List.of(new Task(1L, "Personal care", "BATHING", "Bathing", List.of())))));
+
+                List<ElderSummary> summaries = service.listElders();
+
+                assertThat(summaries).extracting(summary -> summary.elder().id(), ElderSummary::openCareRequests)
+                                .containsExactlyInAnyOrder(
+                                                tuple(withPlan.id(), 2),
+                                                tuple(nothingOpen.id(), 0));
+        }
+
+        @Test
         void listsEldersWithASupersededPlanAsNone() {
                 Elder saved = saveElder(4L);
                 carePlans.put(saved.id(), plan(saved.id(), CarePlan.Status.SUPERSEDED, 1));
@@ -201,6 +230,12 @@ class ProfileServiceTest {
                 return new IntakeApplication(null, 42L, "Tan Mei", 80, "Road", "123456",
                                 IntakeApplication.MobilityLevel.INDEPENDENT, null, List.of("BATHING"), null, status, 1L,
                                 null, null, LocalDateTime.of(2026, 9, 16, 9, 0), elderId);
+        }
+
+        private static ServiceApplication serviceApplication(Long id, Long elderId, String need) {
+                return new ServiceApplication(id, 42L, elderId,
+                                new ElderBasicDetails("Tan Mei", null, null, null, "Road", "123456", null, null, null),
+                                List.of(need), null, ServiceApplication.Status.SUBMITTED, LocalDateTime.of(2026, 10, 1, 9, 0));
         }
 
         private Elder saveElder(Long userId) {
