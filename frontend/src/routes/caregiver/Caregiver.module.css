@@ -775,13 +775,6 @@
   margin-top: 16px;
 }
 
-/* A status line under the form's buttons (e.g. the GPS fix). */
-.formPanel > form > fieldset > p {
-  margin: 12px 0 0;
-  color: var(--fm-secondary);
-  font-size: 14px;
-}
-
 .formPanel > .readOnly {
   margin: 16px 0 0;
 }

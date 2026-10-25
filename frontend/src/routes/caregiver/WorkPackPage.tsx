@@ -24,7 +24,7 @@ function WorkPack({ id, back }: { id: string; back: string }) {
   const { result, reload } = useCaregiverQuery(id, load, true)
   const command = useExecutionCommands(reload)
   const accessError = command.accessError ?? (result.status === 'error' && result.error instanceof ApiError && [401,403,404,409].includes(result.error.status) ? result.error : null)
-  if (accessError && (Object.keys(command.drafts).length || command.attempt || command.fix || command.note || command.saved || command.locating || command.hasHealthDraft)) command.clearProtected()
+  if (accessError && (Object.keys(command.drafts).length || command.attempt || command.saved || command.hasHealthDraft)) command.clearProtected()
   if (accessError) return <QueryError error={accessError} retry={command.recover} back={back} />
   if (result.status === 'loading') return <p role="status">Loading assigned work pack…</p>
   if (result.status === 'error') return <QueryError error={result.error} retry={reload} back={back} />

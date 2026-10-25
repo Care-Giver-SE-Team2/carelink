@@ -60,8 +60,7 @@ public abstract class MissedCheckInITSupport extends CaregiverHttpITSupport {
     /** Past the check-in deadline of the last of {@code plannedVisits(count)}. */
     protected void overdue(int count) { clock.at(START.plusSeconds(901 + 3600L * (count - 1))); }
     protected Map<String,Object> check(int version) {
-        return Map.of("expectedVersion",version,"clientRequestId",UUID.randomUUID().toString(),
-                "locationSource","MANUAL_LOCATION_NOTE","locationNote","At the fictional doorway");
+        return Map.of("expectedVersion",version,"clientRequestId",UUID.randomUUID().toString());
     }
     protected long incident(long id) {
         return jdbc.queryForObject("SELECT incident_id FROM visit_missed_check_in_trigger WHERE visit_id=?", Long.class, id);
