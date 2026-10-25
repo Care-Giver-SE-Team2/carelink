@@ -193,7 +193,7 @@
  */
 .heading,
 .back {
-  border-image: linear-gradient(to top, var(--fm-line-card) 1px, var(--fm-card) 1px) fill 0 / / 0 100vmax;
+  border-image: linear-gradient(to top, var(--fm-line-card) 1px, var(--fm-card) 1px) fill 0 / 1 / 0 100vmax;
 }
 
 .heading {
@@ -764,6 +764,11 @@
 .formPanel > fieldset > button,
 .formPanel > form > fieldset > button {
   margin: 8px 8px 0 0;
+}
+
+/* A form that is only its button (check-in): the form's own top margin already spaces it. */
+.formPanel > form > fieldset > button:first-child {
+  margin-top: 0;
 }
 
 /*

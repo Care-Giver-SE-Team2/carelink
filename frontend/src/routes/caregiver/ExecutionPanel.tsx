@@ -8,6 +8,7 @@ export default function ExecutionPanel({ pack, command }: { pack: WorkPack; comm
   const state = pack.execution
   if (!state) return <p className={styles.readOnly}>Execution controls are unavailable. Refresh or contact your manager.</p>
   const check = state.allowedActions.includes('CHECK_IN')
+  const note = <p className={styles.readOnly}>Task results are not check-out. Use the evidence images page to upload PHOTO or SIGNATURE material; elder confirmation is a separate step after service completion.</p>
   return <section className={styles.formPanel} aria-label="Visit execution"><h2>Visit execution</h2>
     {command.saved && <p role="status">{command.saved}</p>}
     {command.validation && <p role="alert">{command.validation}</p>}
@@ -15,7 +16,7 @@ export default function ExecutionPanel({ pack, command }: { pack: WorkPack; comm
     {command.attempt && !command.write.pending && <><button className={styles.button} onClick={command.retry}>Retry same request</button>
       {!command.uncertain && <button className={styles.button} onClick={command.edit}>Refresh visit and edit</button>}</>}
     {state.checkedInAt ? <><p>Checked in: {visitTime(state.checkedInAt)} (SGT){state.lateArrival ? ' · Late arrival' : ''}</p></> : <>
-      <p>Check-in window: {visitTime(state.checkInOpensAt)} – {visitTime(state.checkInClosesAt)} (SGT).</p>
+      <p>Check-in window: {visitTime(state.checkInOpensAt)} – {visitTime(state.checkInClosesAt)} (SGT).</p>{note}
       {check ? <form onSubmit={e => { e.preventDefault(); command.start(pack.visit.id, pack.visit.version) }}>
         <fieldset disabled={command.blocked}>
           <button className={styles.button}>Check in and start service</button>
@@ -23,8 +24,9 @@ export default function ExecutionPanel({ pack, command }: { pack: WorkPack; comm
       </form> : <p>Check-in is blocked: {state.blockedReason === 'VISIT_CHECK_IN_WINDOW' ? 'outside the time window' : state.blockedReason === 'VISIT_TASKS_REQUIRED' ? 'no valid plan task assigned — contact your manager' : 'current visit state or service strategy does not permit check-in'}.</p>}
     </>}
     {state.checkedOutAt && <p>Checked out: {visitTime(state.checkedOutAt)} (SGT) · Completed</p>}
+    {state.allowedActions.includes('CHECK_OUT') && <p>Check out records the end of your service. No manager or elder approval is required.</p>}
+    {state.checkedInAt && note}
     {state.allowedActions.includes('CHECK_OUT') && <>
-      <p>Check out records the end of your service. No manager or elder approval is required.</p>
       {pack.tasks.some(task => task.status === 'PENDING') && <p className={styles.readOnly}>Some tasks are still pending. You may check out; their recorded status will not change.</p>}
       {pack.requiredEvidenceKinds.length > 0 && <p className={styles.readOnly}>Use “View or upload evidence images” below before checking out. Uploaded images remain Unverified. Missing evidence does not prevent check-out.</p>}
       <p className={styles.readOnly}>Save any task or health drafts you want to keep before checking out. New task results and health readings cannot be submitted after check-out.</p>
@@ -37,7 +39,6 @@ export default function ExecutionPanel({ pack, command }: { pack: WorkPack; comm
     </div>}
     {pack.visit.status === 'EXCEPTION' && !check && <p className={styles.readOnly}>Execution paused. Reporting or resolving an incident does not automatically resume this visit.</p>}
     {pack.visit.status === 'EXCEPTION' && check && <p className={styles.readOnly}>This previous missed-check-in alert does not prevent check-in. The alert remains recorded.</p>}
-    <p className={styles.readOnly}>Task results are not check-out. Use the evidence images page to upload PHOTO or SIGNATURE material; elder confirmation is a separate step after service completion.</p>
   </section>
 }
 export function ExecutionTasks({ pack, command }: { pack: WorkPack; command: ReturnType<typeof useExecutionCommands> }) {
