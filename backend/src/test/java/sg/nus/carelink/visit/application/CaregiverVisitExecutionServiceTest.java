@@ -24,7 +24,6 @@ import org.mockito.ArgumentCaptor;
 
 import sg.nus.carelink.careplan.application.VisitPlanReader;
 import sg.nus.carelink.profile.application.CaregiverWorkDirectory;
-import sg.nus.carelink.visit.domain.model.CheckInLocation;
 import sg.nus.carelink.visit.domain.model.Visit;
 import sg.nus.carelink.visit.domain.model.VisitExecutionPolicy;
 import sg.nus.carelink.visit.domain.model.VisitTask;
@@ -68,7 +67,7 @@ class CaregiverVisitExecutionServiceTest {
     void checkingInCreatesTheServiceTaskAndStartsTheVisit() {
         when(tasks.findByVisitId(1L)).thenReturn(List.of());
 
-        var result = service.checkIn("farah", 1L, 0, UUID.randomUUID(), location());
+        var result = service.checkIn("farah", 1L, 0, UUID.randomUUID());
 
         ArgumentCaptor<VisitTask> task = ArgumentCaptor.forClass(VisitTask.class);
         verify(tasks).save(task.capture());
@@ -82,12 +81,8 @@ class CaregiverVisitExecutionServiceTest {
     void aServiceTaskAlreadyThereIsNotAddedTwice() {
         when(tasks.findByVisitId(1L)).thenReturn(List.of(visit.standaloneTask()));
 
-        service.checkIn("farah", 1L, 0, UUID.randomUUID(), location());
+        service.checkIn("farah", 1L, 0, UUID.randomUUID());
 
         verify(tasks, never()).save(any());
-    }
-
-    private static CheckInLocation location() {
-        return new CheckInLocation("MANUAL_LOCATION_NOTE", null, null, null, "At the door", null);
     }
 }

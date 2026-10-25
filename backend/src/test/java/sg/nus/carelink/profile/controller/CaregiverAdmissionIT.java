@@ -75,7 +75,7 @@ class CaregiverAdmissionIT {
         mvc.perform(get("/api/caregivers/me/absences").session(session)).andExpect(status().isForbidden());
         mvc.perform(get("/api/spot-checks").session(session)).andExpect(status().isForbidden());
         mvc.perform(post("/api/visits/1/check-in").session(session).with(csrf()).contentType(MediaType.APPLICATION_JSON)
-                .content("{\"expectedVersion\":0,\"clientRequestId\":\""+UUID.randomUUID()+"\",\"locationSource\":\"MANUAL_LOCATION_NOTE\",\"locationNote\":\"At the front door\"}"))
+                .content("{\"expectedVersion\":0,\"clientRequestId\":\""+UUID.randomUUID()+"\"}"))
                 .andExpect(status().isForbidden());
         assertThat(jdbc.queryForObject("select count(*) from credential",Long.class)).isZero();
         assertThat(jdbc.queryForObject("select password_hash from app_user where username='admission.a'",String.class)).isNotEqualTo("chosen-password");
