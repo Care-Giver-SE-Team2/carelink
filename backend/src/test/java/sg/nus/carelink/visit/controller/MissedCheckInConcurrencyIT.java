@@ -154,13 +154,21 @@ class MissedCheckInConcurrencyIT extends MissedCheckInITSupport {
             body(stopped.get(20,TimeUnit.SECONDS),200);assertThat(alarm.get(20,TimeUnit.SECONDS)).isFalse();assertThat(count("incident",id)).isZero();
         }
     }
-    @Test void planStoppedAfterVisitWasDueRetainsItForAttendanceReviewAsExistingMg03Requires() throws Exception {
-        long id=plannedVisit();overdue();long plan=jdbc.queryForObject("SELECT care_plan_id FROM visit WHERE id=?",Long.class,id);
+    @Test void planStoppedAfterVisitSlotEndedRetainsItForAttendanceReviewAsExistingMg03Requires() throws Exception {
+        long id=plannedVisit();clock.at(START.plusSeconds(3901));long plan=jdbc.queryForObject("SELECT care_plan_id FROM visit WHERE id=?",Long.class,id);
         try(var mgr=browser(managerName)) {
             body(mgr.post("/api/care-plans/"+plan+"/stop",Map.of("effectiveDate","2026-10-08","reason","Stopped after service was due")),200);
         }
         assertThat(jdbc.queryForObject("SELECT status FROM visit WHERE id=?",String.class,id)).isEqualTo("SCHEDULED");
         assertThat(scan.trigger(id)).isTrue();assertOneFact(id);
+    }
+    @Test void planStoppedWhileOverdueVisitSlotStillRunningCancelsItWithoutAnAlarm() throws Exception {
+        long id=plannedVisit();overdue();long plan=jdbc.queryForObject("SELECT care_plan_id FROM visit WHERE id=?",Long.class,id);
+        try(var mgr=browser(managerName)) {
+            body(mgr.post("/api/care-plans/"+plan+"/stop",Map.of("effectiveDate","2026-10-08","reason","Stopped while service was running")),200);
+        }
+        assertThat(jdbc.queryForObject("SELECT status FROM visit WHERE id=?",String.class,id)).isEqualTo("CANCELLED");
+        assertThat(scan.trigger(id)).isFalse();assertThat(count("incident",id)).isZero();
     }
     @Test void independentNewScannerInstanceReadsPersistedLedgerInsteadOfAnInMemorySet() throws Exception {
         long id=plannedVisit();overdue();assertThat(scan.trigger(id)).isTrue();
