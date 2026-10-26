@@ -1,7 +1,6 @@
 package sg.nus.carelink.rostering.domain.model;
 
 import java.time.DayOfWeek;
-import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
@@ -90,10 +89,9 @@ public record RecurringSchedule(Long carePlanId, Long elderId, LocalDate effecti
 		List<CarriedSlot> carried = new ArrayList<>();
 		for (VisitSlot slot : successor.visitsBetween(from.get(), untilDay)) {
 			RecurringTask task = successor.task(slot.carePlanNodeId());
-			WeeklySlot weekly = new WeeklySlot(slot.start().getDayOfWeek(), slot.start().toLocalTime(),
-					(int) Duration.between(slot.start(), slot.end()).toMinutes());
 			tasks.stream()
-					.filter(previous -> previous.sameTaskAs(task) && previous.slots().contains(weekly))
+					.filter(previous -> previous.sameTaskAs(task)
+							&& previous.slots().stream().anyMatch(weekly -> weekly.calledFor(slot)))
 					.findFirst()
 					.ifPresent(previous -> carried.add(new CarriedSlot(carePlanId, previous.carePlanNodeId(), slot)));
 		}
@@ -142,6 +140,12 @@ public record RecurringSchedule(Long carePlanId, Long elderId, LocalDate effecti
 			if (minutes < 1) {
 				throw new IllegalArgumentException("minutes must be at least 1, got " + minutes);
 			}
+		}
+
+		/** True when this weekly slot calls for the dated visit: same day, start and length. */
+		boolean calledFor(VisitSlot slot) {
+			return day == slot.start().getDayOfWeek() && startTime.equals(slot.start().toLocalTime())
+					&& slot.start().plusMinutes(minutes).equals(slot.end());
 		}
 	}
 
