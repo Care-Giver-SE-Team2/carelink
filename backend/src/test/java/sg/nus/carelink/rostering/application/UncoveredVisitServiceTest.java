@@ -67,6 +67,11 @@ class UncoveredVisitServiceTest {
 		}
 
 		@Override
+		public int carryOver(List<CarriedVisit> visits) {
+			return 0;
+		}
+
+		@Override
 		public int cancelUntouchedFrom(Long carePlanId, LocalDateTime from) {
 			return 0;
 		}

@@ -201,6 +201,22 @@ it('adds a sub-plan from the grouped activity picker and a per-day schedule', as
   expect(within(walk).getByText('Sat 8:00–8:30 AM · 30 m')).toBeInTheDocument()
 })
 
+it('holds publishing while a sub-plan or task is still being edited', async () => {
+  const user = await renderPlanInDraft()
+  const publish = screen.getByRole('button', { name: 'Publish v5' })
+  expect(publish).toBeEnabled()
+
+  await user.click(screen.getByRole('button', { name: 'Add sub-plan' }))
+  await user.click(screen.getByRole('button', { name: 'Tuesday' }))
+  expect(publish).toBeDisabled()
+  await user.click(screen.getByRole('button', { name: 'Cancel' }))
+  expect(publish).toBeEnabled()
+
+  const row = screen.getByText('Morning reminder').closest('div')!
+  await user.click(within(row).getByRole('button', { name: 'Edit task' }))
+  expect(publish).toBeDisabled()
+})
+
 it('shows the elder’s profile and bound family from the backend', async () => {
   renderPlan()
   await screen.findByText('Wei Ling (daughter)')

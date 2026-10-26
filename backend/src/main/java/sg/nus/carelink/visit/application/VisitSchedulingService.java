@@ -3,6 +3,7 @@ package sg.nus.carelink.visit.application;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -50,6 +51,43 @@ class VisitSchedulingService implements VisitScheduling {
 			}
 		}
 		return new Outcome(created, covered);
+	}
+
+	@Override
+	public int carryOver(List<CarriedVisit> carried) {
+		int moved = 0;
+		Map<List<Long>, List<CarriedVisit>> byVersions = carried.stream()
+				.collect(Collectors.groupingBy(c -> List.of(c.fromCarePlanId(), c.toCarePlanId())));
+		for (var entry : byVersions.entrySet()) {
+			Long fromPlanId = entry.getKey().get(0);
+			LocalDateTime earliest = entry.getValue().stream()
+					.map(CarriedVisit::start).min(LocalDateTime::compareTo).orElseThrow();
+			Map<Key, Visit> previous = byTaskAndStart(fromPlanId, earliest);
+			Map<Key, Visit> already = byTaskAndStart(entry.getKey().get(1), earliest);
+			for (CarriedVisit wanted : entry.getValue()) {
+				Visit visit = previous.get(new Key(wanted.fromCarePlanNodeId(), wanted.start()));
+				if (visit == null || !Objects.equals(visit.scheduledEnd(), wanted.end())
+						|| already.containsKey(new Key(wanted.toCarePlanNodeId(), wanted.start()))) {
+					continue;
+				}
+				// Same lock and re-read as cancelUntouchedFrom: a check-in may land between the read and the save.
+				// Saved through visits: the command save never writes the plan columns.
+				var current = commands.lock(visit.id())
+						.filter(v -> v.hasNotStarted() && fromPlanId.equals(v.carePlanId()));
+				if (current.isPresent()) {
+					visits.save(current.get().carriedOver(wanted.toCarePlanId(), wanted.toCarePlanNodeId(),
+							wanted.serviceType()));
+					moved++;
+				}
+			}
+		}
+		return moved;
+	}
+
+	private Map<Key, Visit> byTaskAndStart(Long carePlanId, LocalDateTime from) {
+		return visits.findByCarePlanIdStartingFrom(carePlanId, from).stream()
+				.filter(v -> v.carePlanNodeId() != null)
+				.collect(Collectors.toMap(Key::of, Function.identity(), (a, b) -> a));
 	}
 
 	@Override

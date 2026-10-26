@@ -1,5 +1,6 @@
 package sg.nus.carelink.careplan.application;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -34,11 +35,22 @@ class CarePlanSchedulesService implements CarePlanSchedules {
 				.collect(Collectors.toMap(CarePlan::supersedesPlanId, Function.identity(), (a, b) -> a));
 		return versions.stream()
 				.map(plan -> plan.effectivePeriod(successorOf.get(plan.id()))
+						.map(period -> period.endingBy(earliestStartAfter(plan, versions)))
 						.map(period -> new PlanSchedule(plan.id(), plan.elderId(), plan.version(),
 								period.from(), period.until(), tasksOf(plan.id())))
 						.orElse(null))
 				.filter(Objects::nonNull)
 				.toList();
+	}
+
+	/** The earliest start of any version after {@code plan} that has left draft, or null. */
+	private static LocalDate earliestStartAfter(CarePlan plan, List<CarePlan> versions) {
+		return versions.stream()
+				.filter(later -> later.version() > plan.version() && later.status() != CarePlan.Status.DRAFT)
+				.map(CarePlan::startDate)
+				.filter(Objects::nonNull)
+				.min(LocalDate::compareTo)
+				.orElse(null);
 	}
 
 	@Override

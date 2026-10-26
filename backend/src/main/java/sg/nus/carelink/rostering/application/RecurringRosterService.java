@@ -4,6 +4,7 @@ import java.time.Clock;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -16,6 +17,7 @@ import sg.nus.carelink.rostering.domain.model.RecurringSchedule;
 import sg.nus.carelink.rostering.domain.model.RecurringSchedule.RecurringTask;
 import sg.nus.carelink.rostering.domain.model.RecurringSchedule.WeeklySlot;
 import sg.nus.carelink.visit.application.VisitScheduling;
+import sg.nus.carelink.visit.application.VisitScheduling.CarriedVisit;
 import sg.nus.carelink.visit.application.VisitScheduling.PlannedVisit;
 
 /**
@@ -28,7 +30,9 @@ import sg.nus.carelink.visit.application.VisitScheduling.PlannedVisit;
  * can no longer take visits (gone inactive, however that happened) is taken off the ones nobody
  * has started, so they are covered rather than missed; the nightly run catches any it missed. When a plan version ends
  * (stopped, or replaced from its successor's start date) its visits nobody has started are
- * cancelled from that date; visits under way or finished are kept.
+ * cancelled from that date; visits under way or finished are kept. A replaced version's visit
+ * whose task and time the successor keeps unchanged is moved to the successor instead, so the
+ * caregiver doesn't see it cancelled and booked again.
  */
 @Service
 @Transactional
@@ -67,6 +71,14 @@ public class RecurringRosterService {
 				.map(caregiverId -> visits.releaseUntouchedFrom(elderId, caregiverId, now))
 				.orElse(0);
 
+		List<CarriedVisit> kept = versions.stream()
+				.flatMap(version -> successorOf(version, versions).stream()
+						.flatMap(successor -> version.carriedInto(successor, now, untilDay).stream()))
+				.map(slot -> new CarriedVisit(slot.fromCarePlanId(), slot.fromCarePlanNodeId(), slot.to().carePlanId(),
+						slot.to().carePlanNodeId(), slot.to().serviceType(), slot.to().start(), slot.to().end()))
+				.toList();
+		int carried = kept.isEmpty() ? 0 : visits.carryOver(kept);
+
 		int cancelled = 0;
 		for (RecurringSchedule version : versions) {
 			cancelled += version.callOffFrom(now)
@@ -88,7 +100,7 @@ public class RecurringRosterService {
 				? new VisitScheduling.Outcome(0, 0)
 				: visits.schedule(wanted);
 
-		return new RosterRefresh(elderId, outcome.created(), outcome.covered(), cancelled, released);
+		return new RosterRefresh(elderId, outcome.created(), outcome.covered(), carried, cancelled, released);
 	}
 
 	/**
@@ -110,16 +122,25 @@ public class RecurringRosterService {
 		return schedules.eldersWithSchedules();
 	}
 
+	/** The latest version that took over on the day {@code version} ended, if any. */
+	private static Optional<RecurringSchedule> successorOf(RecurringSchedule version,
+			List<RecurringSchedule> versions) {
+		return versions.reversed().stream()
+				.filter(other -> other != version && other.effectiveFrom().equals(version.effectiveUntil()))
+				.findFirst();
+	}
+
 	private static RecurringSchedule toDomain(CarePlanSchedules.PlanSchedule plan) {
 		return new RecurringSchedule(plan.carePlanId(), plan.elderId(), plan.effectiveFrom(), plan.effectiveUntil(),
 				plan.tasks().stream()
-						.map(task -> new RecurringTask(task.carePlanNodeId(), task.name(), task.slots().stream()
+						.map(task -> new RecurringTask(task.carePlanNodeId(), task.groupName(), task.activityCode(),
+								task.name(), task.slots().stream()
 								.map(slot -> new WeeklySlot(slot.day(), slot.startTime(), slot.minutes()))
 								.toList()))
 						.toList());
 	}
 
 	/** What one refresh changed. */
-	public record RosterRefresh(Long elderId, int created, int covered, int cancelled, int released) {
+	public record RosterRefresh(Long elderId, int created, int covered, int carried, int cancelled, int released) {
 	}
 }

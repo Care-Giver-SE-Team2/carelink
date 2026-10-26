@@ -18,4 +18,13 @@ public record EffectivePeriod(LocalDate from, LocalDate until) {
 	public boolean isEmpty() {
 		return until != null && !until.isAfter(from);
 	}
+
+	/**
+	 * This period, ended no later than {@code date} (null leaves it as it is). A later version
+	 * may start before the one it replaced did; every older version must then end there too, or
+	 * two versions would schedule the same days.
+	 */
+	public EffectivePeriod endingBy(LocalDate date) {
+		return date == null || (until != null && !date.isBefore(until)) ? this : new EffectivePeriod(from, date);
+	}
 }
