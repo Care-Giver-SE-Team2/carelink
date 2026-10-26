@@ -53,6 +53,37 @@ class CarePlanSchedulesServiceTest {
 	}
 
 	@Test
+	void endsEveryOlderVersionWhereALaterOneStartsEarlierThanTheVersionItReplaced() {
+		LocalDate oct5 = LocalDate.of(2026, 10, 5);
+		CarePlan first = plans.save(CarePlan.startDraft(42L, 7L, null).publish(OCT_1, BigDecimal.ONE));
+		CarePlan second = plans.save(CarePlan.startDraft(42L, 7L, first).publish(OCT_8, BigDecimal.ONE));
+		plans.save(first.supersede());
+		CarePlan third = plans.save(CarePlan.startDraft(42L, 7L, second).publish(oct5, BigDecimal.ONE));
+		plans.save(second.supersede());
+
+		assertThat(schedules.forElder(42L))
+				.extracting(PlanSchedule::carePlanId, PlanSchedule::effectiveFrom, PlanSchedule::effectiveUntil)
+				.containsExactly(
+						org.assertj.core.groups.Tuple.tuple(first.id(), OCT_1, oct5),
+						org.assertj.core.groups.Tuple.tuple(second.id(), OCT_8, oct5),
+						org.assertj.core.groups.Tuple.tuple(third.id(), oct5, null));
+	}
+
+	@Test
+	void endsAStoppedVersionWhereALaterOneStartsBeforeTheStopDate() {
+		LocalDate oct5 = LocalDate.of(2026, 10, 5);
+		CarePlan stopped = plans.save(CarePlan.startDraft(42L, 7L, null).publish(OCT_1, BigDecimal.ONE)
+				.stop(OCT_8, "Moving house", 7L));
+		CarePlan next = plans.save(CarePlan.startDraft(42L, 7L, stopped).publish(oct5, BigDecimal.ONE));
+
+		assertThat(schedules.forElder(42L))
+				.extracting(PlanSchedule::carePlanId, PlanSchedule::effectiveUntil)
+				.containsExactly(
+						org.assertj.core.groups.Tuple.tuple(stopped.id(), oct5),
+						org.assertj.core.groups.Tuple.tuple(next.id(), null));
+	}
+
+	@Test
 	void listsOnlyEldersWhosePlanHasLeftDraft() {
 		plans.save(CarePlan.startDraft(42L, 7L, null).publish(OCT_1, BigDecimal.ONE));
 		plans.save(CarePlan.startDraft(43L, 7L, null));

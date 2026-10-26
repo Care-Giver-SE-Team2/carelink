@@ -21,6 +21,16 @@ public interface VisitScheduling {
 	Outcome schedule(List<PlannedVisit> visits);
 
 	/**
+	 * Moves each visit nobody has started from a replaced plan version's task onto the same task
+	 * in the version that replaced it, keeping its id and caregiver, so it is neither cancelled
+	 * with the old version nor made again for the new one. A visit that has started, has ended
+	 * differently, or already has a counterpart under the new task is left where it is.
+	 *
+	 * @return how many visits were moved
+	 */
+	int carryOver(List<CarriedVisit> visits);
+
+	/**
 	 * Cancels one plan version's visits that nobody has started and that start at or after
 	 * {@code from}, or are still running at it. Visits already under way or finished keep
 	 * pointing at the version they were made from.
@@ -57,6 +67,11 @@ public interface VisitScheduling {
 
 	/** One visit a care plan task calls for; {@code caregiverId} null leaves it to be covered. */
 	record PlannedVisit(Long elderId, Long caregiverId, Long carePlanId, Long carePlanNodeId,
+			String serviceType, LocalDateTime start, LocalDateTime end) {
+	}
+
+	/** A visit at {@code start}-{@code end} to move from one plan version's task to its successor's. */
+	record CarriedVisit(Long fromCarePlanId, Long fromCarePlanNodeId, Long toCarePlanId, Long toCarePlanNodeId,
 			String serviceType, LocalDateTime start, LocalDateTime end) {
 	}
 

@@ -538,7 +538,11 @@ export default function CarePlan() {
               {editable && <Button onClick={() => setAddPanelOpen(true)}>Add sub-plan</Button>}
               <Button
                 variant="primary"
-                disabled={editable && (tasks === 0 || !startDate || unscheduled.length > 0)}
+                // An open add or edit panel holds changes not yet in the tree: publishing now would drop them.
+                disabled={
+                  editable &&
+                  (tasks === 0 || !startDate || unscheduled.length > 0 || addPanelOpen || editingTaskId !== null)
+                }
                 onClick={() => (editable ? setShowPublishModal(true) : enterDraft(totalHours))}
               >
                 {editable ? `Publish v${version + 1}` : 'Edit plan'}

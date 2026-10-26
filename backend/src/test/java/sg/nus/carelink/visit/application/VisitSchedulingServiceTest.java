@@ -161,6 +161,51 @@ class VisitSchedulingServiceTest {
 		assertThat(visits.findById(visitId)).get().extracting(Visit::status).isEqualTo(Visit.Status.SCHEDULED);
 	}
 
+	@Test
+	void carriesAnUntouchedVisitOverToTheSameTaskInTheNewVersion() {
+		scheduling.schedule(List.of(planned(MON_8, 5L)));
+		Visit before = visits.findByCarePlanIdStartingFrom(9L, MON_8).getFirst();
+
+		assertThat(scheduling.carryOver(List.of(carried(MON_8, MON_8.plusMinutes(30))))).isEqualTo(1);
+
+		assertThat(visits.findByCarePlanIdStartingFrom(9L, MON_8)).isEmpty();
+		assertThat(visits.findByCarePlanIdStartingFrom(10L, MON_8)).singleElement().satisfies(visit -> {
+			assertThat(visit.id()).isEqualTo(before.id());
+			assertThat(visit.carePlanNodeId()).isEqualTo(40L);
+			assertThat(visit.caregiverId()).isEqualTo(5L);
+			assertThat(visit.status()).isEqualTo(Visit.Status.SCHEDULED);
+		});
+		assertThat(scheduling.schedule(List.of(new PlannedVisit(42L, 5L, 10L, 40L, "Bathing assistance", MON_8,
+				MON_8.plusMinutes(30))))).isEqualTo(new Outcome(0, 0));
+	}
+
+	@Test
+	void leavesAStartedVisitOrOneThatNoLongerFitsWithItsOwnVersion() {
+		scheduling.schedule(List.of(planned(MON_8, 5L), planned(WED_8, 5L)));
+		Visit started = visits.findByCarePlanIdStartingFrom(9L, MON_8).stream()
+				.filter(v -> v.scheduledStart().equals(MON_8)).findFirst().orElseThrow();
+		visits.save(new Visit(started.id(), started.elderId(), started.caregiverId(), started.carePlanNodeId(), null,
+				started.serviceType(), started.scheduledStart(), started.scheduledEnd(), MON_8, null,
+				Visit.Status.IN_PROGRESS, null, started.carePlanId(), 1, null, null));
+
+		assertThat(scheduling.carryOver(List.of(carried(MON_8, MON_8.plusMinutes(30)),
+				carried(WED_8, WED_8.plusMinutes(45))))).isZero();
+		assertThat(visits.findByCarePlanIdStartingFrom(9L, MON_8)).hasSize(2);
+	}
+
+	@Test
+	void doesNotCarryOverAVisitTheNewVersionAlreadyHas() {
+		scheduling.schedule(List.of(planned(MON_8, 5L),
+				new PlannedVisit(42L, 5L, 10L, 40L, "Bathing assistance", MON_8, MON_8.plusMinutes(30))));
+
+		assertThat(scheduling.carryOver(List.of(carried(MON_8, MON_8.plusMinutes(30))))).isZero();
+		assertThat(visits.findByCarePlanIdStartingFrom(9L, MON_8)).hasSize(1);
+	}
+
+	private static VisitScheduling.CarriedVisit carried(LocalDateTime start, LocalDateTime end) {
+		return new VisitScheduling.CarriedVisit(9L, 30L, 10L, 40L, "Bathing assistance", start, end);
+	}
+
 	private static PlannedVisit planned(LocalDateTime start, Long caregiverId) {
 		return new PlannedVisit(42L, caregiverId, 9L, 30L, "Bathing assistance", start, start.plusMinutes(30));
 	}

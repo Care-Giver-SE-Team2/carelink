@@ -98,7 +98,7 @@ public class VisitJpaEntity {
 	@Column(name = "state_deadline")
 	private LocalDateTime stateDeadline;
 
-	/** soft FK to care_plan.id: the plan VERSION in force when this visit was created (story A6). Superseded versions are never edited, so pointing at the row is the snapshot */
+	/** soft FK to care_plan.id: the plan VERSION this visit follows (story A6) - the one it was created from, or, if it was untouched when a new version kept its slot, that new version. Superseded versions are never edited, so pointing at the row is the snapshot */
 	@Column(name = "care_plan_id")
 	private Long carePlanId;
 

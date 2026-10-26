@@ -22,6 +22,7 @@ import sg.nus.carelink.careplan.application.CarePlanSchedules.Task;
 import sg.nus.carelink.rostering.application.RecurringRosterService.RosterRefresh;
 import sg.nus.carelink.profile.application.PrimaryCaregiverLookup;
 import sg.nus.carelink.visit.application.VisitScheduling;
+import sg.nus.carelink.visit.application.VisitScheduling.CarriedVisit;
 import sg.nus.carelink.visit.application.VisitScheduling.PlannedVisit;
 
 class RecurringRosterServiceTest {
@@ -79,7 +80,7 @@ class RecurringRosterServiceTest {
 			assertThat(visit.carePlanNodeId()).isEqualTo(90L);
 			assertThat(visit.end()).isEqualTo(visit.start().plusMinutes(30));
 		});
-		assertThat(refresh).isEqualTo(new RosterRefresh(42L, 2, 0, 0, 0));
+		assertThat(refresh).isEqualTo(new RosterRefresh(42L, 2, 0, 0, 0, 0));
 		assertThat(visits.released).isEmpty();
 		assertThat(visits.cancelled).isEmpty();
 	}
@@ -122,6 +123,36 @@ class RecurringRosterServiceTest {
 				org.assertj.core.groups.Tuple.tuple(9L, LocalDateTime.of(2026, 10, 5, 8, 0)),
 				org.assertj.core.groups.Tuple.tuple(9L, LocalDateTime.of(2026, 10, 12, 8, 0)));
 		assertThat(refresh.cancelled()).isEqualTo(1);
+		assertThat(visits.carried).isEmpty();
+	}
+
+	@Test
+	void movesTheVisitsANewVersionKeepsUnchangedInsteadOfCancellingThem() {
+		LocalDate monday = LocalDate.of(2026, 10, 5);
+		plans.put(42L, List.of(
+				plan(8L, THU_1.minusDays(30), monday, Map.of(DayOfWeek.MONDAY, LocalTime.of(8, 0))),
+				new PlanSchedule(9L, 42L, 2, monday, null, List.of(
+						new Task(90L, "Personal care", "BATHING", "Bathing assistance",
+								List.of(new Slot(DayOfWeek.MONDAY, LocalTime.of(8, 0), 30))),
+						new Task(91L, "Meals", null, "Lunch", List.of(new Slot(DayOfWeek.WEDNESDAY, LocalTime.of(12, 0), 30)))))));
+
+		RosterRefresh refresh = roster.refreshElder(42L);
+
+		assertThat(visits.carried).extracting(CarriedVisit::fromCarePlanId, CarriedVisit::fromCarePlanNodeId,
+				CarriedVisit::toCarePlanId, CarriedVisit::toCarePlanNodeId, CarriedVisit::start).containsExactly(
+						org.assertj.core.groups.Tuple.tuple(8L, 80L, 9L, 90L, LocalDateTime.of(2026, 10, 5, 8, 0)),
+						org.assertj.core.groups.Tuple.tuple(8L, 80L, 9L, 90L, LocalDateTime.of(2026, 10, 12, 8, 0)));
+		assertThat(refresh.carried()).isEqualTo(2);
+		assertThat(visits.cancelled).containsExactly(Map.entry(8L, monday.atStartOfDay()));
+	}
+
+	@Test
+	void aStoppedPlanCarriesNothingOver() {
+		plans.put(42L, List.of(plan(9L, THU_1.minusDays(30), THU_1, Map.of(DayOfWeek.MONDAY, LocalTime.of(8, 0)))));
+
+		roster.refreshElder(42L);
+
+		assertThat(visits.carried).isEmpty();
 	}
 
 	@Test
@@ -170,11 +201,18 @@ class RecurringRosterServiceTest {
 		final List<PlannedVisit> scheduled = new ArrayList<>();
 		final List<Map.Entry<Long, LocalDateTime>> cancelled = new ArrayList<>();
 		final List<List<Object>> released = new ArrayList<>();
+		final List<CarriedVisit> carried = new ArrayList<>();
 
 		@Override
 		public Outcome schedule(List<PlannedVisit> visits) {
 			scheduled.addAll(visits);
 			return new Outcome(visits.size(), 0);
+		}
+
+		@Override
+		public int carryOver(List<CarriedVisit> visits) {
+			carried.addAll(visits);
+			return visits.size();
 		}
 
 		@Override

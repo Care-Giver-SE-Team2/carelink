@@ -29,8 +29,8 @@ import sg.nus.carelink.testsupport.SharedMySql;
 
 /**
  * UC-MG03 end to end on real MySQL: publishing a plan fills the elder's next two weeks with
- * visits once the publish commits, naming a primary caregiver covers them, and stopping the
- * plan calls off the ones from the stop date.
+ * visits once the publish commits, naming a primary caregiver covers them, republishing keeps
+ * the visits it leaves unchanged, and stopping the plan calls off the ones from the stop date.
  */
 @SpringBootTest
 class RecurringRosterIT {
@@ -77,7 +77,51 @@ class RecurringRosterIT {
 		assertThat(count(elderId, "status = 'SCHEDULED'")).isEqualTo(6);
 		assertThat(count(elderId, "status = 'CANCELLED'")).isEqualTo(7);
 
-		assertThat(roster.refreshElder(elderId)).isEqualTo(new RecurringRosterService.RosterRefresh(elderId, 0, 0, 0, 0));
+		assertThat(roster.refreshElder(elderId)).isEqualTo(new RecurringRosterService.RosterRefresh(elderId, 0, 0, 0, 0, 0));
+	}
+
+	@Test
+	void republishingWithAnExtraTaskKeepsTheUnchangedVisitsInsteadOfCancellingThem() {
+		Long elderId = elder();
+		Long caregiverId = caregiver();
+		primaryCaregivers.assign(elderId, caregiverId);
+		CarePlan first = publishDaily(elderId);
+		List<Long> before = jdbc.queryForList("SELECT id FROM visit WHERE elder_id = ? ORDER BY id", Long.class, elderId);
+		LocalDate from = LocalDate.now(clock).plusDays(3);
+		CarePlan draft = carePlans.createDraft(elderId, null);
+
+		List<PlanNodeInput> withLunch = new java.util.ArrayList<>(dailyAt(LocalTime.of(8, 0)));
+		withLunch.add(new PlanNodeInput("Meals", null, "Lunch",
+				Arrays.stream(DayOfWeek.values()).map(day -> new VisitInput(day.name(), LocalTime.of(12, 0), 30)).toList(),
+				CarePlanNode.EvidenceType.CHECKLIST));
+		carePlans.publish(draft.id(), from, withLunch);
+
+		assertThat(count(elderId, "status = 'CANCELLED'")).isZero();
+		// Tomorrow and the day after stay on the first version; the rest move, keeping their ids and caregiver.
+		assertThat(count(elderId, "care_plan_id = " + first.id())).isEqualTo(2);
+		assertThat(count(elderId, "care_plan_id = " + draft.id() + " AND service_type = 'Bathing assistance' AND caregiver_id = "
+				+ caregiverId)).isEqualTo(11);
+		assertThat(jdbc.queryForList("SELECT id FROM visit WHERE elder_id = ? AND service_type = 'Bathing assistance' ORDER BY id",
+				Long.class, elderId)).isEqualTo(before);
+		assertThat(count(elderId, "care_plan_id = " + draft.id() + " AND service_type = 'Lunch'")).isEqualTo(11);
+		assertThat(roster.refreshElder(elderId)).isEqualTo(new RecurringRosterService.RosterRefresh(elderId, 0, 0, 0, 0, 0));
+	}
+
+	@Test
+	void aVersionStartingEarlierThanTheOneItReplacesDoesNotDoubleBookTheDaysBetween() {
+		Long elderId = elder();
+		publishDaily(elderId);
+		CarePlan later = carePlans.createDraft(elderId, null);
+		carePlans.publish(later.id(), LocalDate.now(clock).plusDays(7), dailyAt(LocalTime.of(8, 0)));
+		CarePlan sooner = carePlans.createDraft(elderId, null);
+
+		carePlans.publish(sooner.id(), LocalDate.now(clock).plusDays(3), dailyAt(LocalTime.of(8, 0)));
+
+		assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM (SELECT scheduled_start FROM visit WHERE elder_id = ? "
+				+ "AND status = 'SCHEDULED' GROUP BY scheduled_start HAVING COUNT(*) > 1) twice", Integer.class, elderId))
+				.isZero();
+		assertThat(count(elderId, "status = 'SCHEDULED'")).isEqualTo(13);
+		assertThat(count(elderId, "care_plan_id = " + sooner.id() + " AND status = 'SCHEDULED'")).isEqualTo(11);
 	}
 
 	@Test

@@ -62,8 +62,8 @@ public record RecurringSchedule(Long carePlanId, Long elderId, LocalDate effecti
 	 * From when this version's visits that nobody has started must be called off: the day it
 	 * stopped or was replaced, but never earlier than {@code now}, so a visit whose slot is over
 	 * is left for the missed-check-in rule instead of quietly disappearing. One still running at
-	 * that time is called off too, as a successor version would roster that slot afresh.
-	 * Empty while the version is still open-ended.
+	 * that time is called off too, unless the version that replaced it keeps that slot (see
+	 * {@link #carriedInto}). Empty while the version is still open-ended.
 	 */
 	public Optional<LocalDateTime> callOffFrom(LocalDateTime now) {
 		if (effectiveUntil == null) {
@@ -73,12 +73,45 @@ public record RecurringSchedule(Long carePlanId, Long elderId, LocalDate effecti
 		return Optional.of(ended.isAfter(now) ? ended : now);
 	}
 
+	/**
+	 * The visits {@code successor} calls for, from when this version's are called off until
+	 * {@code untilDay}, that this version already called for unchanged: the same task (sub-plan,
+	 * activity and name) on the same day, at the same time, for as long. Their visits move to the
+	 * successor rather than being cancelled and made again, so republishing a plan to add one
+	 * task leaves everyone's other visits as they were. Empty unless {@code successor} took over
+	 * on the day this version ended.
+	 */
+	public List<CarriedSlot> carriedInto(RecurringSchedule successor, LocalDateTime now, LocalDate untilDay) {
+		Optional<LocalDateTime> from = callOffFrom(now);
+		if (from.isEmpty() || !successor.effectiveFrom().equals(effectiveUntil)) {
+			return List.of();
+		}
+		List<CarriedSlot> carried = new ArrayList<>();
+		for (VisitSlot slot : successor.visitsBetween(from.get(), untilDay)) {
+			RecurringTask task = successor.task(slot.carePlanNodeId());
+			tasks.stream()
+					.filter(previous -> previous.sameTaskAs(task)
+							&& previous.slots().stream().anyMatch(weekly -> weekly.calledFor(slot)))
+					.findFirst()
+					.ifPresent(previous -> carried.add(new CarriedSlot(carePlanId, previous.carePlanNodeId(), slot)));
+		}
+		return carried;
+	}
+
+	private RecurringTask task(Long carePlanNodeId) {
+		return tasks.stream().filter(task -> task.carePlanNodeId().equals(carePlanNodeId)).findFirst().orElseThrow();
+	}
+
 	private static LocalDate later(LocalDate a, LocalDate b) {
 		return a.isAfter(b) ? a : b;
 	}
 
-	/** A plan task and the days it recurs on. */
-	public record RecurringTask(Long carePlanNodeId, String serviceType, List<WeeklySlot> slots) {
+	/**
+	 * A plan task and the days it recurs on. {@code groupName} (its sub-plan) and
+	 * {@code activityCode} may be null.
+	 */
+	public record RecurringTask(Long carePlanNodeId, String groupName, String activityCode, String serviceType,
+			List<WeeklySlot> slots) {
 
 		/** visit.service_type holds 50 characters; a task name may be longer. */
 		static final int SERVICE_TYPE_LENGTH = 50;
@@ -89,6 +122,12 @@ public record RecurringSchedule(Long carePlanId, Long elderId, LocalDate effecti
 				serviceType = serviceType.substring(0, SERVICE_TYPE_LENGTH - 1) + "…";
 			}
 			slots = List.copyOf(slots);
+		}
+
+		/** The same task in another plan version: each version gives its tasks new ids. */
+		boolean sameTaskAs(RecurringTask other) {
+			return Objects.equals(groupName, other.groupName) && Objects.equals(activityCode, other.activityCode)
+					&& Objects.equals(serviceType, other.serviceType);
 		}
 	}
 
@@ -102,10 +141,20 @@ public record RecurringSchedule(Long carePlanId, Long elderId, LocalDate effecti
 				throw new IllegalArgumentException("minutes must be at least 1, got " + minutes);
 			}
 		}
+
+		/** True when this weekly slot calls for the dated visit: same day, start and length. */
+		boolean calledFor(VisitSlot slot) {
+			return day.equals(slot.start().getDayOfWeek()) && startTime.equals(slot.start().toLocalTime())
+					&& slot.start().plusMinutes(minutes).equals(slot.end());
+		}
 	}
 
 	/** One dated visit a task calls for. */
 	public record VisitSlot(Long carePlanId, Long carePlanNodeId, Long elderId, String serviceType,
 			LocalDateTime start, LocalDateTime end) {
+	}
+
+	/** A successor's visit that the replaced version's task {@code fromCarePlanNodeId} already called for. */
+	public record CarriedSlot(Long fromCarePlanId, Long fromCarePlanNodeId, VisitSlot to) {
 	}
 }

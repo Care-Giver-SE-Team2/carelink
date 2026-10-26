@@ -110,6 +110,19 @@ public record Visit(
 		return withAssignmentAndStatus(null, status);
 	}
 
+	/**
+	 * Moves a visit nobody has started onto the same task in the plan version that replaced its
+	 * own, so a republished plan keeps the visits it did not change. Caregiver and times stay.
+	 */
+	public Visit carriedOver(Long newCarePlanId, Long newCarePlanNodeId, String newServiceType) {
+		if (!hasNotStarted()) {
+			throw new IllegalStateException("Visit " + id + " is " + status + " and can no longer move plan version");
+		}
+		return new Visit(id, elderId, caregiverId, newCarePlanNodeId, absenceId, newServiceType, scheduledStart,
+				scheduledEnd, checkedInAt, checkedOutAt, status, stateDeadline, newCarePlanId, version,
+				createdAt, updatedAt, healthFlag, healthNote);
+	}
+
 	/** Calls off a visit nobody has started, e.g. because its care plan changed or stopped. */
 	public Visit cancelled() {
 		if (!hasNotStarted()) {
