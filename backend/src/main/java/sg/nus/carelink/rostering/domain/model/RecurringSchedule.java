@@ -144,7 +144,7 @@ public record RecurringSchedule(Long carePlanId, Long elderId, LocalDate effecti
 
 		/** True when this weekly slot calls for the dated visit: same day, start and length. */
 		boolean calledFor(VisitSlot slot) {
-			return day == slot.start().getDayOfWeek() && startTime.equals(slot.start().toLocalTime())
+			return day.equals(slot.start().getDayOfWeek()) && startTime.equals(slot.start().toLocalTime())
 					&& slot.start().plusMinutes(minutes).equals(slot.end());
 		}
 	}

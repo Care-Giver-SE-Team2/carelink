@@ -126,7 +126,8 @@ public class RecurringRosterService {
 	private static Optional<RecurringSchedule> successorOf(RecurringSchedule version,
 			List<RecurringSchedule> versions) {
 		return versions.reversed().stream()
-				.filter(other -> other != version && other.effectiveFrom().equals(version.effectiveUntil()))
+				.filter(other -> !other.carePlanId().equals(version.carePlanId())
+						&& other.effectiveFrom().equals(version.effectiveUntil()))
 				.findFirst();
 	}
 
