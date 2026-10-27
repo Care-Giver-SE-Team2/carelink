@@ -13,6 +13,7 @@ import sg.nus.carelink.identity.domain.repository.AppUserRepository;
 import sg.nus.carelink.profile.domain.model.Elder;
 import sg.nus.carelink.profile.domain.model.ElderFamilyBinding;
 import sg.nus.carelink.profile.domain.model.FamilyMember;
+import sg.nus.carelink.profile.domain.service.BindingDecisionStrategy;
 import sg.nus.carelink.profile.domain.repository.ElderFamilyBindingRepository;
 import sg.nus.carelink.profile.domain.repository.ElderRepository;
 import sg.nus.carelink.profile.domain.repository.FamilyMemberRepository;
@@ -234,9 +235,9 @@ public class FamilyBindingService {
         if (!family.id().equals(binding.familyMemberId())) {
             throw new ResourceNotFound("Family binding", bindingId);
         }
-        return bindings.save(approve
-                ? binding.confirm(LocalDateTime.now(ZoneId.of("Asia/Singapore")))
-                : binding.reject());
+        BindingDecisionStrategy strategy = BindingDecisionStrategy.of(approve);
+        LocalDateTime now = LocalDateTime.now(ZoneId.of("Asia/Singapore"));
+        return bindings.save(strategy.apply(binding, now));
     }
 
     @Transactional(readOnly = true)
