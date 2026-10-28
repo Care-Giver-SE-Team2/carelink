@@ -55,7 +55,7 @@ class FamilyIncidentAlertObserver implements IncidentEventObserver {
 		} catch (RuntimeException failure) {
 			transaction.executeWithoutResult(status -> deliveries.complete(event.eventId(), EventState.FAILED, "EVENT_PROCESSING_FAILED", now()));
 			logFailure(event, null, failure);
-			return;
+			throw failure;
 		}
 		int created = 0;
 		boolean failed = false;
@@ -85,6 +85,8 @@ class FamilyIncidentAlertObserver implements IncidentEventObserver {
 		EventState state = failed ? EventState.FAILED : created == 0 ? EventState.NO_RECIPIENTS : EventState.PROCESSED;
 		transaction.executeWithoutResult(status -> deliveries.complete(event.eventId(), state,
 				state == EventState.FAILED ? "RECIPIENT_PROCESSING_FAILED" : state == EventState.NO_RECIPIENTS ? "NO_ELIGIBLE_FAMILY" : null, now()));
+		// The durable dispatcher must retry partial delivery instead of treating a swallowed failure as success.
+		if (failed) { throw new IllegalStateException("Family alert delivery incomplete"); }
 	}
 
 	private LocalDateTime now() { return LocalDateTime.now(clock.withZone(Incident.CARELINK_ZONE)); }
