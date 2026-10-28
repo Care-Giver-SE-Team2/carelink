@@ -48,6 +48,13 @@ carelink:
     # (Spring cron, read in expiry-scan-zone; "-" switches it off).
     expiry-scan-cron: "0 0 0 * * *"
     expiry-scan-zone: Asia/Singapore
+  family-alert:
+    outbox:
+      # Immediate after-commit delivery is an optimization; this scan recovers lost callbacks.
+      scan-interval: PT15S
+      scan-initial-delay: PT15S
+      lease: PT2M
+      retry-delay: PT30S
   escalation:
     countdown:
       HIGH: PT5M
