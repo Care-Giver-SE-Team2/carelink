@@ -16,12 +16,13 @@ events.unresolved(eventId, incidentId, elderId, occurredAt);
 
 `EscalationService.routeNewIncident` generates a UUID once for the raised fact, using the persisted reportedAt in the Singapore business zone. The chain-exhausted branch generates a different UUID and its own occurrence time after persisting UNRESOLVED_ESCALATED. An incident with no available responder can create both facts in one transaction; these are two event types, not duplicate deliveries. Successful CG04 command replay returns its existing receipt before routing, so it generates neither another event nor another message. Explicit event replay must reuse the original eventId and occurredAt. No caller identity, family ID, notification text or clinical description is accepted. The bridge normalizes offsets and microsecond precision; reusing an ID with different facts is rejected by the consumer. Calls outside a write transaction fail immediately. Ordinary manager handovers are not family broadcast events.
 
-The publisher registers a callback and dispatches only after successful commit. The subject targets `IncidentEventObserver`, not a particular notifier. Runtime failure in one observer does not block another or turn the already committed source into a failed save. The family consumer uses independent transactions; each recipient rechecks current binding, enabled account and FAMILY role before a new delivery. FULL and READ_ONLY qualify. Optional subscriptions do not disable urgent alerts.
+The publisher inserts the fact into `incident_event_outbox` inside the source transaction and registers a callback for immediate dispatch after commit. If that callback is lost, the replay worker reads the committed outbox. The subject targets `IncidentEventObserver`, not a particular notifier. Runtime failure in one observer does not block another or turn the already committed source into a failed save. The family consumer uses independent transactions; each recipient rechecks current binding, enabled account and FAMILY role before a new delivery. FULL and READ_ONLY qualify. Optional subscriptions do not disable urgent alerts.
 
 ```mermaid
 flowchart LR
   A[Incident write transaction] --> B[IncidentFamilyEvents]
-  B --> C[After commit]
+  B --> O[Outbox in source transaction]
+  O --> C[After commit or durable replay]
   C --> D[IncidentEventSubject]
   D --> E[IncidentEventObserver]
   E --> F[FamilyIncidentAlertObserver]
@@ -51,7 +52,13 @@ The first successful creation opens the default two-hour personal window; `carel
 
 Creating a message/window never inserts or alters `incident_acknowledgement`. Existing viewedAt, acknowledgedAt and responseNote remain intact, including acknowledgement before message creation. Future reminder logic must additionally require an absent acknowledgedAt; the existence of a window does not put an already acknowledged family back into waiting. Reminders and family transfer are not implemented here.
 
-This is an in-process after-commit design, without an outbox or a persistent event dispatcher. Outcome/deduplication persistence does not guarantee recovery from a process crash between source commit and callback processing. A failed consumer can be explicitly replayed using its original recorded facts; successful CG04 HTTP command replay does not retry notification delivery. There is no automatic durable recovery guarantee.
+Flyway `V34__incident_event_outbox.sql` closes the initial-publication crash window. `AfterCommitIncidentFamilyEvents` writes the immutable event facts in the incident transaction: an unavailable outbox now fails and rolls back that source transaction, rather than accepting an incident with a lost trigger. No caller API or manager routing rule changes. Existing `family_alert_event` rows remain consumer outcomes, not the source outbox.
+
+`IncidentEventReplayService` claims an event in a separate committed transaction before invoking the same Observer subject. An atomic conditional update sets a unique lease token and expiry, preventing concurrent workers from owning an unexpired claim. After an interruption, the scan reclaims expired leases using the original event ID and facts. Completion is conditional on the lease token, so a late worker cannot overwrite a newer result. Delivery is at least once; the existing event/family keys prevent duplicate notices and preserve the first personal window even if the process stops after recipient writes but before outbox completion.
+
+The scheduler checks up to 50 due events every 15 seconds. `carelink.family-alert.outbox.scan-interval`, `scan-initial-delay`, `lease` (default PT2M) and `retry-delay` (default PT30S) configure timing; lease and retry delay must be positive. Failed observers leave the fact pending for retry, including partial recipient failure. Successful recipients are skipped while the remaining recipients are reauthorized. `DELIVERED` means dispatch completed, including recorded exclusions; it does not mean every family received or read a notice. Explicit producer replay can reopen a completed event, while recipient deduplication still applies. Successful CG04 HTTP command replay does not reroute the incident; recovery no longer depends on that command being submitted again.
+
+The migration does not reconstruct notification triggers lost before the outbox was deployed, or backfill historical notifications. New observers must make their own side effects idempotent against the stable event identity. No reminder, external email, SMS or family-transfer workflow is added.
 
 
 ## Inbox authorization integration

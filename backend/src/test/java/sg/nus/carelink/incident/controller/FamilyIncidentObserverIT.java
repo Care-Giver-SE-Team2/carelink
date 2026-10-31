@@ -36,7 +36,9 @@ import org.springframework.transaction.support.TransactionTemplate;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
 import sg.nus.carelink.incident.application.IncidentFamilyEvents;
+import sg.nus.carelink.incident.application.IncidentEventReplayService;
 import sg.nus.carelink.incident.domain.repository.FamilyAlertDeliveryStore;
+import sg.nus.carelink.incident.domain.repository.IncidentEventOutbox;
 import sg.nus.carelink.testsupport.SharedMySql;
 
 /** Real commit/rollback, per-recipient failures, replay and window persistence. @author Wang Zhili */
@@ -52,6 +54,8 @@ class FamilyIncidentObserverIT {
     @Autowired private IncidentFamilyEvents events;
     @Autowired private PlatformTransactionManager transactions;
     @Autowired private FamilyAlertDeliveryStore store;
+    @Autowired private IncidentEventReplayService replay;
+    @Autowired private IncidentEventOutbox outbox;
     private final JsonMapper json = JsonMapper.builder().build();
     @DynamicPropertySource static void database(DynamicPropertyRegistry registry) {
         SharedMySql.register(registry, FamilyIncidentObserverIT.class, "+05:00", "connectionTimeZone=Asia/Singapore");
@@ -59,7 +63,7 @@ class FamilyIncidentObserverIT {
 	@BeforeEach
 	void prepare() {
 		clock.now = START;
-		for (String table : List.of("family_alert_window", "family_alert_delivery", "family_alert_event", "audit_log", "notification_subscription", "notification", "incident_acknowledgement", "incident_log",
+		for (String table : List.of("incident_event_outbox", "family_alert_window", "family_alert_delivery", "family_alert_event", "audit_log", "notification_subscription", "notification", "incident_acknowledgement", "incident_log",
 				"incident", "elder_family_binding", "elder", "family_member", "user_role", "app_user")) {
 			jdbc.update("DELETE FROM " + table);
 		}
@@ -126,6 +130,112 @@ class FamilyIncidentObserverIT {
 				.isInstanceOf(IllegalStateException.class);
 		assertThat(count("notification")).isZero();
 		assertThat(count("family_alert_event")).isZero();
+		assertThat(count("incident_event_outbox")).isZero();
+	}
+
+	@Test void committedIncidentRetainsItsTriggerWhenAfterCommitDispatchIsInterrupted() {
+		UUID id = UUID.randomUUID();
+		// Stop callbacks after the database commits, before the in-memory dispatcher runs.
+		assertThatThrownBy(() -> transaction().executeWithoutResult(status -> {
+			jdbc.update("UPDATE incident SET description='Committed before interruption' WHERE id=601");
+			events.raised(id, 601L, 101L, OCCURRED);
+			org.springframework.transaction.support.TransactionSynchronizationManager.registerSynchronization(
+					new org.springframework.transaction.support.TransactionSynchronization() {
+						@Override public int getOrder() { return org.springframework.core.Ordered.HIGHEST_PRECEDENCE; }
+						@Override public void afterCommit() { throw new IllegalStateException("Simulated process interruption"); }
+					});
+		})).isInstanceOf(IllegalStateException.class).hasMessage("Simulated process interruption");
+		assertThat(jdbc.queryForObject("SELECT description FROM incident WHERE id=601", String.class))
+				.isEqualTo("Committed before interruption");
+		assertThat(count("notification")).isZero();
+		assertThat(jdbc.queryForList("SELECT TABLE_NAME FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='incident_event_outbox'"))
+				.as("The committed incident must retain a durable notification trigger even if its callback never runs")
+				.hasSize(1);
+		assertThat(jdbc.queryForObject("SELECT state FROM incident_event_outbox WHERE event_id=?", String.class, id.toString()))
+				.isEqualTo("PENDING");
+		replay.sweep();
+		assertThat(count("notification")).isEqualTo(2);
+		assertThat(jdbc.queryForObject("SELECT state FROM incident_event_outbox WHERE event_id=?", String.class, id.toString()))
+				.isEqualTo("DELIVERED");
+		var windows = jdbc.queryForList("SELECT * FROM family_alert_window ORDER BY family_member_id");
+		replay.sweep();
+		assertThat(count("notification")).isEqualTo(2);
+		assertThat(jdbc.queryForList("SELECT * FROM family_alert_window ORDER BY family_member_id")).isEqualTo(windows);
+	}
+
+	@Test void expiredWorkerLeaseCanBeRecoveredAndLateWorkerCannotOverwriteSuccess() {
+		UUID id = UUID.randomUUID();
+		var event = new sg.nus.carelink.incident.domain.model.FamilyAlertEvent(id,
+				sg.nus.carelink.incident.domain.model.FamilyAlertEvent.Type.INCIDENT_RAISED, 601L, 101L, OCCURRED);
+		var now = LocalDateTime.of(2026, 10, 7, 16, 0);
+		UUID abandonedWorker = UUID.randomUUID();
+		transaction().executeWithoutResult(status -> outbox.enqueue(event, now));
+		var claimed = transaction().execute(status -> outbox.claim(id, abandonedWorker, now, now.plusMinutes(2)));
+		assertThat(claimed).contains(event);
+		replay.sweep();
+		assertThat(count("notification")).isZero();
+		clock.now = START.plusSeconds(121);
+		replay.sweep();
+		assertThat(count("notification")).isEqualTo(2);
+		transaction().executeWithoutResult(status -> outbox.finish(id, abandonedWorker, false, now));
+		assertThat(jdbc.queryForObject("SELECT state FROM incident_event_outbox", String.class)).isEqualTo("DELIVERED");
+	}
+
+	@Test void crashAfterNoticesCommitReplaysWithoutDuplicateMessagesOrResetWindows() {
+		jdbc.execute("CREATE TRIGGER fm05_finish_fail BEFORE UPDATE ON incident_event_outbox FOR EACH ROW BEGIN IF NEW.state='DELIVERED' THEN SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='Dispatch interrupted before completion'; END IF; END");
+		try { publish(UUID.randomUUID()); }
+		finally { jdbc.execute("DROP TRIGGER fm05_finish_fail"); }
+		assertThat(count("notification")).isEqualTo(2);
+		assertThat(jdbc.queryForObject("SELECT state FROM incident_event_outbox", String.class)).isEqualTo("PROCESSING");
+		var windows = jdbc.queryForList("SELECT * FROM family_alert_window ORDER BY family_member_id");
+		clock.now = START.plusSeconds(121);
+		replay.sweep();
+		assertThat(count("notification")).isEqualTo(2);
+		assertThat(jdbc.queryForList("SELECT * FROM family_alert_window ORDER BY family_member_id")).isEqualTo(windows);
+		assertThat(jdbc.queryForObject("SELECT state FROM incident_event_outbox", String.class)).isEqualTo("DELIVERED");
+	}
+
+	@Test void failedRecipientIsRetriedWithCurrentAccessAndWithoutRedeliveringSuccessfulRecipient() {
+		jdbc.execute("CREATE TRIGGER fm05_retry_fail BEFORE INSERT ON notification FOR EACH ROW BEGIN IF NEW.recipient_user_id=9 THEN SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='Temporary delivery failure'; END IF; END");
+		try { publish(UUID.randomUUID()); }
+		finally { jdbc.execute("DROP TRIGGER fm05_retry_fail"); }
+		assertThat(count("notification")).isEqualTo(1);
+		assertThat(jdbc.queryForObject("SELECT state FROM incident_event_outbox", String.class)).isEqualTo("PENDING");
+		// A retry must not deliver a delayed care alert to a family whose access was revoked.
+		jdbc.update("UPDATE elder_family_binding SET status='REVOKED' WHERE family_member_id=7");
+		clock.now = START.plusSeconds(31);
+		replay.sweep();
+		assertThat(count("notification")).isEqualTo(1);
+		assertThat(jdbc.queryForObject("SELECT status FROM family_alert_delivery WHERE family_member_id=7", String.class)).isEqualTo("SKIPPED");
+		assertThat(jdbc.queryForObject("SELECT state FROM incident_event_outbox", String.class)).isEqualTo("DELIVERED");
+	}
+
+	@Test void unavailableOutboxRollsBackTheIncidentInsteadOfLosingItsTrigger() {
+		jdbc.execute("RENAME TABLE incident_event_outbox TO fm05_unavailable_outbox");
+		try {
+			assertThatThrownBy(() -> transaction().executeWithoutResult(status -> {
+				jdbc.update("UPDATE incident SET description='Must roll back' WHERE id=601");
+				events.raised(UUID.randomUUID(), 601L, 101L, OCCURRED);
+			})).isInstanceOf(RuntimeException.class);
+			assertThat(jdbc.queryForObject("SELECT description FROM incident WHERE id=601", String.class)).isEqualTo("Care details");
+			assertThat(count("notification")).isZero();
+		} finally { jdbc.execute("RENAME TABLE fm05_unavailable_outbox TO incident_event_outbox"); }
+	}
+
+	@Test void concurrentRecoveryScansClaimOneEventWithoutDuplicateDeliveries() throws Exception {
+		var event = new sg.nus.carelink.incident.domain.model.FamilyAlertEvent(UUID.randomUUID(),
+				sg.nus.carelink.incident.domain.model.FamilyAlertEvent.Type.INCIDENT_RAISED, 601L, 101L, OCCURRED);
+		transaction().executeWithoutResult(status -> outbox.enqueue(event, LocalDateTime.of(2026, 10, 7, 16, 0)));
+		var start = new CountDownLatch(1);
+		try (var pool = Executors.newFixedThreadPool(2)) {
+			var first = pool.submit(() -> { assertThat(start.await(10, TimeUnit.SECONDS)).isTrue(); replay.sweep(); return null; });
+			var second = pool.submit(() -> { assertThat(start.await(10, TimeUnit.SECONDS)).isTrue(); replay.sweep(); return null; });
+			start.countDown();
+			first.get(20, TimeUnit.SECONDS); second.get(20, TimeUnit.SECONDS);
+		}
+		assertThat(count("notification")).isEqualTo(2);
+		assertThat(count("family_alert_delivery")).isEqualTo(2);
+		assertThat(jdbc.queryForObject("SELECT state FROM incident_event_outbox", String.class)).isEqualTo("DELIVERED");
 	}
 
 	@Test void concurrentReplayCreatesOneNoticePerFamilyAndPreservesIdentity() throws Exception {
@@ -255,10 +365,11 @@ class FamilyIncidentObserverIT {
 
 	@Test void reusedEventIdCannotChangeTheOriginalFacts() {
 		UUID id = UUID.randomUUID(); publish(id);
-		transaction().executeWithoutResult(status -> events.raised(id, 601L, 103L, OCCURRED));
+		assertThatThrownBy(() -> transaction().executeWithoutResult(status -> events.raised(id, 601L, 103L, OCCURRED)))
+				.hasRootCauseInstanceOf(IllegalArgumentException.class);
 		assertThat(count("notification")).isEqualTo(2);
 		assertThat(jdbc.queryForObject("SELECT elder_id FROM family_alert_event", Long.class)).isEqualTo(101L);
-		assertThat(jdbc.queryForObject("SELECT state FROM family_alert_event", String.class)).isEqualTo("FAILED");
+		assertThat(jdbc.queryForObject("SELECT state FROM family_alert_event", String.class)).isEqualTo("PROCESSED");
 	}
 
 	@Test void unavailableOutcomeStorageDoesNotUndoTheSourceCommit() {
@@ -271,6 +382,10 @@ class FamilyIncidentObserverIT {
 			assertThat(jdbc.queryForObject("SELECT description FROM incident WHERE id=601", String.class)).isEqualTo("Still committed");
 			assertThat(count("notification")).isZero();
 		} finally { jdbc.execute("RENAME TABLE fm05_unavailable_event TO family_alert_event"); }
+		clock.now = START.plusSeconds(31);
+		replay.sweep();
+		assertThat(count("notification")).isEqualTo(2);
+		assertThat(jdbc.queryForObject("SELECT state FROM incident_event_outbox", String.class)).isEqualTo("DELIVERED");
 	}
 
 	@Test void unavailableRecipientFailureRecordingStillAllowsOtherFamilies() {
