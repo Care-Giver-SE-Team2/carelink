@@ -2,7 +2,7 @@
 
 NUS-ISS SWE5006 Practice Module — Team 2. A collaboration platform for community home care.
 
-A mobile-first responsive web application serving four kinds of user: the supervisor on a
+A mobile-first responsive web application serving four kinds of user: the care manager on a
 desktop console, and caregivers, family members and elders in a phone browser.
 
 > **New to the codebase? Read [ARCHITECTURE.md](ARCHITECTURE.md) first.** It explains the
@@ -14,9 +14,9 @@ desktop console, and caregivers, family members and elders in a phone browser.
 
 ## Status
 
-The application has connected manager, caregiver, family and elder workflows and is in
-cross-role acceptance and delivery closeout. Features present in source are not a claim
-that every manual scenario has passed. Baseline: main `d6f3656` (2026-10-16).
+All 27 use cases and the three scheduled jobs are implemented and running on the staging
+server, which the pipeline updates on every push to main. On 28 October 2026, run #488 ran
+1,792 unit and architecture tests, 863 MySQL integration tests and 1,217 front-end tests.
 
 | | |
 |---|---|
@@ -26,12 +26,12 @@ that every manual scenario has passed. Baseline: main `d6f3656` (2026-10-16).
 | Manager | Real admission/certificate review, care plans, primary assignments, rostering/leave cover, incidents, spot checks and reports |
 | Caregiver | Registration/application, certificate upload, assigned work, leave/settings, arrival/tasks/vitals/evidence/departure, incidents and attributed history |
 | Family / elder | Binding and service applications, progress/reports/incident awareness; elder confirmation/disputes and emergency help |
-| Schema | Flyway V1–V31; apply migrations rather than editing released scripts |
-| Pipeline | Baseline main passed nine CI/CD jobs including MySQL, quality/security gates, image delivery and staging checks; later changes need their own verification |
-| Remaining boundaries | Settings are manual reference only, not automatic roster inputs; report health-text projection, optional evidence review and CG06 extensions remain owner handoffs |
+| Schema | Flyway V1–V34; apply migrations rather than editing released scripts |
+| Pipeline | Every push to main runs nine CI/CD jobs: tests including MySQL, quality and security gates, image delivery and staging checks |
+| Known limitations | Work settings guide managers but are not an automatic rostering input; the full list is in the project report |
 
-See [caregiver closeout acceptance](docs/caregiver/closeout-acceptance.md) for current
-rules, manual scenarios and the distinction between planned and completed checks.
+The acceptance scenarios for the caregiver workflows are in
+[caregiver closeout acceptance](docs/caregiver/closeout-acceptance.md).
 
 ---
 
@@ -42,8 +42,8 @@ rules, manual scenarios and the distinction between planned and completed checks
 | Front end | React 19, Vite 8, TypeScript 6 |
 | Backend | Java 25, Spring Boot 4.1 |
 | Database | MySQL 8.4 LTS, schema owned by Flyway |
-| Testing | JUnit 5, ArchUnit, Testcontainers, Vitest |
-| Pipeline | GitHub Actions, SonarQube Cloud, OWASP Dependency-Check, gitleaks, OWASP ZAP |
+| Testing | JUnit 6, ArchUnit, Testcontainers, Vitest |
+| Pipeline | GitHub Actions, SonarQube Cloud, Trivy, gitleaks, OWASP ZAP |
 
 ---
 
@@ -95,14 +95,14 @@ CareLink/
 │     ├─ report/                 reports, value-added services, periodic caregiver reviews
 │     ├─ notification/           subscriptions and notifications
 │     └─ shared/                 security, error handling, request interceptor, config, audit
-│  └─ src/main/resources/db/migration/   Flyway scripts V1–V31
+│  └─ src/main/resources/db/migration/   Flyway scripts V1–V34
 │  └─ src/test/java/             unit tests, ArchUnit rules, *IT integration tests (need Docker)
 ├─ frontend/src/
 │  ├─ routes/<role>/             manager, caregiver, family, elder pages; landing; not-found
 │  └─ shared/                    api/client.ts (one fetch wrapper), components, theme
 ├─ deploy/staging/               what runs on the staging VM: compose, update timer, installer
-├─ docs/                         the four member submissions, merged ERD, OpenAPI contract
-├─ .github/workflows/            cicd-pipeline.yml, rollback.yml, docs-pages.yml
+├─ docs/                         design and acceptance notes per role, consolidated ERD, OpenAPI contract
+├─ .github/workflows/            cicd-pipeline.yml, rollback.yml, docs-pages.yml, caregiver-acceptance.yml
 ├─ Dockerfile, docker-compose.yml
 └─ ARCHITECTURE.md, README.md
 ```
@@ -147,9 +147,9 @@ push ───┼─ Frontend: lint, unit tests, build          ─┼──→ 
 | Fast feedback | Backend (unit/integration tests, ArchUnit, JaCoCo, Sonar quality gate) | Every PR and every push to main |
 | Fast feedback | Frontend (lint, Vitest coverage, build) | Same |
 | Fast feedback | Secret scanning across the whole history | Same |
-| Gate | Quality gate — passes only when all three are green | The single required check for branch protection |
-| Deep verification | Integration tests; SCA blocking on CVSS ≥ 7 | main, nightly, manual. Skipped on PRs |
-| Delivery | Image to GHCR, tagged with the commit SHA, `latest` and `staging` | Pushes to main |
+| Gate | Quality gate — passes only when all three are green | A pull request is merged only when it is green |
+| Deep verification | Integration tests; dependency scan (Trivy) blocking on HIGH and CRITICAL findings | main, nightly at 02:00 Singapore time, manual. Skipped on PRs |
+| Delivery | Image to GHCR, tagged with the commit SHA, `latest` and `staging`; Trivy scans the image and reports to the Security tab | Pushes to main |
 | Deployment | The staging VM pulls the `:staging` tag itself; the job waits for it to report the new commit, smoke-tests and runs the ZAP baseline scan against the live address (`deploy/staging/README.md`) | Pushes to main |
 | Rollback | `rollback.yml`: points `:staging` back at an earlier commit's image and waits for the VM to report it. Code only; migrations stay applied | On demand |
 
@@ -163,5 +163,7 @@ rollback only move a tag, so what runs is always a binary the pipeline already v
 
 ## Branching
 
-`main` is protected: changes arrive by pull request and the quality gate must be green.
-Branch names: `feat/<module>-<summary>`, `fix/<summary>`.
+Trunk-based: `main` is always deployable. Each change is a short-lived branch merged by pull
+request once its checks pass; a direct push is reserved for urgent fixes, and the full
+pipeline on main still gates it before anything reaches staging. Branch names:
+`feature/<summary>`, `fix/<summary>`, `chore/<summary>`.
